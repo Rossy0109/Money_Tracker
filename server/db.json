@@ -1,0 +1,108 @@
+{
+  "transactions": [],
+  "accounts": [
+    {
+      "account_name": "ঠিকাদারী আয়",
+      "account_type": "আয়",
+      "category": "ব্যবসায়িক",
+      "is_active": 1
+    },
+    {
+      "account_name": "অন্যান্য আয়",
+      "account_type": "আয়",
+      "category": "অন্যান্য",
+      "is_active": 1
+    },
+    {
+      "account_name": "দৈনিক বাজার",
+      "account_type": "খরচ",
+      "category": "পারিবারিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "মুক্তার বাড়ী আনুষঙ্গিক খরচ",
+      "account_type": "খরচ",
+      "category": "পারিবারিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "বাজারে বাসার আনুষঙ্গিক খরচ",
+      "account_type": "খরচ",
+      "category": "পারিবারিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "ইউটিলিটি মুক্তার বাড়ি",
+      "account_type": "খরচ",
+      "category": "পারিবারিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "ইউটিলিটি বাজারে বাসা",
+      "account_type": "খরচ",
+      "category": "পারিবারিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "ঠিকাদারী ব্যবসা",
+      "account_type": "খরচ",
+      "category": "ব্যবসায়িক",
+      "is_active": 1
+    },
+    {
+      "account_name": "ঠিকাদারী লাইসেন্স রিনিউয়াল",
+      "account_type": "খরচ",
+      "category": "ব্যবসায়িক",
+      "is_active": 1
+    },
+    {
+      "account_name": "অফিসে স্টেশনারি",
+      "account_type": "খরচ",
+      "category": "ব্যবসায়িক",
+      "is_active": 1
+    },
+    {
+      "account_name": "রাজনৈতিক খরচ",
+      "account_type": "খরচ",
+      "category": "সামাজিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "অনুদান",
+      "account_type": "খরচ",
+      "category": "সামাজিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "মেয়র স্যারের খরচ",
+      "account_type": "খরচ",
+      "category": "সামাজিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "রছি ভাইয়ের খরচ",
+      "account_type": "খরচ",
+      "category": "সামাজিক",
+      "is_active": 1
+    },
+    {
+      "account_name": "বেতন",
+      "account_type": "খরচ",
+      "category": "নিয়মিত",
+      "is_active": 1
+    },
+    {
+      "account_name": "যাতায়াত খরচ",
+      "account_type": "খরচ",
+      "category": "নিয়মিত",
+      "is_active": 1
+    },
+    {
+      "account_name": "নাস্তা/আপ্যায়ন",
+      "account_type": "খরচ",
+      "category": "নিয়মিত",
+      "is_active": 1
+    }
+  ],
+  "budget": []
+}

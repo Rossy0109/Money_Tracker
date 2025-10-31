@@ -1,0 +1,23 @@
+{
+  "title": "Office Expense Tracker",
+  "total_income": "Total Income",
+  "total_expense": "Total Expense",
+  "balance": "Balance",
+  "add_new_transaction": "Add New Transaction",
+  "description": "Description",
+  "amount": "Amount",
+  "type": "Type",
+  "expense": "Expense",
+  "deposit": "Deposit",
+  "category": "Category",
+  "business": "Business",
+  "personal": "Personal",
+  "add_transaction": "Add Transaction",
+  "transactions": "Transactions",
+  "select_account": "Select Account",
+  "date": "Date",
+  "account": "Account",
+  "delete": "Delete",
+  "no_transactions_yet": "No transactions yet.",
+  "weekly_expense": "Weekly Expense"
+}
