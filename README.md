@@ -1,2 +1,2 @@
 # Money_Tracker
-আমার যাবতীয় খরচা ও জমা এখানে রাখতে চাই
+all of my personal expenses deposit record and tracking my monthly cost 
