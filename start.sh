@@ -1,5 +1,5 @@
 #!/bin/bash
-PROJECT_DIR="/data/data/com.termux/files/home/expense-tracker"
+PROJECT_DIR="/data/data/com.termux/files/home/Money_Tracker"
 
 # Ensure previous processes are stopped
 pkill -f "node index.js"
