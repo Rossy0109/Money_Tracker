@@ -1,0 +1,26 @@
+# Node.js
+node_modules/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+
+# Database
+*.db
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
