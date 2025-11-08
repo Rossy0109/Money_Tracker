@@ -1,5 +1,6 @@
 # Node.js
 node_modules/
+server/node_modules/
 build/
 
 # Python
@@ -24,3 +25,6 @@ venv/
 # IDEs
 .vscode/
 .idea/
+
+# PID files
+*.pid
