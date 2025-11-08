@@ -118,6 +118,10 @@ app.get('/api/summary/weekly', (req, res) => {
   res.json({ weeklyExpense });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
