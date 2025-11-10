@@ -3,3 +3,6 @@ matplotlib
 reportlab
 openpyxl
 pillow
+Flask
+google-api-python-client
+google-auth-oauthlib

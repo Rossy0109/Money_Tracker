@@ -4,6 +4,11 @@ from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, timedelta
 import os
 import hashlib
+from flask import Flask, request, jsonify
+from threading import Thread
+import logging
+import json
+from drive_sync import GoogleDriveSync
 
 # Optional imports with fallbacks
 try:
@@ -38,12 +43,30 @@ try:
 except ImportError:
     CHART_AVAILABLE = False
 
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        log_record = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "filename": record.filename,
+            "lineno": record.lineno,
+            "function": record.funcName,
+            "module": record.module,
+        }
+        if record.exc_info:
+            log_record["exc_info"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            log_record["stack_info"] = self.formatStack(record.stack_info)
+        return json.dumps(log_record, ensure_ascii=False)
 
 class AdvancedMoneyTracker:
     def __init__(self, root):
         self.root = root
         self.root.title("💰 Advanced Money Tracker - সম্পূর্ণ সংস্করণ")
         self.root.geometry("1400x800")
+
+        self.setup_logging()
 
         # Color Themes
         self.themes = {
@@ -63,8 +86,9 @@ class AdvancedMoneyTracker:
         self.colors = self.themes[self.current_theme]
 
         # Database
-        self.db_path = 'advanced_money_tracker.db'
+        self.db_path = os.getenv('MONEY_TRACKER_DB_PATH', 'advanced_money_tracker.db')
         self.init_database()
+        self.drive_sync = GoogleDriveSync(self.db_path, self.logger)
 
         # Security Check
         if self.check_password_exists():
@@ -75,6 +99,180 @@ class AdvancedMoneyTracker:
         # GUI
         self.create_modern_gui()
         self.load_dashboard()
+
+        # Start Flask API in a separate thread
+        self.flask_api = FlaskAPI(self)
+        self.api_thread = Thread(target=self.flask_api.run)
+        self.api_thread.daemon = True
+        self.api_thread.start()
+
+    def setup_logging(self):
+        self.logger = logging.getLogger('MoneyTrackerApp')
+        self.logger.setLevel(logging.INFO)
+
+        # File handler
+        log_file = 'money_tracker.log'
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(JsonFormatter())
+        self.logger.addHandler(file_handler)
+
+        # Console handler (optional, for development)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        self.logger.addHandler(console_handler)
+
+        self.logger.info("Application logging initialized.")
+
+class FlaskAPI:
+    def __init__(self, tracker_app):
+        self.app = Flask(__name__)
+        self.tracker_app = tracker_app
+        self.setup_routes()
+
+    def setup_routes(self):
+        @self.app.route('/api/accounts', methods=['GET'])
+        def get_accounts():
+            self.tracker_app.cursor.execute('SELECT account_id, account_name, account_type, category FROM accounts WHERE is_active = 1')
+            accounts = [{'account_id': row[0], 'account_name': row[1], 'account_type': row[2], 'category': row[3]} for row in self.tracker_app.cursor.fetchall()]
+            return jsonify(accounts)
+
+        @self.app.route('/api/transactions', methods=['GET'])
+        def get_transactions():
+            self.tracker_app.cursor.execute('''
+                SELECT t.transaction_id, t.transaction_date, t.transaction_time, a.account_name, a.account_type, t.amount, t.description, a.category
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.account_id
+                WHERE t.is_deleted = 0
+                ORDER BY t.transaction_date DESC, t.transaction_time DESC
+            ''')
+            transactions = []
+            for row in self.tracker_app.cursor.fetchall():
+                transactions.append({
+                    'id': row[0],
+                    'transaction_date': row[1],
+                    'transaction_time': row[2],
+                    'account_name': row[3],
+                    'account_type': row[4],
+                    'amount': row[5],
+                    'description': row[6],
+                    'category': row[7]
+                })
+            return jsonify(transactions)
+
+        @self.app.route('/api/transactions', methods=['POST'])
+        def add_transaction():
+            data = request.get_json()
+            account_id = data['account_id']
+            amount = data['amount']
+            description = data['description']
+            transaction_date = data.get('transaction_date', datetime.now().strftime('%Y-%m-%d'))
+            transaction_time = data.get('transaction_time', datetime.now().strftime('%H:%M'))
+
+            self.tracker_app.cursor.execute('''
+                INSERT INTO transactions (transaction_date, transaction_time, account_id, amount, description)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (transaction_date, transaction_time, account_id, amount, description))
+            self.tracker_app.conn.commit()
+
+            # Update payment method balance (assuming payment_method_id is passed in data)
+            payment_method_id = data.get('payment_method_id')
+            if payment_method_id:
+                account_type = data.get('account_type') # Need account_type to determine if income or expense
+                if account_type == 'আয়':
+                    self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance + ? WHERE method_id = ?', (amount, payment_method_id))
+                elif account_type == 'খরচ':
+                    self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance - ? WHERE method_id = ?', (amount, payment_method_id))
+                self.tracker_app.conn.commit()
+
+            # Fetch the newly added transaction to return it
+            self.tracker_app.cursor.execute('SELECT last_insert_rowid()')
+            new_id = self.tracker_app.cursor.fetchone()[0]
+            
+            self.tracker_app.cursor.execute('''
+                SELECT t.transaction_id, t.transaction_date, t.transaction_time, a.account_name, a.account_type, t.amount, t.description, a.category
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.account_id
+                WHERE t.transaction_id = ?
+            ''', (new_id,))
+            new_transaction = self.tracker_app.cursor.fetchone()
+            
+            return jsonify({
+                'id': new_transaction[0],
+                'transaction_date': new_transaction[1],
+                'transaction_time': new_transaction[2],
+                'account_name': new_transaction[3],
+                'account_type': new_transaction[4],
+                'amount': new_transaction[5],
+                'description': new_transaction[6],
+                'category': new_transaction[7]
+            }), 201
+
+        @self.app.route('/api/transactions/<int:id>', methods=['DELETE'])
+        def delete_transaction(id):
+            # Before deleting, get transaction details to revert payment method balance
+            self.tracker_app.cursor.execute('SELECT amount, account_id, payment_method_id FROM transactions WHERE transaction_id = ?', (id,))
+            transaction_details = self.tracker_app.cursor.fetchone()
+
+            if transaction_details:
+                amount, account_id, payment_method_id = transaction_details
+                self.tracker_app.cursor.execute('SELECT account_type FROM accounts WHERE account_id = ?', (account_id,))
+                account_type = self.tracker_app.cursor.fetchone()[0]
+
+                if payment_method_id:
+                    if account_type == 'আয়':
+                        self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance - ? WHERE method_id = ?', (amount, payment_method_id))
+                    elif account_type == 'খরচ':
+                        self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance + ? WHERE method_id = ?', (amount, payment_method_id))
+                    self.tracker_app.conn.commit()
+
+            self.tracker_app.cursor.execute('UPDATE transactions SET is_deleted = 1 WHERE transaction_id = ?', (id,))
+            self.tracker_app.conn.commit()
+            return '', 204
+
+        @self.app.route('/api/summary/daily', methods=['GET'])
+        def get_daily_summary():
+            today = datetime.now().strftime('%Y-%m-%d')
+            self.tracker_app.cursor.execute('''
+                SELECT a.account_type, SUM(t.amount)
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.account_id
+                WHERE t.transaction_date = ? AND t.is_deleted = 0
+                GROUP BY a.account_type
+            ''', (today,))
+            summary_data = self.tracker_app.cursor.fetchall()
+
+            total_income = sum(row[1] for row in summary_data if row[0] == 'আয়')
+            total_expense = sum(row[1] for row in summary_data if row[0] == 'খরচ')
+
+            return jsonify({
+                'totalIncome': total_income,
+                'totalExpense': total_expense,
+                'balance': total_income - total_expense
+            })
+
+        @self.app.route('/api/summary/weekly', methods=['GET'])
+        def get_weekly_summary():
+            now = datetime.now()
+            day_of_week = now.weekday() # Monday is 0, Sunday is 6
+            start_of_week = now - timedelta(days=day_of_week)
+            start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_week = start_of_week + timedelta(days=6)
+            end_of_week = end_of_week.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            self.tracker_app.cursor.execute('''
+                SELECT SUM(t.amount)
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.account_id
+                WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
+            ''', (start_of_week.strftime('%Y-%m-%d'), end_of_week.strftime('%Y-%m-%d')))
+            weekly_expense = self.tracker_app.cursor.fetchone()[0] or 0
+
+            return jsonify({'weeklyExpense': weekly_expense})
+
+    def run(self):
+        self.app.run(port=5000)
 
     def init_database(self):
         """সম্পূর্ণ ডেটাবেস সেটআপ"""
@@ -116,6 +314,7 @@ class AdvancedMoneyTracker:
                 account_id INTEGER NOT NULL,
                 amount REAL NOT NULL CHECK(amount > 0),
                 description TEXT,
+                voucher_no TEXT UNIQUE,
                 payment_method_id INTEGER,
                 receipt_path TEXT,
                 is_recurring INTEGER DEFAULT 0,
@@ -222,6 +421,13 @@ class AdvancedMoneyTracker:
             )
             self.conn.commit()
 
+    def is_numeric(self, value):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
+
     def check_password_exists(self):
         """পাসওয়ার্ড চেক"""
         self.cursor.execute('SELECT password_hash FROM security WHERE id = 1')
@@ -288,12 +494,12 @@ class AdvancedMoneyTracker:
         self.root.configure(bg=self.colors['bg'])
 
         # Top Bar
-        nav_bar = tk.Frame(self.root, bg=self.colors['primary'], height=60)
-        nav_bar.pack(fill=tk.X, side=tk.TOP)
-        nav_bar.pack_propagate(False)
+        self.nav_bar = tk.Frame(self.root, bg=self.colors['primary'], height=60)
+        self.nav_bar.pack(fill=tk.X, side=tk.TOP)
+        self.nav_bar.pack_propagate(False)
 
         tk.Label(
-            nav_bar,
+            self.nav_bar,
             text="💰 Advanced Money Tracker",
             font=('Segoe UI', 18, 'bold'),
             bg=self.colors['primary'],
@@ -301,16 +507,16 @@ class AdvancedMoneyTracker:
         ).pack(side=tk.LEFT, padx=20)
 
         # Main Container
-        main_container = tk.Frame(self.root, bg=self.colors['bg'])
-        main_container.pack(fill=tk.BOTH, expand=True)
+        self.main_container = tk.Frame(self.root, bg=self.colors['bg'])
+        self.main_container.pack(fill=tk.BOTH, expand=True)
 
         # Sidebar
-        sidebar = tk.Frame(main_container, bg=self.colors['card'], width=220)
-        sidebar.pack(side=tk.LEFT, fill=tk.Y)
-        sidebar.pack_propagate(False)
+        self.sidebar = tk.Frame(self.main_container, bg=self.colors['card'], width=220)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+        self.sidebar.pack_propagate(False)
 
         # Content Area
-        self.content_area = tk.Frame(main_container, bg=self.colors['bg'])
+        self.content_area = tk.Frame(self.main_container, bg=self.colors['bg'])
         self.content_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=15)
 
         # Menu Items
@@ -327,17 +533,19 @@ class AdvancedMoneyTracker:
             ("⚙️ সেটিংস", self.show_settings)
         ]
 
-        tk.Label(
-            sidebar,
+        self.menu_label = tk.Label(
+            self.sidebar,
             text="মেনু",
             font=('Segoe UI', 12, 'bold'),
             bg=self.colors['card'],
             fg=self.colors['text']
-        ).pack(fill=tk.X, padx=15, pady=15)
+        )
+        self.menu_label.pack(fill=tk.X, padx=15, pady=15)
 
+        self.menu_buttons = []
         for text, command in menu_items:
             btn = tk.Button(
-                sidebar,
+                self.sidebar,
                 text=text,
                 font=('Segoe UI', 11),
                 bg=self.colors['card'],
@@ -352,6 +560,7 @@ class AdvancedMoneyTracker:
             btn.pack(fill=tk.X, padx=5, pady=2)
             btn.bind('<Enter>', lambda e, b=btn: b.config(bg=self.colors['primary'], fg='white'))
             btn.bind('<Leave>', lambda e, b=btn: b.config(bg=self.colors['card'], fg=self.colors['text']))
+            self.menu_buttons.append(btn)
 
     def clear_content_area(self):
         for widget in self.content_area.winfo_children():
@@ -518,13 +727,23 @@ class AdvancedMoneyTracker:
 
         # Account
         tk.Label(form_container, text="খাত:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=2, column=0, sticky='w', pady=10)
-        self.cursor.execute('SELECT account_name FROM accounts WHERE account_type = "খরচ" AND is_active = 1')
-        accounts = [r[0] for r in self.cursor.fetchall()]
         account_var = tk.StringVar()
-        account_combo = ttk.Combobox(form_container, textvariable=account_var, values=accounts, width=38, state='readonly')
+        account_combo = ttk.Combobox(form_container, textvariable=account_var, values=[], width=38, state='readonly')
         account_combo.grid(row=2, column=1, sticky='w', pady=10)
-        if accounts:
-            account_combo.current(0)
+        
+        # Function to update accounts based on transaction type
+        def update_accounts(*args):
+            selected_type = trans_type.get()
+            self.cursor.execute('SELECT account_name FROM accounts WHERE account_type = ? AND is_active = 1', (selected_type,))
+            updated_accounts = [r[0] for r in self.cursor.fetchall()]
+            account_combo['values'] = updated_accounts
+            if updated_accounts:
+                account_combo.current(0)
+            else:
+                account_var.set("")
+
+        trans_type.trace_add('write', update_accounts)
+        update_accounts() # Initial call to populate accounts based on default trans_type
 
         # Amount
         tk.Label(form_container, text="পরিমাণ (৳):", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=3, column=0, sticky='w', pady=10)
@@ -535,11 +754,19 @@ class AdvancedMoneyTracker:
         tk.Label(form_container, text="পেমেন্ট:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=4, column=0, sticky='w', pady=10)
         self.cursor.execute('SELECT method_id, method_name FROM payment_methods WHERE is_active = 1')
         methods = self.cursor.fetchall()
-        payment_var = tk.IntVar(value=methods[0][0] if methods else 0)
+        
+        payment_var = tk.IntVar()
         payment_frame = tk.Frame(form_container, bg=self.colors['card'])
         payment_frame.grid(row=4, column=1, sticky='w', pady=10)
-        for method_id, method_name in methods:
-            tk.Radiobutton(payment_frame, text=method_name, variable=payment_var, value=method_id, bg=self.colors['card']).pack(anchor='w')
+
+        if methods:
+            payment_var.set(methods[0][0]) # Set default to the first method
+            for method_id, method_name in methods:
+                tk.Radiobutton(payment_frame, text=method_name, variable=payment_var, value=method_id, bg=self.colors['card']).pack(anchor='w')
+        else:
+            tk.Label(payment_frame, text="কোন পেমেন্ট পদ্ধতি নেই।", bg=self.colors['card'], fg=self.colors['danger']).pack(anchor='w')
+            # Optionally disable save button or prompt user to add payment method
+
 
         # Description
         tk.Label(form_container, text="বিবরণ:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=5, column=0, sticky='nw', pady=10)
@@ -554,9 +781,18 @@ class AdvancedMoneyTracker:
             try:
                 date = date_entry.get()
                 account = account_var.get()
-                amount = float(amount_entry.get())
+                amount_str = amount_entry.get()
                 payment = payment_var.get()
                 desc = desc_text.get('1.0', 'end-1c')
+
+                if not self.is_numeric(amount_str):
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                amount = float(amount_str)
+
+                if amount <= 0:
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই শূন্যের বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('SELECT account_id FROM accounts WHERE account_name = ?', (account,))
                 acc_id = self.cursor.fetchone()[0]
@@ -572,9 +808,8 @@ class AdvancedMoneyTracker:
                 self.conn.commit()
                 messagebox.showinfo("সফল", "লেনদেন সফলভাবে যোগ করা হয়েছে!")
                 self.load_dashboard() # Refresh dashboard after saving
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
             except Exception as e:
+                self.logger.error("Failed to add transaction", exc_info=True, extra={'error_message': str(e)})
                 messagebox.showerror("ত্রুটি", f"লেনদেন যোগ করতে ব্যর্থ: {e}")
 
         tk.Button(
@@ -882,11 +1117,27 @@ class AdvancedMoneyTracker:
         budget_amount_entry = tk.Entry(form_frame, font=('Segoe UI', 11), width=30)
         budget_amount_entry.grid(row=2, column=1, sticky='w', padx=5, pady=5)
 
+        def is_numeric(value):
+            try:
+                float(value)
+                return True
+            except ValueError:
+                return False
+
         def save_budget():
             try:
                 account_name = budget_account_var.get()
                 month = budget_month_var.get()
-                amount = float(budget_amount_entry.get())
+                amount_str = budget_amount_entry.get()
+
+                if not is_numeric(amount_str):
+                    messagebox.showerror("ত্রুটি", "বাজেট পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                amount = float(amount_str)
+
+                if amount <= 0:
+                    messagebox.showerror("ত্রুটি", "বাজেট পরিমাণ অবশ্যই শূন্যের বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('SELECT account_id FROM accounts WHERE account_name = ?', (account_name,))
                 account_id = self.cursor.fetchone()[0]
@@ -898,8 +1149,6 @@ class AdvancedMoneyTracker:
                 self.conn.commit()
                 messagebox.showinfo("সফল", "বাজেট সফলভাবে সংরক্ষণ করা হয়েছে!")
                 self.load_budget_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
             except Exception as e:
                 messagebox.showerror("ত্রুটি", f"বাজেট সংরক্ষণ করতে ব্যর্থ: {e}")
 
@@ -945,14 +1194,22 @@ class AdvancedMoneyTracker:
         ''')
         budgets = self.cursor.fetchall()
 
+        # Fetch all actual expenses in a single query
+        self.cursor.execute('''
+            SELECT STRFTIME('%Y-%m', t.transaction_date) AS month, t.account_id, COALESCE(SUM(t.amount), 0) AS total_expense
+            FROM transactions t
+            WHERE t.is_deleted = 0
+            GROUP BY month, t.account_id
+        ''')
+        actual_expenses_data = self.cursor.fetchall()
+        
+        # Create a dictionary for quick lookup: {(month, account_id): total_expense}
+        actual_expenses_map = {}
+        for month, account_id, total_expense in actual_expenses_data:
+            actual_expenses_map[(month, account_id)] = total_expense
+
         for month, account_name, budgeted_amount, account_id in budgets:
-            # Calculate actual expense for the month and account
-            self.cursor.execute('''
-                SELECT COALESCE(SUM(t.amount), 0)
-                FROM transactions t
-                WHERE t.account_id = ? AND STRFTIME('%Y-%m', t.transaction_date) = ? AND t.is_deleted = 0
-            ''')
-            actual_expense = self.cursor.fetchone()[0]
+            actual_expense = actual_expenses_map.get((month, account_id), 0)
 
             remaining = budgeted_amount - actual_expense
             status = "ঠিক আছে" if remaining >= 0 else "বেশি খরচ"
@@ -979,7 +1236,7 @@ class AdvancedMoneyTracker:
         form_frame.pack(pady=10)
 
         tk.Label(form_frame, text="খাত:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.cursor.execute('SELECT account_name FROM accounts WHERE account_type = "খরচ" AND is_active = 1')
+        self.cursor.execute('SELECT account_name FROM accounts WHERE is_active = 1')
         accounts = [r[0] for r in self.cursor.fetchall()]
         rec_account_var = tk.StringVar()
         rec_account_combo = ttk.Combobox(form_frame, textvariable=rec_account_var, values=accounts, width=30, state='readonly')
@@ -1008,13 +1265,32 @@ class AdvancedMoneyTracker:
         def save_recurring():
             try:
                 account_name = rec_account_var.get()
-                amount = float(rec_amount_entry.get())
+                amount_str = rec_amount_entry.get()
                 description = rec_desc_entry.get()
                 frequency = rec_frequency_var.get()
-                day_of_month = int(rec_day_entry.get()) if frequency == 'মাসিক' else None
+                day_of_month_str = rec_day_entry.get()
+
+                if not self.is_numeric(amount_str):
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                amount = float(amount_str)
+
+                if amount <= 0:
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই শূন্যের বেশি হতে হবে!")
+                    return
+
+                day_of_month = None
+                if frequency == 'মাসিক':
+                    if not day_of_month_str.isdigit():
+                        messagebox.showerror("ত্রুটি", "মাসিক ফ্রিকোয়েন্সির জন্য মাসের দিন অবশ্যই একটি পূর্ণসংখ্যা হতে হবে!")
+                        return
+                    day_of_month = int(day_of_month_str)
+                    if not (1 <= day_of_month <= 31):
+                        messagebox.showerror("ত্রুটি", "মাসের দিন 1 থেকে 31 এর মধ্যে হতে হবে!")
+                        return
 
                 self.cursor.execute('SELECT account_id FROM accounts WHERE account_name = ?', (account_name,))
-                account_id = self.cursor.fetchone()[0]
+                acc_id = self.cursor.fetchone()[0]
 
                 # Determine next_date
                 next_date = datetime.now()
@@ -1024,9 +1300,13 @@ class AdvancedMoneyTracker:
                     next_date += timedelta(days=(7 - next_date.weekday()) % 7) # Next Sunday
                 elif frequency == 'মাসিক':
                     if day_of_month is not None:
-                        next_date = next_date.replace(day=day_of_month)
-                        if next_date < datetime.now():
-                            next_date = next_date.replace(month=next_date.month % 12 + 1)
+                        try:
+                            next_date = next_date.replace(day=day_of_month)
+                            if next_date < datetime.now():
+                                next_date = next_date.replace(month=next_date.month % 12 + 1)
+                        except ValueError: # Day out of range for month
+                            messagebox.showerror("ত্রুটি", "এই মাসের জন্য দিনের সংখ্যা সঠিক নয়।")
+                            return
                     else:
                         messagebox.showerror("ত্রুটি", "মাসিক ফ্রিকোয়েন্সির জন্য মাসের দিন প্রয়োজন।")
                         return
@@ -1036,12 +1316,10 @@ class AdvancedMoneyTracker:
                 self.cursor.execute('''
                     INSERT INTO recurring_templates (account_id, amount, description, frequency, day_of_month, next_date, is_active)
                     VALUES (?, ?, ?, ?, ?, ?, 1)
-                ''', (account_id, amount, description, frequency, day_of_month, next_date.strftime('%Y-%m-%d')))
+                ''', (acc_id, amount, description, frequency, day_of_month, next_date.strftime('%Y-%m-%d')))
                 self.conn.commit()
                 messagebox.showinfo("সফল", "Recurring লেনদেন সফলভাবে যোগ করা হয়েছে!")
                 self.load_recurring_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "পরিমাণ এবং মাসের দিন অবশ্যই সংখ্যা হতে হবে!")
             except Exception as e:
                 messagebox.showerror("ত্রুটি", f"Recurring লেনদেন যোগ করতে ব্যর্থ: {e}")
 
@@ -1162,11 +1440,30 @@ class AdvancedMoneyTracker:
         def update_recurring():
             try:
                 account_name = acc_var.get()
-                amount = float(amount_entry.get())
+                amount_str = amount_entry.get()
                 description = desc_entry.get()
                 frequency = freq_var.get()
-                day_of_month = int(day_entry.get()) if day_entry.get() else None
+                day_of_month_str = day_entry.get()
                 is_active = is_active_var.get()
+
+                if not self.is_numeric(amount_str):
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                amount = float(amount_str)
+
+                if amount <= 0:
+                    messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই শূন্যের বেশি হতে হবে!")
+                    return
+
+                day_of_month = None
+                if frequency == 'মাসিক':
+                    if not day_of_month_str.isdigit():
+                        messagebox.showerror("ত্রুটি", "মাসিক ফ্রিকোয়েন্সির জন্য মাসের দিন অবশ্যই একটি পূর্ণসংখ্যা হতে হবে!")
+                        return
+                    day_of_month = int(day_of_month_str)
+                    if not (1 <= day_of_month <= 31):
+                        messagebox.showerror("ত্রুটি", "মাসের দিন 1 থেকে 31 এর মধ্যে হতে হবে!")
+                        return
 
                 self.cursor.execute('SELECT account_id FROM accounts WHERE account_name = ?', (account_name,))
                 account_id = self.cursor.fetchone()[0]
@@ -1205,8 +1502,6 @@ class AdvancedMoneyTracker:
                 messagebox.showinfo("সফল", "Recurring লেনদেন সফলভাবে আপডেট করা হয়েছে!")
                 edit_window.destroy()
                 self.load_recurring_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "পরিমাণ এবং মাসের দিন অবশ্যই সংখ্যা হতে হবে!")
             except Exception as e:
                 messagebox.showerror("ত্রুটি", f"Recurring লেনদেন আপডেট করতে ব্যর্থ: {e}")
 
@@ -1252,9 +1547,18 @@ class AdvancedMoneyTracker:
         def save_goal():
             try:
                 goal_name = goal_name_entry.get()
-                target_amount = float(target_amount_entry.get())
+                target_amount_str = target_amount_entry.get()
                 deadline = deadline_entry.get_date().strftime('%Y-%m-%d') if CALENDAR_AVAILABLE else deadline_entry.get()
                 category = goal_category_entry.get()
+
+                if not self.is_numeric(target_amount_str):
+                    messagebox.showerror("ত্রুটি", "লক্ষ্য পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                target_amount = float(target_amount_str)
+
+                if target_amount <= 0:
+                    messagebox.showerror("ত্রুটি", "লক্ষ্য পরিমাণ অবশ্যই শূন্যের বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('''
                     INSERT INTO financial_goals (goal_name, target_amount, deadline, category)
@@ -1263,8 +1567,6 @@ class AdvancedMoneyTracker:
                 self.conn.commit()
                 messagebox.showinfo("সফল", "আর্থিক লক্ষ্য সফলভাবে যোগ করা হয়েছে!")
                 self.load_goals_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "লক্ষ্য পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
             except Exception as e:
                 messagebox.showerror("ত্রুটি", f"আর্থিক লক্ষ্য যোগ করতে ব্যর্থ: {e}")
 
@@ -1366,11 +1668,29 @@ class AdvancedMoneyTracker:
         def update_goal():
             try:
                 goal_name = goal_name_entry.get()
-                target_amount = float(target_amount_entry.get())
-                current_amount = float(current_amount_entry.get())
+                target_amount_str = target_amount_entry.get()
+                current_amount_str = current_amount_entry.get()
                 deadline = deadline_entry.get_date().strftime('%Y-%m-%d') if CALENDAR_AVAILABLE else deadline_entry.get()
                 category = category_entry.get()
                 is_achieved = is_achieved_var.get()
+
+                if not self.is_numeric(target_amount_str):
+                    messagebox.showerror("ত্রুটি", "লক্ষ্য পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                target_amount = float(target_amount_str)
+
+                if target_amount < 0:
+                    messagebox.showerror("ত্রুটি", "লক্ষ্য পরিমাণ অবশ্যই শূন্য বা তার বেশি হতে হবে!")
+                    return
+
+                if not self.is_numeric(current_amount_str):
+                    messagebox.showerror("ত্রুটি", "বর্তমান পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                current_amount = float(current_amount_str)
+
+                if current_amount < 0:
+                    messagebox.showerror("ত্রুটি", "বর্তমান পরিমাণ অবশ্যই শূন্য বা তার বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('''
                     UPDATE financial_goals
@@ -1383,8 +1703,6 @@ class AdvancedMoneyTracker:
                 messagebox.showinfo("সফল", "আর্থিক লক্ষ্য সফলভাবে আপডেট করা হয়েছে!")
                 edit_window.destroy()
                 self.load_goals_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "পরিমাণ অবশ্যই একটি সংখ্যা হতে হবে!")
             except Exception as e:
                 messagebox.showerror("ত্রুটি", f"আর্থিক লক্ষ্য আপডেট করতে ব্যর্থ: {e}")
 
@@ -1429,7 +1747,16 @@ class AdvancedMoneyTracker:
             try:
                 method_name = method_name_entry.get()
                 method_type = method_type_var.get()
-                initial_balance = float(initial_balance_entry.get())
+                initial_balance_str = initial_balance_entry.get()
+
+                if not self.is_numeric(initial_balance_str):
+                    messagebox.showerror("ত্রুটি", "প্রাথমিক ব্যালেন্স অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                initial_balance = float(initial_balance_str)
+
+                if initial_balance < 0:
+                    messagebox.showerror("ত্রুটি", "প্রাথমিক ব্যালেন্স অবশ্যই শূন্য বা তার বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('''
                     INSERT INTO payment_methods (method_name, method_type, balance)
@@ -1438,8 +1765,6 @@ class AdvancedMoneyTracker:
                 self.conn.commit()
                 messagebox.showinfo("সফল", "পেমেন্ট পদ্ধতি সফলভাবে যোগ করা হয়েছে!")
                 self.load_payment_methods_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "ব্যালেন্স অবশ্যই একটি সংখ্যা হতে হবে!")
             except sqlite3.IntegrityError:
                 messagebox.showerror("ত্রুটি", "এই নামের একটি পেমেন্ট পদ্ধতি ইতিমধ্যেই বিদ্যমান।")
             except Exception as e:
@@ -1533,8 +1858,17 @@ class AdvancedMoneyTracker:
             try:
                 method_name = method_name_entry.get()
                 method_type = method_type_var.get()
-                balance = float(balance_entry.get())
+                balance_str = balance_entry.get()
                 is_active = is_active_var.get()
+
+                if not self.is_numeric(balance_str):
+                    messagebox.showerror("ত্রুটি", "ব্যালেন্স অবশ্যই একটি সংখ্যা হতে হবে!")
+                    return
+                balance = float(balance_str)
+
+                if balance < 0:
+                    messagebox.showerror("ত্রুটি", "ব্যালেন্স অবশ্যই শূন্য বা তার বেশি হতে হবে!")
+                    return
 
                 self.cursor.execute('''
                     UPDATE payment_methods
@@ -1547,8 +1881,6 @@ class AdvancedMoneyTracker:
                 messagebox.showinfo("সফল", "পেমেন্ট পদ্ধতি সফলভাবে আপডেট করা হয়েছে!")
                 edit_window.destroy()
                 self.load_payment_methods_list()
-            except ValueError:
-                messagebox.showerror("ত্রুটি", "ব্যালেন্স অবশ্যই একটি সংখ্যা হতে হবে!")
             except sqlite3.IntegrityError:
                 messagebox.showerror("ত্রুটি", "এই নামের একটি পেমেন্ট পদ্ধতি ইতিমধ্যেই বিদ্যমান।")
             except Exception as e:
@@ -1929,6 +2261,36 @@ class AdvancedMoneyTracker:
             command=set_security_question
         ).grid(row=2, column=0, columnspan=2, pady=10)
 
+        # Cloud Synchronization
+        cloud_sync_frame = tk.LabelFrame(settings_frame, text="ক্লাউড সিঙ্ক্রোনাইজেশন", bg=self.colors['card'], fg=self.colors['text'], font=('Segoe UI', 12, 'bold'))
+        cloud_sync_frame.pack(fill=tk.X, padx=10, pady=10, ipadx=5, ipady=5)
+
+        tk.Button(
+            cloud_sync_frame,
+            text="Google Drive-এ আপলোড করুন",
+            font=('Segoe UI', 11, 'bold'),
+            bg=self.colors['primary'],
+            fg='white',
+            padx=15,
+            pady=8,
+            bd=0,
+            cursor='hand2',
+            command=self._upload_to_drive
+        ).pack(pady=5)
+
+        tk.Button(
+            cloud_sync_frame,
+            text="Google Drive থেকে ডাউনলোড করুন",
+            font=('Segoe UI', 11, 'bold'),
+            bg=self.colors['primary'],
+            fg='white',
+            padx=15,
+            pady=8,
+            bd=0,
+            cursor='hand2',
+            command=self._download_from_drive
+        ).pack(pady=5)
+
         # Theme Selection
         theme_frame = tk.LabelFrame(settings_frame, text="থিম সেটিংস", bg=self.colors['card'], fg=self.colors['text'], font=('Segoe UI', 12, 'bold'))
         theme_frame.pack(fill=tk.X, padx=10, pady=10, ipadx=5, ipady=5)
@@ -1938,12 +2300,73 @@ class AdvancedMoneyTracker:
         tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light", bg=self.colors['card'], command=lambda: self.apply_theme(theme_var.get())).pack(side=tk.LEFT, padx=5)
         # Add more themes here if needed
 
+            security_question_entry.delete(0, tk.END)
+            security_answer_entry.delete(0, tk.END)
+
+    def _upload_to_drive(self):
+        if self.drive_sync.service:
+            try:
+                self.conn.close() # Close DB connection before upload
+                if self.drive_sync.upload_db_file():
+                    messagebox.showinfo("সফল", "ডেটা Google Drive-এ সফলভাবে আপলোড করা হয়েছে!")
+                else:
+                    messagebox.showerror("ত্রুটি", "Google Drive-এ ডেটা আপলোড করতে ব্যর্থ।")
+            except Exception as e:
+                self.logger.error("Error uploading to Google Drive", exc_info=True)
+                messagebox.showerror("ত্রুটি", f"Google Drive-এ আপলোড করতে ব্যর্থ: {e}")
+            finally:
+                self.init_database() # Re-open DB connection
+        else:
+            messagebox.showerror("ত্রুটি", "Google Drive পরিষেবা উপলব্ধ নয়। 'credentials.json' ফাইলটি সঠিক আছে কিনা নিশ্চিত করুন।")
+
+    def _download_from_drive(self):
+        if self.drive_sync.service:
+            if messagebox.askyesno("নিশ্চিত করুন", "Google Drive থেকে ডেটা ডাউনলোড করলে আপনার বর্তমান স্থানীয় ডেটা ওভাররাইট হয়ে যাবে। আপনি কি নিশ্চিত?"):
+                try:
+                    self.conn.close() # Close DB connection before download
+                    if self.drive_sync.download_db_file():
+                        messagebox.showinfo("সফল", "ডেটা Google Drive থেকে সফলভাবে ডাউনলোড করা হয়েছে!")
+                        self.init_database() # Re-initialize DB connection with new file
+                        self.load_dashboard() # Refresh UI
+                    else:
+                        messagebox.showerror("ত্রুটি", "Google Drive থেকে ডেটা ডাউনলোড করতে ব্যর্থ। ফাইলটি Drive-এ নাও থাকতে পারে।")
+                except Exception as e:
+                    self.logger.error("Error downloading from Google Drive", exc_info=True)
+                    messagebox.showerror("ত্রুটি", f"Google Drive থেকে ডাউনলোড করতে ব্যর্থ: {e}")
+                finally:
+                    self.init_database() # Ensure DB connection is open
+        else:
+            messagebox.showerror("ত্রুটি", "Google Drive পরিষেবা উপলব্ধ নয়। 'credentials.json' ফাইলটি সঠিক আছে কিনা নিশ্চিত করুন।")
+
     def apply_theme(self, theme_name):
         if theme_name in self.themes:
             self.current_theme = theme_name
             self.colors = self.themes[self.current_theme]
-            self.create_modern_gui() # Re-create GUI to apply new theme
-            self.load_dashboard() # Load dashboard to refresh content with new theme
+            
+            # Update root and main container
+            self.root.configure(bg=self.colors['bg'])
+            self.main_container.configure(bg=self.colors['bg'])
+            self.content_area.configure(bg=self.colors['bg'])
+
+            # Update nav bar
+            self.nav_bar.configure(bg=self.colors['primary'])
+            for widget in self.nav_bar.winfo_children():
+                if isinstance(widget, tk.Label):
+                    widget.configure(bg=self.colors['primary'])
+
+            # Update sidebar
+            self.sidebar.configure(bg=self.colors['card'])
+            self.menu_label.configure(bg=self.colors['card'], fg=self.colors['text'])
+            for btn in self.menu_buttons:
+                btn.configure(bg=self.colors['card'], fg=self.colors['text'])
+                btn.bind('<Enter>', lambda e, b=btn: b.config(bg=self.colors['primary'], fg='white'))
+                btn.bind('<Leave>', lambda e, b=btn: b.config(bg=self.colors['card'], fg=self.colors['text']))
+
+            # Reload current view to apply theme to its widgets
+            # This is a simplified approach; a full dynamic theme would require
+            # updating all widgets in the current view.
+            # For now, we'll just reload the dashboard as an example.
+            self.load_dashboard()
 
     def run(self):
         self.root.mainloop()
