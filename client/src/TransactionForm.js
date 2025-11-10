@@ -44,7 +44,7 @@ function TransactionForm({ onTransactionAdded, accounts }) {
 
     axios.post('http://localhost:5000/api/transactions', newTransaction)
       .then(response => {
-        onTransactionAdded(); // Trigger re-fetch in App.js
+        onTransactionAdded(response.data); // Pass the new transaction data
         setDescription('');
         setAmount('');
       })

@@ -1,12 +1,19 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 function TransactionList({ transactions, accounts, onDeleteTransaction }) {
   const { t } = useTranslation();
 
+  const accountMap = useMemo(() => {
+    return accounts.reduce((map, account) => {
+      map[account.account_id] = account;
+      return map;
+    }, {});
+  }, [accounts]);
+
   const getAccountName = (accountId) => {
-    const account = accounts.find(acc => acc.account_id === accountId);
+    const account = accountMap[accountId];
     return account ? account.account_name : 'Unknown Account';
   };
 

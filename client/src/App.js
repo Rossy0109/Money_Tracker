@@ -37,14 +37,14 @@ function App() {
     fetchTransactions();
   }, [fetchAccounts, fetchTransactions]);
 
-  const handleTransactionAdded = () => {
-    fetchTransactions(); // Re-fetch all transactions to update the list
+  const handleTransactionAdded = (newTransaction) => {
+    setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
   };
 
   const handleDeleteTransaction = (id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`)
       .then(() => {
-        fetchTransactions(); // Re-fetch transactions after deletion
+        setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
       })
       .catch(error => {
         console.error('Error deleting transaction:', error);
