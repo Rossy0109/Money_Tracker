@@ -57,12 +57,24 @@ app.get('/api/transactions', (req, res) => {
 
 // API to add a new transaction
 app.post('/api/transactions', (req, res) => {
+  const { account_name, account_type, amount, payment_method } = req.body;
+
+  // Basic validation
+  if (!account_name || !account_type || !amount || !payment_method) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (typeof amount !== 'number') {
+    return res.status(400).json({ error: 'Amount must be a number' });
+  }
+
   const newTransaction = {
-    id: Date.now(), // Simple unique ID
+    id: Date.now(),
     transaction_date: new Date().toISOString().split('T')[0],
     transaction_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     ...req.body
   };
+
   db.get('transactions').push(newTransaction).write();
   res.status(201).json(newTransaction);
 });
