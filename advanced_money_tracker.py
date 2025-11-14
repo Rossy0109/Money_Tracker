@@ -4,8 +4,6 @@ from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, timedelta
 import os
 import hashlib
-from flask import Flask, request, jsonify
-from threading import Thread
 import logging
 import json
 from drive_sync import GoogleDriveSync
@@ -100,12 +98,6 @@ class AdvancedMoneyTracker:
         self.create_modern_gui()
         self.load_dashboard()
 
-        # Start Flask API in a separate thread
-        self.flask_api = FlaskAPI(self)
-        self.api_thread = Thread(target=self.flask_api.run)
-        self.api_thread.daemon = True
-        self.api_thread.start()
-
     def setup_logging(self):
         self.logger = logging.getLogger('MoneyTrackerApp')
         self.logger.setLevel(logging.INFO)
@@ -121,158 +113,7 @@ class AdvancedMoneyTracker:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        self.logger.addHandler(console_handler)
-
         self.logger.info("Application logging initialized.")
-
-class FlaskAPI:
-    def __init__(self, tracker_app):
-        self.app = Flask(__name__)
-        self.tracker_app = tracker_app
-        self.setup_routes()
-
-    def setup_routes(self):
-        @self.app.route('/api/accounts', methods=['GET'])
-        def get_accounts():
-            self.tracker_app.cursor.execute('SELECT account_id, account_name, account_type, category FROM accounts WHERE is_active = 1')
-            accounts = [{'account_id': row[0], 'account_name': row[1], 'account_type': row[2], 'category': row[3]} for row in self.tracker_app.cursor.fetchall()]
-            return jsonify(accounts)
-
-        @self.app.route('/api/transactions', methods=['GET'])
-        def get_transactions():
-            self.tracker_app.cursor.execute('''
-                SELECT t.transaction_id, t.transaction_date, t.transaction_time, a.account_name, a.account_type, t.amount, t.description, a.category
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.account_id
-                WHERE t.is_deleted = 0
-                ORDER BY t.transaction_date DESC, t.transaction_time DESC
-            ''')
-            transactions = []
-            for row in self.tracker_app.cursor.fetchall():
-                transactions.append({
-                    'id': row[0],
-                    'transaction_date': row[1],
-                    'transaction_time': row[2],
-                    'account_name': row[3],
-                    'account_type': row[4],
-                    'amount': row[5],
-                    'description': row[6],
-                    'category': row[7]
-                })
-            return jsonify(transactions)
-
-        @self.app.route('/api/transactions', methods=['POST'])
-        def add_transaction():
-            data = request.get_json()
-            account_id = data['account_id']
-            amount = data['amount']
-            description = data['description']
-            transaction_date = data.get('transaction_date', datetime.now().strftime('%Y-%m-%d'))
-            transaction_time = data.get('transaction_time', datetime.now().strftime('%H:%M'))
-
-            self.tracker_app.cursor.execute('''
-                INSERT INTO transactions (transaction_date, transaction_time, account_id, amount, description)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (transaction_date, transaction_time, account_id, amount, description))
-            self.tracker_app.conn.commit()
-
-            # Update payment method balance (assuming payment_method_id is passed in data)
-            payment_method_id = data.get('payment_method_id')
-            if payment_method_id:
-                account_type = data.get('account_type') # Need account_type to determine if income or expense
-                if account_type == 'আয়':
-                    self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance + ? WHERE method_id = ?', (amount, payment_method_id))
-                elif account_type == 'খরচ':
-                    self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance - ? WHERE method_id = ?', (amount, payment_method_id))
-                self.tracker_app.conn.commit()
-
-            # Fetch the newly added transaction to return it
-            self.tracker_app.cursor.execute('SELECT last_insert_rowid()')
-            new_id = self.tracker_app.cursor.fetchone()[0]
-            
-            self.tracker_app.cursor.execute('''
-                SELECT t.transaction_id, t.transaction_date, t.transaction_time, a.account_name, a.account_type, t.amount, t.description, a.category
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.account_id
-                WHERE t.transaction_id = ?
-            ''', (new_id,))
-            new_transaction = self.tracker_app.cursor.fetchone()
-            
-            return jsonify({
-                'id': new_transaction[0],
-                'transaction_date': new_transaction[1],
-                'transaction_time': new_transaction[2],
-                'account_name': new_transaction[3],
-                'account_type': new_transaction[4],
-                'amount': new_transaction[5],
-                'description': new_transaction[6],
-                'category': new_transaction[7]
-            }), 201
-
-        @self.app.route('/api/transactions/<int:id>', methods=['DELETE'])
-        def delete_transaction(id):
-            # Before deleting, get transaction details to revert payment method balance
-            self.tracker_app.cursor.execute('SELECT amount, account_id, payment_method_id FROM transactions WHERE transaction_id = ?', (id,))
-            transaction_details = self.tracker_app.cursor.fetchone()
-
-            if transaction_details:
-                amount, account_id, payment_method_id = transaction_details
-                self.tracker_app.cursor.execute('SELECT account_type FROM accounts WHERE account_id = ?', (account_id,))
-                account_type = self.tracker_app.cursor.fetchone()[0]
-
-                if payment_method_id:
-                    if account_type == 'আয়':
-                        self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance - ? WHERE method_id = ?', (amount, payment_method_id))
-                    elif account_type == 'খরচ':
-                        self.tracker_app.cursor.execute('UPDATE payment_methods SET balance = balance + ? WHERE method_id = ?', (amount, payment_method_id))
-                    self.tracker_app.conn.commit()
-
-            self.tracker_app.cursor.execute('UPDATE transactions SET is_deleted = 1 WHERE transaction_id = ?', (id,))
-            self.tracker_app.conn.commit()
-            return '', 204
-
-        @self.app.route('/api/summary/daily', methods=['GET'])
-        def get_daily_summary():
-            today = datetime.now().strftime('%Y-%m-%d')
-            self.tracker_app.cursor.execute('''
-                SELECT a.account_type, SUM(t.amount)
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.account_id
-                WHERE t.transaction_date = ? AND t.is_deleted = 0
-                GROUP BY a.account_type
-            ''', (today,))
-            summary_data = self.tracker_app.cursor.fetchall()
-
-            total_income = sum(row[1] for row in summary_data if row[0] == 'আয়')
-            total_expense = sum(row[1] for row in summary_data if row[0] == 'খরচ')
-
-            return jsonify({
-                'totalIncome': total_income,
-                'totalExpense': total_expense,
-                'balance': total_income - total_expense
-            })
-
-        @self.app.route('/api/summary/weekly', methods=['GET'])
-        def get_weekly_summary():
-            now = datetime.now()
-            day_of_week = now.weekday() # Monday is 0, Sunday is 6
-            start_of_week = now - timedelta(days=day_of_week)
-            start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_of_week = start_of_week + timedelta(days=6)
-            end_of_week = end_of_week.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-            self.tracker_app.cursor.execute('''
-                SELECT SUM(t.amount)
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.account_id
-                WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
-            ''', (start_of_week.strftime('%Y-%m-%d'), end_of_week.strftime('%Y-%m-%d')))
-            weekly_expense = self.tracker_app.cursor.fetchone()[0] or 0
-
-            return jsonify({'weeklyExpense': weekly_expense})
-
-    def run(self):
-        self.app.run(port=5000)
 
     def init_database(self):
         """সম্পূর্ণ ডেটাবেস সেটআপ"""
