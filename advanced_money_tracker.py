@@ -266,7 +266,7 @@ class AdvancedMoneyTracker:
         try:
             float(value)
             return True
-        except ValueError:
+        except (ValueError, TypeError):
             return False
 
     def check_password_exists(self):
@@ -444,7 +444,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date = ? AND a.account_type = 'আয়' AND t.is_deleted = 0
-        ''')
+        ''', (today,))
         today_income = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -452,7 +452,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date = ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
-        ''')
+        ''', (today,))
         today_expense = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -460,7 +460,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'আয়' AND t.is_deleted = 0
-        ''')
+        ''', (month_start, today))
         month_income = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -468,7 +468,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
-        ''')
+        ''', (month_start, today))
         month_expense = self.cursor.fetchone()[0]
 
         self.cursor.execute('SELECT COALESCE(SUM(balance), 0) FROM payment_methods WHERE is_active = 1')
@@ -773,7 +773,7 @@ class AdvancedMoneyTracker:
                 WHERE t.transaction_date BETWEEN ? AND ? AND t.is_deleted = 0
                 GROUP BY a.account_name, a.account_type
                 ORDER BY a.account_type DESC, SUM(t.amount) DESC
-            ''')
+            ''', (s_date, e_date))
             transactions_summary = self.cursor.fetchall()
 
             total_income = sum(row[2] for row in transactions_summary if row[1] == 'আয়')
@@ -837,6 +837,7 @@ class AdvancedMoneyTracker:
                 GROUP BY a.account_name, a.account_type
                 ORDER BY a.account_type DESC, SUM(t.amount) DESC
             ''', (start_date_entry.get_date().strftime('%Y-%m-%d'), end_date_entry.get_date().strftime('%Y-%m-%d')))
+            transactions_summary = self.cursor.fetchall()
 
             data = [["খাত", "ধরন", "পরিমাণ (৳)"]]
             total_income = 0
@@ -899,7 +900,7 @@ class AdvancedMoneyTracker:
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date BETWEEN ? AND ? AND t.is_deleted = 0
             GROUP BY a.account_type
-        ''')
+        ''', (start_date, end_date))
         data = self.cursor.fetchall()
 
         if not data:
@@ -962,7 +963,7 @@ class AdvancedMoneyTracker:
             try:
                 float(value)
                 return True
-            except ValueError:
+            except (ValueError, TypeError):
                 return False
 
         def save_budget():
@@ -2140,9 +2141,6 @@ class AdvancedMoneyTracker:
         theme_var = tk.StringVar(value=self.current_theme)
         tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light", bg=self.colors['card'], command=lambda: self.apply_theme(theme_var.get())).pack(side=tk.LEFT, padx=5)
         # Add more themes here if needed
-
-            security_question_entry.delete(0, tk.END)
-            security_answer_entry.delete(0, tk.END)
 
     def _upload_to_drive(self):
         if self.drive_sync.service:

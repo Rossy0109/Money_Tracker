@@ -77,15 +77,42 @@ tk.LabelFrame = lambda master, **kwargs: MockTk()
 tk.Checkbutton = lambda master, **kwargs: MockTk()
 
 
-# Import the class after mocking its dependencies
-from advanced_money_tracker import AdvancedMoneyTracker
+# Import the module that contains the class we want to test
+import advanced_money_tracker
+
+# Mock the GoogleDriveSync class before it's used
+class MockGoogleDriveSync:
+    def __init__(self, db_path, logger):
+        pass  # Do nothing
+
+# Apply the mock to the class in the module
+advanced_money_tracker.GoogleDriveSync = MockGoogleDriveSync
 
 class TestAdvancedMoneyTracker(unittest.TestCase):
 
     def setUp(self):
+        # Mock the GUI methods to prevent them from being called during initialization
+        def mock_gui_method(*args, **kwargs):
+            pass
+
+        def mock_show_login(*args, **kwargs):
+            return True # Simulate successful login
+
+        advanced_money_tracker.AdvancedMoneyTracker.create_modern_gui = mock_gui_method
+        advanced_money_tracker.AdvancedMoneyTracker.load_dashboard = mock_gui_method
+        advanced_money_tracker.AdvancedMoneyTracker.show_login = mock_show_login
+
         # Create a dummy root for the AdvancedMoneyTracker instance
         self.mock_root = MockTk()
-        self.app = AdvancedMoneyTracker(self.mock_root)
+        # Use a temporary database for testing
+        self.db_path = "test_money_tracker.db"
+        os.environ['MONEY_TRACKER_DB_PATH'] = self.db_path
+        self.app = advanced_money_tracker.AdvancedMoneyTracker(self.mock_root)
+
+    def tearDown(self):
+        # Clean up the test database after each test
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
 
     def test_is_numeric_valid_integers(self):
         self.assertTrue(self.app.is_numeric("123"))
@@ -108,6 +135,10 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
     def test_is_numeric_with_commas(self):
         # is_numeric should handle standard numeric formats, not localized ones
         self.assertFalse(self.app.is_numeric("1,234.56"))
+
+    def test_is_numeric_with_none(self):
+        """Test that is_numeric returns False when passed None."""
+        self.assertFalse(self.app.is_numeric(None))
 
 if __name__ == '__main__':
     unittest.main()
