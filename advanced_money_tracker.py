@@ -96,7 +96,7 @@ class AdvancedMoneyTracker:
 
         # GUI
         self.create_modern_gui()
-        self.load_dashboard()
+        self.show_dashboard()
 
     def setup_logging(self):
         self.logger = logging.getLogger('MoneyTrackerApp')
@@ -263,6 +263,9 @@ class AdvancedMoneyTracker:
             self.conn.commit()
 
     def is_numeric(self, value):
+        # This check is necessary to prevent a TypeError when None is passed from the test suite.
+        if value is None:
+            return False
         try:
             float(value)
             return True
@@ -949,7 +952,11 @@ class AdvancedMoneyTracker:
         if accounts: budget_account_combo.current(0)
 
         tk.Label(form_frame, text="মাস:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        months = [datetime(2000, i, 1).strftime('%Y-%m') for i in range(1, 13)] # YYYY-MM format
+        current_year = datetime.now().year
+        months = []
+        for year in range(current_year - 1, current_year + 2):
+            for month in range(1, 13):
+                months.append(f"{year}-{month:02d}")
         budget_month_var = tk.StringVar(value=datetime.now().strftime('%Y-%m'))
         budget_month_combo = ttk.Combobox(form_frame, textvariable=budget_month_var, values=months, width=30, state='readonly')
         budget_month_combo.grid(row=1, column=1, sticky='w', padx=5, pady=5)
@@ -2140,9 +2147,6 @@ class AdvancedMoneyTracker:
         theme_var = tk.StringVar(value=self.current_theme)
         tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light", bg=self.colors['card'], command=lambda: self.apply_theme(theme_var.get())).pack(side=tk.LEFT, padx=5)
         # Add more themes here if needed
-
-            security_question_entry.delete(0, tk.END)
-            security_answer_entry.delete(0, tk.END)
 
     def _upload_to_drive(self):
         if self.drive_sync.service:
