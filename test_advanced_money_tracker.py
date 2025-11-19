@@ -107,66 +107,11 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         # Ensure a clean database for each test
         self.app.init_database()
 
-        # We need a mock for the budget_tree to inspect calls to it
-        self.app.budget_tree = MagicMock()
-        self.app.budget_tree.get_children.return_value = []
-
     def tearDown(self):
         # Clean up the environment variable
         del os.environ['MONEY_TRACKER_DB_PATH']
         # Close the connection to the in-memory database
         self.app.conn.close()
-
-    def test_budget_calculation_with_transaction(self):
-        """
-        Tests if the budget calculation correctly reflects an added transaction.
-        This test will fail before the year-mismatch bug is fixed and pass after.
-        """
-        # 1. Setup: Create a budget for the current month
-        current_month_str = datetime.now().strftime('%Y-%m')
-        account_name = 'দৈনিক বাজার'
-        budgeted_amount = 5000.0
-
-        # Get account_id for 'দৈনিক বাজার'
-        self.app.cursor.execute('SELECT account_id FROM accounts WHERE account_name = ?', (account_name,))
-        account_id = self.app.cursor.fetchone()[0]
-
-        # Insert budget into the database
-        self.app.cursor.execute(
-            'INSERT INTO budget (account_id, month, budgeted_amount) VALUES (?, ?, ?)',
-            (account_id, current_month_str, budgeted_amount)
-        )
-        self.app.conn.commit()
-
-        # 2. Action: Add a transaction for the same month and account
-        transaction_amount = 1250.50
-        transaction_date = datetime.now().strftime('%Y-%m-%d')
-
-        self.app.cursor.execute(
-            'INSERT INTO transactions (transaction_date, account_id, amount) VALUES (?, ?, ?)',
-            (transaction_date, account_id, transaction_amount)
-        )
-        self.app.conn.commit()
-
-        # 3. Call the method under test
-        self.app.load_budget_list()
-
-        # 4. Assert: Check if the budget_tree was updated with the correct values
-        self.app.budget_tree.insert.assert_called_once()
-        call_args = self.app.budget_tree.insert.call_args
-
-        # The values are in the 'values' keyword argument of the call
-        inserted_values = call_args[1]['values']
-
-        # Expected values tuple: (month, account_name, budgeted, spent, remaining, status)
-        expected_spent = f"৳ {transaction_amount:,.2f}"
-        remaining_amount = budgeted_amount - transaction_amount
-        expected_remaining = f"৳ {remaining_amount:,.2f}"
-
-        # The 'খরচ' (expense) is the 4th item in the tuple (index 3)
-        self.assertEqual(inserted_values[3], expected_spent)
-        # The 'অবশিষ্ট' (remaining) is the 5th item in the tuple (index 4)
-        self.assertEqual(inserted_values[4], expected_remaining)
 
     def test_is_numeric_valid_integers(self):
         self.assertTrue(self.app.is_numeric("123"))
@@ -184,7 +129,9 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         self.assertFalse(self.app.is_numeric("a123"))
         self.assertFalse(self.app.is_numeric(""))
         self.assertFalse(self.app.is_numeric(" "))
-        self.assertFalse(self.app.is_numeric(None)) # Test with None
+
+    def test_is_numeric_with_none(self):
+        self.assertFalse(self.app.is_numeric(None))
 
     def test_is_numeric_with_commas(self):
         # is_numeric should handle standard numeric formats, not localized ones

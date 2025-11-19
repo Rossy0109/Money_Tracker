@@ -263,13 +263,10 @@ class AdvancedMoneyTracker:
             self.conn.commit()
 
     def is_numeric(self, value):
-        # This check is necessary to prevent a TypeError when None is passed from the test suite.
-        if value is None:
-            return False
         try:
             float(value)
             return True
-        except ValueError:
+        except (ValueError, TypeError):
             return False
 
     def check_password_exists(self):
@@ -952,11 +949,7 @@ class AdvancedMoneyTracker:
         if accounts: budget_account_combo.current(0)
 
         tk.Label(form_frame, text="মাস:", font=('Segoe UI', 11, 'bold'), bg=self.colors['card']).grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        current_year = datetime.now().year
-        months = []
-        for year in range(current_year - 1, current_year + 2):
-            for month in range(1, 13):
-                months.append(f"{year}-{month:02d}")
+        months = [datetime(2000, i, 1).strftime('%Y-%m') for i in range(1, 13)] # YYYY-MM format
         budget_month_var = tk.StringVar(value=datetime.now().strftime('%Y-%m'))
         budget_month_combo = ttk.Combobox(form_frame, textvariable=budget_month_var, values=months, width=30, state='readonly')
         budget_month_combo.grid(row=1, column=1, sticky='w', padx=5, pady=5)
