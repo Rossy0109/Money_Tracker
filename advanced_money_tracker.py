@@ -266,7 +266,7 @@ class AdvancedMoneyTracker:
         try:
             float(value)
             return True
-        except (ValueError, TypeError):
+        except ValueError:
             return False
 
     def check_password_exists(self):
@@ -2140,9 +2140,6 @@ class AdvancedMoneyTracker:
         theme_var = tk.StringVar(value=self.current_theme)
         tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light", bg=self.colors['card'], command=lambda: self.apply_theme(theme_var.get())).pack(side=tk.LEFT, padx=5)
         # Add more themes here if needed
-
-            security_question_entry.delete(0, tk.END)
-            security_answer_entry.delete(0, tk.END)
 
     def _upload_to_drive(self):
         if self.drive_sync.service:
