@@ -103,7 +103,7 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         self.assertFalse(self.app.is_numeric("a123"))
         self.assertFalse(self.app.is_numeric(""))
         self.assertFalse(self.app.is_numeric(" "))
-        self.assertFalse(self.app.is_numeric(None))  # Test with None
+        self.assertFalse(self.app.is_numeric(None)) # Test with None
 
     def test_is_numeric_with_commas(self):
         # is_numeric should handle standard numeric formats, not localized ones
