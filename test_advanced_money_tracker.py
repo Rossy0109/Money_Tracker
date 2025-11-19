@@ -60,9 +60,6 @@ class MockIntVar:
     def get(self): return self._value
     def set(self, value): self._value = value
 
-from unittest.mock import MagicMock
-sys.modules['drive_sync'] = MagicMock()
-
 # Replace tkinter and its modules with mocks
 tk = MockTk()
 ttk = MockTtk()
@@ -80,38 +77,15 @@ tk.LabelFrame = lambda master, **kwargs: MockTk()
 tk.Checkbutton = lambda master, **kwargs: MockTk()
 
 
-import sqlite3
-from datetime import datetime
-from unittest.mock import MagicMock, patch
-
 # Import the class after mocking its dependencies
 from advanced_money_tracker import AdvancedMoneyTracker
 
 class TestAdvancedMoneyTracker(unittest.TestCase):
 
     def setUp(self):
-        # Use an in-memory SQLite database for testing
-        self.db_path = ":memory:"
-        os.environ['MONEY_TRACKER_DB_PATH'] = self.db_path
-
         # Create a dummy root for the AdvancedMoneyTracker instance
         self.mock_root = MockTk()
-
-        # Mock the GUI components that are created during __init__
-        with patch('advanced_money_tracker.AdvancedMoneyTracker.create_modern_gui', MagicMock()), \
-             patch('advanced_money_tracker.AdvancedMoneyTracker.show_dashboard', MagicMock()), \
-             patch('advanced_money_tracker.AdvancedMoneyTracker.show_login', MagicMock(return_value=True)), \
-             patch('drive_sync.GoogleDriveSync', MagicMock()):
-            self.app = AdvancedMoneyTracker(self.mock_root)
-
-        # Ensure a clean database for each test
-        self.app.init_database()
-
-    def tearDown(self):
-        # Clean up the environment variable
-        del os.environ['MONEY_TRACKER_DB_PATH']
-        # Close the connection to the in-memory database
-        self.app.conn.close()
+        self.app = AdvancedMoneyTracker(self.mock_root)
 
     def test_is_numeric_valid_integers(self):
         self.assertTrue(self.app.is_numeric("123"))
@@ -129,9 +103,7 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         self.assertFalse(self.app.is_numeric("a123"))
         self.assertFalse(self.app.is_numeric(""))
         self.assertFalse(self.app.is_numeric(" "))
-
-    def test_is_numeric_with_none(self):
-        self.assertFalse(self.app.is_numeric(None))
+        self.assertFalse(self.app.is_numeric(None))  # Test with None
 
     def test_is_numeric_with_commas(self):
         # is_numeric should handle standard numeric formats, not localized ones
