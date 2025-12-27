@@ -46,5 +46,8 @@
     "transformIgnorePatterns": [
       "node_modules/(?!axios)/"
     ]
+  },
+  "devDependencies": {
+    "axios-mock-adapter": "^2.1.0"
   }
 }

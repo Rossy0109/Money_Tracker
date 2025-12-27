@@ -1,0 +1,25 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "একটি সম্পূর্ণ ফিচার-সমৃদ্ধ ব্যক্তিগত আর্থিক ব্যবস্থাপনা সফটওয়্যার (বাংলা ভাষায়)",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rossy0109/Money_Tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Rossy0109/Money_Tracker/issues"
+  },
+  "homepage": "https://github.com/Rossy0109/Money_Tracker#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.3",
+    "sqlite3": "^5.1.7",
+    "wait-on": "^9.0.3"
+  }
+}
