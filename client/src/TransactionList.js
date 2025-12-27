@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Transaction from './Transaction';
 
-function TransactionList({ transactions, accounts, onTransactionUpdated, onDeleteTransaction }) {
+// ⚡ Bolt: Memoized TransactionList component to prevent unnecessary re-renders.
+// This component will only re-render if its props (transactions, accounts, etc.) have changed.
+const TransactionList = memo(({ transactions, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const { t } = useTranslation();
 
   return (
@@ -39,6 +41,6 @@ function TransactionList({ transactions, accounts, onTransactionUpdated, onDelet
       </div>
     </div>
   );
-}
+});
 
 export default TransactionList;
