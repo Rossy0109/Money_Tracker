@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+// The Transaction component is wrapped in React.memo to prevent unnecessary re-renders.
+// This is a performance optimization that can significantly speed up the application
+// when there are a large number of transactions.
 const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
@@ -87,4 +90,4 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+export default React.memo(Transaction);
