@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
 
 const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
@@ -87,4 +87,8 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Performance Optimization: React.memo prevents re-rendering if props are unchanged.
+// This is effective here because the parent component (App.js) uses useCallback
+// for the onTransactionUpdated and onDeleteTransaction props, ensuring they
+// don't change on every render.
+export default memo(Transaction);
