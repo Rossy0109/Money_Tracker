@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import './App.css';
 import Summary from './Summary';
 import TransactionForm from './TransactionForm';
@@ -92,6 +93,7 @@ function App() {
         onTransactionUpdated={handleTransactionUpdated}
         onDeleteTransaction={handleDeleteTransaction}
       />
+      <SpeedInsights />
     </div>
   );
 }
