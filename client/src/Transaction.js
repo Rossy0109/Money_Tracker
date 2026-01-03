@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
+// ⚡ Bolt: Memoizing the Transaction component to prevent unnecessary re-renders.
+// This is especially important for list items, as it prevents all items
+// from re-rendering when only one item changes or the parent re-renders.
+const Transaction = React.memo(({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
@@ -85,6 +88,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
       </td>
     </tr>
   );
-};
+});
 
 export default Transaction;

@@ -44,13 +44,17 @@ function App() {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
   };
 
-  const handleTransactionUpdated = (updatedTransaction) => {
+  // ⚡ Bolt: Memoizing with useCallback to prevent re-renders of TransactionList
+  // and its children. These functions are passed as props, and without
+  // useCallback, they would be new functions on every render, defeating
+  // the purpose of React.memo in the child components.
+  const handleTransactionUpdated = useCallback((updatedTransaction) => {
     setTransactions(prevTransactions =>
       prevTransactions.map(t => (t.id === updatedTransaction.id ? updatedTransaction : t))
     );
-  };
+  }, []);
 
-  const handleDeleteTransaction = (id) => {
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,7 +62,7 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
