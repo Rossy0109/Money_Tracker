@@ -28,3 +28,6 @@ venv/
 
 # PID files
 *.pid
+
+# Local Netlify folder
+.netlify
