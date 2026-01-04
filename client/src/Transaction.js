@@ -87,4 +87,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Memoize the Transaction component to prevent re-rendering if props have not changed.
+// This is effective because the `onDeleteTransaction` prop is now memoized with useCallback in App.js.
+export default React.memo(Transaction);

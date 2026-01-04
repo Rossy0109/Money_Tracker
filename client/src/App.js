@@ -50,7 +50,7 @@ function App() {
     );
   };
 
-  const handleDeleteTransaction = (id) => {
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,7 +58,7 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
