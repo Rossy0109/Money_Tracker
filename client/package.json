@@ -46,5 +46,8 @@
     "transformIgnorePatterns": [
       "node_modules/(?!axios)/"
     ]
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
   }
 }
