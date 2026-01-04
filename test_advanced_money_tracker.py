@@ -9,6 +9,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # This is a common practice when testing parts of a GUI application
 # that don't directly interact with the GUI.
 class MockTk:
+    def __init__(self):
+        self.tk = self
+        self._last_child_ids = None
     def Tk(self): return self
     def Toplevel(self, master=None): return self
     def geometry(self, geo): pass
@@ -77,6 +80,8 @@ tk.LabelFrame = lambda master, **kwargs: MockTk()
 tk.Checkbutton = lambda master, **kwargs: MockTk()
 
 
+from unittest.mock import patch
+
 # Import the class after mocking its dependencies
 from advanced_money_tracker import AdvancedMoneyTracker
 
@@ -87,17 +92,23 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         self.mock_root = MockTk()
         self.app = AdvancedMoneyTracker(self.mock_root)
 
-    def test_is_numeric_valid_integers(self):
+    @patch('advanced_money_tracker.GoogleDriveSync')
+    def test_is_numeric_valid_integers(self, mock_drive_sync):
+        self.app = AdvancedMoneyTracker(MockTk())
         self.assertTrue(self.app.is_numeric("123"))
         self.assertTrue(self.app.is_numeric("0"))
         self.assertTrue(self.app.is_numeric("-45"))
 
-    def test_is_numeric_valid_floats(self):
+    @patch('advanced_money_tracker.GoogleDriveSync')
+    def test_is_numeric_valid_floats(self, mock_drive_sync):
+        self.app = AdvancedMoneyTracker(MockTk())
         self.assertTrue(self.app.is_numeric("123.45"))
         self.assertTrue(self.app.is_numeric("0.0"))
         self.assertTrue(self.app.is_numeric("-67.89"))
 
-    def test_is_numeric_invalid_strings(self):
+    @patch('advanced_money_tracker.GoogleDriveSync')
+    def test_is_numeric_invalid_strings(self, mock_drive_sync):
+        self.app = AdvancedMoneyTracker(MockTk())
         self.assertFalse(self.app.is_numeric("abc"))
         self.assertFalse(self.app.is_numeric("123a"))
         self.assertFalse(self.app.is_numeric("a123"))
@@ -105,7 +116,9 @@ class TestAdvancedMoneyTracker(unittest.TestCase):
         self.assertFalse(self.app.is_numeric(" "))
         self.assertFalse(self.app.is_numeric(None)) # Test with None
 
-    def test_is_numeric_with_commas(self):
+    @patch('advanced_money_tracker.GoogleDriveSync')
+    def test_is_numeric_with_commas(self, mock_drive_sync):
+        self.app = AdvancedMoneyTracker(MockTk())
         # is_numeric should handle standard numeric formats, not localized ones
         self.assertFalse(self.app.is_numeric("1,234.56"))
 

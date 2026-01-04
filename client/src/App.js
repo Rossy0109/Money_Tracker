@@ -14,7 +14,7 @@ function App() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   const fetchTransactions = useCallback(() => {
-    axios.get('http://localhost:5000/api/transactions', { withCredentials: true })
+    axios.get('/api/transactions', { withCredentials: true })
       .then(response => {
         setTransactions(response.data);
       })
@@ -24,7 +24,7 @@ function App() {
   }, []);
 
   const fetchAccounts = useCallback(() => {
-    axios.get('http://localhost:5000/api/accounts', { withCredentials: true })
+    axios.get('/api/accounts', { withCredentials: true })
       .then(response => {
         setAccounts(response.data);
       })
@@ -51,7 +51,7 @@ function App() {
   };
 
   const handleDeleteTransaction = (id) => {
-    axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
+    axios.delete(`/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
       })

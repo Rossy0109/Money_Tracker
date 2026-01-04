@@ -7,7 +7,7 @@ function Login({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    axios.post('http://localhost:5000/api/login', { password }, { withCredentials: true })
+    axios.post('/api/login', { password }, { withCredentials: true })
       .then(response => {
         onLogin();
       })
