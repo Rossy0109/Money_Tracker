@@ -87,4 +87,5 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Memoize Transaction to prevent re-renders when props are unchanged.
+export default React.memo(Transaction);
