@@ -2,7 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Transaction from './Transaction';
 
-function TransactionList({ transactions, accounts, onTransactionUpdated, onDeleteTransaction }) {
+// ⚡ Bolt: Memoize TransactionList component to prevent unnecessary re-renders
+const TransactionList = React.memo(({ transactions, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const { t } = useTranslation();
 
   return (
@@ -39,6 +40,6 @@ function TransactionList({ transactions, accounts, onTransactionUpdated, onDelet
       </div>
     </div>
   );
-}
+});
 
 export default TransactionList;
