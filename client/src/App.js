@@ -44,13 +44,17 @@ function App() {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
   };
 
-  const handleTransactionUpdated = (updatedTransaction) => {
+  // Memoize handleTransactionUpdated to prevent re-creating the function on every render.
+  // This is passed to TransactionList and then to Transaction, so it's important for performance.
+  const handleTransactionUpdated = useCallback((updatedTransaction) => {
     setTransactions(prevTransactions =>
       prevTransactions.map(t => (t.id === updatedTransaction.id ? updatedTransaction : t))
     );
-  };
+  }, []);
 
-  const handleDeleteTransaction = (id) => {
+  // Memoize handleDeleteTransaction to prevent re-creating the function on every render.
+  // This avoids unnecessary re-renders of the Transaction component.
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,7 +62,7 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
