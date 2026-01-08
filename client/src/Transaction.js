@@ -87,4 +87,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Bolt ⚡: Memoize Transaction to prevent re-renders when props are unchanged.
+// This is crucial for list performance, especially when parent state changes.
+export default React.memo(Transaction);
