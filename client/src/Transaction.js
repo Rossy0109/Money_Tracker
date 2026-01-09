@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
 
 const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
@@ -87,4 +87,7 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// ⚡ Bolt: Memoized Transaction component to prevent unnecessary re-renders.
+// This is a high-impact optimization for lists, as it prevents child components
+// from re-rendering when the parent's state changes, but their own props do not.
+export default memo(Transaction);
