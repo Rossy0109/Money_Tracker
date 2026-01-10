@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
+// Using React.memo to prevent unnecessary re-renders of individual transaction items,
+// especially when the parent component re-renders but this item's props remain unchanged.
+// This is a significant performance boost for long lists.
+const Transaction = React.memo(({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
@@ -85,6 +88,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
       </td>
     </tr>
   );
-};
+});
 
 export default Transaction;
