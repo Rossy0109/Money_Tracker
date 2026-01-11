@@ -87,4 +87,5 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Add React.memo to prevent unnecessary re-renders
+export default React.memo(Transaction);
