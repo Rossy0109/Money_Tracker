@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+// ⚡ Bolt: Memoize Transaction component to prevent unnecessary re-renders.
+// By wrapping this component in React.memo, we ensure it only re-renders when its props change.
+// This is effective because the `onTransactionUpdated` and `onDeleteTransaction` props
+// are memoized with `useCallback` in the parent `App` component.
 const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
@@ -87,4 +91,4 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+export default React.memo(Transaction);
