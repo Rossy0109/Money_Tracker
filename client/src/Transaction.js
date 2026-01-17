@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
+// Using React.memo to prevent re-rendering of transaction rows that haven't changed
+const Transaction = React.memo(({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
@@ -85,6 +86,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
       </td>
     </tr>
   );
-};
+});
 
 export default Transaction;
