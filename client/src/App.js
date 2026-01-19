@@ -44,13 +44,20 @@ function App() {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
   };
 
-  const handleTransactionUpdated = (updatedTransaction) => {
+  // ⚡ Bolt: Memoized callback for updating transactions.
+  // Using useCallback ensures that the function reference remains stable across re-renders,
+  // preventing the child `Transaction` component from re-rendering unnecessarily when
+  // the `App` component's state changes.
+  const handleTransactionUpdated = useCallback((updatedTransaction) => {
     setTransactions(prevTransactions =>
       prevTransactions.map(t => (t.id === updatedTransaction.id ? updatedTransaction : t))
     );
-  };
+  }, []);
 
-  const handleDeleteTransaction = (id) => {
+  // ⚡ Bolt: Memoized callback for deleting transactions.
+  // Same reason as above: this stabilizes the prop passed to `TransactionList` and `Transaction`,
+  // making the `React.memo` optimization effective.
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,7 +65,7 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
