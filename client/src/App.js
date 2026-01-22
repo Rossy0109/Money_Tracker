@@ -44,13 +44,15 @@ function App() {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
   };
 
-  const handleTransactionUpdated = (updatedTransaction) => {
+  // Bolt ⚡: Memoize event handlers with useCallback to prevent unnecessary re-renders in child components.
+  // This ensures that the function reference remains stable unless its dependencies change.
+  const handleTransactionUpdated = useCallback((updatedTransaction) => {
     setTransactions(prevTransactions =>
       prevTransactions.map(t => (t.id === updatedTransaction.id ? updatedTransaction : t))
     );
-  };
+  }, []);
 
-  const handleDeleteTransaction = (id) => {
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,7 +60,7 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);

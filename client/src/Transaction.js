@@ -87,4 +87,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Bolt ⚡: Wrap the component in React.memo to prevent re-rendering if its props have not changed.
+// This is a key optimization for lists, as it avoids re-rendering every item when parent state changes.
+export default React.memo(Transaction);
