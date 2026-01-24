@@ -87,4 +87,4 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+export default React.memo(Transaction);
