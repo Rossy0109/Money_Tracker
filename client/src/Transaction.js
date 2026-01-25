@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
 
 const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
@@ -87,4 +87,4 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+export default memo(Transaction);
