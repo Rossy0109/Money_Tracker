@@ -87,4 +87,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// ⚡ Bolt: Memoize Transaction component to prevent unnecessary re-renders when props are unchanged.
+// This is effective because the props passed from App.js are now memoized with useCallback.
+export default React.memo(Transaction);
