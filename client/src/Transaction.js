@@ -87,4 +87,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   );
 };
 
-export default Transaction;
+// Memoize the component to prevent unnecessary re-renders when props are unchanged.
+// This is a significant performance improvement for lists with many items.
+export default React.memo(Transaction);
