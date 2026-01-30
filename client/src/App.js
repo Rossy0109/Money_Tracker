@@ -40,17 +40,19 @@ function App() {
     }
   }, [loggedIn, fetchAccounts, fetchTransactions]);
 
-  const handleTransactionAdded = (newTransaction) => {
+  // Memoize transaction handlers to prevent unnecessary re-renders of child components (TransactionList, TransactionForm)
+  // Expected impact: Reduces re-renders of the entire list when a single transaction is added/updated/deleted.
+  const handleTransactionAdded = useCallback((newTransaction) => {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
-  };
+  }, []);
 
-  const handleTransactionUpdated = (updatedTransaction) => {
+  const handleTransactionUpdated = useCallback((updatedTransaction) => {
     setTransactions(prevTransactions =>
       prevTransactions.map(t => (t.id === updatedTransaction.id ? updatedTransaction : t))
     );
-  };
+  }, []);
 
-  const handleDeleteTransaction = (id) => {
+  const handleDeleteTransaction = useCallback((id) => {
     axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
@@ -58,19 +60,20 @@ function App() {
       .catch(error => {
         console.error('Error deleting transaction:', error);
       });
-  };
+  }, []);
 
-  const changeLanguage = (lng) => {
+  // Memoize other handlers to ensure stable references are passed down if needed
+  const changeLanguage = useCallback((lng) => {
     i18n.changeLanguage(lng);
-  };
+  }, [i18n]);
 
-  const handleLogin = () => {
+  const handleLogin = useCallback(() => {
     setLoggedIn(true);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setLoggedIn(false);
-  };
+  }, []);
 
   if (!loggedIn) {
     return <Login onLogin={handleLogin} />;

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
 
-function Login({ onLogin }) {
+const Login = memo(({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -45,6 +45,6 @@ function Login({ onLogin }) {
       </div>
     </div>
   );
-}
+});
 
 export default Login;

@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
-function TransactionForm({ onTransactionAdded, accounts }) {
+// Memoize TransactionForm to prevent unnecessary re-renders when the transaction list changes.
+const TransactionForm = memo(({ onTransactionAdded, accounts }) => {
   const { t } = useTranslation();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -131,6 +132,6 @@ function TransactionForm({ onTransactionAdded, accounts }) {
       </div>
     </div>
   );
-}
+});
 
 export default TransactionForm;

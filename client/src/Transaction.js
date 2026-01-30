@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
 
-const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
+// Memoize individual Transaction component to prevent re-renders of the whole list
+// when only one transaction is modified or a new one is added.
+// Expected impact: Significant reduction in DOM updates for large transaction lists.
+const Transaction = memo(({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
@@ -85,6 +88,6 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
       </td>
     </tr>
   );
-};
+});
 
 export default Transaction;

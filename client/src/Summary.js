@@ -1,9 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
-function Summary() {
+// Memoize Summary component. Since it currently manages its own state and doesn't depend on props,
+// it will only re-render if its own internal state (dailySummary, weeklyExpense) changes.
+const Summary = memo(() => {
   const { t } = useTranslation();
   const [dailySummary, setDailySummary] = useState({ totalIncome: 0, totalExpense: 0, balance: 0 });
   const [weeklyExpense, setWeeklyExpense] = useState(0);
@@ -62,6 +64,6 @@ function Summary() {
       </div>
     </div>
   );
-}
+});
 
 export default Summary;
