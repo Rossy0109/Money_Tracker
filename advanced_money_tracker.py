@@ -222,6 +222,12 @@ class AdvancedMoneyTracker:
             )
         ''')
 
+        # Add indexes for performance optimization
+        # ⚡ Bolt: Composite index for date-time based filtering and sorting
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_transactions_date_time ON transactions (transaction_date, transaction_time)')
+        # ⚡ Bolt: Index for account-based joins and filtering
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions (account_id)')
+
         # Initial Data
         self.cursor.execute('SELECT COUNT(*) FROM accounts')
         if self.cursor.fetchone()[0] == 0:
