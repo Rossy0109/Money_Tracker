@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: money-tracker-api
+    env: python
+    buildCommand: pip install -r server/requirements.txt
+    startCommand: gunicorn --pythonpath server server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
