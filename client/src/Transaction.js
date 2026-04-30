@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import API_URL from './config';
 
-const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTransaction }) => {
+const Transaction = ({ transaction, accounts, paymentMethods, onTransactionUpdated, onDeleteTransaction }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
   const handleUpdate = () => {
-    axios.put(`http://localhost:5000/api/transactions/${transaction.id}`, editedTransaction, { withCredentials: true })
+    axios.put(`${API_URL}/api/transactions/${transaction.id}`, editedTransaction, { withCredentials: true })
       .then(() => {
         onTransactionUpdated(editedTransaction);
         setIsEditing(false);
@@ -23,6 +26,11 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
   const handleAccountChange = (e) => {
     const selectedAccount = accounts.find(a => a.account_id === parseInt(e.target.value));
     setEditedTransaction({ ...editedTransaction, account_id: selectedAccount.account_id, account_name: selectedAccount.account_name, account_type: selectedAccount.account_type });
+  }
+
+  const handlePaymentMethodChange = (e) => {
+    const selectedMethod = paymentMethods.find(m => m.method_id === parseInt(e.target.value));
+    setEditedTransaction({ ...editedTransaction, payment_method_id: selectedMethod.method_id, payment_method: selectedMethod.method_name });
   }
 
   if (isEditing) {
@@ -50,6 +58,19 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
           </select>
         </td>
         <td>
+          <select
+            className="form-control"
+            value={editedTransaction.payment_method_id}
+            onChange={handlePaymentMethodChange}
+          >
+            {paymentMethods && paymentMethods.map(method => (
+              <option key={method.method_id} value={method.method_id}>
+                {method.method_name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
           <input
             type="number"
             className="form-control"
@@ -66,8 +87,8 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
           />
         </td>
         <td>
-          <button className="btn btn-success me-2" onClick={handleUpdate}>Save</button>
-          <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
+          <button className="btn btn-success me-2" onClick={handleUpdate}>{t('save')}</button>
+          <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>{t('cancel')}</button>
         </td>
       </tr>
     );
@@ -77,11 +98,12 @@ const Transaction = ({ transaction, accounts, onTransactionUpdated, onDeleteTran
     <tr>
       <td>{transaction.transaction_date}</td>
       <td>{transaction.account_name}</td>
+      <td>{transaction.payment_method}</td>
       <td>{transaction.amount}</td>
       <td>{transaction.description}</td>
       <td>
-        <button className="btn btn-primary me-2" onClick={() => setIsEditing(true)}>Edit</button>
-        <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+        <button className="btn btn-primary me-2" onClick={() => setIsEditing(true)}>{t('edit')}</button>
+        <button className="btn btn-danger" onClick={handleDelete}>{t('delete')}</button>
       </td>
     </tr>
   );

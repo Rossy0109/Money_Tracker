@@ -6,15 +6,32 @@ import Summary from './Summary';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import Login from './Login';
+import API_URL from './config';
 
 function App() {
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Setup Axios interceptor to catch 403 Forbidden (RLS violations)
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      err => {
+        if (err.response && err.response.status === 403) {
+          setError(t('permission_denied_rls'));
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [t]);
 
   const fetchTransactions = useCallback(() => {
-    axios.get('http://localhost:5000/api/transactions', { withCredentials: true })
+    axios.get(`${API_URL}/api/transactions`, { withCredentials: true })
       .then(response => {
         setTransactions(response.data);
       })
@@ -24,7 +41,7 @@ function App() {
   }, []);
 
   const fetchAccounts = useCallback(() => {
-    axios.get('http://localhost:5000/api/accounts', { withCredentials: true })
+    axios.get(`${API_URL}/api/accounts`, { withCredentials: true })
       .then(response => {
         setAccounts(response.data);
       })
@@ -33,12 +50,23 @@ function App() {
       });
   }, []);
 
+  const fetchPaymentMethods = useCallback(() => {
+    axios.get(`${API_URL}/api/payment_methods`, { withCredentials: true })
+      .then(response => {
+        setPaymentMethods(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching payment methods:', error);
+      });
+  }, []);
+
   useEffect(() => {
     if (loggedIn) {
       fetchAccounts();
       fetchTransactions();
+      fetchPaymentMethods();
     }
-  }, [loggedIn, fetchAccounts, fetchTransactions]);
+  }, [loggedIn, fetchAccounts, fetchTransactions, fetchPaymentMethods]);
 
   const handleTransactionAdded = (newTransaction) => {
     setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
@@ -51,7 +79,7 @@ function App() {
   };
 
   const handleDeleteTransaction = (id) => {
-    axios.delete(`http://localhost:5000/api/transactions/${id}`, { withCredentials: true })
+    axios.delete(`${API_URL}/api/transactions/${id}`, { withCredentials: true })
       .then(() => {
         setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
       })
@@ -84,11 +112,22 @@ function App() {
         <button className="btn btn-danger" onClick={handleLogout}>Logout</button>
       </div>
       <h1 className="text-center mb-4">{t('title')}</h1>
+      {error && (
+        <div className="alert alert-danger alert-dismissible fade show" role="alert">
+          {error}
+          <button type="button" className="btn-close" onClick={() => setError(null)} aria-label="Close"></button>
+        </div>
+      )}
       <Summary transactions={transactions} />
-      <TransactionForm onTransactionAdded={handleTransactionAdded} accounts={accounts} />
+      <TransactionForm 
+        onTransactionAdded={handleTransactionAdded} 
+        accounts={accounts} 
+        paymentMethods={paymentMethods} 
+      />
       <TransactionList
         transactions={transactions}
         accounts={accounts}
+        paymentMethods={paymentMethods}
         onTransactionUpdated={handleTransactionUpdated}
         onDeleteTransaction={handleDeleteTransaction}
       />

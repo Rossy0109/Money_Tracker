@@ -2,14 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import API_URL from './config';
 
-function Summary() {
+function Summary({ transactions }) {
   const { t } = useTranslation();
   const [dailySummary, setDailySummary] = useState({ totalIncome: 0, totalExpense: 0, balance: 0 });
   const [weeklyExpense, setWeeklyExpense] = useState(0);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/summary/daily')
+    axios.get(`${API_URL}/api/summary/daily`, { withCredentials: true })
       .then(response => {
         setDailySummary(response.data);
       })
@@ -17,14 +18,14 @@ function Summary() {
         console.error('Error fetching daily summary:', error);
       });
 
-    axios.get('http://localhost:5000/api/summary/weekly')
+    axios.get(`${API_URL}/api/summary/weekly`, { withCredentials: true })
       .then(response => {
         setWeeklyExpense(response.data.weeklyExpense);
       })
       .catch(error => {
         console.error('Error fetching weekly expense:', error);
       });
-  }, []);
+  }, [transactions]);
 
   return (
     <div className="row mb-4">

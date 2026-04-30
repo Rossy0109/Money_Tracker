@@ -2,12 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import API_URL from './config';
 
-function TransactionForm({ onTransactionAdded, accounts }) {
+function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
   const { t } = useTranslation();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('');
   const [transactionType, setTransactionType] = useState('খরচ'); // 'আয়' or 'খরচ'
 
   useEffect(() => {
@@ -20,9 +22,16 @@ function TransactionForm({ onTransactionAdded, accounts }) {
     }
   }, [accounts, transactionType]);
 
+  useEffect(() => {
+    // Set default payment method if available
+    if (paymentMethods && paymentMethods.length > 0 && !selectedPaymentMethodId) {
+      setSelectedPaymentMethodId(paymentMethods[0].method_id);
+    }
+  }, [paymentMethods, selectedPaymentMethodId]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selectedAccountId || !amount || !description) {
+    if (!selectedAccountId || !amount || !description || !selectedPaymentMethodId) {
       alert('Please fill in all fields.');
       return;
     }
@@ -38,13 +47,14 @@ function TransactionForm({ onTransactionAdded, accounts }) {
       account_name: selectedAccount.account_name,
       amount: parseFloat(amount),
       description,
-      account_type: selectedAccount.account_type, // Add account_type for filtering/display
-      category: selectedAccount.category, // Add category for filtering/display
+      account_type: selectedAccount.account_type,
+      category: selectedAccount.category,
+      payment_method_id: selectedPaymentMethodId
     };
 
-    axios.post('http://localhost:5000/api/transactions', newTransaction)
+    axios.post(`${API_URL}/api/transactions`, newTransaction)
       .then(response => {
-        onTransactionAdded(response.data); // Pass the new transaction data
+        onTransactionAdded(response.data);
         setDescription('');
         setAmount('');
       })
@@ -61,7 +71,7 @@ function TransactionForm({ onTransactionAdded, accounts }) {
         <h5 className="card-title">{t('add_new_transaction')}</h5>
         <form onSubmit={handleSubmit}>
           <div className="row mb-3">
-            <div className="col-md-6">
+            <div className="col-md-4">
               <div className="form-check form-check-inline">
                 <input
                   className="form-check-input"
@@ -87,7 +97,7 @@ function TransactionForm({ onTransactionAdded, accounts }) {
                 <label className="form-check-label" htmlFor="expenseRadio">{t('expense')}</label>
               </div>
             </div>
-            <div className="col-md-6">
+            <div className="col-md-4">
               <select
                 className="form-select"
                 value={selectedAccountId}
@@ -98,6 +108,21 @@ function TransactionForm({ onTransactionAdded, accounts }) {
                 {filteredAccounts.map(account => (
                   <option key={account.account_id} value={account.account_id}>
                     {account.account_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-4">
+              <select
+                className="form-select"
+                value={selectedPaymentMethodId}
+                onChange={(e) => setSelectedPaymentMethodId(parseInt(e.target.value))}
+                required
+              >
+                <option value="">{t('payment_method')}</option>
+                {paymentMethods && paymentMethods.map(method => (
+                  <option key={method.method_id} value={method.method_id}>
+                    {method.method_name}
                   </option>
                 ))}
               </select>

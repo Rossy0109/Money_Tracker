@@ -1,9 +1,0 @@
-tkcalendar
-matplotlib
-reportlab
-openpyxl
-pillow
-google-api-python-client
-google-auth-oauthlib
-Flask
-Flask-Cors
