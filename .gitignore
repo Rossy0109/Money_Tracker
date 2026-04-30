@@ -1,33 +1,30 @@
-# Node.js
-node_modules/
-server/node_modules/
-build/
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+*.db
+*.sqlite
+token.pickle
+credentials.json
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 venv/
-.venv/
+ENV/
 
-# Database
-*.db
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
+# Node
+node_modules/
+build/
 .env
-.env.*
 
-# IDEs
-.vscode/
-.idea/
+# Docker
+.docker
 
-# PID files
-*.pid
-
-# Local Netlify folder
-.netlify
+# OS
+.DS_Store
+Thumbs.db

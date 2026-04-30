@@ -17,7 +17,12 @@
   "select_account": "খাত নির্বাচন করুন",
   "date": "তারিখ",
   "account": "খাত",
+  "payment_method": "পেমেন্ট পদ্ধতি",
+  "actions": "অ্যাকশন",
+  "save": "সংরক্ষণ করুন",
+  "cancel": "বাতিল করুন",
   "delete": "মুছুন",
   "no_transactions_yet": "এখনও কোনো লেনদেন নেই।",
-  "weekly_expense": "সাপ্তাহিক ব্যয়"
+  "weekly_expense": "সাপ্তাহিক ব্যয়",
+  "permission_denied_rls": "অনুমতি নেই: আপনার ডাটাবেস নিরাপত্তা নীতি (RLS) এই কাজটি অবরুদ্ধ করেছে।"
 }

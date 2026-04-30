@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./server
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - SECRET_KEY=${SECRET_KEY:-your_secret_key_here}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    volumes:
+      - ./server:/app
+
+  client:
+    build: ./client
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REACT_APP_API_URL=http://localhost:5000
+    depends_on:
+      - api

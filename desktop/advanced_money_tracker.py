@@ -96,7 +96,7 @@ class AdvancedMoneyTracker:
 
         # GUI
         self.create_modern_gui()
-        self.load_dashboard()
+        self.show_dashboard()
 
     def setup_logging(self):
         self.logger = logging.getLogger('MoneyTrackerApp')
@@ -263,10 +263,12 @@ class AdvancedMoneyTracker:
             self.conn.commit()
 
     def is_numeric(self, value):
+        if value is None:
+            return False
         try:
             float(value)
             return True
-        except ValueError:
+        except (ValueError, TypeError):
             return False
 
     def check_password_exists(self):
@@ -2140,9 +2142,6 @@ class AdvancedMoneyTracker:
         theme_var = tk.StringVar(value=self.current_theme)
         tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light", bg=self.colors['card'], command=lambda: self.apply_theme(theme_var.get())).pack(side=tk.LEFT, padx=5)
         # Add more themes here if needed
-
-            security_question_entry.delete(0, tk.END)
-            security_answer_entry.delete(0, tk.END)
 
     def _upload_to_drive(self):
         if self.drive_sync.service:

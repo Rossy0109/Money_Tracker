@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Transaction from './Transaction';
 
-function TransactionList({ transactions, accounts, onTransactionUpdated, onDeleteTransaction }) {
+function TransactionList({ transactions, accounts, paymentMethods, onTransactionUpdated, onDeleteTransaction }) {
   const { t } = useTranslation();
 
   return (
@@ -15,6 +15,7 @@ function TransactionList({ transactions, accounts, onTransactionUpdated, onDelet
               <tr>
                 <th>{t('date')}</th>
                 <th>{t('account')}</th>
+                <th>{t('payment_method')}</th>
                 <th>{t('amount')}</th>
                 <th>{t('description')}</th>
                 <th>{t('actions')}</th>
@@ -26,6 +27,7 @@ function TransactionList({ transactions, accounts, onTransactionUpdated, onDelet
                   key={t.id}
                   transaction={t}
                   accounts={accounts}
+                  paymentMethods={paymentMethods}
                   onTransactionUpdated={onTransactionUpdated}
                   onDeleteTransaction={onDeleteTransaction}
                 />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import API_URL from './config';
 
 function Login({ onLogin }) {
   const [password, setPassword] = useState('');
@@ -7,7 +8,7 @@ function Login({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    axios.post('http://localhost:5000/api/login', { password }, { withCredentials: true })
+    axios.post(`${API_URL}/api/login`, { password }, { withCredentials: true })
       .then(response => {
         onLogin();
       })

@@ -1,181 +1,55 @@
-# Money_Tracker
-# 💰 Advanced Money Tracker
+# 💰 Elite Money Tracker (Standard Version)
 
-একটি সম্পূর্ণ ফিচার-সমৃদ্ধ ব্যক্তিগত আর্থিক ব্যবস্থাপনা সফটওয়্যার (বাংলা ভাষায়)
+A feature-rich personal finance management system with a modern React frontend and Flask backend.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-lightgrey.svg)
+## 🏗️ Project Architecture
 
-## ✨ বৈশিষ্ট্যসমূহ
+This project follows a professional multi-service architecture:
 
-### 🏠 মূল ফিচার
-- ✅ **দৈনিক আয়-ব্যয় এন্ট্রি** - সহজ এবং দ্রুত লেনদেন রেকর্ডিং
-- 📊 **ইন্টারঅ্যাক্টিভ ড্যাশবোর্ড** - রিয়েল-টাইম আর্থিক সামারি
-- 💳 **একাধিক পেমেন্ট মাধ্যম** - নগদ, ব্যাংক, bKash, Nagad, Rocket
-- 🎨 **Modern Material Design UI** - GitHub-অনুপ্রাণিত ইন্টারফেস
-- 🔐 **পাসওয়ার্ড সুরক্ষা** - মাস্টার পাসওয়ার্ড দিয়ে ডেটা রক্ষা
+- **`/client`**: React.js frontend application (Port 3001)
+- **`/server`**: Flask API backend (Port 5000), connected to Supabase
+- **`/desktop`**: Legacy Tkinter desktop application (SQLite)
 
-### 📈 উন্নত ফিচার
-- 💰 **বাজেট ম্যানেজমেন্ট** - মাসিক বাজেট সেট এবং ট্র্যাকিং
-- ⚠️ **স্মার্ট অ্যালার্ট** - বাজেট সীমা অতিক্রম সতর্কতা
-- 🔄 **Recurring Transactions** - নিয়মিত খরচ অটো-এন্ট্রি
-- 🎯 **আর্থিক লক্ষ্য** - সঞ্চয় লক্ষ্য সেট এবং প্রগতি ট্র্যাক
-- 📊 **চার্ট ও গ্রাফ** - পাই চার্ট এবং বার চার্ট দিয়ে বিশ্লেষণ
-- 📤 **এক্সপোর্ট** - PDF এবং Excel ফরম্যাটে রিপোর্ট সংরক্ষণ
-- 🔍 **অ্যাডভান্সড সার্চ** - তারিখ রেঞ্জ এবং ফিল্টার দিয়ে খুঁজুন
+## 🚀 Quick Start (Docker - Recommended)
 
-### 🗂️ পূর্ব-নির্ধারিত খাত (১৭টি)
-**পারিবারিক:** দৈনিক বাজার, ইউটিলিটি, আনুষঙ্গিক খরচ  
-**ব্যবসায়িক:** ঠিকাদারী, লাইসেন্স, অফিস খরচ  
-**সামাজিক:** রাজনৈতিক খরচ, অনুদান  
-**নিয়মিত:** বেতন, যাতায়াত, নাস্তা/আপ্যায়ন
-
-## 🚀 দ্রুত শুরু
-
-### প্রয়োজনীয়তা
-- Python 3.8 বা তার উপরে
-- Windows, macOS, বা Linux
-
-### ইনস্টলেশন
-
-#### ১. রিপোজিটরি ক্লোন করুন
-```bash
-git clone https://github.com/Rossy0109/Money_Tracker.git
-cd Money_Tracker
-```
-
-#### ২. নির্ভরশীল লাইব্রেরি ইনস্টল করুন
-```bash
-pip install tkcalendar matplotlib reportlab openpyxl pillow
-```
-
-#### ৩. অ্যাপ্লিকেশন চালান
-```bash
-python advanced_money_tracker.py
-```
-
-## 📖 ব্যবহার নির্দেশিকা
-
-### প্রথম ব্যবহার
-1. সফটওয়্যার চালু করুন (প্রথমবার কোনো পাসওয়ার্ড নেই)
-2. **Settings** মেনুতে গিয়ে পাসওয়ার্ড সেট করুন (ঐচ্ছিক)
-3. **💳 অ্যাকাউন্ট** মেনুতে পেমেন্ট মাধ্যম দেখুন
-
-### নতুন লেনদেন যোগ করা
-1. **➕ নতুন এন্ট্রি** ক্লিক করুন
-2. লেনদেনের ধরন নির্বাচন করুন (আয়/খরচ)
-3. তারিখ, খাত, পরিমাণ এবং পেমেন্ট মাধ্যম পূরণ করুন
-4. **সংরক্ষণ করুন** ক্লিক করুন
-
-### বাজেট সেট করা
-1. **💰 বাজেট** মেনুতে যান
-2. খাত নির্বাচন করুন
-3. মাসিক বাজেট পরিমাণ লিখুন
-4. সংরক্ষণ করুন
-
-### রিপোর্ট দেখা
-1. **📊 রিপোর্ট** মেনুতে যান
-2. মাস নির্বাচন করুন
-3. চার্ট এবং সামারি দেখুন
-
-### এক্সপোর্ট করা
-1. **📤 এক্সপোর্ট** মেনুতে যান
-2. তারিখ রেঞ্জ নির্বাচন করুন
-3. PDF বা Excel বেছে নিন
-4. ফাইল সংরক্ষণ করুন
-
-## 🗄️ ডেটাবেস স্ট্রাকচার
-
-সফটওয়্যারটি SQLite ব্যবহার করে নিম্নলিখিত টেবিল সহ:
-
-- `accounts` - হিসাবের খাত (আয় ও খরচ)
-- `payment_methods` - পেমেন্ট মাধ্যম (নগদ, ব্যাংক, ইত্যাদি)
-- `transactions` - সমস্ত লেনদেন
-- `budget` - মাসিক বাজেট
-- `recurring_templates` - নিয়মিত লেনদেনের টেমপ্লেট
-- `financial_goals` - আর্থিক লক্ষ্য
-- `security` - পাসওয়ার্ড এবং সিকিউরিটি
-
-ডেটাবেস ফাইল: `advanced_money_tracker.db` (অ্যাপের পাশে তৈরি হবে)
-
-## 🔧 উন্নত কনফিগারেশন
-
-### EXE ফাইল তৈরি করা (Windows)
+Run the entire stack with a single command:
 
 ```bash
-# PyInstaller ইনস্টল করুন
-pip install pyinstaller
-
-# একক EXE ফাইল তৈরি করুন
-pyinstaller --onefile --windowed --name="AdvancedMoneyTracker" advanced_money_tracker.py
+docker-compose up --build
 ```
 
-EXE ফাইল পাবেন: `dist/AdvancedMoneyTracker.exe`
+Access the application at `http://localhost:3001`.
 
-### কাস্টম খাত যোগ করা
+## 🛠️ Manual Setup
 
-সরাসরি কোড এডিট করে অথবা ডেটাবেসে SQL দিয়ে:
+### 1. Supabase Setup
+- Create a new project on [Supabase](https://supabase.com).
+- Run the SQL in `server/supabase_schema.sql` in the Supabase SQL Editor.
+- Copy your Project URL and Service Role Key.
 
-```sql
-INSERT INTO accounts (account_name, account_type, category, icon, color) 
-VALUES ('নতুন খাত', 'খরচ', 'অন্যান্য', '💸', '#E91E63');
+### 2. Backend (Server)
+```bash
+cd server
+pip install -r requirements.txt
+# Create a .env file with:
+# SUPABASE_URL=your_project_url
+# SUPABASE_KEY=your_service_role_key
+python server.py
 ```
 
-## 📊 স্ক্রিনশট
+### 3. Frontend (Client)
+```bash
+cd client
+npm install
+npm start
+```
 
-### ড্যাশবোর্ড
-![Dashboard](screenshots/dashboard.png)
+## ✨ Features
+- ✅ **Daily Transactions** - Track income and expenses
+- 📊 **Real-time Summary** - Dashboard with financial insights
+- 💳 **Payment Methods** - Manage Cash, Bank, and Mobile wallets
+- 🔐 **Secure Access** - Protected by master password
+- 🐳 **Docker Ready** - Standardized containerized deployment
 
-### নতুন এন্ট্রি
-![Entry Form](screenshots/entry.png)
-
-### রিপোর্ট ও চার্ট
-![Reports](screenshots/reports.png)
-
-*(স্ক্রিনশট যোগ করতে `screenshots/` ফোল্ডার তৈরি করুন)*
-
-## 🤝 অবদান
-
-অবদান স্বাগত! আপনি নিম্নলিখিতভাবে সাহায্য করতে পারেন:
-
-1. এই রিপোজিটরি Fork করুন
-2. একটি নতুন ব্র্যাঞ্চ তৈরি করুন (`git checkout -b feature/AmazingFeature`)
-3. আপনার পরিবর্তন কমিট করুন (`git commit -m 'Add some AmazingFeature'`)
-4. ব্র্যাঞ্চে পুশ করুন (`git push origin feature/AmazingFeature`)
-5. একটি Pull Request খুলুন
-
-## 🐛 সমস্যা রিপোর্ট
-
-কোনো বাগ বা সমস্যা পেলে [Issues](https://github.com/Rossy0109/Money_Tracker/issues) পেজে রিপোর্ট করুন।
-
-## 📝 লাইসেন্স
-
-এই প্রকল্পটি MIT লাইসেন্সের অধীনে লাইসেন্সকৃত - বিস্তারিত জানতে [LICENSE](LICENSE) ফাইল দেখুন।
-
-## 👥 লেখক
-
-- **Rossy0109** - [GitHub Profile](https://github.com/Rossy0109)
-
-## 🙏 স্বীকৃতি
-
-- Material Design দ্বারা অনুপ্রাণিত UI
-- GitHub স্টাইল ইন্টারফেস
-- Python এবং Tkinter কমিউনিটি
-
-## 📞 যোগাযোগ
-
-প্রশ্ন বা পরামর্শের জন্য:
-- GitHub Issues: https://github.com/Rossy0109/Money_Tracker/issues
-- Email: [আপনার ইমেইল]
-
----
-
-## ⭐ এই প্রজেক্ট পছন্দ হলে স্টার দিন!
-
-যদি এই সফটওয়্যারটি আপনার কাজে লাগে, তাহলে একটি ⭐ স্টার দিয়ে সাপোর্ট করুন!
-
----
-
-**সর্বশেষ আপডেট:** নভেম্বর 2025  
-**ভার্সন:** 2.0 (সম্পূর্ণ সংস্করণ)
+## 📝 License
+MIT License
