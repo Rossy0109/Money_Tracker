@@ -1,55 +1,55 @@
-# 💰 Elite Money Tracker (Standard Version)
+# 💰 Elite Money Tracker (Ultimate Version)
 
-A feature-rich personal finance management system with a modern React frontend and Flask backend.
+A professional personal finance management system designed for **GitHub Pages**.
 
-## 🏗️ Project Architecture
+## 🏗️ Architecture
+- **Frontend**: HTML5, Vanilla CSS, Vanilla JavaScript (ES6 Modules)
+- **Database**: Firebase Firestore (Real-time)
+- **Authentication**: Firebase Auth (Google Sign-In)
+- **Hosting**: GitHub Pages (via GitHub Actions)
 
-This project follows a professional multi-service architecture:
+## 🚀 Professional Features
 
-- **`/client`**: React.js frontend application (Port 3001)
-- **`/server`**: Flask API backend (Port 5000), connected to Supabase
-- **`/desktop`**: Legacy Tkinter desktop application (SQLite)
+1.  **Multi-User Support**: Data is now private and secure. Log in with Google to manage your own personal records.
+2.  **Expense Breakdown (Pie Chart)**: Visual analysis of where your money goes, categorized by expense types.
+3.  **Real-time Search**: Quickly find any transaction in the Reports section by searching for descriptions or categories.
+4.  **Dark Mode**: A beautiful, eye-friendly theme that persists across sessions.
+5.  **Data Portability**: Export your data to **PDF**, **Excel**, or a full **JSON Backup**.
 
-## 🚀 Quick Start (Docker - Recommended)
+## 🛠️ Setup Instructions
 
-Run the entire stack with a single command:
+### 1. Firebase Configuration
+1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Firestore Database** and **Authentication** (Google Provider).
+3. Create a Web App and copy the `firebaseConfig` object.
+4. Paste your configuration into `firebase-config.js`.
 
-```bash
-docker-compose up --build
+### 2. Firestore Security Rules (Production)
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      // Allow read/write only if the user is authenticated and owns the data
+      allow read, write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+    match /accounts/{id} {
+        allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    // Apply similar rules to all collections
+  }
+}
 ```
 
-Access the application at `http://localhost:3001`.
-
-## 🛠️ Manual Setup
-
-### 1. Supabase Setup
-- Create a new project on [Supabase](https://supabase.com).
-- Run the SQL in `server/supabase_schema.sql` in the Supabase SQL Editor.
-- Copy your Project URL and Service Role Key.
-
-### 2. Backend (Server)
+### 3. Local Development
 ```bash
-cd server
-pip install -r requirements.txt
-# Create a .env file with:
-# SUPABASE_URL=your_project_url
-# SUPABASE_KEY=your_service_role_key
-python server.py
+python3 -m http.server 8000
 ```
+Visit `http://localhost:8000`.
 
-### 3. Frontend (Client)
-```bash
-cd client
-npm install
-npm start
-```
+## 🔐 Authentication
+- **Primary**: Login with Google.
+- **Legacy**: Master Password (`AhmedKamrul010987`) - uses a shared 'master_user' ID.
 
-## ✨ Features
-- ✅ **Daily Transactions** - Track income and expenses
-- 📊 **Real-time Summary** - Dashboard with financial insights
-- 💳 **Payment Methods** - Manage Cash, Bank, and Mobile wallets
-- 🔐 **Secure Access** - Protected by master password
-- 🐳 **Docker Ready** - Standardized containerized deployment
-
-## 📝 License
-MIT License
+## 🚢 Deployment
+Every push to the `main` branch automatically deploys the latest version to your GitHub Pages site.

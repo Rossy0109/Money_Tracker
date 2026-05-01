@@ -71,7 +71,7 @@ class GoogleDriveSync:
             self.logger.info(f"App folder created: {file.get('id')}")
             return file.get('id')
 
-    def upload_db_file(self):
+    def upload_file(self):
         if not self.service or not self.app_folder_id:
             self.logger.error("Google Drive service not initialized or app folder not found.")
             return False
@@ -86,7 +86,8 @@ class GoogleDriveSync:
         ).execute()
         items = results.get('files', [])
 
-        media = MediaFileUpload(self.db_path, mimetype='application/x-sqlite3', resumable=True)
+        mimetype = 'application/json' if file_name.endswith('.json') else 'application/x-sqlite3'
+        media = MediaFileUpload(self.db_path, mimetype=mimetype, resumable=True)
         
         if items:
             file_id = items[0]['id']
@@ -111,7 +112,7 @@ class GoogleDriveSync:
             self.logger.info(f"File uploaded: {uploaded_file.get('name')} ({uploaded_file.get('id')})")
         return True
 
-    def download_db_file(self):
+    def download_file(self):
         if not self.service or not self.app_folder_id:
             self.logger.error("Google Drive service not initialized or app folder not found.")
             return False

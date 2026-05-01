@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import API_URL from './config';
+import { supabase } from './supabase';
 
 const Transaction = ({ transaction, accounts, paymentMethods, onTransactionUpdated, onDeleteTransaction }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTransaction, setEditedTransaction] = useState({ ...transaction });
 
-  const handleUpdate = () => {
-    axios.put(`${API_URL}/api/transactions/${transaction.id}`, editedTransaction, { withCredentials: true })
-      .then(() => {
-        onTransactionUpdated(editedTransaction);
-        setIsEditing(false);
+  const handleUpdate = async () => {
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        transaction_date: editedTransaction.transaction_date,
+        account_id: editedTransaction.account_id,
+        payment_method_id: editedTransaction.payment_method_id,
+        amount: editedTransaction.amount,
+        description: editedTransaction.description
       })
-      .catch(error => {
-        console.error('Error updating transaction:', error);
-      });
+      .eq('transaction_id', transaction.id);
+
+    if (error) {
+      console.error('Error updating transaction:', error);
+      alert('Error updating transaction');
+    } else {
+      onTransactionUpdated(editedTransaction);
+      setIsEditing(false);
+    }
   };
 
   const handleDelete = () => {
