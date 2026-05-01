@@ -1,9 +1,11 @@
 {
   "name": "client",
   "version": "0.1.0",
+  "homepage": ".",
   "private": true,
   "dependencies": {
     "@fullhuman/postcss-purgecss": "^7.0.2",
+    "@supabase/supabase-js": "^2.105.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import API_URL from './config';
 
 function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
@@ -11,56 +10,50 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('');
   const [transactionType, setTransactionType] = useState('খরচ'); // 'আয়' or 'খরচ'
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Set default selected account when accounts load or type changes
-    const filteredAccounts = accounts.filter(acc => acc.account_type === transactionType);
-    if (filteredAccounts.length > 0) {
-      setSelectedAccountId(filteredAccounts[0].account_id);
-    } else {
-      setSelectedAccountId('');
+    // Set default selected account
+    const filtered = accounts.filter(acc => acc.account_type === transactionType);
+    if (filtered.length > 0) {
+      setSelectedAccountId(filtered[0].account_id);
     }
   }, [accounts, transactionType]);
 
   useEffect(() => {
-    // Set default payment method if available
     if (paymentMethods && paymentMethods.length > 0 && !selectedPaymentMethodId) {
       setSelectedPaymentMethodId(paymentMethods[0].method_id);
     }
   }, [paymentMethods, selectedPaymentMethodId]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAccountId || !amount || !description || !selectedPaymentMethodId) {
       alert('Please fill in all fields.');
       return;
     }
 
-    const selectedAccount = accounts.find(acc => acc.account_id === selectedAccountId);
-    if (!selectedAccount) {
-      alert('Selected account not found.');
-      return;
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        account_id: selectedAccountId,
+        amount: parseFloat(amount),
+        description,
+        payment_method_id: selectedPaymentMethodId,
+        transaction_date: new Date().toISOString().split('T')[0]
+      };
+
+      await axios.post(`${API_URL}/api/transactions`, payload, { withCredentials: true });
+      
+      onTransactionAdded(); // Trigger refresh in parent
+      setDescription('');
+      setAmount('');
+    } catch (err) {
+      console.error('Error adding transaction:', err);
+      alert('Error adding transaction: ' + (err.response?.data?.error?.message || err.message));
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const newTransaction = {
-      account_id: selectedAccount.account_id,
-      account_name: selectedAccount.account_name,
-      amount: parseFloat(amount),
-      description,
-      account_type: selectedAccount.account_type,
-      category: selectedAccount.category,
-      payment_method_id: selectedPaymentMethodId
-    };
-
-    axios.post(`${API_URL}/api/transactions`, newTransaction)
-      .then(response => {
-        onTransactionAdded(response.data);
-        setDescription('');
-        setAmount('');
-      })
-      .catch(error => {
-        console.error('Error adding transaction:', error);
-      });
   };
 
   const filteredAccounts = accounts.filter(acc => acc.account_type === transactionType);
@@ -151,7 +144,10 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
               />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary">{t('add_transaction')}</button>
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> : null}
+            {t('add_transaction')}
+          </button>
         </form>
       </div>
     </div>
