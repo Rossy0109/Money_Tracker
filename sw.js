@@ -1,9 +1,10 @@
-const CACHE_NAME = 'elite-tracker-v1';
+const CACHE_NAME = 'elite-tracker-{{BUILD_VERSION}}';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './app.js',
+    './locales.js',
     './firebase-config.js',
     './manifest.json',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap',
