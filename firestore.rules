@@ -26,9 +26,18 @@ service cloud.firestore {
                             && request.resource.data.type in ['income', 'expense'];
     }
 
-    // Budgets, Goals, Recurring
-    match /budgets/{id} { allow read, write: if isOwner(request.auth.uid); }
-    match /financial_goals/{id} { allow read, write: if isOwner(request.auth.uid); }
-    match /recurring_templates/{id} { allow read, write: if isOwner(request.auth.uid); }
+    // Budgets, Goals, Recurring Validation
+    match /budgets/{id} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId);
+    }
+    match /financial_goals/{id} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId);
+    }
+    match /recurring_templates/{id} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId);
+    }
   }
 }

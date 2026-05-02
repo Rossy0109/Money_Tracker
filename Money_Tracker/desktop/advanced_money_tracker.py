@@ -493,9 +493,13 @@ class AdvancedMoneyTracker:
             tk.Label(card, text=title, font=('Segoe UI', 11), bg=self.colors['card'], fg=self.colors['text_secondary']).pack()
             tk.Label(card, text=value, font=('Segoe UI', 18, 'bold'), bg=self.colors['card'], fg=color).pack(pady=(5, 15))
 
-        # Recent Transactions
-        recent_frame = tk.Frame(self.content_area, bg=self.colors['card'], relief=tk.RAISED, borderwidth=1)
-        recent_frame.pack(fill=tk.BOTH, expand=True, pady=(20, 0))
+        # Dashboard Charts and Recent Transactions Container
+        bottom_frame = tk.Frame(self.content_area, bg=self.colors['bg'])
+        bottom_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        # Left: Recent Transactions
+        recent_frame = tk.Frame(bottom_frame, bg=self.colors['card'], relief=tk.RAISED, borderwidth=1)
+        recent_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         tk.Label(
             recent_frame,
@@ -514,9 +518,9 @@ class AdvancedMoneyTracker:
         for col in columns:
             tree.heading(col, text=col)
             tree.column('তারিখ', width=100)
-            tree.column('খাত', width=300)
-            tree.column('পরিমাণ', width=150)
-            tree.column('পেমেন্ট', width=150)
+            tree.column('খাত', width=200)
+            tree.column('পরিমাণ', width=120)
+            tree.column('পেমেন্ট', width=120)
 
         self.cursor.execute('''
             SELECT t.transaction_date, a.account_name, t.amount, COALESCE(pm.method_name, 'N/A')
@@ -534,6 +538,46 @@ class AdvancedMoneyTracker:
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Right: Expense Pie Chart
+        if CHART_AVAILABLE:
+            chart_container = tk.Frame(bottom_frame, bg=self.colors['card'], relief=tk.RAISED, borderwidth=1, width=400)
+            chart_container.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False)
+
+            tk.Label(
+                chart_container,
+                text="📊 ব্যয়ের বিশ্লেষণ (মাসিক)",
+                font=('Segoe UI', 14, 'bold'),
+                bg=self.colors['card'],
+                fg=self.colors['text']
+            ).pack(pady=15)
+
+            # Get monthly expense data by category
+            self.cursor.execute('''
+                SELECT a.account_name, SUM(t.amount)
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.account_id
+                WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
+                GROUP BY a.account_name
+                HAVING SUM(t.amount) > 0
+            ''', (month_start, today))
+            chart_data = self.cursor.fetchall()
+
+            if chart_data:
+                labels = [row[0] for row in chart_data]
+                sizes = [row[1] for row in chart_data]
+                
+                fig = Figure(figsize=(4, 4), dpi=80, facecolor=self.colors['card'])
+                ax = fig.add_subplot(111)
+                ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 8})
+                ax.axis('equal')
+                
+                canvas = FigureCanvasTkAgg(fig, master=chart_container)
+                canvas_widget = canvas.get_tk_widget()
+                canvas_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+                canvas.draw()
+            else:
+                tk.Label(chart_container, text="এই মাসে কোন খরচ নেই", bg=self.colors['card'], fg=self.colors['text_secondary']).pack(expand=True)
 
     def show_new_entry(self):
         """নতুন এন্ট্রি - সম্পূর্ণ"""
