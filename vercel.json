@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Money_Tracker/client/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "build" }
+    },
+    {
+      "src": "Money_Tracker/server/server.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "Money_Tracker/server/server.py" },
+    { "src": "/(.*)", "dest": "/Money_Tracker/client/$1", "check": true },
+    { "src": "/(.*)", "dest": "Money_Tracker/client/build/index.html" }
+  ]
+}
