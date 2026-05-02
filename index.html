@@ -16,30 +16,31 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body data-theme="light">
-    <div id="app">
-        <!-- Login -->
+    <title data-i18n="title">💰 Elite Money Tracker - আল্টিমেট</title>
+    ...
         <section id="login-section" class="screen active">
             <div class="card login-card">
                 <div class="header">
-                    <h1>Elite Money Tracker</h1>
-                    <p>আপনার নিরাপদ আর্থিক বন্ধু</p>
+                    <h1 data-i18n="login_title">Elite Money Tracker</h1>
+                    <p data-i18n="login_subtitle">আপনার নিরাপদ আর্থিক বন্ধু</p>
                 </div>
                 <div id="auth-ui">
                     <button id="google-login-btn" class="btn-primary full-width" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom: 1.5rem;">
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" width="20" alt="Google">
-                        Google দিয়ে লগইন করুন
+                        <span data-i18n="google_login">Google দিয়ে লগইন করুন</span>
                     </button>
-                    <div style="margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem;">অথবা মাস্টার পাসওয়ার্ড ব্যবহার করুন</div>
+                    <div style="margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem;" data-i18n="or_master">অথবা মাস্টার পাসওয়ার্ড ব্যবহার করুন</div>
                     <form id="login-form">
                         <div class="form-group">
                             <input type="password" id="master-password" placeholder="••••••••" required>
                         </div>
-                        <button type="submit" class="btn-outline full-width">প্রবেশ করুন</button>
-                        <p id="login-error" class="error-msg hidden">পাসওয়ার্ড সঠিক নয়!</p>
+                        <button type="submit" class="btn-outline full-width" data-i18n="enter">প্রবেশ করুন</button>
+                        <p id="login-error" class="error-msg hidden" data-i18n="wrong_pass">পাসওয়ার্ড সঠিক নয়!</p>
                     </form>
                 </div>
             </div>
         </section>
+
 
         <!-- Sidebar Dashboard -->
         <section id="dashboard-section" class="screen hidden">
@@ -73,17 +74,17 @@
                     <!-- 1. Overview -->
                     <div id="section-overview" class="content-section">
                         <div class="summary-grid">
-                            <div class="card summary-card income"><h3>মোট আয়</h3><p id="total-income">৳ 0</p></div>
-                            <div class="card summary-card expense"><h3>মোট খরচ</h3><p id="total-expense">৳ 0</p></div>
-                            <div class="card summary-card balance"><h3>ব্যালেন্স</h3><p id="total-balance">৳ 0</p></div>
+                            <div class="card summary-card income"><h3 data-i18n="overview.income">মোট আয়</h3><p id="total-income">৳ 0</p></div>
+                            <div class="card summary-card expense"><h3 data-i18n="overview.expense">মোট খরচ</h3><p id="total-expense">৳ 0</p></div>
+                            <div class="card summary-card balance"><h3 data-i18n="overview.balance">ব্যালেন্স</h3><p id="total-balance">৳ 0</p></div>
                         </div>
                         <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
                             <div class="chart-container card" style="min-height: 350px;">
-                                <h3>আয় বনাম ব্যয় ট্রেন্ড</h3>
+                                <h3 data-i18n="overview.trend_title">আয় বনাম ব্যয় ট্রেন্ড</h3>
                                 <canvas id="overviewChart"></canvas>
                             </div>
                             <div class="chart-container card" style="min-height: 350px;">
-                                <h3>খরচের বিশ্লেষণ (Pie Chart)</h3>
+                                <h3 data-i18n="overview.pie_title">খরচের বিশ্লেষণ (Pie Chart)</h3>
                                 <canvas id="pieChart"></canvas>
                             </div>
                         </div>
@@ -92,19 +93,22 @@
                     <!-- 2. Transactions -->
                     <div id="section-transactions" class="content-section hidden">
                         <div class="card">
-                            <h2>➕ নতুন লেনদেন</h2>
+                            <h2 data-i18n="transactions.new">➕ নতুন লেনদেন</h2>
                             <form id="transaction-form">
                                 <div class="form-row">
                                     <input type="date" id="tx-date" required>
-                                    <select id="tx-type"><option value="income">আয়</option><option value="expense" selected>খরচ</option></select>
+                                    <select id="tx-type">
+                                        <option value="income" data-i18n="transactions.income">আয়</option>
+                                        <option value="expense" selected data-i18n="transactions.expense">খরচ</option>
+                                    </select>
                                 </div>
                                 <div class="form-row">
                                     <select id="tx-account" required></select>
                                     <select id="tx-method" required></select>
                                 </div>
-                                <input type="number" id="tx-amount" placeholder="পরিমাণ (৳)" required>
-                                <textarea id="tx-desc" placeholder="বিবরণ..."></textarea>
-                                <button type="submit" class="btn-primary full-width">সংরক্ষণ করুন</button>
+                                <input type="number" id="tx-amount" data-i18n-placeholder="transactions.amount" placeholder="পরিমাণ (৳)" required>
+                                <textarea id="tx-desc" data-i18n-placeholder="transactions.desc" placeholder="বিবরণ..."></textarea>
+                                <button type="submit" class="btn-primary full-width" data-i18n="transactions.save">সংরক্ষণ করুন</button>
                             </form>
                         </div>
                     </div>
@@ -198,6 +202,33 @@
                 navigator.serviceWorker.register('./sw.js')
                     .then(reg => console.log('Service Worker registered!'))
                     .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+           .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+</section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered!'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+           .catch(err => console.log('Service Worker registration failed: ', err));
             });
         }
     </script>
