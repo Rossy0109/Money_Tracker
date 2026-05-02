@@ -219,8 +219,7 @@ function setupForms() {
         e.preventDefault();
         const catId = document.getElementById('tx-account').value;
         const cat = state.categories.find(c => c.id === catId);
-        await addDoc(collection(db, "transactions"), {
-            userId: state.user.uid,
+        await DB.add("transactions", {
             date: document.getElementById('tx-date').value,
             categoryId: catId, categoryName: cat.name, type: cat.type,
             amount: parseFloat(document.getElementById('tx-amount').value),
@@ -237,8 +236,7 @@ function setupForms() {
         e.preventDefault();
         const catId = document.getElementById('rec-account').value;
         const cat = state.categories.find(c => c.id === catId);
-        await addDoc(collection(db, "recurring_templates"), {
-            userId: state.user.uid,
+        await DB.add("recurring_templates", {
             categoryId: catId, categoryName: cat.name,
             amount: parseFloat(document.getElementById('rec-amount').value),
             day: parseInt(document.getElementById('rec-day').value)
@@ -248,8 +246,7 @@ function setupForms() {
 
     document.getElementById('goal-form').onsubmit = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, "financial_goals"), {
-            userId: state.user.uid,
+        await DB.add("financial_goals", {
             name: document.getElementById('goal-name').value,
             target: parseFloat(document.getElementById('goal-target').value)
         });
@@ -258,8 +255,7 @@ function setupForms() {
 
     document.getElementById('category-form').onsubmit = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, "accounts"), {
-            userId: state.user.uid,
+        await DB.add("accounts", {
             name: document.getElementById('cat-name').value,
             type: document.getElementById('cat-type').value
         });
@@ -269,8 +265,7 @@ function setupForms() {
     document.getElementById('budget-form').onsubmit = async (e) => {
         e.preventDefault();
         const catId = document.getElementById('budget-account').value;
-        await setDoc(doc(db, "budgets", catId), { 
-            userId: state.user.uid,
+        await DB.update("budgets", catId, { 
             amount: parseFloat(document.getElementById('budget-amount').value) 
         });
         e.target.reset();
@@ -302,7 +297,7 @@ function renderTransactionTable() {
         </tr>
     `).join('');
 }
-window.deleteTx = async (id) => { if(confirm('মুছে ফেলতে চান?')) await deleteDoc(doc(db, "transactions", id)); };
+window.deleteTx = async (id) => { if(confirm('মুছে ফেলতে চান?')) await DB.delete("transactions", id); };
 
 function renderCharts() {
     renderTrendChart();
@@ -476,6 +471,33 @@ function setupBackup() {
 
 function setupTheme() {
     const toggle = document.getElementById('theme-toggle');
+    const update = (t) => {
+        document.body.setAttribute('data-theme', t);
+        toggle.textContent = t === 'dark' ? '☀️ লাইট মোড' : '🌓 ডার্ক মোড';
+        renderCharts();
+    };
+    update(localStorage.getItem('theme') || 'light');
+    toggle.onclick = () => {
+        const n = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', n);
+        update(n);
+    };
+}
+
+function setupNavigation() {
+    document.querySelectorAll('.nav-links li').forEach(l => {
+        l.onclick = () => {
+            const s = l.getAttribute('data-section');
+            document.querySelectorAll('.nav-links li').forEach(x => x.classList.remove('active'));
+            l.classList.add('active');
+            document.querySelectorAll('.content-section').forEach(x => x.classList.toggle('hidden', x.id !== `section-${s}`));
+            if (s === 'overview') renderCharts();
+        };
+    });
+}
+
+init();
+oggle');
     const update = (t) => {
         document.body.setAttribute('data-theme', t);
         toggle.textContent = t === 'dark' ? '☀️ লাইট মোড' : '🌓 ডার্ক মোড';

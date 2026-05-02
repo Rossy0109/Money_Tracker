@@ -13,5 +13,10 @@ This document establishes the software engineering standards and architectural p
 - **Systematic Structure**: Keep the root clean. Business logic should reside in `app.js`. Configuration should reside in `firebase-config.js`.
 - **Professional UX**: Maintain the "Ultimate" aesthetic with Dark Mode support and real-time feedback.
 
-## 🚢 Deployment
-- Any push to `main` triggers a Playwright test suite followed by deployment to the `gh-pages` branch.
+## 🛡️ Longevity & Sustainability (10-Year Vision)
+- **Standard-First**: Prioritize native Web APIs (ES6+, CSS Grid/Flexbox) over third-party libraries to minimize breaking changes from dependency updates.
+- **Vendor Agnostic**: Keep the core logic in `app.js` decoupled from the Firebase SDK. If a database migration is needed in the future, only the `Data Hub` section should require modification.
+- **Data Sovereignty**: The JSON backup feature must always capture the *entire* state. Users must never be locked into a single platform.
+- **Interconnect Strength**: 
+    - The `/Money_Tracker` (Standard) and root (Ultimate) versions should share the same data schema logic to allow for easy migration between stacks.
+    - Automated tests must cover critical path logic (Auth, Data Aggregation) to catch regressions during future platform updates.
