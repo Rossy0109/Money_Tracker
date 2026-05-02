@@ -19,6 +19,10 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
     await page.fill('#master-password', 'AhmedKamrul010987');
     await page.click('button:has-text("প্রবেশ করুন")');
 
+    // Wait for dashboard to be visible
+    const dashboard = page.locator('#dashboard-section');
+    await expect(dashboard).not.toHaveClass(/hidden/, { timeout: 10000 });
+
     // Check if summary cards are present
     await expect(page.locator('h3:has-text("মোট আয়")')).toBeVisible();
     await expect(page.locator('h3:has-text("মোট খরচ")')).toBeVisible();
@@ -29,6 +33,9 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
     // Login first
     await page.fill('#master-password', 'AhmedKamrul010987');
     await page.click('button:has-text("প্রবেশ করুন")');
+
+    // Wait for dashboard
+    await expect(page.locator('#dashboard-section')).not.toHaveClass(/hidden/, { timeout: 10000 });
 
     // Go to transactions section
     await page.click('li[data-section="transactions"]');
