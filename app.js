@@ -30,10 +30,11 @@ let state = {
 
 // --- Core Initialization ---
 async function init() {
-    // Sentry Initialization
-    if (window.Sentry) {
+    // Sentry Initialization (Optional)
+    const sentryDSN = "YOUR_SENTRY_DSN";
+    if (window.Sentry && sentryDSN !== "YOUR_SENTRY_DSN") {
         Sentry.init({
-            dsn: "YOUR_SENTRY_DSN", // Replace with your actual Sentry DSN
+            dsn: sentryDSN,
             integrations: [],
             tracesSampleRate: 1.0,
         });
