@@ -420,12 +420,13 @@ function populateDropdowns() {
 function renderCategoryList() {
     document.getElementById('category-list').innerHTML = state.categories.map(c => `
         <li class="chip">
-            ${c.name} (${c.type==='income'?'আয়':'ব্যয়'})
+            ${c.name} (${c.type==='income'?t('transactions.income'):t('transactions.expense')})
             <span onclick="window.deleteCat('${c.id}')" style="cursor:pointer; color:red">×</span>
         </li>
     `).join('');
 }
-window.deleteCat = async (id) => { if(confirm('নিশ্চিত?')) await deleteDoc(doc(db, "accounts", id)); };
+window.deleteCat = async (id) => { if(confirm(t('settings.confirm'))) await DB.delete("accounts", id); };
+
 
 function updateBudgetProgress() {
     const curMonth = new Date().toISOString().substring(0, 7);
@@ -612,6 +613,10 @@ function setupNavigation() {
             document.querySelectorAll('.content-section').forEach(x => x.classList.toggle('hidden', x.id !== `section-${s}`));
             if (s === 'overview') renderCharts();
         };
+    });
+}
+
+init();
     });
 }
 
