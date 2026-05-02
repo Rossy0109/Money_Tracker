@@ -1,0 +1,12 @@
+{
+  "name": "money-tracker-ultimate",
+  "version": "1.0.0",
+  "description": "Professional Personal Finance Tracker (Ultimate Version)",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "serve": "^14.2.1"
+  },
+  "scripts": {
+    "test": "npx playwright test"
+  }
+}
