@@ -1,3 +1,4 @@
+import { locales } from './locales.js';
 import { db, auth, googleProvider } from './firebase-config.js';
 import { 
     collection, addDoc, onSnapshot, query, orderBy, doc, 
@@ -10,6 +11,7 @@ import {
 // --- Global State ---
 let state = {
     user: null,
+    lang: localStorage.getItem('lang') || 'bn',
     transactions: [],
     categories: [],
     budgets: [],
@@ -28,8 +30,45 @@ let state = {
     searchTerm: ''
 };
 
+// --- Localization Hub ---
+function setupLocalization() {
+    const langToggle = document.getElementById('lang-toggle');
+    langToggle.value = state.lang;
+    langToggle.onchange = (e) => {
+        state.lang = e.target.value;
+        localStorage.setItem('lang', state.lang);
+        applyLocales();
+        renderCharts();
+        renderTransactionTable();
+        renderCategoryList();
+    };
+    applyLocales();
+}
+
+function t(path) {
+    const keys = path.split('.');
+    let value = locales[state.lang];
+    for (const key of keys) {
+        value = value[key];
+        if (!value) return path;
+    }
+    return value;
+}
+
+function applyLocales() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        el.placeholder = t(key);
+    });
+}
+
 // --- Core Initialization ---
 async function init() {
+    setupLocalization();
     // Sentry Initialization (Optional)
     const sentryDSN = "YOUR_SENTRY_DSN";
     if (window.Sentry && sentryDSN !== "YOUR_SENTRY_DSN") {
