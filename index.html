@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Elite Money Tracker - আল্টিমেট</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Libraries -->
+    <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body data-theme="light">
+    <title data-i18n="title">💰 Elite Money Tracker - আল্টিমেট</title>
+    ...
+        <section id="login-section" class="screen active">
+            <div class="card login-card">
+                <div class="header">
+                    <h1 data-i18n="login_title">Elite Money Tracker</h1>
+                    <p data-i18n="login_subtitle">আপনার নিরাপদ আর্থিক বন্ধু</p>
+                </div>
+                <div id="auth-ui">
+                    <button id="google-login-btn" class="btn-primary full-width" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom: 1.5rem;">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" width="20" alt="Google">
+                        <span data-i18n="google_login">Google দিয়ে লগইন করুন</span>
+                    </button>
+                    <div style="margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem;" data-i18n="or_master">অথবা মাস্টার পাসওয়ার্ড ব্যবহার করুন</div>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <input type="password" id="master-password" placeholder="••••••••" required>
+                        </div>
+                        <button type="submit" class="btn-outline full-width" data-i18n="enter">প্রবেশ করুন</button>
+                        <p id="login-error" class="error-msg hidden" data-i18n="wrong_pass">পাসওয়ার্ড সঠিক নয়!</p>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Sidebar Dashboard -->
+        <section id="dashboard-section" class="screen hidden">
+            <div class="dashboard-wrapper">
+                <nav class="sidebar">
+                    <div class="sidebar-header">
+                        <span class="logo">💰 Elite Tracker</span>
+                        <div id="user-display" style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px;"></div>
+                    </div>
+                    <ul class="nav-links">
+                        <li class="active" data-section="overview"><span class="icon">📊</span> সারসংক্ষেপ</li>
+                        <li data-section="transactions"><span class="icon">➕</span> নতুন লেনদেন</li>
+                        <li data-section="recurring"><span class="icon">🔄</span> নিয়মিত খরচ</li>
+                        <li data-section="budget"><span class="icon">📉</span> বাজেট সেট</li>
+                        <li data-section="goals"><span class="icon">🎯</span> আর্থিক লক্ষ্য</li>
+                        <li data-section="reports"><span class="icon">📋</span> রিপোর্ট</li>
+                        <li data-section="settings"><span class="icon">⚙️</span> সেটিংস</li>
+                    </ul>
+                    <div class="sidebar-footer">
+                        <button id="theme-toggle" class="btn-outline-sidebar">🌓 ডার্ক মোড</button>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                            <button id="backup-btn" class="btn-outline-sidebar">💾 ব্যাকআপ</button>
+                            <button id="restore-btn" class="btn-outline-sidebar">📥 রিস্টোর</button>
+                            <input type="file" id="restore-input" accept=".json" class="hidden">
+                        </div>
+                        <button id="logout-btn" class="btn-logout">লগ আউট</button>
+                    </div>
+                </nav>
+
+                <main class="main-content">
+                    <!-- 1. Overview -->
+                    <div id="section-overview" class="content-section">
+                        <div class="summary-grid">
+                            <div class="card summary-card income"><h3 data-i18n="overview.income">মোট আয়</h3><p id="total-income">৳ 0</p></div>
+                            <div class="card summary-card expense"><h3 data-i18n="overview.expense">মোট খরচ</h3><p id="total-expense">৳ 0</p></div>
+                            <div class="card summary-card balance"><h3 data-i18n="overview.balance">ব্যালেন্স</h3><p id="total-balance">৳ 0</p></div>
+                        </div>
+                        <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                            <div class="chart-container card" style="min-height: 350px;">
+                                <h3 data-i18n="overview.trend_title">আয় বনাম ব্যয় ট্রেন্ড</h3>
+                                <canvas id="overviewChart"></canvas>
+                            </div>
+                            <div class="chart-container card" style="min-height: 350px;">
+                                <h3 data-i18n="overview.pie_title">খরচের বিশ্লেষণ (Pie Chart)</h3>
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Transactions -->
+                    <div id="section-transactions" class="content-section hidden">
+                        <div class="card">
+                            <h2 data-i18n="transactions.new">➕ নতুন লেনদেন</h2>
+                            <form id="transaction-form">
+                                <div class="form-row">
+                                    <input type="date" id="tx-date" required>
+                                    <select id="tx-type">
+                                        <option value="income" data-i18n="transactions.income">আয়</option>
+                                        <option value="expense" selected data-i18n="transactions.expense">খরচ</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <select id="tx-account" required></select>
+                                    <select id="tx-method" required></select>
+                                </div>
+                                <input type="number" id="tx-amount" data-i18n-placeholder="transactions.amount" placeholder="পরিমাণ (৳)" required>
+                                <textarea id="tx-desc" data-i18n-placeholder="transactions.desc" placeholder="বিবরণ..."></textarea>
+                                <button type="submit" class="btn-primary full-width" data-i18n="transactions.save">সংরক্ষণ করুন</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- 3. Recurring -->
+                    <div id="section-recurring" class="content-section hidden">
+                        <div class="card">
+                            <h2>🔄 নিয়মিত খরচ সেট করুন (Monthly)</h2>
+                            <form id="recurring-form" class="form-row">
+                                <select id="rec-account" required></select>
+                                <input type="number" id="rec-amount" placeholder="টাকার পরিমাণ" required>
+                                <input type="number" id="rec-day" placeholder="মাসের কত তারিখ?" min="1" max="31" required>
+                                <button type="submit" class="btn-primary">সেট করুন</button>
+                            </form>
+                            <div id="recurring-list" class="chip-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Budget -->
+                    <div id="section-budget" class="content-section hidden">
+                        <div class="card">
+                            <h2>📉 মাসিক বাজেট</h2>
+                            <form id="budget-form" class="form-row">
+                                <select id="budget-account" required></select>
+                                <input type="number" id="budget-amount" placeholder="সীমা" required>
+                                <button type="submit" class="btn-primary">সেট</button>
+                            </form>
+                            <div id="budget-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Goals -->
+                    <div id="section-goals" class="content-section hidden">
+                        <div class="card">
+                            <h2>🎯 সঞ্চয়ের লক্ষ্য (Financial Goals)</h2>
+                            <form id="goal-form" class="form-row">
+                                <input type="text" id="goal-name" placeholder="লক্ষ্যের নাম (উদা: গাড়ি কেনা)" required>
+                                <input type="number" id="goal-target" placeholder="টার্গেট পরিমাণ" required>
+                                <button type="submit" class="btn-primary">যোগ করুন</button>
+                            </form>
+                            <div id="goals-list" class="goals-grid"></div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Reports -->
+                    <div id="section-reports" class="content-section hidden">
+                        <div class="card export-toolbar" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem">
+                                <div class="filter-group">
+                                    <input type="date" id="report-start"> <span>টু</span> <input type="date" id="report-end">
+                                </div>
+                                <div class="btn-group">
+                                    <button onclick="window.print()" class="btn-outline">🖨️ প্রিন্ট</button>
+                                    <button id="export-pdf" class="btn-outline">📄 PDF</button>
+                                    <button id="export-excel" class="btn-outline">📊 Excel</button>
+                                </div>
+                            </div>
+                            <div class="search-bar">
+                                <input type="text" id="search-input" placeholder="বিবরণ বা খাত দিয়ে খুঁজুন..." style="width:100%; border: 1px solid var(--border); padding: 0.5rem; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <div class="card list-card print-area">
+                            <table id="report-table">
+                                <thead><tr><th>তারিখ</th><th>খাত</th><th>পরিমাণ</th><th>মাধ্যম</th><th>অ্যাকশন</th></tr></thead>
+                                <tbody id="report-list-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 7. Settings -->
+                    <div id="section-settings" class="content-section hidden">
+                        <div class="card">
+                            <h2>⚙️ হিসাবের খাত (Categories)</h2>
+                            <form id="category-form" class="form-row">
+                                <input type="text" id="cat-name" placeholder="নতুন খাত" required>
+                                <select id="cat-type"><option value="income">আয়</option><option value="expense">খরচ</option></select>
+                                <button type="submit" class="btn-primary">যোগ</button>
+                            </form>
+                            <ul id="category-list" class="chip-list"></ul>
+                        </div>
+                        <div class="card">
+                            <h2 data-i18n="interconnect.title">🔗 Migration Hub (Interconnect)</h2>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;" data-i18n="interconnect.desc">Transfer your data to the Standard (React/Supabase) version seamlessly.</p>
+                            <button id="export-supabase-btn" class="btn-outline full-width">🚀 Export for Standard Version</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered!'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+           .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+</section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered!'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
+           .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
