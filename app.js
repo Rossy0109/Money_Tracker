@@ -469,11 +469,55 @@ function setupExports() {
 
 function setupBackup() {
     document.getElementById('backup-btn').onclick = () => {
-        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const backupData = {
+            version: SchemaVersion,
+            timestamp: new Date().toISOString(),
+            data: {
+                transactions: state.transactions,
+                accounts: state.categories,
+                budgets: state.budgets,
+                recurring: state.recurring,
+                goals: state.goals
+            }
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `Elite_Backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
+    };
+
+    const restoreBtn = document.getElementById('restore-btn');
+    const restoreInput = document.getElementById('restore-input');
+
+    restoreBtn.onclick = () => restoreInput.click();
+    restoreInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const backup = JSON.parse(event.target.result);
+                if (!backup.data || !confirm("সতর্কতা: এটি বর্তমান ডাটাবেসে নতুন তথ্য যোগ করবে। আপনি কি নিশ্চিত?")) return;
+                
+                // Batch Restore (Simplified for 10-year durability)
+                const { transactions, accounts, budgets, recurring, goals } = backup.data;
+                
+                if (accounts) for (const item of accounts) await DB.add("accounts", { name: item.name, type: item.type });
+                if (transactions) for (const item of transactions) await DB.add("transactions", { 
+                    date: item.date, amount: item.amount, categoryName: item.categoryName, 
+                    type: item.type, method: item.method, description: item.description 
+                });
+                if (budgets) for (const item of budgets) await DB.update("budgets", item.id, { amount: item.amount });
+                
+                alert("তথ্য সফলভাবে রিস্টোর করা হয়েছে!");
+                location.reload();
+            } catch (err) {
+                console.error("Restore failed:", err);
+                alert("ভুল ফাইল ফরম্যাট!");
+            }
+        };
+        reader.readAsText(file);
     };
 }
 
