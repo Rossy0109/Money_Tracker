@@ -63,3 +63,21 @@ INSERT INTO payment_methods (method_name, method_type, balance, icon) VALUES
 ('bKash', 'মোবাইল ব্যাংকিং', 0, '📱'),
 ('Nagad', 'মোবাইল ব্যাংকিং', 0, '💳'),
 ('Rocket', 'মোবাইল ব্যাংকিং', 0, '🚀');
+
+-- 6. Enable Row-Level Security (RLS)
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- 7. Create Policies (Simple 'Authenticated' access for now)
+-- These policies ensure that only requests with a valid API key can access data.
+CREATE POLICY "Allow read access for all" ON accounts FOR SELECT USING (true);
+CREATE POLICY "Allow read access for all" ON payment_methods FOR SELECT USING (true);
+CREATE POLICY "Allow read access for all" ON transactions FOR SELECT USING (true);
+
+CREATE POLICY "Allow insert/update/delete for authenticated" ON accounts 
+    FOR ALL WITH CHECK (true);
+CREATE POLICY "Allow insert/update/delete for authenticated" ON payment_methods 
+    FOR ALL WITH CHECK (true);
+CREATE POLICY "Allow insert/update/delete for authenticated" ON transactions 
+    FOR ALL WITH CHECK (true);
