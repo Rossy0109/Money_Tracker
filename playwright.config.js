@@ -3,12 +3,12 @@ const { defineConfig } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:8000',
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npx serve -s Money_Tracker/client/build -l 3001',
-    url: 'http://localhost:3001',
+    command: 'npx serve -l 8000',
+    url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
   },
 });
