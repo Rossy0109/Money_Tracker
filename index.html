@@ -60,7 +60,11 @@
                     </ul>
                     <div class="sidebar-footer">
                         <button id="theme-toggle" class="btn-outline-sidebar">🌓 ডার্ক মোড</button>
-                        <button id="backup-btn" class="btn-outline-sidebar">💾 ব্যাকআপ নিন</button>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                            <button id="backup-btn" class="btn-outline-sidebar">💾 ব্যাকআপ</button>
+                            <button id="restore-btn" class="btn-outline-sidebar">📥 রিস্টোর</button>
+                            <input type="file" id="restore-input" accept=".json" class="hidden">
+                        </div>
                         <button id="logout-btn" class="btn-logout">লগ আউট</button>
                     </div>
                 </nav>
