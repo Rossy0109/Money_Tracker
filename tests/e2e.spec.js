@@ -8,7 +8,7 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
   test('should login with master password', async ({ page }) => {
     // Ultimate index.html uses id="master-password"
     await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button:has-text("প্রবেশ করুন")');
+    await page.click('button[data-i18n="enter"]');
     
     // Verify title is shown (Elite Tracker)
     await expect(page.locator('.logo')).toHaveText('💰 Elite Tracker');
@@ -17,22 +17,22 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
   test('should show correct summary cards', async ({ page }) => {
     // Login first
     await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button:has-text("প্রবেশ করুন")');
+    await page.click('button[data-i18n="enter"]');
 
     // Wait for dashboard to be visible
     const dashboard = page.locator('#dashboard-section');
     await expect(dashboard).not.toHaveClass(/hidden/, { timeout: 10000 });
 
-    // Check if summary cards are present
-    await expect(page.locator('h3:has-text("মোট আয়")')).toBeVisible();
-    await expect(page.locator('h3:has-text("মোট খরচ")')).toBeVisible();
-    await expect(page.locator('h3:has-text("ব্যালেন্স")')).toBeVisible();
+    // Check if summary cards are present using data-i18n attributes
+    await expect(page.locator('[data-i18n="overview.income"]')).toBeVisible();
+    await expect(page.locator('[data-i18n="overview.expense"]')).toBeVisible();
+    await expect(page.locator('[data-i18n="overview.balance"]')).toBeVisible();
   });
 
   test('should show transaction form', async ({ page }) => {
     // Login first
     await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button:has-text("প্রবেশ করুন")');
+    await page.click('button[data-i18n="enter"]');
 
     // Wait for dashboard
     await expect(page.locator('#dashboard-section')).not.toHaveClass(/hidden/, { timeout: 10000 });
@@ -41,6 +41,6 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
     await page.click('li[data-section="transactions"]');
 
     // Check for "নতুন লেনদেন" header
-    await expect(page.locator('h2:has-text("নতুন লেনদেন")')).toBeVisible();
+    await expect(page.locator('[data-i18n="transactions.new"]')).toBeVisible();
   });
 });

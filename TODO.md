@@ -19,9 +19,10 @@ To fully activate the "Ultimate Version" of the Elite Money Tracker, please comp
 In **`app.js`** (Line 36), update your Sentry DSN if you wish to track production errors:
 - [ ] `dsn: "YOUR_SENTRY_DSN"`
 
-## 4. GitHub Secret
-- [x] Ensure your GitHub Repository has a `GITHUB_TOKEN` (provided automatically by Actions) or a custom personal access token with `repo` scope if deploying to a different organization.
-*Integrated `GH_PAT` support into workflow.*
+## 5. Deployment Finalization
+- [ ] **GitHub Pages**: Go to Repository **Settings > Pages** and set the Source to "Deploy from a branch" and Branch to `gh-pages`.
+- [ ] **Vercel/Render**: If you connected your repo, ensure they use the root `vercel.json` and `render.yaml` which I have just optimized.
+- [ ] **Supabase**: Open your [Supabase Dashboard](https://supabase.com/), go to the SQL Editor, and run the contents of the root `supabase_schema.sql` to enable security rules.
 
 ---
 *Generated systematically by Gemini CLI on 2026-05-02.*
