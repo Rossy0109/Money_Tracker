@@ -20,8 +20,8 @@ In **`app.js`** (Line 36), update your Sentry DSN if you wish to track productio
 - [ ] `dsn: "YOUR_SENTRY_DSN"`
 
 ## 4. GitHub Secret
-If you wish to keep the automated deployment active:
-- [ ] Ensure your GitHub Repository has a `GITHUB_TOKEN` (provided automatically by Actions) or a custom personal access token with `repo` scope if deploying to a different organization.
+- [x] Ensure your GitHub Repository has a `GITHUB_TOKEN` (provided automatically by Actions) or a custom personal access token with `repo` scope if deploying to a different organization.
+*Integrated `GH_PAT` support into workflow.*
 
 ---
 *Generated systematically by Gemini CLI on 2026-05-02.*

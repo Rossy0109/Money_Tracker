@@ -37,7 +37,8 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Use custom GH_PAT if provided (e.g. for protected branches), otherwise fallback to standard GITHUB_TOKEN
+          github_token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
           exclude_assets: '.git,.github,Money_Tracker,client,server,desktop,docker-compose.yml,render.yaml,vercel.json,supabase_schema.sql,tests,playwright.config.js,node_modules,package-lock.json'

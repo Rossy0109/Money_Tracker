@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import API_URL from './config';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 function Summary({ transactions }) {
   const { t } = useTranslation();
@@ -26,6 +30,33 @@ function Summary({ transactions }) {
 
   const totalIncomeForBreakdown = Object.values(incomeBreakdown).reduce((sum, val) => sum + val, 0);
   const totalExpenseForBreakdown = Object.values(expenseBreakdown).reduce((sum, val) => sum + val, 0);
+
+  const pieData = {
+    labels: Object.keys(expenseBreakdown),
+    datasets: [
+      {
+        data: Object.values(expenseBreakdown),
+        backgroundColor: [
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#C9CBCF'
+        ],
+        hoverBackgroundColor: [
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#C9CBCF'
+        ]
+      }
+    ]
+  };
 
   useEffect(() => {
     axios.get(`${API_URL}/api/summary/daily`, { withCredentials: true })
@@ -106,6 +137,21 @@ function Summary({ transactions }) {
           <div className="card-body">
             <h5 className="card-title">{t('balance')}</h5>
             <p className="card-text">${dailySummary.balance.toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="col-md-12 mt-3">
+        <div className="card">
+          <div className="card-body">
+            <h5 className="card-title text-center">{t('expense_breakdown')} (Pie Chart)</h5>
+            <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+              {Object.keys(expenseBreakdown).length > 0 ? (
+                <Pie data={pieData} />
+              ) : (
+                <p className="text-muted small text-center">{t('no_transactions_yet')}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
