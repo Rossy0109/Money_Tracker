@@ -30,6 +30,42 @@ let state = {
     searchTerm: ''
 };
 
+// --- Infrastructure: Database Service (Vendor Agnostic Interface) ---
+const SchemaVersion = "1.0.0";
+
+const DB = {
+    sync: (coll, callback, orderField = null) => {
+        const uid = state.user.uid;
+        let q = collection(db, coll);
+        if (orderField) q = query(q, where('userId', '==', uid), orderBy(orderField, "desc"));
+        else q = query(q, where('userId', '==', uid));
+        
+        return onSnapshot(q, (snap) => {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            callback(data);
+        });
+    },
+    add: async (coll, data) => {
+        return await addDoc(collection(db, coll), { 
+            ...data, 
+            userId: state.user.uid, 
+            _schema: SchemaVersion,
+            _updatedAt: Timestamp.now() 
+        });
+    },
+    update: async (coll, id, data) => {
+        return await setDoc(doc(db, coll, id), { 
+            ...data, 
+            userId: state.user.uid,
+            _schema: SchemaVersion,
+            _updatedAt: Timestamp.now() 
+        }, { merge: true });
+    },
+    delete: async (coll, id) => {
+        return await deleteDoc(doc(db, coll, id));
+    }
+};
+
 // --- Localization Hub ---
 function setupLocalization() {
     const langToggle = document.getElementById('lang-toggle');
@@ -49,10 +85,10 @@ function t(path) {
     const keys = path.split('.');
     let value = locales[state.lang];
     for (const key of keys) {
+        if (!value) break;
         value = value[key];
-        if (!value) return path;
     }
-    return value;
+    return value || path;
 }
 
 function applyLocales() {
@@ -69,6 +105,7 @@ function applyLocales() {
 // --- Core Initialization ---
 async function init() {
     setupLocalization();
+    
     // Sentry Initialization (Optional)
     const sentryDSN = "YOUR_SENTRY_DSN";
     if (window.Sentry && sentryDSN !== "YOUR_SENTRY_DSN") {
@@ -110,7 +147,7 @@ function setupAuth() {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Login failed:", error);
-            alert("লগইন ব্যর্থ হয়েছে!");
+            alert("Login failed!");
         }
     };
 
@@ -119,7 +156,6 @@ function setupAuth() {
         e.preventDefault();
         const pass = document.getElementById('master-password').value;
         if (pass === 'AhmedKamrul010987') {
-            // For password login, we'll use a fixed 'master' user ID
             localStorage.setItem('isLoggedIn', 'true');
             handleAuthChange({ uid: 'master_user', displayName: 'Master User' });
         } else {
@@ -144,7 +180,7 @@ function setupAuth() {
 
 function handleAuthChange(user) {
     state.user = user;
-    document.getElementById('user-display').textContent = user.displayName || 'ব্যবহারকারী';
+    document.getElementById('user-display').textContent = user.displayName || t('sidebar.logout').replace('Logout', 'User');
     showDashboard();
 }
 
@@ -159,54 +195,40 @@ function showDashboard() {
     startDataSync();
 }
 
-// --- Data Hub (User Scoped) ---
+// --- Data Hub (Application Logic) ---
 let unsubscribers = [];
 function startDataSync() {
     if (!state.user) return;
-    const uid = state.user.uid;
-
-    // Clear previous listeners
+    
     unsubscribers.forEach(unsub => unsub());
     unsubscribers = [];
 
-    const sync = (coll, callback, orderField = null) => {
-        let q = collection(db, coll);
-        if (orderField) q = query(q, where('userId', '==', uid), orderBy(orderField, "desc"));
-        else q = query(q, where('userId', '==', uid));
-        
-        const unsub = onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            callback(data);
-        });
-        unsubscribers.push(unsub);
-    };
-
-    sync("accounts", (data) => {
+    unsubscribers.push(DB.sync("accounts", (data) => {
         state.categories = data;
         if (data.length === 0) seedInitialCategories();
         populateDropdowns();
         renderCategoryList();
-    });
+    }));
 
-    sync("transactions", (data) => {
+    unsubscribers.push(DB.sync("transactions", (data) => {
         state.transactions = data;
         processFinancialData();
-    }, "date");
+    }, "date"));
 
-    sync("budgets", (data) => {
+    unsubscribers.push(DB.sync("budgets", (data) => {
         state.budgets = data;
         updateBudgetProgress();
-    });
+    }));
 
-    sync("recurring_templates", (data) => {
+    unsubscribers.push(DB.sync("recurring_templates", (data) => {
         state.recurring = data;
         renderRecurringList();
-    });
+    }));
 
-    sync("financial_goals", (data) => {
+    unsubscribers.push(DB.sync("financial_goals", (data) => {
         state.goals = data;
         renderGoals();
-    });
+    }));
 }
 
 async function seedInitialCategories() {
@@ -230,14 +252,14 @@ async function seedInitialCategories() {
         { name: 'নিয়মিত: নাস্তা/আপ্যায়ন', type: 'expense' }
     ];
     for (const cat of [...incomeCats, ...expenseCats]) {
-        await addDoc(collection(db, "accounts"), { ...cat, userId: state.user.uid });
+        await DB.add("accounts", cat);
     }
 }
 
 // --- Logic Modules ---
 function processFinancialData() {
     let inc = 0, exp = 0;
-    state.transactions.forEach(t => { if (t.type === 'income') inc += t.amount; else exp += t.amount; });
+    state.transactions.forEach(tx => { if (tx.type === 'income') inc += tx.amount; else exp += tx.amount; });
     state.totalBalance = inc - exp;
 
     document.getElementById('total-income').textContent = `৳ ${inc.toLocaleString()}`;
@@ -253,7 +275,7 @@ function processFinancialData() {
 
 function setupForms() {
     const txTypeSelect = document.getElementById('tx-type');
-    txTypeSelect.onchange = () => populateDropdowns(); // Dynamic filtering
+    txTypeSelect.onchange = () => populateDropdowns();
 
     document.getElementById('transaction-form').onsubmit = async (e) => {
         e.preventDefault();
@@ -323,21 +345,21 @@ function setupSearch() {
 
 // --- Rendering Modules ---
 function renderTransactionTable() {
-    const filtered = state.transactions.filter(t => 
-        t.categoryName.toLowerCase().includes(state.searchTerm) || 
-        (t.description || "").toLowerCase().includes(state.searchTerm)
+    const filtered = state.transactions.filter(tx => 
+        tx.categoryName.toLowerCase().includes(state.searchTerm) || 
+        (tx.description || "").toLowerCase().includes(state.searchTerm)
     );
 
-    document.getElementById('report-list-body').innerHTML = filtered.map(t => `
+    document.getElementById('report-list-body').innerHTML = filtered.map(item => `
         <tr>
-            <td>${t.date}</td><td>${t.categoryName}</td>
-            <td class="${t.type==='income'?'amt-income':'amt-expense'}">৳ ${t.amount.toLocaleString()}</td>
-            <td>${t.method}</td>
-            <td><button class="btn-delete" onclick="window.deleteTx('${t.id}')">❌</button></td>
+            <td>${item.date}</td><td>${item.categoryName}</td>
+            <td class="${item.type==='income'?'amt-income':'amt-expense'}">৳ ${item.amount.toLocaleString()}</td>
+            <td>${item.method}</td>
+            <td><button class="btn-delete" onclick="window.deleteTx('${item.id}')">❌</button></td>
         </tr>
     `).join('');
 }
-window.deleteTx = async (id) => { if(confirm('মুছে ফেলতে চান?')) await DB.delete("transactions", id); };
+window.deleteTx = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("transactions", id); };
 
 function renderCharts() {
     renderTrendChart();
@@ -349,21 +371,21 @@ function renderTrendChart() {
     if (!canvas) return;
     if (state.chart) state.chart.destroy();
     const isDark = document.body.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#f8fafc' : '#1e293b';
+    const textColor = isDark ? '#f8fafc' : '#020617';
 
     const monthly = {};
-    state.transactions.forEach(t => {
-        const m = t.date.substring(0, 7);
+    state.transactions.forEach(tx => {
+        const m = tx.date.substring(0, 7);
         if(!monthly[m]) monthly[m] = { income: 0, expense: 0 };
-        monthly[m][t.type] += t.amount;
+        monthly[m][tx.type] += tx.amount;
     });
 
     const labels = Object.keys(monthly).sort();
     state.chart = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: { labels, datasets: [
-            { label: 'আয়', data: labels.map(l => monthly[l].income), borderColor: '#10b981', tension: 0.3 },
-            { label: 'ব্যয়', data: labels.map(l => monthly[l].expense), borderColor: '#ef4444', tension: 0.3 }
+            { label: t('overview.income_label'), data: labels.map(l => monthly[l].income), borderColor: '#059669', tension: 0.3 },
+            { label: t('overview.expense_label'), data: labels.map(l => monthly[l].expense), borderColor: '#dc2626', tension: 0.3 }
         ]},
         options: { 
             responsive: true, maintainAspectRatio: false,
@@ -378,7 +400,7 @@ function renderPieChart() {
     if (!canvas) return;
     if (state.pieChart) state.pieChart.destroy();
     const isDark = document.body.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#f8fafc' : '#1e293b';
+    const textColor = isDark ? '#f8fafc' : '#020617';
 
     const categories = {};
     state.transactions.filter(t => t.type === 'expense').forEach(t => {
@@ -390,13 +412,7 @@ function renderPieChart() {
 
     state.pieChart = new Chart(canvas.getContext('2d'), {
         type: 'doughnut',
-        data: {
-            labels,
-            datasets: [{
-                data,
-                backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#10b981']
-            }]
-        },
+        data: { labels, datasets: [{ data, backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#10b981'] }]},
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'bottom', labels: { color: textColor } } }
@@ -427,7 +443,6 @@ function renderCategoryList() {
 }
 window.deleteCat = async (id) => { if(confirm(t('settings.confirm'))) await DB.delete("accounts", id); };
 
-
 function updateBudgetProgress() {
     const curMonth = new Date().toISOString().substring(0, 7);
     document.getElementById('budget-list').innerHTML = state.budgets.map(b => {
@@ -448,19 +463,19 @@ function renderGoals() {
                 <div style="display:flex; justify-content:space-between"><strong>${g.name}</strong><button onclick="window.deleteGoal('${g.id}')" style="border:none; color:red; cursor:pointer">×</button></div>
                 <div class="goal-status">৳ ${state.totalBalance.toLocaleString()} / ৳ ${g.target.toLocaleString()}</div>
                 <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:${percent}%; background:var(--primary)"></div></div>
-                <small>${percent.toFixed(1)}% অর্জন</small>
+                <small>${percent.toFixed(1)}% ${t('goals.achieved')}</small>
             </div>
         `;
     }).join('');
 }
-window.deleteGoal = async (id) => { if(confirm('নিশ্চিত?')) await deleteDoc(doc(db, "financial_goals", id)); };
+window.deleteGoal = async (id) => { if(confirm(t('settings.confirm'))) await DB.delete("financial_goals", id); };
 
 function renderRecurringList() {
     document.getElementById('recurring-list').innerHTML = state.recurring.map(r => `
         <div class="chip">🔄 ${r.categoryName}: ৳${r.amount} (Day ${r.day})<span onclick="window.deleteRec('${r.id}')" style="cursor:pointer; color:red; margin-left:10px">×</span></div>
     `).join('');
 }
-window.deleteRec = async (id) => { if(confirm('নিশ্চিত?')) await deleteDoc(doc(db, "recurring_templates", id)); };
+window.deleteRec = async (id) => { if(confirm(t('settings.confirm'))) await DB.delete("recurring_templates", id); };
 
 let recurringPrompted = false;
 async function checkRecurringDue() {
@@ -469,14 +484,11 @@ async function checkRecurringDue() {
     const todayStr = today.toISOString().split('T')[0];
     const todayDay = today.getDate();
 
-    const due = state.recurring.filter(r => 
-        r.day === todayDay && 
-        r.lastTriggered !== todayStr
-    );
+    const due = state.recurring.filter(r => r.day === todayDay && r.lastTriggered !== todayStr);
 
     if (due.length > 0) {
         recurringPrompted = true;
-        if (confirm(`আজ ${due.length}টি নিয়মিত খরচ জমা দেওয়ার তারিখ। আপনি কি এগুলো এখন যুক্ত করতে চান?`)) {
+        if (confirm(t('recurring.prompt').replace('{count}', due.length))) {
             for (const r of due) {
                 await DB.add("transactions", {
                     date: todayStr,
@@ -484,7 +496,6 @@ async function checkRecurringDue() {
                     amount: r.amount, method: 'নগদ টাকা', description: 'Auto-Recurring Entry',
                     createdAt: Timestamp.now()
                 });
-                // Update template to prevent re-triggering today
                 await DB.update("recurring_templates", r.id, { lastTriggered: todayStr });
             }
         }
@@ -540,42 +551,27 @@ function setupBackup() {
             try {
                 const backup = JSON.parse(event.target.result);
                 if (!backup.data || !confirm(t('settings.confirm'))) return;
-                
-                // Batch Restore (Simplified for 10-year durability)
-                const { transactions, accounts, budgets, recurring, goals } = backup.data;
-                
+                const { transactions, accounts, budgets } = backup.data;
                 if (accounts) for (const item of accounts) await DB.add("accounts", { name: item.name, type: item.type });
                 if (transactions) for (const item of transactions) await DB.add("transactions", { 
                     date: item.date, amount: item.amount, categoryName: item.categoryName, 
                     type: item.type, method: item.method, description: item.description 
                 });
                 if (budgets) for (const item of budgets) await DB.update("budgets", item.id, { amount: item.amount });
-                
-                alert("তথ্য সফলভাবে রিস্টোর করা হয়েছে!");
+                alert("Restored successfully!");
                 location.reload();
             } catch (err) {
                 console.error("Restore failed:", err);
-                alert("ভুল ফাইল ফরম্যাট!");
+                alert("Invalid format!");
             }
         };
         reader.readAsText(file);
     };
 
-    // Supabase Interconnect Export
     document.getElementById('export-supabase-btn').onclick = () => {
         const supabaseData = {
-            accounts: state.categories.map(c => ({
-                account_name: c.name,
-                account_type: c.type === 'income' ? 'আয়' : 'খরচ',
-                category: 'General'
-            })),
-            transactions: state.transactions.map(t => ({
-                transaction_date: t.date,
-                amount: t.amount,
-                description: t.description,
-                account_name: t.categoryName,
-                payment_method: t.method
-            }))
+            accounts: state.categories.map(c => ({ account_name: c.name, account_type: c.type === 'income' ? 'আয়' : 'খরচ', category: 'General' })),
+            transactions: state.transactions.map(t => ({ transaction_date: t.date, amount: t.amount, description: t.description, account_name: t.categoryName, payment_method: t.method }))
         };
         const blob = new Blob([JSON.stringify(supabaseData, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
@@ -587,9 +583,9 @@ function setupBackup() {
 
 function setupTheme() {
     const toggle = document.getElementById('theme-toggle');
-    const update = (t) => {
-        document.body.setAttribute('data-theme', t);
-        toggle.textContent = t === 'dark' ? '☀️ লাইট মোড' : '🌓 ডার্ক মোড';
+    const update = (mode) => {
+        document.body.setAttribute('data-theme', mode);
+        toggle.textContent = mode === 'dark' ? t('sidebar.light_mode') : t('sidebar.dark_mode');
         renderCharts();
     };
     update(localStorage.getItem('theme') || 'light');
@@ -612,35 +608,14 @@ function setupNavigation() {
     });
 }
 
-init();
-oggle');
-    const update = (t) => {
-        document.body.setAttribute('data-theme', t);
-        toggle.textContent = t === 'dark' ? '☀️ লাইট মোড' : '🌓 ডার্ক মোড';
-        renderCharts();
-    };
-    update(localStorage.getItem('theme') || 'light');
-    toggle.onclick = () => {
-        const n = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-        localStorage.setItem('theme', n);
-        update(n);
-    };
-}
-
-function setupNavigation() {
-    document.querySelectorAll('.nav-links li').forEach(l => {
-        l.onclick = () => {
-            const s = l.getAttribute('data-section');
-            document.querySelectorAll('.nav-links li').forEach(x => x.classList.remove('active'));
-            l.classList.add('active');
-            document.querySelectorAll('.content-section').forEach(x => x.classList.toggle('hidden', x.id !== `section-${s}`));
-            if (s === 'overview') renderCharts();
+function setupSearch() {
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.oninput = (e) => {
+            state.searchTerm = e.target.value.toLowerCase();
+            renderTransactionTable();
         };
-    });
-}
-
-init();
-    });
+    }
 }
 
 init();

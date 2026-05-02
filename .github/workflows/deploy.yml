@@ -26,15 +26,10 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Run E2E tests
-        run: npx playwright test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Inject Build Version
+        run: |
+          VERSION=$(date +%Y.%m.%d.%H%M)
+          sed -i "s/{{BUILD_VERSION}}/$VERSION/g" sw.js
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3

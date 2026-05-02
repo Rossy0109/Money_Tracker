@@ -161,6 +161,17 @@ export const locales = {
             new_cat: "New Category",
             add: "Add",
             confirm: "Confirm?"
+        },
+        interconnect: {
+            title: "🔗 Migration Hub (Interconnect)",
+            desc: "Transfer your data to the Standard (React/Supabase) version seamlessly."
+        }
+    }
+};
+ Categories",
+            new_cat: "New Category",
+            add: "Add",
+            confirm: "Confirm?"
         }
     }
 };
