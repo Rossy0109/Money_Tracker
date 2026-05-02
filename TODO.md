@@ -3,26 +3,17 @@
 To fully activate the "Ultimate Version" of the Elite Money Tracker, please complete these systematic steps:
 
 ## 1. Firebase API Configuration
-In **`firebase-config.js`**, replace the placeholders with your actual keys from the [Firebase Console](https://console.firebase.google.com/):
-- [ ] `apiKey`
-- [ ] `authDomain`
-- [ ] `projectId`
-- [ ] `storageBucket`
-- [ ] `messagingSenderId`
-- [ ] `appId`
+- [x] `apiKey`
+- [x] `authDomain`
+- [x] `projectId`
+- [x] `storageBucket`
+- [x] `messagingSenderId`
+- [x] `appId`
+*Automated by Gemini CLI using existing project config.*
 
 ## 2. Firebase Security Rules
-In the **Firestore > Rules** tab, apply the following professional security configuration:
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-    }
-  }
-}
-```
+- [x] Security Rules Deployed
+*Automated by Gemini CLI via `firebase deploy`.*
 
 ## 3. Sentry Error Tracking (Optional)
 In **`app.js`** (Line 36), update your Sentry DSN if you wish to track production errors:
