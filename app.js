@@ -422,22 +422,30 @@ function renderRecurringList() {
 window.deleteRec = async (id) => { if(confirm('নিশ্চিত?')) await deleteDoc(doc(db, "recurring_templates", id)); };
 
 let recurringPrompted = false;
-function checkRecurringDue() {
+async function checkRecurringDue() {
     if (recurringPrompted || state.recurring.length === 0) return;
-    const today = new Date().getDate();
-    const due = state.recurring.filter(r => r.day === today);
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const todayDay = today.getDate();
+
+    const due = state.recurring.filter(r => 
+        r.day === todayDay && 
+        r.lastTriggered !== todayStr
+    );
+
     if (due.length > 0) {
         recurringPrompted = true;
         if (confirm(`আজ ${due.length}টি নিয়মিত খরচ জমা দেওয়ার তারিখ। আপনি কি এগুলো এখন যুক্ত করতে চান?`)) {
-            due.forEach(async r => {
-                await addDoc(collection(db, "transactions"), {
-                    userId: state.user.uid,
-                    date: new Date().toISOString().split('T')[0],
+            for (const r of due) {
+                await DB.add("transactions", {
+                    date: todayStr,
                     categoryId: r.categoryId, categoryName: r.categoryName, type: 'expense',
                     amount: r.amount, method: 'নগদ টাকা', description: 'Auto-Recurring Entry',
                     createdAt: Timestamp.now()
                 });
-            });
+                // Update template to prevent re-triggering today
+                await DB.update("recurring_templates", r.id, { lastTriggered: todayStr });
+            }
         }
     }
 }

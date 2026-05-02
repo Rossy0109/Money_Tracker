@@ -19,4 +19,5 @@ This document establishes the software engineering standards and architectural p
 - **Data Sovereignty**: The JSON backup feature must always capture the *entire* state. Users must never be locked into a single platform.
 - **Interconnect Strength**: 
     - The `/Money_Tracker` (Standard) and root (Ultimate) versions should share the same data schema logic to allow for easy migration between stacks.
-    - Automated tests must cover critical path logic (Auth, Data Aggregation) to catch regressions during future platform updates.
+    - **Migration Path**: The root project's "JSON Backup" captures the full state including schema version. The legacy React version should be updated to accept this format for cross-version compatibility.
+    - **Offline-First**: Persistence must be enabled in both versions to ensure the "7-10 year" reliability mandate is met even with intermittent connectivity.
