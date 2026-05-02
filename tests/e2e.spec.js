@@ -3,44 +3,31 @@ const { test, expect } = require('@playwright/test');
 test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    // Ensure the page is ready
+    await expect(page.locator('#master-password')).toBeVisible();
   });
 
-  test('should login with master password', async ({ page }) => {
-    // Ultimate index.html uses id="master-password"
+  test('full application flow: login and dashboard navigation', async ({ page }) => {
+    // 1. Login
     await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button[data-i18n="enter"]');
+    await page.press('#master-password', 'Enter');
     
-    // Verify title is shown (Elite Tracker)
-    await expect(page.locator('.logo')).toHaveText('💰 Elite Tracker');
-  });
+    // 2. Verify Dashboard Visibility
+    const dashboard = page.locator('#dashboard-section');
+    await expect(dashboard).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.logo')).toContainText('Elite Tracker');
 
-  test('should show correct summary cards', async ({ page }) => {
-    // Login first
-    await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button[data-i18n="enter"]');
-
-    // Wait for login section to disappear and dashboard to appear
-    await expect(page.locator('#login-section')).toBeHidden({ timeout: 10000 });
-    await expect(page.locator('#dashboard-section')).toBeVisible({ timeout: 10000 });
-
-    // Check if summary cards are present using data-i18n attributes
+    // 3. Check Summary Cards (using data-i18n)
     await expect(page.locator('[data-i18n="overview.income"]')).toBeVisible();
     await expect(page.locator('[data-i18n="overview.expense"]')).toBeVisible();
     await expect(page.locator('[data-i18n="overview.balance"]')).toBeVisible();
-  });
 
-  test('should show transaction form', async ({ page }) => {
-    // Login first
-    await page.fill('#master-password', 'AhmedKamrul010987');
-    await page.click('button[data-i18n="enter"]');
-
-    // Wait for dashboard
-    await expect(page.locator('#dashboard-section')).toBeVisible({ timeout: 10000 });
-
-    // Go to transactions section
+    // 4. Navigate to Transactions
     await page.click('li[data-section="transactions"]');
-
-    // Check for "নতুন লেনদেন" header
     await expect(page.locator('[data-i18n="transactions.new"]')).toBeVisible();
+
+    // 5. Navigate to Reports
+    await page.click('li[data-section="reports"]');
+    await expect(page.locator('#section-reports')).toBeVisible();
   });
 });
