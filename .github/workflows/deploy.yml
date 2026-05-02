@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  test-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,21 +21,23 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: npm install @playwright/test
+        run: npm install
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm test
 
       - name: Inject Build Version
         run: |
           VERSION=$(date +%Y.%m.%d.%H%M)
           sed -i "s/{{BUILD_VERSION}}/$VERSION/g" sw.js
 
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          # Only include necessary files for hosting
-          exclude_assets: '.git,.github,Money_Tracker,client,server,desktop,docker-compose.yml,render.yaml,vercel.json,supabase_schema.sql,tests,playwright.config.js'
+          exclude_assets: '.git,.github,Money_Tracker,client,server,desktop,docker-compose.yml,render.yaml,vercel.json,supabase_schema.sql,tests,playwright.config.js,node_modules,package-lock.json'
