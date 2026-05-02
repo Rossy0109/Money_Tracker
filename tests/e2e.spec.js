@@ -19,9 +19,9 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
     await page.fill('#master-password', 'AhmedKamrul010987');
     await page.click('button[data-i18n="enter"]');
 
-    // Wait for dashboard to be visible
-    const dashboard = page.locator('#dashboard-section');
-    await expect(dashboard).not.toHaveClass(/hidden/, { timeout: 10000 });
+    // Wait for login section to disappear and dashboard to appear
+    await expect(page.locator('#login-section')).toBeHidden({ timeout: 10000 });
+    await expect(page.locator('#dashboard-section')).toBeVisible({ timeout: 10000 });
 
     // Check if summary cards are present using data-i18n attributes
     await expect(page.locator('[data-i18n="overview.income"]')).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
     await page.click('button[data-i18n="enter"]');
 
     // Wait for dashboard
-    await expect(page.locator('#dashboard-section')).not.toHaveClass(/hidden/, { timeout: 10000 });
+    await expect(page.locator('#dashboard-section')).toBeVisible({ timeout: 10000 });
 
     // Go to transactions section
     await page.click('li[data-section="transactions"]');
