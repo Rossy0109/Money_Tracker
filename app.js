@@ -539,7 +539,7 @@ function setupBackup() {
         reader.onload = async (event) => {
             try {
                 const backup = JSON.parse(event.target.result);
-                if (!backup.data || !confirm("সতর্কতা: এটি বর্তমান ডাটাবেসে নতুন তথ্য যোগ করবে। আপনি কি নিশ্চিত?")) return;
+                if (!backup.data || !confirm(t('settings.confirm'))) return;
                 
                 // Batch Restore (Simplified for 10-year durability)
                 const { transactions, accounts, budgets, recurring, goals } = backup.data;
@@ -559,6 +559,29 @@ function setupBackup() {
             }
         };
         reader.readAsText(file);
+    };
+
+    // Supabase Interconnect Export
+    document.getElementById('export-supabase-btn').onclick = () => {
+        const supabaseData = {
+            accounts: state.categories.map(c => ({
+                account_name: c.name,
+                account_type: c.type === 'income' ? 'আয়' : 'খরচ',
+                category: 'General'
+            })),
+            transactions: state.transactions.map(t => ({
+                transaction_date: t.date,
+                amount: t.amount,
+                description: t.description,
+                account_name: t.categoryName,
+                payment_method: t.method
+            }))
+        };
+        const blob = new Blob([JSON.stringify(supabaseData, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Supabase_Migration_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
     };
 }
 
