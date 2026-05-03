@@ -32,40 +32,19 @@ let state = {
     searchTerm: ''
 };
 
-// --- Infrastructure: Database Service (Vendor Agnostic Interface) ---
-const SchemaVersion = "1.0.0";
+import { DataHub } from './data-hub.js';
 
+// --- Global State ---
+let state = {
+    user: null,
+    // ... rest of state unchanged
+    
+// --- Infrastructure: DataHub Wrapper ---
 const DB = {
-    sync: (coll, callback, orderField = null) => {
-        const uid = state.user.uid;
-        let q = collection(db, coll);
-        if (orderField) q = query(q, where('userId', '==', uid), orderBy(orderField, "desc"));
-        else q = query(q, where('userId', '==', uid));
-        
-        return onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            callback(data);
-        });
-    },
-    add: async (coll, data) => {
-        return await addDoc(collection(db, coll), { 
-            ...data, 
-            userId: state.user.uid, 
-            _schema: SchemaVersion,
-            _updatedAt: Timestamp.now() 
-        });
-    },
-    update: async (coll, id, data) => {
-        return await setDoc(doc(db, coll, id), { 
-            ...data, 
-            userId: state.user.uid,
-            _schema: SchemaVersion,
-            _updatedAt: Timestamp.now() 
-        }, { merge: true });
-    },
-    delete: async (coll, id) => {
-        return await deleteDoc(doc(db, coll, id));
-    }
+    sync: (coll, callback, orderField = null) => DataHub.sync(coll, callback, orderField, state.user.uid),
+    add: async (coll, data) => await DataHub.add(coll, data, state.user.uid),
+    update: async (coll, id, data) => await DataHub.update(coll, id, data, state.user.uid),
+    delete: async (coll, id) => await DataHub.delete(coll, id)
 };
 
 // --- Localization Hub ---

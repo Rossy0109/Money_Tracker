@@ -8,9 +8,19 @@ const firebaseConfig = {
     appId: "1:175050164901:web:6b5ec4d78151c5248e9b4c"
 };
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+
+// Firebase Config (keep existing config object here)
+const firebaseConfig = {
+  // ... (Assuming these are already present or defined by you)
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
