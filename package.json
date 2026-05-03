@@ -9,5 +9,8 @@
   "scripts": {
     "test": "npx playwright test",
     "start": "serve ."
+  },
+  "dependencies": {
+    "firebase": "^12.12.1"
   }
 }
