@@ -1,33 +1,34 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
+import { useTranslation } from 'react-i18next';
 
 function Login({ onLogin }) {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    
-    // We'll hash the password and check against the security table
-    // For a real app, you'd use supabase.auth.signInWithPassword
-    // but here we follow their legacy master password logic
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    setLoading(true);
+    setError('');
 
-    const { data: results, error: queryError } = await supabase
-      .from('security')
-      .select('*')
-      .eq('password_hash', hashHex);
-
-    if (queryError || results.length === 0) {
-      setError('Invalid password');
-    } else {
-      // Create an anonymous session for simplicity since they use a master password
-      // In a real production app, you'd use email/password auth
-      onLogin();
+    try {
+      if (isSignUp) {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) throw signUpError;
+        alert('Check your email for the confirmation link!');
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        onLogin();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,25 +36,43 @@ function Login({ onLogin }) {
     <div className="container mt-5">
       <div className="row justify-content-center">
         <div className="col-md-6">
-          <div className="card">
+          <div className="card shadow">
             <div className="card-body">
-              <h1 className="card-title text-center">Login</h1>
+              <h1 className="card-title text-center mb-4">{isSignUp ? 'Sign Up' : 'Login'}</h1>
               {error && <div className="alert alert-danger">{error}</div>}
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleAuth}>
                 <div className="mb-3">
-                  <label htmlFor="password">Password</label>
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Password</label>
                   <input
                     type="password"
                     className="form-control"
-                    id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
-                <button type="submit" className="btn btn-primary w-100">
-                  Login
+                <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                  {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Login')}
                 </button>
               </form>
+              <div className="mt-3 text-center">
+                <button 
+                  className="btn btn-link" 
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? 'Already have an account? Login' : 'Need an account? Sign Up'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
