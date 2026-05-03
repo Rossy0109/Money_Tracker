@@ -8,12 +8,7 @@
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "https://www.gstatic.com/mobilesdk/160503_mobilesdk/logo/2x/firebase_28dp.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://www.gstatic.com/mobilesdk/160503_mobilesdk/logo/2x/firebase_28dp.png",
+      "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png"
     }

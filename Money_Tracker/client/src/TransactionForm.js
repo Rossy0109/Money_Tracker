@@ -138,7 +138,7 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
             </div>
             <div className="col-md-6 mb-3">
               <div className="input-group">
-                <span className="input-group-text">$</span>
+                <span className="input-group-text">৳</span>
                 <input
                   type="number"
                   step="0.01"

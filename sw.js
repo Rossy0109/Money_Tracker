@@ -7,6 +7,7 @@ const ASSETS = [
     './locales.js',
     './firebase-config.js',
     './manifest.json',
+    './logo.png',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',

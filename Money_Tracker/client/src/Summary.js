@@ -131,7 +131,7 @@ function Summary({ transactions }) {
         <div className="card shadow-sm border-0 border-start border-danger border-4">
           <div className="card-body">
             <h6 className="text-muted text-uppercase small">{t('total_expense')} (Today)</h6>
-            <h4 className="fw-bold text-danger">${dailySummary.totalExpense.toFixed(2)}</h4>
+            <h4 className="fw-bold text-danger">৳{dailySummary.totalExpense.toFixed(2)}</h4>
           </div>
         </div>
       </div>
