@@ -186,8 +186,10 @@ function App() {
         <DataManagement 
           transactions={transactions} 
           accounts={accounts} 
-          paymentMethods={paymentMethods} 
+          paymentMethods={paymentMethods}
+          onDataChange={fetchData}
         />
+
       </div>
     </div>
   );

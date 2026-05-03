@@ -12,8 +12,18 @@
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "Money_Tracker/server/server.py" },
-    { "src": "/(.*)", "dest": "/Money_Tracker/client/$1", "check": true },
-    { "src": "/(.*)", "dest": "Money_Tracker/client/build/index.html" }
+    {
+      "src": "/api/(.*)",
+      "dest": "Money_Tracker/server/server.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/Money_Tracker/client/$1",
+      "check": true
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/Money_Tracker/client/index.html"
+    }
   ]
 }
