@@ -25,7 +25,7 @@ In **`app.js`** (Line 36), update your Sentry DSN if you wish to track productio
 - [x] **Locales**: added translation strings for migration.
 
 ## 5. Deployment Finalization
-- [ ] **GitHub Pages**: Go to Repository **Settings > Pages** and set the Source to "Deploy from a branch" and Branch to `gh-pages`.
+- [x] **GitHub Pages**: Automated workflow has successfully deployed the `gh-pages` branch. (Verified via GitHub CLI).
 - [x] **Vercel/Render**: Configuration files (`vercel.json` and `render.yaml`) have been fully optimized.
 
 ---
