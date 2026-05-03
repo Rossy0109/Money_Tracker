@@ -30,5 +30,9 @@
   "expense_breakdown": "Expense Breakdown",
   "data_management": "Data Management",
   "toggle_dark_mode": "Toggle Dark Mode",
-  "permission_denied_rls": "Permission Denied: Your database security policies (RLS) blocked this action."
+  "permission_denied_rls": "Permission Denied: Your database security policies (RLS) blocked this action.",
+  "import_ultimate_json": "Import from Ultimate Version",
+  "import_success": "Import successful! {{count}} transactions added.",
+  "import_failed": "Import failed. Please check the file format.",
+  "confirm_import": "This will import data from the Ultimate version. Existing duplicates might be created. Continue?"
 }
