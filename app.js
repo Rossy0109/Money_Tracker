@@ -5,12 +5,14 @@ import {
     deleteDoc, setDoc, Timestamp, where, enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { 
-    signInWithPopup, signOut, onAuthStateChanged 
+    signInWithPopup, signOut, onAuthStateChanged,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- Global State ---
 let state = {
     user: null,
+    isSignupMode: false,
     lang: localStorage.getItem('lang') || 'bn',
     transactions: [],
     categories: [],
@@ -141,9 +143,11 @@ async function init() {
 
 // --- Auth & User Hub ---
 function setupAuth() {
-    const loginForm = document.getElementById('login-form');
+    const authForm = document.getElementById('auth-form');
     const googleBtn = document.getElementById('google-login-btn');
-    const loginError = document.getElementById('login-error');
+    const authError = document.getElementById('auth-error');
+    const toggleLink = document.getElementById('auth-toggle-link');
+    const submitBtn = document.getElementById('auth-submit-btn');
 
     // 1. Google Login
     googleBtn.onclick = async () => {
@@ -155,29 +159,49 @@ function setupAuth() {
         }
     };
 
-    // 2. Master Password Login (Legacy fallback)
-    loginForm.onsubmit = (e) => {
+    // 2. Email/Password Auth
+    authForm.onsubmit = async (e) => {
         e.preventDefault();
-        const pass = document.getElementById('master-password').value.trim();
-        if (pass === 'Rossy01') {
-            localStorage.setItem('isLoggedIn', 'true');
-            handleAuthChange({ uid: 'master_user', displayName: 'Master User' });
-        } else {
-            loginError.classList.remove('hidden');
+        authError.classList.add('hidden');
+        
+        const email = document.getElementById('auth-email').value.trim();
+        const pass = document.getElementById('auth-password').value.trim();
+
+        try {
+            if (state.isSignupMode) {
+                await createUserWithEmailAndPassword(auth, email, pass);
+            } else {
+                await signInWithEmailAndPassword(auth, email, pass);
+            }
+        } catch (error) {
+            console.error("Auth failed:", error);
+            authError.classList.remove('hidden');
+            authError.textContent = error.message.includes('auth/wrong-password') || error.message.includes('auth/user-not-found') 
+                ? t('auth_failed') 
+                : error.message;
         }
     };
 
-    // 3. Logout
+    // 3. Toggle Mode
+    toggleLink.onclick = (e) => {
+        e.preventDefault();
+        state.isSignupMode = !state.isSignupMode;
+        
+        submitBtn.setAttribute('data-i18n', state.isSignupMode ? 'signup_btn' : 'login_btn');
+        toggleLink.setAttribute('data-i18n', state.isSignupMode ? 'have_account' : 'no_account');
+        
+        applyLocales(); // Re-apply to update text immediately
+    };
+
+    // 4. Logout
     document.getElementById('logout-btn').onclick = async () => {
         await signOut(auth);
-        localStorage.removeItem('isLoggedIn');
         location.reload();
     };
 
-    // 4. Observer
+    // 5. Observer
     onAuthStateChanged(auth, (user) => {
         if (user) handleAuthChange(user);
-        else if (localStorage.getItem('isLoggedIn') === 'true') handleAuthChange({ uid: 'master_user', displayName: 'Master User' });
         else showLogin();
     });
 }

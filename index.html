@@ -31,14 +31,23 @@
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" width="20" alt="Google">
                         <span data-i18n="google_login">Google দিয়ে লগইন করুন</span>
                     </button>
-                    <div style="margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem;" data-i18n="or_master">অথবা মাস্টার পাসওয়ার্ড ব্যবহার করুন</div>
-                    <form id="login-form">
+                    
+                    <form id="auth-form">
                         <div class="form-group">
-                            <input type="password" id="master-password" placeholder="••••••••" required>
+                            <label data-i18n="email" style="font-size:0.85rem; margin-bottom:4px; display:block"></label>
+                            <input type="email" id="auth-email" placeholder="example@mail.com" required>
                         </div>
-                        <button type="submit" class="btn-outline full-width" data-i18n="enter">প্রবেশ করুন</button>
-                        <p id="login-error" class="error-msg hidden" data-i18n="wrong_pass">পাসওয়ার্ড সঠিক নয়!</p>
+                        <div class="form-group">
+                            <label data-i18n="password" style="font-size:0.85rem; margin-bottom:4px; display:block"></label>
+                            <input type="password" id="auth-password" placeholder="••••••••" required>
+                        </div>
+                        <button type="submit" id="auth-submit-btn" class="btn-outline full-width" data-i18n="login_btn">লগইন করুন</button>
+                        <p id="auth-error" class="error-msg hidden" data-i18n="auth_failed">তথ্য সঠিক নয়!</p>
                     </form>
+                    
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <a href="#" id="auth-toggle-link" data-i18n="no_account" style="color: var(--primary); font-size: 0.9rem; text-decoration: none; font-weight: 500;">অ্যাকাউন্ট নেই? তৈরি করুন</a>
+                    </div>
                 </div>
             </div>
         </section>
