@@ -16,8 +16,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body data-theme="light">
-    <title data-i18n="title">💰 Elite Money Tracker - আল্টিমেট</title>
-    ...
+    <div class="app-container">
+        <!-- Login Section -->
         <section id="login-section" class="screen active">
             <div class="card login-card">
                 <div class="header">
@@ -207,33 +207,6 @@
                 navigator.serviceWorker.register('./sw.js')
                     .then(reg => console.log('Service Worker registered!'))
                     .catch(err => console.log('Service Worker registration failed: ', err));
-            });
-        }
-    </script>
-</body>
-</html>
-           .catch(err => console.log('Service Worker registration failed: ', err));
-            });
-        }
-    </script>
-</body>
-</html>
-</section>
-    </div>
-
-    <script type="module" src="app.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker registered!'))
-                    .catch(err => console.log('Service Worker registration failed: ', err));
-            });
-        }
-    </script>
-</body>
-</html>
-           .catch(err => console.log('Service Worker registration failed: ', err));
             });
         }
     </script>
