@@ -79,6 +79,10 @@ export const locales = {
             new_cat: "নতুন খাত",
             add: "যোগ",
             confirm: "নিশ্চিত?"
+        },
+        interconnect: {
+            title: "🔗 Migration Hub (Interconnect)",
+            desc: "আপনার ডাটা স্ট্যান্ডার্ড (React/Supabase) ভার্সনে নির্বিঘ্নে স্থানান্তর করুন।"
         }
     },
     en: {
