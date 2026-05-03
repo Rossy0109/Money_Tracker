@@ -76,9 +76,9 @@ INSERT INTO payment_methods (method_name, method_type, balance, icon) VALUES
 ('Nagad', 'মোবাইল ব্যাংকিং', 0, '💳'),
 ('Rocket', 'মোবাইল ব্যাংকিং', 0, '🚀');
 
--- 8. Initial Data - Security (Password: AhmedKamrul010987)
--- SHA-256 for 'AhmedKamrul010987': 85b5643e3cdf4db2b4de99745247861f7270a8bc7545dae53b1263b70c547d7e
-INSERT INTO security (id, password_hash) VALUES (1, '85b5643e3cdf4db2b4de99745247861f7270a8bc7545dae53b1263b70c547d7e');
+-- 8. Initial Data - Security (Password: Rossy01)
+-- SHA-256 for 'Rossy01': 8a9a9c2ce11c758556871868927a46cb8f4d1af7d7cddc5aedeea240176d4878
+INSERT INTO security (id, password_hash) VALUES (1, '8a9a9c2ce11c758556871868927a46cb8f4d1af7d7cddc5aedeea240176d4878');
 
 -- 9. Row Level Security (RLS)
 ALTER TABLE security ENABLE ROW LEVEL SECURITY;

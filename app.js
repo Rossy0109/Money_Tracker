@@ -155,7 +155,7 @@ function setupAuth() {
     loginForm.onsubmit = (e) => {
         e.preventDefault();
         const pass = document.getElementById('master-password').value;
-        if (pass === 'AhmedKamrul010987') {
+        if (pass === 'Rossy01') {
             localStorage.setItem('isLoggedIn', 'true');
             handleAuthChange({ uid: 'master_user', displayName: 'Master User' });
         } else {
