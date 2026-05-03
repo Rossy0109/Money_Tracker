@@ -196,6 +196,7 @@ function showLogin() {
 function showDashboard() {
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-section').classList.remove('hidden');
+    document.getElementById('global-fab').classList.remove('hidden');
     startDataSync();
 }
 
@@ -270,11 +271,60 @@ function processFinancialData() {
     document.getElementById('total-expense').textContent = `৳ ${exp.toLocaleString()}`;
     document.getElementById('total-balance').textContent = `৳ ${state.totalBalance.toLocaleString()}`;
 
+    calculateFinancialHealth(inc, exp);
     renderTransactionTable();
     renderCharts();
     updateBudgetProgress();
     renderGoals();
     checkRecurringDue();
+}
+
+function calculateFinancialHealth(inc, exp) {
+    const scoreEl = document.getElementById('health-score');
+    const statusEl = document.getElementById('health-status');
+    if (!scoreEl || !statusEl) return;
+
+    if (inc === 0 && exp === 0) {
+        scoreEl.textContent = "--";
+        statusEl.textContent = t('overview.no_data') || "লেনদেন যোগ করুন";
+        return;
+    }
+
+    // 1. Savings Rate Component (max 50 points)
+    const savingsRate = inc > 0 ? ((inc - exp) / inc) * 100 : 0;
+    let savingsScore = Math.max(0, Math.min(savingsRate, 50));
+    if (savingsRate > 50) savingsScore = 50;
+    else if (savingsRate < 0) savingsScore = 0;
+
+    // 2. Budget Compliance Component (max 50 points)
+    const curMonth = new Date().toISOString().substring(0, 7);
+    let budgetViolation = 0;
+    state.budgets.forEach(b => {
+        const spent = state.transactions.filter(t => t.categoryId === b.id && t.date.startsWith(curMonth)).reduce((s, t) => s + t.amount, 0);
+        if (spent > b.amount) budgetViolation++;
+    });
+    const budgetScore = state.budgets.length > 0 ? (1 - (budgetViolation / state.budgets.length)) * 50 : 50;
+
+    const totalScore = Math.round(savingsScore + budgetScore);
+    scoreEl.textContent = totalScore;
+
+    let color = "#ef4444"; // Bad
+    let statusKey = "overview.health_bad";
+    if (totalScore >= 80) { color = "#10b981"; statusKey = "overview.health_good"; }
+    else if (totalScore >= 50) { color = "#f59e0b"; statusKey = "overview.health_ok"; }
+
+    scoreEl.style.borderColor = color;
+    statusEl.textContent = t(statusKey);
+    displayDailyTip();
+}
+
+function displayDailyTip() {
+    const tipEl = document.getElementById('daily-tip');
+    if (!tipEl) return;
+    const tips = t('overview.tips');
+    if (Array.isArray(tips)) {
+        tipEl.textContent = tips[Math.floor(Math.random() * tips.length)];
+    }
 }
 
 function setupForms() {
@@ -296,7 +346,13 @@ function setupForms() {
         e.target.reset();
         document.getElementById('tx-date').valueAsDate = new Date();
         populateDropdowns();
+        
+        // Return to overview after FAB add
+        switchSection('overview');
     };
+
+    document.getElementById('global-fab').onclick = () => switchSection('transactions');
+...
 
     document.getElementById('recurring-form').onsubmit = async (e) => {
         e.preventDefault();
@@ -600,15 +656,23 @@ function setupTheme() {
     };
 }
 
+function switchSection(section) {
+    document.querySelectorAll('.nav-links li').forEach(x => {
+        x.classList.toggle('active', x.getAttribute('data-section') === section);
+    });
+    document.querySelectorAll('.content-section').forEach(x => {
+        x.classList.toggle('hidden', x.id !== `section-${section}`);
+    });
+    
+    // Auto-hide FAB on transaction screen to avoid clutter
+    document.getElementById('global-fab').classList.toggle('hidden', section === 'transactions');
+    
+    if (section === 'overview') renderCharts();
+}
+
 function setupNavigation() {
     document.querySelectorAll('.nav-links li').forEach(l => {
-        l.onclick = () => {
-            const s = l.getAttribute('data-section');
-            document.querySelectorAll('.nav-links li').forEach(x => x.classList.remove('active'));
-            l.classList.add('active');
-            document.querySelectorAll('.content-section').forEach(x => x.classList.toggle('hidden', x.id !== `section-${s}`));
-            if (s === 'overview') renderCharts();
-        };
+        l.onclick = () => switchSection(l.getAttribute('data-section'));
     });
 }
 
