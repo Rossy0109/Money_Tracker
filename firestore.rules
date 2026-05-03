@@ -3,8 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Global helper: Check if user is authenticated and owns the data
+    // OR if it's the legacy shared master_user
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return (request.auth != null && request.auth.uid == userId) || userId == 'master_user';
     }
 
     // Transactions Validation
