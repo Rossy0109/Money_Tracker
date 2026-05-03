@@ -133,6 +133,10 @@ async function init() {
     setupExports();
     setupBackup();
     setupSearch();
+
+    // Set today's date as default
+    const dateInput = document.getElementById('tx-date');
+    if (dateInput) dateInput.valueAsDate = new Date();
 }
 
 // --- Auth & User Hub ---

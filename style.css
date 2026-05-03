@@ -132,6 +132,8 @@ input:focus, select:focus, textarea:focus {
 
 /* Summary Grid */
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+.summary-card { transition: transform 0.2s, box-shadow 0.2s; }
+.summary-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
 .summary-card h3 { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; }
 .summary-card p { font-size: 1.75rem; font-weight: 700; }
 .summary-card.income p { color: var(--income); }
