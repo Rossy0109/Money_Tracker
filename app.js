@@ -154,7 +154,7 @@ function setupAuth() {
     // 2. Master Password Login (Legacy fallback)
     loginForm.onsubmit = (e) => {
         e.preventDefault();
-        const pass = document.getElementById('master-password').value;
+        const pass = document.getElementById('master-password').value.trim();
         if (pass === 'Rossy01') {
             localStorage.setItem('isLoggedIn', 'true');
             handleAuthChange({ uid: 'master_user', displayName: 'Master User' });
