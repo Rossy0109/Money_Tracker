@@ -43,7 +43,41 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--primary);
 }
 
+/* Utility */
 .hidden { display: none !important; }
+.full-width { width: 100% !important; }
+.error-msg { color: var(--expense); font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+
+/* Login Page */
+#login-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+}
+.login-card {
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+.login-card .header { margin-bottom: 2rem; }
+.login-card .header h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.login-card .header p { color: var(--text-muted); font-size: 0.9rem; }
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.btn-outline:hover { background: var(--bg-app); border-color: var(--primary); }
+
+.form-group { margin-bottom: 1rem; text-align: left; }
 
 /* Dashboard Wrapper */
 .dashboard-wrapper { display: flex; min-height: 100vh; }
