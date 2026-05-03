@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elite-tracker-2026.05.03.0057';
+const CACHE_NAME = 'elite-tracker-2026.05.03.0129';
 const ASSETS = [
     './',
     './index.html',
