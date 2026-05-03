@@ -28,7 +28,18 @@ export const locales = {
             trend_title: "আয় বনাম ব্যয় ট্রেন্ড",
             pie_title: "খরচের বিশ্লেষণ (Pie Chart)",
             income_label: "আয়",
-            expense_label: "ব্যয়"
+            expense_label: "ব্যয়",
+            health_title: "আর্থিক স্বাস্থ্য",
+            no_data: "লেনদেন যোগ করুন",
+            health_good: "চমৎকার! আপনার সঞ্চয় বাড়ছে।",
+            health_ok: "ভালো, তবে বাজেটের দিকে নজর দিন।",
+            health_bad: "সতর্কবার্তা! খরচ আয়ের চেয়ে বেশি।",
+            tips: [
+                "আয়ের অন্তত ২০% সঞ্চয় করার চেষ্টা করুন।",
+                "ছোট ছোট খরচগুলো লিখে রাখুন, এগুলোই বড় হয়ে দাঁড়ায়।",
+                "বাজেট মেনে চলা আর্থিক স্বাধীনতার প্রথম ধাপ।",
+                "বিলাসবহুল জিনিসের চেয়ে প্রয়োজনের দিকে নজর দিন।"
+            ]
         },
         transactions: {
             new: "➕ নতুন লেনদেন",
@@ -114,7 +125,18 @@ export const locales = {
             trend_title: "Income vs Expense Trend",
             pie_title: "Expense Analysis (Pie Chart)",
             income_label: "Income",
-            expense_label: "Expense"
+            expense_label: "Expense",
+            health_title: "Financial Health",
+            no_data: "Add transactions to see health",
+            health_good: "Excellent! Your savings are growing.",
+            health_ok: "Good, but keep an eye on your budget.",
+            health_bad: "Warning! Your expenses exceed your income.",
+            tips: [
+                "Try to save at least 20% of your income.",
+                "Track small expenses; they add up quickly!",
+                "Following a budget is the first step to financial freedom.",
+                "Focus on needs over wants for long-term stability."
+            ]
         },
         transactions: {
             new: "➕ New Transaction",

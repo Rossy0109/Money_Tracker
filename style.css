@@ -128,7 +128,70 @@ input:focus, select:focus, textarea:focus {
 .btn-logout { background: #991b1b; color: white; border: none; padding: 0.5rem; border-radius: 6px; cursor: pointer; }
 
 /* Cards */
-.card { background: var(--bg-card); border-radius: var(--radius); padding: 1.5rem; border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+.card { 
+    background: var(--bg-card); 
+    border-radius: var(--radius); 
+    padding: 1.5rem; 
+    border: 1px solid var(--border); 
+    box-shadow: var(--shadow); 
+    margin-bottom: 1.5rem; 
+    backdrop-filter: blur(10px);
+}
+
+/* Financial Health Indicator */
+.health-indicator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+.health-score-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    border: 4px solid var(--primary);
+}
+.health-status-text h4 { font-size: 0.9rem; color: var(--text-muted); }
+.health-status-text p { font-weight: 600; font-size: 1.1rem; }
+
+/* Floating Action Button */
+.fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s, background 0.2s;
+    z-index: 1000;
+    border: none;
+}
+.fab:hover { transform: scale(1.1) rotate(90deg); background: var(--primary-hover); }
+
+@media (max-width: 768px) {
+    .fab { bottom: 1.5rem; right: 1.5rem; width: 50px; height: 50px; }
+}
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.content-section:not(.hidden) { animation: fadeIn 0.3s ease-out; }
 
 /* Summary Grid */
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }

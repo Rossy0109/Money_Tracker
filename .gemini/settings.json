@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "supabase": {
-      "url": "https://mcp.supabase.com/mcpproject_ref=ulmaomfsyjbwcwecutcp",
-      "type": "http"
+      "httpUrl": "https://mcp.supabase.com/mcpproject_ref=ulmaomfsyjbwcwecutcp&features=functions%2Cdevelopment%2Cdebugging%2Caccount%2Cdatabase"
     }
   }
 }

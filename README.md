@@ -11,10 +11,22 @@ A professional personal finance management system designed for **GitHub Pages**.
 ## 🚀 Professional Features
 
 1.  **Multi-User Support**: Data is now private and secure. Log in with Google to manage your own personal records.
-2.  **Expense Breakdown (Pie Chart)**: Visual analysis of where your money goes, categorized by expense types.
-3.  **Real-time Search**: Quickly find any transaction in the Reports section by searching for descriptions or categories.
-4.  **Dark Mode**: A beautiful, eye-friendly theme that persists across sessions.
-5.  **Data Portability**: Export your data to **PDF**, **Excel**, or a full **JSON Backup**.
+2.  **Financial Health Score**: Real-time 0-100 score based on savings rate and budget compliance.
+3.  **Floating Action Button (FAB)**: Mobile-first quick entry for transactions.
+4.  **Expense Breakdown (Pie Chart)**: Visual analysis of where your money goes, categorized by expense types.
+5.  **Offline-First (PWA)**: Enhanced Service Worker with Stale-While-Revalidate caching for maximum reliability.
+6.  **Real-time Search**: Quickly find any transaction in the Reports section.
+7.  **Dark Mode**: A beautiful, eye-friendly theme with glassmorphism effects.
+8.  **Data Portability**: Export to **PDF**, **Excel**, or a full **JSON Backup**.
+
+## 🏗️ Architecture: The "Dual-Core" Strategy
+
+This project maintains two synchronized versions to ensure 10-year longevity:
+
+-   **Ultimate Version (Root)**: The primary, low-dependency PWA using Vanilla JS and Firebase. Best for rapid mobile use and maximum uptime.
+-   **Standard Version (`/Money_Tracker`)**: A robust React + Flask stack using Supabase. Ideal for complex management and advanced analytics.
+
+**Unified Data Hub**: Both versions share a compatible JSON schema, allowing you to migrate your data between Firebase and Supabase at any time via the **Migration Hub**.
 
 ## 🛠️ Setup Instructions
 

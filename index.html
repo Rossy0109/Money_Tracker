@@ -75,6 +75,14 @@
                 <main class="main-content">
                     <!-- 1. Overview -->
                     <div id="section-overview" class="content-section">
+                        <div class="health-indicator" id="health-indicator">
+                            <div class="health-score-circle" id="health-score">--</div>
+                            <div class="health-status-text">
+                                <h4 data-i18n="overview.health_title">আর্থিক স্বাস্থ্য</h4>
+                                <p id="health-status">ডেটা লোড হচ্ছে...</p>
+                                <small id="daily-tip" style="color:var(--text-muted); font-style:italic; display:block; margin-top:5px"></small>
+                            </div>
+                        </div>
                         <div class="summary-grid">
                             <div class="card summary-card income"><h3 data-i18n="overview.income">মোট আয়</h3><p id="total-income">৳ 0</p></div>
                             <div class="card summary-card expense"><h3 data-i18n="overview.expense">মোট খরচ</h3><p id="total-expense">৳ 0</p></div>
@@ -200,6 +208,9 @@
                 </main>
             </div>
         </section>
+
+        <!-- Global FAB -->
+        <button id="global-fab" class="fab hidden" title="Add Transaction">＋</button>
     </div>
 
     <script type="module" src="app.js"></script>
