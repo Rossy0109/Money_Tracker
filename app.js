@@ -352,7 +352,6 @@ function setupForms() {
     };
 
     document.getElementById('global-fab').onclick = () => switchSection('transactions');
-...
 
     document.getElementById('recurring-form').onsubmit = async (e) => {
         e.preventDefault();
