@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
-import API_URL from './config';
+import { supabase } from './supabase';
 
 function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
   const { t } = useTranslation();
@@ -35,22 +34,25 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
 
     setIsSubmitting(true);
     try {
-      const payload = {
-        account_id: selectedAccountId,
-        amount: parseFloat(amount),
-        description,
-        payment_method_id: selectedPaymentMethodId,
-        transaction_date: new Date().toISOString().split('T')[0]
-      };
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          account_id: selectedAccountId,
+          amount: parseFloat(amount),
+          description,
+          payment_method_id: selectedPaymentMethodId,
+          transaction_date: new Date().toISOString().split('T')[0],
+          transaction_time: new Date().toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5)
+        });
 
-      await axios.post(`${API_URL}/api/transactions`, payload, { withCredentials: true });
+      if (error) throw error;
       
       onTransactionAdded(); // Trigger refresh in parent
       setDescription('');
       setAmount('');
     } catch (err) {
       console.error('Error adding transaction:', err);
-      alert('Error adding transaction: ' + (err.response?.data?.error?.message || err.message));
+      alert('Error adding transaction: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -59,38 +61,38 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
   const filteredAccounts = accounts.filter(acc => acc.account_type === transactionType);
 
   return (
-    <div className="card mb-4">
+    <div className="card mb-4 shadow-sm">
       <div className="card-body">
-        <h5 className="card-title">{t('add_new_transaction')}</h5>
+        <h5 className="card-title fw-bold">{t('add_new_transaction')}</h5>
         <form onSubmit={handleSubmit}>
           <div className="row mb-3">
-            <div className="col-md-4">
-              <div className="form-check form-check-inline">
+            <div className="col-md-4 d-flex align-items-center">
+              <div className="btn-group w-100" role="group">
                 <input
-                  className="form-check-input"
                   type="radio"
+                  className="btn-check"
                   name="transactionType"
                   id="incomeRadio"
-                  value="আয়"
+                  autoComplete="off"
                   checked={transactionType === 'আয়'}
                   onChange={() => setTransactionType('আয়')}
                 />
-                <label className="form-check-label" htmlFor="incomeRadio">{t('deposit')}</label>
-              </div>
-              <div className="form-check form-check-inline">
+                <label className="btn btn-outline-success" htmlFor="incomeRadio">{t('deposit')}</label>
+
                 <input
-                  className="form-check-input"
                   type="radio"
+                  className="btn-check"
                   name="transactionType"
                   id="expenseRadio"
-                  value="খরচ"
+                  autoComplete="off"
                   checked={transactionType === 'খরচ'}
                   onChange={() => setTransactionType('খরচ')}
                 />
-                <label className="form-check-label" htmlFor="expenseRadio">{t('expense')}</label>
+                <label className="btn btn-outline-danger" htmlFor="expenseRadio">{t('expense')}</label>
               </div>
             </div>
             <div className="col-md-4">
+              <label className="form-label small text-muted">{t('select_account')}</label>
               <select
                 className="form-select"
                 value={selectedAccountId}
@@ -106,6 +108,7 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
               </select>
             </div>
             <div className="col-md-4">
+              <label className="form-label small text-muted">{t('payment_method')}</label>
               <select
                 className="form-select"
                 value={selectedPaymentMethodId}
@@ -134,17 +137,21 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
               />
             </div>
             <div className="col-md-6 mb-3">
-              <input
-                type="number"
-                className="form-control"
-                placeholder={t('amount')}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
+              <div className="input-group">
+                <span className="input-group-text">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-control"
+                  placeholder={t('amount')}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+              </div>
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+          <button type="submit" className="btn btn-primary px-4" disabled={isSubmitting}>
             {isSubmitting ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> : null}
             {t('add_transaction')}
           </button>
