@@ -49,7 +49,7 @@ Visit `http://localhost:8000`.
 
 ## 🔐 Authentication
 - **Primary**: Login with Google.
-- **Legacy**: Master Password (`AhmedKamrul010987`) - uses a shared 'master_user' ID.
+- **Legacy**: Master Password (`Rossy01`) - uses a shared 'master_user' ID.
 
 ## 🚢 Deployment
 Every push to the `main` branch automatically deploys the latest version to your GitHub Pages site.
