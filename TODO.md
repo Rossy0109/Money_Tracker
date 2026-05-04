@@ -9,7 +9,7 @@
 - [x] `appId`
 
 ## 2. Firestore Security Rules
-- [x] **Production Rules**: Configured to allow `master_user` and authenticated users.
+- [x] **Production Rules**: Hardened to enforce strict user-based ownership without legacy bypasses.
 - [x] **Validation**: Enforced for amounts, dates, and account types.
 
 ## 3. Deployment & PWA

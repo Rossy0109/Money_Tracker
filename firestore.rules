@@ -2,10 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Global helper: Check if user is authenticated and owns the data
-    // OR if it's the legacy shared master_user
+    // Helper: Ensure authenticated and matching UID
     function isOwner(userId) {
-      return (request.auth != null && request.auth.uid == userId) || userId == 'master_user';
+      return request.auth != null && request.auth.uid == userId;
     }
 
     // Transactions Validation
@@ -14,7 +13,8 @@ service cloud.firestore {
       allow create: if isOwner(request.resource.data.userId) 
                     && request.resource.data.amount is number 
                     && request.resource.data.amount > 0
-                    && request.resource.data.date != null;
+                    && request.resource.data.date is string
+                    && request.resource.data.categoryName is string;
       allow update: if isOwner(resource.data.userId) 
                     && request.resource.data.userId == resource.data.userId;
     }
@@ -30,15 +30,19 @@ service cloud.firestore {
     // Budgets, Goals, Recurring Validation
     match /budgets/{id} {
       allow read, delete: if isOwner(resource.data.userId);
-      allow create, update: if isOwner(request.resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId) && request.resource.data.amount is number;
     }
     match /financial_goals/{id} {
       allow read, delete: if isOwner(resource.data.userId);
-      allow create, update: if isOwner(request.resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId) && request.resource.data.target is number;
     }
     match /recurring_templates/{id} {
       allow read, delete: if isOwner(resource.data.userId);
-      allow create, update: if isOwner(request.resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId) && request.resource.data.amount is number;
+    }
+    match /debts_registry/{id} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create, update: if isOwner(request.resource.data.userId) && request.resource.data.balance is number;
     }
   }
 }
