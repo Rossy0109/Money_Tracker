@@ -1,6 +1,6 @@
 # 🔌 API Documentation
 
-The Money Tracker Backend provides a RESTful API for managing transactions and summaries.
+The Foot Print of Money Backend provides a RESTful API for managing transactions and summaries.
 
 ## 📍 Base URL
 `http://localhost:5000/api`
@@ -29,9 +29,9 @@ The Money Tracker Backend provides a RESTful API for managing transactions and s
 - `GET /summary/weekly`: Get the total expense for the last 7 days.
 
 ## 🛠️ MCP Tools
-The backend also exposes tools for the **Gemini CLI** and other agents via `money_tracker_mcp_tools.py`:
+The backend also exposes tools for the **Gemini CLI** and other agents via `foot_print_of_money_mcp_tools.py`:
 - `get_accounts()`
 - `get_payment_methods()`
 - `add_new_transaction()`
-- `get_money_tracker_report_summary()`
+- `get_foot_print_of_money_report_summary()`
 - `backup_to_google_drive()`

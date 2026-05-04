@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('Elite Money Tracker E2E (Ultimate Version)', () => {
+test.describe('Foot Print of Money E2E (Ultimate Version)', () => {
   test.beforeEach(async ({ page }) => {
     // Bypass login UI by setting localStorage before the page loads
     await page.addInitScript(() => {

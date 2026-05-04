@@ -873,7 +873,7 @@ function setupExports() {
         await logEvent("export_pdf", state.user.uid);
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Elite Money Tracker Report", 14, 15);
+        doc.text("Foot Print of Money Report", 14, 15);
         doc.autoTable({ head: [['Date', 'Category', 'Amount', 'Method']], body: state.transactions.map(t => [t.date, t.categoryName, t.amount, t.method]), startY: 20 });
         doc.save("Money_Record_Report.pdf");
     };

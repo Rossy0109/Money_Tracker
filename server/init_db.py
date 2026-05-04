@@ -3,7 +3,7 @@ import os
 import hashlib
 from datetime import datetime
 
-DB_PATH = os.getenv('MONEY_TRACKER_DB_PATH', 'advanced_money_tracker.db')
+DB_PATH = os.getenv('FOOT_PRINT_OF_MONEY_DB_PATH', 'foot_print_of_money.db')
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)

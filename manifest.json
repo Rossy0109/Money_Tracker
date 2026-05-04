@@ -1,6 +1,6 @@
 {
-  "name": "Elite Money Tracker",
-  "short_name": "Elite Tracker",
+  "name": "Foot Print of Money",
+  "short_name": "Money Foot Print",
   "description": "Professional personal finance management with real-time sync and offline support.",
   "start_url": "index.html",
   "display": "standalone",

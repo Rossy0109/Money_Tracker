@@ -24,7 +24,7 @@ function DataManagement({ transactions, accounts, paymentMethods, onDataChange }
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `money_tracker_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `foot_print_of_money_export_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -47,7 +47,7 @@ function DataManagement({ transactions, accounts, paymentMethods, onDataChange }
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `money_tracker_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    link.setAttribute("download", `foot_print_of_money_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

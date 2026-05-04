@@ -1,5 +1,5 @@
 #!/bin/bash
-PROJECT_DIR="/data/data/com.termux/files/home/Money_Tracker"
+PROJECT_DIR="/data/data/com.termux/files/home/Foot_Print_of_Money"
 
 # Ensure previous processes are stopped
 

@@ -1,4 +1,4 @@
-# 📋 Money Tracker - Project Status
+# 📋 Foot Print of Money - Project Status
 
 ## 1. Firebase API Configuration
 - [x] `apiKey`

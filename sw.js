@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elite-tracker-v1.0.0';
+const CACHE_NAME = 'money-footprint-v1.0.0';
 const ASSETS = [
     './',
     './index.html',

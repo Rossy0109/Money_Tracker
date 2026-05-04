@@ -1,4 +1,4 @@
--- 💰 Money Tracker - Supabase (PostgreSQL) Schema
+-- 💰 Foot Print of Money - Supabase (PostgreSQL) Schema
 
 -- 1. Security/Password Table
 CREATE TABLE security (

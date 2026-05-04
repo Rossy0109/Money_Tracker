@@ -1,6 +1,6 @@
 # 🚀 Deployment Instructions
 
-The Money Tracker is designed to be deployed on **Vercel** or **Render**.
+The Foot Print of Money is designed to be deployed on **Vercel** or **Render**.
 
 ## 🔼 Vercel (Recommended)
 This project includes a `vercel.json` for a seamless full-stack deployment.

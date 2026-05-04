@@ -1,6 +1,6 @@
 # 📖 User Guide
 
-Welcome to the Elite Money Tracker! This guide explains how to manage your finances effectively.
+Welcome to the Foot Print of Money! This guide explains how to manage your finances effectively.
 
 ## 🔐 Logging In
 - Use the **Master Password** provided during setup.
