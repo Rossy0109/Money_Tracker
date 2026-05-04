@@ -1,4 +1,4 @@
-# 💰 Money Record Book (Ultimate Version)
+# 💰 Elite Money Tracker (Ultimate Version)
 
 A professional personal finance management system designed for **GitHub Pages**.
 

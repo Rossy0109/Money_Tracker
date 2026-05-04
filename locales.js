@@ -1,7 +1,7 @@
 export const locales = {
     bn: {
-        title: "💰 Money Record Book - আল্টিমেট",
-        login_title: "Money Record Book",
+        title: "💰 Elite Money Tracker - আল্টিমেট",
+        login_title: "Elite Money Tracker",
         login_subtitle: "আপনার নিরাপদ আর্থিক বন্ধু",
         google_login: "Google দিয়ে লগইন করুন",
         email: "ইমেইল",
@@ -157,8 +157,8 @@ export const locales = {
         }
     },
     en: {
-        title: "💰 Money Record Book - Ultimate",
-        login_title: "Money Record Book",
+        title: "💰 Elite Money Tracker - Ultimate",
+        login_title: "Elite Money Tracker",
         login_subtitle: "Your Secure Financial Companion",
         google_login: "Login with Google",
         email: "Email",
