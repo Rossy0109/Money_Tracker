@@ -1,7 +1,7 @@
 {
-  "name": "money-tracker-ultimate",
+  "name": "foot-print-of-money",
   "version": "1.0.0",
-  "description": "Professional Personal Finance Tracker (Ultimate Version)",
+  "description": "Foot Print of Money - Professional Personal Finance Tracker",
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "serve": "^14.2.1"

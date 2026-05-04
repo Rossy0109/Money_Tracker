@@ -1,8 +1,8 @@
-# Money Tracker Documentation
+# Foot Print of Money Documentation
 
 ## Index
 
-This is the central index for all the documentation related to the Money Tracker project.
+This is the central index for all the documentation related to the Foot Print of Money project.
 
 - [Setup Guides](setup_guides.md)
 - [API Documentation](api_documentation.md)

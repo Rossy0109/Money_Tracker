@@ -1,4 +1,4 @@
-# 💰 Elite Money Tracker (Ultimate Version)
+# 💰 Foot Print of Money (Ultimate Version)
 
 A professional personal finance management system designed for **GitHub Pages**.
 
@@ -27,7 +27,7 @@ A professional personal finance management system designed for **GitHub Pages**.
 This project maintains two synchronized versions:
 
 -   **Ultimate Version (Root)**: The primary, low-dependency PWA using Vanilla JS and Firebase. Best for rapid mobile use and maximum uptime.
--   **Standard Version (`/Money_Tracker`)**: A robust React + Flask stack using Supabase. Ideal for complex management.
+-   **Standard Version (`/Foot_Print_of_Money`)**: A robust React + Flask stack using Supabase. Ideal for complex management.
 
 **Unified Data Hub**: Both versions share a compatible JSON schema via the **Migration Hub**.
 

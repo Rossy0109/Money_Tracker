@@ -10,7 +10,7 @@ from backend_utils import (
 from drive_sync import GoogleDriveSync
 
 def get_accounts():
-    """Lists all active accounts in the Money Tracker (Supabase)."""
+    """Lists all active accounts in the Foot Print of Money (Supabase)."""
     try:
         supabase = get_supabase_client()
         response = supabase.table("accounts").select("*").eq("is_active", True).execute()
@@ -20,7 +20,7 @@ def get_accounts():
         return []
 
 def get_payment_methods():
-    """Lists all active payment methods in the Money Tracker (Supabase)."""
+    """Lists all active payment methods in the Foot Print of Money (Supabase)."""
     try:
         supabase = get_supabase_client()
         response = supabase.table("payment_methods").select("*").eq("is_active", True).execute()
@@ -68,7 +68,7 @@ def add_new_transaction(account_id, amount, description, transaction_date=None, 
         logger.error(f"Error adding transaction to Supabase: {e}")
         return False
 
-def get_money_tracker_report_summary(start_date, end_date):
+def get_foot_print_of_money_report_summary(start_date, end_date):
     """Generates a summary report of transactions for a given date range (Supabase)."""
     try:
         supabase = get_supabase_client()
@@ -95,7 +95,7 @@ def get_money_tracker_report_summary(start_date, end_date):
 
 def backup_to_google_drive():
     """Exports all Supabase data to JSON and uploads it to Google Drive."""
-    backup_file = f"money_tracker_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    backup_file = f"foot_print_of_money_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
     try:
         supabase = get_supabase_client()

@@ -2,28 +2,28 @@
   "version": 2,
   "builds": [
     {
-      "src": "Money_Tracker/client/package.json",
+      "src": "Foot_Print_of_Money/client/package.json",
       "use": "@vercel/static-build",
       "config": { "distDir": "build" }
     },
     {
-      "src": "Money_Tracker/server/server.py",
+      "src": "Foot_Print_of_Money/server/server.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "Money_Tracker/server/server.py"
+      "dest": "Foot_Print_of_Money/server/server.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/Money_Tracker/client/$1",
+      "dest": "/Foot_Print_of_Money/client/$1",
       "check": true
     },
     {
       "src": "/(.*)",
-      "dest": "/Money_Tracker/client/index.html"
+      "dest": "/Foot_Print_of_Money/client/index.html"
     }
   ]
 }

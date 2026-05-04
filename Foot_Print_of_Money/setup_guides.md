@@ -1,6 +1,6 @@
-# 🛠️ Money Tracker Setup Guide
+# 🛠️ Foot Print of Money Setup Guide
 
-This guide will help you set up the Elite Money Tracker on your local machine.
+This guide will help you set up the Foot Print of Money on your local machine.
 
 ## 📋 Prerequisites
 - **Node.js** (v18+)
@@ -10,14 +10,14 @@ This guide will help you set up the Elite Money Tracker on your local machine.
 
 ## 🗄️ Database Setup (Supabase)
 1. Create a new project at [supabase.com](https://supabase.com).
-2. Go to the **SQL Editor** and paste the contents of `Money_Tracker/supabase_schema.sql`.
+2. Go to the **SQL Editor** and paste the contents of `Foot_Print_of_Money/supabase_schema.sql`.
 3. Run the script to create tables, indexes, and RLS policies.
 4. Note your **Project URL** and **Anon/Secret Key** from the Project Settings -> API.
 
 ## 🐍 Backend Setup (Server)
 1. Navigate to the server directory:
    ```bash
-   cd Money_Tracker/server
+   cd Foot_Print_of_Money/server
    ```
 2. Install dependencies:
    ```bash
@@ -37,7 +37,7 @@ This guide will help you set up the Elite Money Tracker on your local machine.
 ## ⚛️ Frontend Setup (Client)
 1. Navigate to the client directory:
    ```bash
-   cd Money_Tracker/client
+   cd Foot_Print_of_Money/client
    ```
 2. Install dependencies:
    ```bash
@@ -54,8 +54,8 @@ This guide will help you set up the Elite Money Tracker on your local machine.
 1. Enable the Google Drive API in the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create **OAuth 2.0 Client IDs** (Desktop App).
 3. Download the JSON and rename it to `credentials.json`.
-4. Place it in `Money_Tracker/server/`.
+4. Place it in `Foot_Print_of_Money/server/`.
 5. Run the backup tool once to authorize:
    ```bash
-   python money_tracker_mcp_tools.py
+   python foot_print_of_money_mcp_tools.py
    ```

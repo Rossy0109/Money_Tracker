@@ -1,10 +1,10 @@
-# Money Tracker Project Mandates
+# Foot Print of Money Project Mandates
 
-This document establishes the software engineering standards and architectural patterns for the Money Tracker project.
+This document establishes the software engineering standards and architectural patterns for the Foot Print of Money project.
 
 ## 🏗️ Architecture
 - **Ultimate Version (Root)**: Primary PWA using HTML/Vanilla JS/Firebase. Deployed to GitHub Pages.
-- **Standard Version (`/Money_Tracker`)**: Legacy/Reference version using React/Flask/Supabase.
+- **Standard Version (`/Foot_Print_of_Money`)**: Legacy/Reference version using React/Flask/Supabase.
 - **Data Layer**: Powered by Firebase Firestore for real-time updates and persistence.
 
 ## 🛠️ Standards
@@ -18,6 +18,6 @@ This document establishes the software engineering standards and architectural p
 - **Vendor Agnostic**: Keep the core logic in `app.js` decoupled from the Firebase SDK. If a database migration is needed in the future, only the `Data Hub` section should require modification.
 - **Data Sovereignty**: The JSON backup feature must always capture the *entire* state. Users must never be locked into a single platform.
 - **Interconnect Strength**: 
-    - The `/Money_Tracker` (Standard) and root (Ultimate) versions should share the same data schema logic to allow for easy migration between stacks.
+    - The `/Foot_Print_of_Money` (Standard) and root (Ultimate) versions should share the same data schema logic to allow for easy migration between stacks.
     - **Migration Path**: The root project's "JSON Backup" captures the full state including schema version. The legacy React version should be updated to accept this format for cross-version compatibility.
     - **Offline-First**: Persistence must be enabled in both versions to ensure the "7-10 year" reliability mandate is met even with intermittent connectivity.

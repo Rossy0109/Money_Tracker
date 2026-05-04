@@ -1,4 +1,4 @@
--- 💰 Elite Money Tracker - Supabase (PostgreSQL) Schema
+-- 💰 Foot Print of Money - Supabase (PostgreSQL) Schema
 -- Optimized with Security and Performance Best Practices
 
 -- 1. Enable Extensions

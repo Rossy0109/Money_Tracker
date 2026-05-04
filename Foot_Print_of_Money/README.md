@@ -1,4 +1,4 @@
-# 💰 Elite Money Tracker (Standard Version)
+# 💰 Foot Print of Money (Standard Version)
 
 A feature-rich personal finance management system with a modern React frontend and Flask backend.
 
