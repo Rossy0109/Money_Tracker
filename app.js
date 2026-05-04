@@ -143,6 +143,15 @@ async function init() {
     }, 1000);
 }
 
+function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.style.background = isError ? '#ef4444' : '#2563eb';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 // --- Auth Hub ---
 function setupAuth() {
     const authForm = document.getElementById('auth-form');
@@ -150,8 +159,18 @@ function setupAuth() {
     const authError = document.getElementById('auth-error');
     const toggleLink = document.getElementById('auth-toggle-link');
     const submitBtn = document.getElementById('auth-submit-btn');
+    const passToggle = document.getElementById('toggle-password');
+    const passInput = document.getElementById('auth-password');
 
     if (!authForm) return;
+
+    if (passToggle) {
+        passToggle.onclick = () => {
+            const isPass = passInput.type === 'password';
+            passInput.type = isPass ? 'text' : 'password';
+            passToggle.textContent = isPass ? '🙈' : '👁️';
+        };
+    }
 
     // Initial check
     checkLockout();
@@ -159,13 +178,16 @@ function setupAuth() {
     googleBtn.onclick = async () => {
         if (checkLockout()) return;
         authError.classList.add('hidden');
+        googleBtn.classList.add('btn-loading');
         try {
             const result = await signInWithPopup(auth, googleProvider);
             await logEvent("login_google", result.user.uid);
+            showToast("Login Successful!");
         } catch (error) {
             authError.classList.remove('hidden');
             authError.textContent = `Google Error: ${error.message}`;
             await logEvent("failed_login_google", null, { error: error.message });
+            googleBtn.classList.remove('btn-loading');
         }
     };
 
@@ -173,19 +195,36 @@ function setupAuth() {
         e.preventDefault();
         if (checkLockout()) return;
 
-        submitBtn.disabled = true;
-        authError.classList.add('hidden');
         const email = document.getElementById('auth-email').value.trim();
-        const pass = document.getElementById('auth-password').value.trim();
+        const pass = passInput.value.trim();
+
+        // Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            authError.classList.remove('hidden');
+            authError.textContent = "Please enter a valid email address.";
+            return;
+        }
+        if (pass.length < 6) {
+            authError.classList.remove('hidden');
+            authError.textContent = "Password must be at least 6 characters.";
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn-loading');
+        authError.classList.add('hidden');
 
         try {
             let result;
             if (state.isSignupMode) {
                 result = await createUserWithEmailAndPassword(auth, email, pass);
                 await logEvent("signup_email", result.user.uid);
+                showToast("Account Created!");
             } else {
                 result = await signInWithEmailAndPassword(auth, email, pass);
                 await logEvent("login_email", result.user.uid);
+                showToast("Welcome Back!");
             }
             // Success: Reset failures
             state.failedAttempts = 0;
@@ -204,6 +243,7 @@ function setupAuth() {
             authError.classList.remove('hidden');
             authError.textContent = error.message;
             submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-loading');
             await logEvent("failed_login_email", null, { email, error: error.message, attempts: state.failedAttempts });
             checkLockout();
         }
@@ -611,71 +651,95 @@ function setupForms() {
             const totalAmount = parseFloat(document.getElementById('tx-amount').value);
             const desc = document.getElementById('tx-desc').value;
 
-            if (type === 'transfer') {
-                const from = document.getElementById('tx-from-account').value;
-                const to = document.getElementById('tx-to-account').value;
-                if (from === to) return alert("Source and Destination cannot be the same!");
-                
-                // Outflow
-                await DB.add("transactions", {
-                    date, categoryName: `Transfer Out to ${to}`, type: 'expense',
-                    amount: totalAmount, method: from, description: desc, createdAt: Timestamp.now()
-                });
-                // Inflow
-                await DB.add("transactions", {
-                    date, categoryName: `Transfer In from ${from}`, type: 'income',
-                    amount: totalAmount, method: to, description: desc, createdAt: Timestamp.now()
-                });
-            } else {
-                const isSplit = !splitContainer.classList.contains('hidden');
-                if (isSplit) {
-                    const splits = Array.from(splitList.querySelectorAll('.form-row')).map(row => ({
-                        catId: row.querySelector('.split-cat').value,
-                        catName: row.querySelector('.split-cat').selectedOptions[0].text,
-                        amount: parseFloat(row.querySelector('.split-amt').value) || 0
-                    }));
-                    const sum = splits.reduce((s, x) => s + x.amount, 0);
-                    if (Math.abs(sum - totalAmount) > 0.01) return alert(`Total amount (৳${totalAmount}) must match sum of splits (৳${sum})`);
-
-                    for (const s of splits) {
-                        await DB.add("transactions", {
-                            date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
-                            amount: s.amount, method, description: `[Split] ${desc}`, createdAt: Timestamp.now()
-                        });
-                    }
-                } else {
-                    const catId = document.getElementById('tx-account').value;
-                    const cat = state.categories.find(c => c.id === catId);
-                    if (!cat) return;
-
-                    const vatPercent = parseFloat(document.getElementById('tx-vat').value) || 0;
-                    const vatAmount = totalAmount * (vatPercent / 100);
-                    const finalAmount = totalAmount + vatAmount;
-
-                    await DB.add("transactions", {
-                        date, categoryId: catId, categoryName: cat.name, type: cat.type,
-                        amount: finalAmount, vatAmount, method, description: desc, createdAt: Timestamp.now()
-                    });
-
-                    // bKash fee
-                    const bkashCheck = document.getElementById('tx-bkash-fee');
-                    if (method === 'bKash' && bkashCheck && bkashCheck.checked) {
-                        const fee = Math.ceil(totalAmount * 0.0185);
-                        await DB.add("transactions", {
-                            date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
-                            amount: fee, method: 'bKash', description: `Auto-fee for ৳${totalAmount}`, createdAt: Timestamp.now()
-                        });
-                    }
-                }
+            if (!date || isNaN(totalAmount) || totalAmount <= 0) {
+                return showToast("Please enter valid date and amount!", true);
             }
 
-            e.target.reset();
-            document.getElementById('tx-date').valueAsDate = new Date();
-            splitContainer.classList.add('hidden');
-            splitList.innerHTML = '';
-            document.getElementById('tx-account').disabled = false;
-            populateDropdowns();
-            switchSection('overview');
+            const saveBtn = txForm.querySelector('button[type="submit"]');
+            saveBtn.classList.add('btn-loading');
+
+            try {
+                if (type === 'transfer') {
+                    const from = document.getElementById('tx-from-account').value;
+                    const to = document.getElementById('tx-to-account').value;
+                    if (from === to) {
+                        saveBtn.classList.remove('btn-loading');
+                        return alert("Source and Destination cannot be the same!");
+                    }
+                    
+                    // Outflow
+                    await DB.add("transactions", {
+                        date, categoryName: `Transfer Out to ${to}`, type: 'expense',
+                        amount: totalAmount, method: from, description: desc, createdAt: Timestamp.now()
+                    });
+                    // Inflow
+                    await DB.add("transactions", {
+                        date, categoryName: `Transfer In from ${from}`, type: 'income',
+                        amount: totalAmount, method: to, description: desc, createdAt: Timestamp.now()
+                    });
+                } else {
+                    const isSplit = !splitContainer.classList.contains('hidden');
+                    if (isSplit) {
+                        const splits = Array.from(splitList.querySelectorAll('.form-row')).map(row => ({
+                            catId: row.querySelector('.split-cat').value,
+                            catName: row.querySelector('.split-cat').selectedOptions[0].text,
+                            amount: parseFloat(row.querySelector('.split-amt').value) || 0
+                        }));
+                        const sum = splits.reduce((s, x) => s + x.amount, 0);
+                        if (Math.abs(sum - totalAmount) > 0.01) {
+                            saveBtn.classList.remove('btn-loading');
+                            return alert(`Total amount (৳${totalAmount}) must match sum of splits (৳${sum})`);
+                        }
+
+                        for (const s of splits) {
+                            await DB.add("transactions", {
+                                date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
+                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: Timestamp.now()
+                            });
+                        }
+                    } else {
+                        const catId = document.getElementById('tx-account').value;
+                        const cat = state.categories.find(c => c.id === catId);
+                        if (!cat) {
+                            saveBtn.classList.remove('btn-loading');
+                            return showToast("Category required!", true);
+                        }
+
+                        const vatPercent = parseFloat(document.getElementById('tx-vat').value) || 0;
+                        const vatAmount = totalAmount * (vatPercent / 100);
+                        const finalAmount = totalAmount + vatAmount;
+
+                        await DB.add("transactions", {
+                            date, categoryId: catId, categoryName: cat.name, type: cat.type,
+                            amount: finalAmount, vatAmount, method, description: desc, createdAt: Timestamp.now()
+                        });
+
+                        // bKash fee
+                        const bkashCheck = document.getElementById('tx-bkash-fee');
+                        if (method === 'bKash' && bkashCheck && bkashCheck.checked) {
+                            const fee = Math.ceil(totalAmount * 0.0185);
+                            await DB.add("transactions", {
+                                date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
+                                amount: fee, method: 'bKash', description: `Auto-fee for ৳${totalAmount}`, createdAt: Timestamp.now()
+                            });
+                        }
+                    }
+                }
+
+                showToast("Transaction Recorded!");
+                e.target.reset();
+                document.getElementById('tx-date').valueAsDate = new Date();
+                splitContainer.classList.add('hidden');
+                splitList.innerHTML = '';
+                document.getElementById('tx-account').disabled = false;
+                populateDropdowns();
+                switchSection('overview');
+            } catch (err) {
+                console.error(err);
+                showToast("Error saving data!", true);
+            } finally {
+                saveBtn.classList.remove('btn-loading');
+            }
         };
     }
 
