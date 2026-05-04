@@ -35,3 +35,6 @@ The backend also exposes tools for the **Gemini CLI** and other agents via `foot
 - `add_new_transaction()`
 - `get_foot_print_of_money_report_summary()`
 - `backup_to_google_drive()`
+
+---
+**Copyright Reserved: Md Kamrul Ahmed**

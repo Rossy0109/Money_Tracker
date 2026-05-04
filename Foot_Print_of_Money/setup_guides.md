@@ -59,3 +59,6 @@ This guide will help you set up the Foot Print of Money on your local machine.
    ```bash
    python foot_print_of_money_mcp_tools.py
    ```
+
+---
+**Copyright Reserved: Md Kamrul Ahmed**

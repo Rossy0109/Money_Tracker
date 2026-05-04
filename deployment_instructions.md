@@ -44,3 +44,6 @@ This project is architected for maximum longevity on free-tier infrastructure.
 ### 3. Maintenance
 - **Dependencies**: Keep `package.json` and `requirements.txt` updated. The project uses a **Python 3.13 compatibility patch** to ensure it works on the latest runtimes.
 - **Zero-Touch**: Once deployed, the app will run indefinitely as long as your API keys are active.
+
+---
+**Copyright Reserved: Md Kamrul Ahmed**
