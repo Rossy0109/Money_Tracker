@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💰 Elite Money Tracker - আল্টিমেট</title>
+    <title>💰 Money Record Book - আল্টিমেট</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
@@ -11,19 +11,32 @@
     <meta name="theme-color" content="#2563eb">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Libraries -->
-    <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        #app-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #e2e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        [data-theme="dark"] #app-loading { background: #020617; }
+        .debt-item-card { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
+        .debt-priority-high { border-left: 4px solid var(--expense); }
+    </style>
 </head>
 <body data-theme="light">
+    <!-- Loading Overlay -->
+    <div id="app-loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; font-weight: 600; color: #64748b;">Money Record Book Loading...</p>
+    </div>
+
     <div class="app-container">
         <!-- Login Section -->
         <section id="login-section" class="screen active">
             <div class="card login-card">
                 <div class="header">
-                    <h1 data-i18n="login_title">Elite Money Tracker</h1>
+                    <h1 data-i18n="login_title">Money Record Book</h1>
                     <p data-i18n="login_subtitle">আপনার নিরাপদ আর্থিক বন্ধু</p>
                 </div>
                 <div id="auth-ui">
@@ -49,6 +62,7 @@
                         <a href="#" id="auth-toggle-link" data-i18n="no_account" style="color: var(--primary); font-size: 0.9rem; text-decoration: none; font-weight: 500;">অ্যাকাউন্ট নেই? তৈরি করুন</a>
                     </div>
                 </div>
+                <footer class="auth-footer" data-i18n="footer.copyright">Copyright Reserved: Md Kamrul Ahmed</footer>
             </div>
         </section>
 
@@ -58,17 +72,18 @@
             <div class="dashboard-wrapper">
                 <nav class="sidebar">
                     <div class="sidebar-header">
-                        <span class="logo">💰 Elite Tracker</span>
+                        <span class="logo">💰 Money Record</span>
                         <div id="user-display" style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px;"></div>
                     </div>
                     <ul class="nav-links">
-                        <li class="active" data-section="overview"><span class="icon">📊</span> সারসংক্ষেপ</li>
-                        <li data-section="transactions"><span class="icon">➕</span> নতুন লেনদেন</li>
-                        <li data-section="recurring"><span class="icon">🔄</span> নিয়মিত খরচ</li>
-                        <li data-section="budget"><span class="icon">📉</span> বাজেট সেট</li>
-                        <li data-section="goals"><span class="icon">🎯</span> আর্থিক লক্ষ্য</li>
-                        <li data-section="reports"><span class="icon">📋</span> রিপোর্ট</li>
-                        <li data-section="settings"><span class="icon">⚙️</span> সেটিংস</li>
+                        <li class="active" data-section="overview"><span class="icon">📊</span> <span data-i18n="sidebar.overview">সারসংক্ষেপ</span></li>
+                        <li data-section="transactions"><span class="icon">➕</span> <span data-i18n="sidebar.transactions">নতুন লেনদেন</span></li>
+                        <li data-section="recurring"><span class="icon">🔄</span> <span data-i18n="sidebar.recurring">নিয়মিত খরচ</span></li>
+                        <li data-section="budget"><span class="icon">📉</span> <span data-i18n="sidebar.budget">বাজেট সেট</span></li>
+                        <li data-section="goals"><span class="icon">🎯</span> <span data-i18n="sidebar.goals">আর্থিক লক্ষ্য</span></li>
+                        <li data-section="lab"><span class="icon">🧪</span> <span data-i18n="sidebar.lab">ফিন্যান্সিয়াল ল্যাব</span></li>
+                        <li data-section="reports"><span class="icon">📋</span> <span data-i18n="sidebar.reports">রিপোর্ট</span></li>
+                        <li data-section="settings"><span class="icon">⚙️</span> <span data-i18n="sidebar.settings">সেটিংস</span></li>
                     </ul>
                     <div class="sidebar-footer">
                         <button id="theme-toggle" class="btn-outline-sidebar">🌓 ডার্ক মোড</button>
@@ -78,6 +93,7 @@
                             <input type="file" id="restore-input" accept=".json" class="hidden">
                         </div>
                         <button id="logout-btn" class="btn-logout">লগ আউট</button>
+                        <div class="copyright-sidebar" data-i18n="footer.copyright">Copyright Reserved: Md Kamrul Ahmed</div>
                     </div>
                 </nav>
 
@@ -119,11 +135,32 @@
                                     <select id="tx-type">
                                         <option value="income" data-i18n="transactions.income">আয়</option>
                                         <option value="expense" selected data-i18n="transactions.expense">খরচ</option>
+                                        <option value="transfer" data-i18n="transactions.transfer">স্থানান্তর</option>
                                     </select>
                                 </div>
-                                <div class="form-row">
-                                    <select id="tx-account" required></select>
+                                <div class="form-row hidden" id="transfer-acc-row">
+                                    <select id="tx-from-account" data-i18n-placeholder="transactions.from_acc"></select>
+                                    <select id="tx-to-account" data-i18n-placeholder="transactions.to_acc"></select>
+                                </div>
+                                <div class="form-row" id="normal-acc-row">
+                                    <select id="tx-account"></select>
                                     <select id="tx-method" required></select>
+                                </div>
+                                <div id="split-container" class="hidden" style="margin-bottom: 1rem;">
+                                    <div id="split-list"></div>
+                                    <button type="button" id="btn-add-split" class="btn-outline" style="font-size: 0.8rem; padding: 5px 10px;" data-i18n="transactions.split_add">+ খাত যোগ করুন</button>
+                                </div>
+                                <div class="form-row" id="extra-tx-info">
+                                    <label id="bkash-fee-wrap" class="hidden" style="display:flex; align-items:center; gap:8px; font-size:0.9rem">
+                                        <input type="checkbox" id="tx-bkash-fee"> <span data-i18n="transactions.bkash_fee">বিকাশ চার্জ</span>
+                                    </label>
+                                    <select id="tx-vat">
+                                        <option value="0" data-i18n="transactions.vat">ভ্যাট (%)</option>
+                                        <option value="5">৫%</option>
+                                        <option value="7.5">৭.৫%</option>
+                                        <option value="15">১৫%</option>
+                                    </select>
+                                    <button type="button" id="btn-toggle-split" class="btn-outline" style="font-size: 0.8rem;" data-i18n="transactions.split">স্প্লিট (Split)</button>
                                 </div>
                                 <input type="number" id="tx-amount" data-i18n-placeholder="transactions.amount" placeholder="পরিমাণ (৳)" required>
                                 <textarea id="tx-desc" data-i18n-placeholder="transactions.desc" placeholder="বিবরণ..."></textarea>
@@ -135,12 +172,12 @@
                     <!-- 3. Recurring -->
                     <div id="section-recurring" class="content-section hidden">
                         <div class="card">
-                            <h2>🔄 নিয়মিত খরচ সেট করুন (Monthly)</h2>
+                            <h2 data-i18n="recurring.title">🔄 নিয়মিত খরচ সেট করুন (Monthly)</h2>
                             <form id="recurring-form" class="form-row">
                                 <select id="rec-account" required></select>
-                                <input type="number" id="rec-amount" placeholder="টাকার পরিমাণ" required>
-                                <input type="number" id="rec-day" placeholder="মাসের কত তারিখ?" min="1" max="31" required>
-                                <button type="submit" class="btn-primary">সেট করুন</button>
+                                <input type="number" id="rec-amount" data-i18n-placeholder="recurring.amount" placeholder="টাকার পরিমাণ" required>
+                                <input type="number" id="rec-day" data-i18n-placeholder="recurring.day" placeholder="মাসের কত তারিখ?" min="1" max="31" required>
+                                <button type="submit" class="btn-primary" data-i18n="recurring.set">সেট করুন</button>
                             </form>
                             <div id="recurring-list" class="chip-list"></div>
                         </div>
@@ -149,11 +186,14 @@
                     <!-- 4. Budget -->
                     <div id="section-budget" class="content-section hidden">
                         <div class="card">
-                            <h2>📉 মাসিক বাজেট</h2>
+                            <h2 data-i18n="budget.title">📉 মাসিক বাজেট</h2>
+                            <div id="zbb-status" class="card" style="margin-bottom: 1rem; background: rgba(37, 99, 235, 0.05); text-align: center;">
+                                <span data-i18n="budget.zbb_remain">অ্যাসাইন করার বাকি: ৳</span> <strong id="zbb-val">0</strong>
+                            </div>
                             <form id="budget-form" class="form-row">
                                 <select id="budget-account" required></select>
-                                <input type="number" id="budget-amount" placeholder="সীমা" required>
-                                <button type="submit" class="btn-primary">সেট</button>
+                                <input type="number" id="budget-amount" data-i18n-placeholder="budget.limit" placeholder="সীমা" required>
+                                <button type="submit" class="btn-primary" data-i18n="budget.set">সেট</button>
                             </form>
                             <div id="budget-list"></div>
                         </div>
@@ -162,27 +202,173 @@
                     <!-- 5. Goals -->
                     <div id="section-goals" class="content-section hidden">
                         <div class="card">
-                            <h2>🎯 সঞ্চয়ের লক্ষ্য (Financial Goals)</h2>
+                            <h2 data-i18n="goals.title">🎯 সঞ্চয়ের লক্ষ্য (Financial Goals)</h2>
                             <form id="goal-form" class="form-row">
-                                <input type="text" id="goal-name" placeholder="লক্ষ্যের নাম (উদা: গাড়ি কেনা)" required>
-                                <input type="number" id="goal-target" placeholder="টার্গেট পরিমাণ" required>
-                                <button type="submit" class="btn-primary">যোগ করুন</button>
+                                <input type="text" id="goal-name" data-i18n-placeholder="goals.name" placeholder="লক্ষ্যের নাম" required>
+                                <input type="number" id="goal-target" data-i18n-placeholder="goals.target" placeholder="টার্গেট পরিমাণ" required>
+                                <button type="submit" class="btn-primary" data-i18n="goals.add">যোগ করুন</button>
                             </form>
                             <div id="goals-list" class="goals-grid"></div>
                         </div>
                     </div>
 
-                    <!-- 6. Reports -->
+                    <!-- 6. Lab -->
+                    <div id="section-lab" class="content-section hidden">
+                        <div class="summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <div class="card lab-card">
+                                <h4 data-i18n="lab.burn_rate">মাসিক বার্ন রেট</h4>
+                                <p id="lab-burn-val">৳ 0</p>
+                            </div>
+                            <div class="card lab-card">
+                                <h4 data-i18n="lab.runway">আর্থিক রানওয়ে</h4>
+                                <p id="lab-runway-val">--</p>
+                                <small data-i18n="lab.runway_unit">মাস</small>
+                            </div>
+                            <div class="card lab-card" style="border-top: 3px solid #3b82f6;">
+                                <h4 data-i18n="lab.dti_ratio">DTI Ratio</h4>
+                                <p id="lab-dti-val">0%</p>
+                            </div>
+                            <div class="card lab-card" style="border-top: 3px solid #10b981;">
+                                <h4 data-i18n="lab.emergency_fund">জরুরী তহবিল</h4>
+                                <p id="lab-emergency-val">0</p>
+                                <small data-i18n="lab.runway_unit">মাস</small>
+                            </div>
+                        </div>
+
+                        <!-- Wealth Simulator -->
+                        <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                            <div class="card simulation-card">
+                                <h3 data-i18n="lab.wealth_title">💰 সম্পদ সিমুলেটর</h3>
+                                <div class="form-group">
+                                    <label data-i18n="lab.principal">বর্তমান মূলধন</label>
+                                    <input type="number" id="sim-principal" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="lab.monthly">মাসিক সঞ্চয়</label>
+                                    <input type="number" id="sim-monthly" value="5000">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label data-i18n="lab.rate">মুনাফা (%)</label>
+                                        <input type="number" id="sim-rate" value="10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="lab.inflation">মূল্যস্ফীতি (%)</label>
+                                        <input type="number" id="sim-inflation" value="6">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label data-i18n="lab.tax">কর (%)</label>
+                                        <input type="number" id="sim-tax" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="lab.years">সময়কাল</label>
+                                        <input type="number" id="sim-years" value="10">
+                                    </div>
+                                </div>
+                                <button id="btn-simulate" class="btn-primary full-width" data-i18n="lab.calculate">সিমুলেট করুন</button>
+                            </div>
+                            <div class="card chart-container">
+                                <h3 data-i18n="lab.projection_title">সম্পদ বৃদ্ধির প্রক্ষেপণ</h3>
+                                <canvas id="projectionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Zakat & EMI Lab -->
+                        <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                            <div class="card">
+                                <h3 data-i18n="lab.zakat_title">🌙 যাকাত ক্যালকুলেটর</h3>
+                                <div class="form-group">
+                                    <label data-i18n="lab.zakat_eligible">যাকাত যোগ্য সম্পদ</label>
+                                    <input type="number" id="zakat-assets" value="0">
+                                    <small style="color:var(--text-muted)">Current Balance + Gold + Others</small>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="lab.zakat_nisab">নিসাব (আনুমানিক)</label>
+                                    <input type="number" id="zakat-nisab" value="70000">
+                                </div>
+                                <div style="margin-top:1rem; padding:1rem; background:rgba(16, 185, 129, 0.1); border-radius:8px">
+                                    <h4 data-i18n="lab.zakat_amount">যাকাতের পরিমাণ</h4>
+                                    <p id="zakat-val" style="font-size:1.5rem; font-weight:700; color:#059669">৳ 0</p>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <h3 data-i18n="lab.emi_title">🏠 ইএমআই ও লোন ল্যাব</h3>
+                                <div class="form-group">
+                                    <label data-i18n="lab.loan_amount">ঋণের পরিমাণ</label>
+                                    <input type="number" id="emi-amount" value="100000">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label data-i18n="lab.debt_apr">সুদ (%)</label>
+                                        <input type="number" id="emi-rate" value="9">
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="lab.loan_tenure">সময়কাল (মাস)</label>
+                                        <input type="number" id="emi-tenure" value="12">
+                                    </div>
+                                </div>
+                                <div style="margin-top:1rem; padding:1rem; background:rgba(37, 99, 235, 0.1); border-radius:8px">
+                                    <h4 data-i18n="lab.emi_val">মাসিক কিস্তি (EMI)</h4>
+                                    <p id="emi-val" style="font-size:1.5rem; font-weight:700; color:#2563eb">৳ 0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extreme Debt Lab -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <h3 data-i18n="lab.debt_title">📉 ঋণ পরিশোধের ল্যাব (Extreme)</h3>
+                            <form id="debt-form" class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <input type="text" id="debt-name" data-i18n-placeholder="lab.debt_name" placeholder="ঋণের নাম" required>
+                                <input type="number" id="debt-balance" data-i18n-placeholder="lab.debt_balance" placeholder="বকেয়া" required>
+                                <input type="number" id="debt-apr" data-i18n-placeholder="lab.debt_apr" placeholder="সুদ (APR %)" required>
+                                <input type="number" id="debt-min" data-i18n-placeholder="lab.debt_min" placeholder="ন্যূনতম কিস্তি" required>
+                                <button type="submit" class="btn-primary" data-i18n="lab.add_debt">যোগ</button>
+                            </form>
+                            
+                            <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="card" style="margin: 0; background: rgba(0,0,0,0.05);">
+                                    <label data-i18n="lab.debt_strategy">কৌশল</label>
+                                    <select id="debt-strategy">
+                                        <option value="avalanche" data-i18n="lab.avalanche">অ্যাভাল্যাঞ্চ (বেশি সুদ আগে)</option>
+                                        <option value="snowball" data-i18n="lab.snowball">স্নোবল (ছোট ঋণ আগে)</option>
+                                    </select>
+                                </div>
+                                <div class="card" style="margin: 0; background: rgba(0,0,0,0.05);">
+                                    <label data-i18n="lab.debt_extra">অতিরিক্ত মাসিক পেমেন্ট</label>
+                                    <input type="number" id="debt-extra-pay" value="0">
+                                </div>
+                            </div>
+
+                            <div id="debt-results" class="summary-grid" style="margin-top: 1.5rem;">
+                                <div class="card lab-card" style="background: var(--primary); color: white;">
+                                    <h4 data-i18n="lab.freedom_date">ঋণমুক্তির সময়</h4>
+                                    <p id="debt-months-val">--</p>
+                                    <small data-i18n="lab.months">মাস</small>
+                                </div>
+                                <div class="card lab-card" style="background: var(--expense); color: white;">
+                                    <h4 data-i18n="lab.total_interest">মোট সুদ</h4>
+                                    <p id="debt-interest-val">৳ 0</p>
+                                </div>
+                            </div>
+
+                            <div id="debt-list" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 7. Reports -->
                     <div id="section-reports" class="content-section hidden">
                         <div class="card export-toolbar" style="flex-direction: column; align-items: stretch; gap: 1rem;">
                             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem">
                                 <div class="filter-group">
-                                    <input type="date" id="report-start"> <span>টু</span> <input type="date" id="report-end">
+                                    <input type="date" id="report-start"> <span data-i18n="reports.to">টু</span> <input type="date" id="report-end">
                                 </div>
                                 <div class="btn-group">
-                                    <button onclick="window.print()" class="btn-outline">🖨️ প্রিন্ট</button>
-                                    <button id="export-pdf" class="btn-outline">📄 PDF</button>
-                                    <button id="export-excel" class="btn-outline">📊 Excel</button>
+                                    <button id="bulk-delete-btn" class="btn-delete hidden" data-i18n="transactions.bulk_delete">🗑️ Bulk Delete</button>
+                                    <button onclick="window.print()" class="btn-outline" data-i18n="reports.print">🖨️ প্রিন্ট</button>
+                                    <button id="export-pdf" class="btn-outline" data-i18n="reports.pdf">📄 PDF</button>
+                                    <button id="export-excel" class="btn-outline" data-i18n="reports.excel">📊 Excel</button>
                                 </div>
                             </div>
                             <div class="search-bar">
@@ -191,20 +377,29 @@
                         </div>
                         <div class="card list-card print-area">
                             <table id="report-table">
-                                <thead><tr><th>তারিখ</th><th>খাত</th><th>পরিমাণ</th><th>মাধ্যম</th><th>অ্যাকশন</th></tr></thead>
+                                <thead>
+                                    <tr>
+                                        <th class="no-print"><input type="checkbox" id="select-all-tx"></th>
+                                        <th data-i18n="reports.header_date">তারিখ</th>
+                                        <th data-i18n="reports.header_cat">খাত</th>
+                                        <th data-i18n="reports.header_amt">পরিমাণ</th>
+                                        <th data-i18n="reports.header_method">মাধ্যম</th>
+                                        <th data-i18n="reports.header_action">অ্যাকশন</th>
+                                    </tr>
+                                </thead>
                                 <tbody id="report-list-body"></tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- 7. Settings -->
+                    <!-- 8. Settings -->
                     <div id="section-settings" class="content-section hidden">
                         <div class="card">
-                            <h2>⚙️ হিসাবের খাত (Categories)</h2>
+                            <h2 data-i18n="settings.categories">⚙️ হিসাবের খাত (Categories)</h2>
                             <form id="category-form" class="form-row">
-                                <input type="text" id="cat-name" placeholder="নতুন খাত" required>
-                                <select id="cat-type"><option value="income">আয়</option><option value="expense">খরচ</option></select>
-                                <button type="submit" class="btn-primary">যোগ</button>
+                                <input type="text" id="cat-name" data-i18n-placeholder="settings.new_cat" placeholder="নতুন খাত" required>
+                                <select id="cat-type"><option value="income" data-i18n="transactions.income">আয়</option><option value="expense" data-i18n="transactions.expense">খরচ</option></select>
+                                <button type="submit" class="btn-primary" data-i18n="settings.add">যোগ</button>
                             </form>
                             <ul id="category-list" class="chip-list"></ul>
                         </div>
@@ -214,6 +409,7 @@
                             <button id="export-supabase-btn" class="btn-outline full-width">🚀 Export for Standard Version</button>
                         </div>
                     </div>
+                    <footer class="main-footer" data-i18n="footer.copyright">Copyright Reserved: Md Kamrul Ahmed</footer>
                 </main>
             </div>
         </section>
@@ -226,9 +422,17 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker registered!'))
-                    .catch(err => console.log('Service Worker registration failed: ', err));
+                navigator.serviceWorker.register('./sw.js?v=3').then(reg => {
+                    console.log('SW Registered');
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                window.location.reload();
+                            }
+                        };
+                    };
+                }).catch(err => console.log('SW Error', err));
             });
         }
     </script>

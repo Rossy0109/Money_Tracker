@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elite-tracker-{{BUILD_VERSION}}';
+const CACHE_NAME = 'elite-tracker-v1.0.0';
 const ASSETS = [
     './',
     './index.html',

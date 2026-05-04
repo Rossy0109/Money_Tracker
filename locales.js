@@ -1,7 +1,7 @@
 export const locales = {
     bn: {
-        title: "💰 Elite Money Tracker - আল্টিমেট",
-        login_title: "Elite Money Tracker",
+        title: "💰 Money Record Book - আল্টিমেট",
+        login_title: "Money Record Book",
         login_subtitle: "আপনার নিরাপদ আর্থিক বন্ধু",
         google_login: "Google দিয়ে লগইন করুন",
         email: "ইমেইল",
@@ -18,6 +18,7 @@ export const locales = {
             recurring: "🔄 নিয়মিত খরচ",
             budget: "📉 বাজেট সেট",
             goals: "🎯 আর্থিক লক্ষ্য",
+            lab: "🧪 ফিন্যান্সিয়াল ল্যাব",
             reports: "📋 রিপোর্ট",
             settings: "⚙️ সেটিংস",
             dark_mode: "🌓 ডার্ক মোড",
@@ -46,18 +47,67 @@ export const locales = {
                 "বিলাসবহুল জিনিসের চেয়ে প্রয়োজনের দিকে নজর দিন।"
             ]
         },
+        lab: {
+            title: "🧪 ফিন্যান্সিয়াল ল্যাব (Advanced)",
+            runway: "আর্থিক রানওয়ে",
+            runway_unit: "মাস",
+            burn_rate: "মাসিক বার্ন রেট",
+            wealth_title: "💰 সম্পদ সিমুলেটর (Wealth Simulator)",
+            principal: "বর্তমান মূলধন",
+            monthly: "মাসিক সঞ্চয়",
+            rate: "মুনাফার হার (%)",
+            inflation: "মূল্যস্ফীতি (%)",
+            tax: "কর (%)",
+            years: "সময়কাল (বছর)",
+            calculate: "হিসাব করুন",
+            nominal_label: "নামমাত্র সম্পদ (Nominal)",
+            real_label: "প্রকৃত সম্পদ (Inflation Adjusted)",
+            projection_title: "সম্পদ বৃদ্ধির প্রক্ষেপণ",
+            debt_title: "📉 ঋণ পরিশোধের ল্যাব (Extreme)",
+            net_debt: "মোট নিট ঋণ",
+            debt_name: "ঋণের নাম",
+            debt_balance: "বকেয়া পরিমাণ",
+            debt_apr: "সুদের হার (APR %)",
+            debt_min: "ন্যূনতম মাসিক কিস্তি",
+            debt_extra: "অতিরিক্ত মাসিক পেমেন্ট",
+            debt_strategy: "পরিশোধের কৌশল",
+            snowball: "স্নোবল (ছোট ঋণ আগে)",
+            avalanche: "অ্যাভাল্যাঞ্চ (বেশি সুদ আগে)",
+            freedom_date: "ঋণমুক্তির সময়",
+            total_interest: "মোট সুদ প্রদান",
+            months: "মাস",
+            add_debt: "ঋণ যোগ করুন",
+            zakat_title: "🌙 যাকাত ক্যালকুলেটর",
+            zakat_eligible: "যাকাত যোগ্য মোট সম্পদ",
+            zakat_nisab: "নিসাব (৫২.৫ তোলা রূপা)",
+            zakat_amount: "যাকাতের পরিমাণ (২.৫%)",
+            emi_title: "🏠 ইএমআই ও লোন ল্যাব",
+            loan_amount: "ঋণের পরিমাণ",
+            loan_tenure: "সময়কাল (মাস)",
+            emi_val: "মাসিক কিস্তি (EMI)",
+            dti_ratio: "ডিটিআই রেশিও (DTI)",
+            emergency_fund: "জরুরী তহবিল (মাস)"
+        },
         transactions: {
             new: "➕ নতুন লেনদেন",
             date: "তারিখ",
             type: "ধরণ",
             income: "আয়",
             expense: "খরচ",
+            transfer: "স্থানান্তর (Transfer)",
             account: "খাত",
+            from_acc: "উৎস (From)",
+            to_acc: "গন্তব্য (To)",
             method: "মাধ্যম",
             amount: "পরিমাণ (৳)",
+            bkash_fee: "বিকাশ চার্জ (১.৮৫%)",
+            vat: "ভ্যাট (%)",
+            split: "স্প্লিট (Split)",
+            split_add: "খাত যোগ করুন",
             desc: "বিবরণ...",
             save: "সংরক্ষণ করুন",
-            delete_confirm: "মুছে ফেলতে চান?"
+            delete_confirm: "মুছে ফেলতে চান?",
+            bulk_delete: "একসাথে মুছুন"
         },
         recurring: {
             title: "🔄 নিয়মিত খরচ সেট করুন (Monthly)",
@@ -69,7 +119,9 @@ export const locales = {
         budget: {
             title: "📉 মাসিক বাজেট",
             limit: "সীমা",
-            set: "সেট"
+            set: "সেট",
+            rollover: "রোলওভার (অবশিষ্ট যোগ করুন)",
+            zbb_remain: "অ্যাসাইন করার বাকি: ৳"
         },
         goals: {
             title: "🎯 সঞ্চয়ের লক্ষ্য (Financial Goals)",
@@ -99,11 +151,14 @@ export const locales = {
         interconnect: {
             title: "🔗 Migration Hub (Interconnect)",
             desc: "আপনার ডাটা স্ট্যান্ডার্ড (React/Supabase) ভার্সনে নির্বিঘ্নে স্থানান্তর করুন।"
+        },
+        footer: {
+            copyright: "Copyright Reserved: Md Kamrul Ahmed"
         }
     },
     en: {
-        title: "💰 Elite Money Tracker - Ultimate",
-        login_title: "Elite Money Tracker",
+        title: "💰 Money Record Book - Ultimate",
+        login_title: "Money Record Book",
         login_subtitle: "Your Secure Financial Companion",
         google_login: "Login with Google",
         email: "Email",
@@ -120,6 +175,7 @@ export const locales = {
             recurring: "🔄 Recurring",
             budget: "📉 Budget",
             goals: "🎯 Goals",
+            lab: "🧪 Financial Lab",
             reports: "📋 Reports",
             settings: "⚙️ Settings",
             dark_mode: "🌓 Dark Mode",
@@ -148,18 +204,67 @@ export const locales = {
                 "Focus on needs over wants for long-term stability."
             ]
         },
+        lab: {
+            title: "🧪 Financial Lab (Advanced)",
+            runway: "Financial Runway",
+            runway_unit: "Months",
+            burn_rate: "Monthly Burn Rate",
+            wealth_title: "💰 Wealth Simulator",
+            principal: "Current Principal",
+            monthly: "Monthly Savings",
+            rate: "Annual Return (%)",
+            inflation: "Inflation (%)",
+            tax: "Tax (%)",
+            years: "Duration (Years)",
+            calculate: "Simulate",
+            nominal_label: "Nominal Wealth",
+            real_label: "Real Wealth (Inflation Adj)",
+            projection_title: "Wealth Projection Curve",
+            debt_title: "📉 Debt Payoff Lab (Extreme)",
+            net_debt: "Net Debt",
+            debt_name: "Loan Name",
+            debt_balance: "Outstanding Balance",
+            debt_apr: "Interest Rate (APR %)",
+            debt_min: "Minimum Payment",
+            debt_extra: "Extra Monthly Payment",
+            debt_strategy: "Payoff Strategy",
+            snowball: "Snowball (Smallest First)",
+            avalanche: "Avalanche (Highest Interest First)",
+            freedom_date: "Time to Freedom",
+            total_interest: "Total Interest to Pay",
+            months: "Months",
+            add_debt: "Add Loan",
+            zakat_title: "🌙 Zakat Calculator",
+            zakat_eligible: "Zakat Eligible Wealth",
+            zakat_nisab: "Nisab (52.5 Tola Silver)",
+            zakat_amount: "Zakat Amount (2.5%)",
+            emi_title: "🏠 EMI & Loan Lab",
+            loan_amount: "Loan Amount",
+            loan_tenure: "Tenure (Months)",
+            emi_val: "Monthly EMI",
+            dti_ratio: "DTI Ratio",
+            emergency_fund: "Emergency Fund (Months)"
+        },
         transactions: {
             new: "➕ New Transaction",
             date: "Date",
             type: "Type",
             income: "Income",
             expense: "Expense",
+            transfer: "Transfer",
             account: "Category",
+            from_acc: "From",
+            to_acc: "To",
             method: "Method",
             amount: "Amount (৳)",
+            bkash_fee: "bKash Fee (1.85%)",
+            vat: "VAT (%)",
+            split: "Split",
+            split_add: "Add Category",
             desc: "Description...",
             save: "Save",
-            delete_confirm: "Are you sure?"
+            delete_confirm: "Are you sure?",
+            bulk_delete: "Bulk Delete"
         },
         recurring: {
             title: "🔄 Set Recurring Expenses (Monthly)",
@@ -171,7 +276,9 @@ export const locales = {
         budget: {
             title: "📉 Monthly Budget",
             limit: "Limit",
-            set: "Set"
+            set: "Set",
+            rollover: "Rollover (Add Remaining)",
+            zbb_remain: "To Assign: ৳"
         },
         goals: {
             title: "🎯 Financial Goals",
@@ -201,13 +308,9 @@ export const locales = {
         interconnect: {
             title: "🔗 Migration Hub (Interconnect)",
             desc: "Transfer your data to the Standard (React/Supabase) version seamlessly."
-        }
-    }
-};
- Categories",
-            new_cat: "New Category",
-            add: "Add",
-            confirm: "Confirm?"
+        },
+        footer: {
+            copyright: "Copyright Reserved: Md Kamrul Ahmed"
         }
     }
 };
