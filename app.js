@@ -125,6 +125,7 @@ async function init() {
     setupBackup();
     setupSearch();
     setupLab();
+    setupBulkActions();
 
     // Security listeners
     ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
@@ -778,7 +779,19 @@ function setupForms() {
 }
 
 // --- UI Helpers ---
-function renderCharts() { renderTrendChart(); renderPieChart(); }
+let lastChartHash = "";
+
+function renderCharts() {
+    const txHash = JSON.stringify(state.transactions.map(t => `${t.id}_${t.amount}`));
+    const theme = document.body.getAttribute('data-theme');
+    const currentHash = `${txHash}_${theme}`;
+    
+    if (lastChartHash === currentHash) return;
+    
+    renderTrendChart();
+    renderPieChart();
+    lastChartHash = currentHash;
+}
 
 function renderTrendChart() {
     const canvas = document.getElementById('overviewChart');
@@ -812,6 +825,27 @@ function renderPieChart() {
     });
 }
 
+window.runProjectionSimulation = () => {
+    const p = parseFloat(document.getElementById('proj-principal').value) || 0;
+    const m = parseFloat(document.getElementById('proj-monthly').value) || 0;
+    const r = (parseFloat(document.getElementById('proj-rate').value) || 0) / 100 / 12;
+    const n = (parseFloat(document.getElementById('proj-years').value) || 0) * 12;
+    
+    const labels = [];
+    const nominal = [];
+    let current = p;
+    
+    for (let i = 0; i <= n; i++) {
+        if (i % 12 === 0) {
+            labels.push(`Year ${i / 12}`);
+            nominal.push(Math.round(current));
+        }
+        current = current * (1 + r) + m;
+    }
+    
+    renderProjectionChart(labels, nominal, nominal);
+};
+
 function renderProjectionChart(labels, nominal, real) {
     const canvas = document.getElementById('projectionChart');
     if (!canvas) return;
@@ -820,7 +854,7 @@ function renderProjectionChart(labels, nominal, real) {
     const textColor = isDark ? '#f8fafc' : '#020617';
     state.projectionChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
-        data: { labels, datasets: [{ label: t('lab.nominal_label'), data: nominal, borderColor: '#2563eb', fill: false, tension: 0.4 }, { label: t('lab.real_label'), data: real, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 }] },
+        data: { labels, datasets: [{ label: t('lab.nominal_label'), data: nominal, borderColor: '#2563eb', fill: false, tension: 0.4 }] },
         options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }, plugins: { legend: { labels: { color: textColor } } } }
     });
 }
@@ -887,8 +921,63 @@ function renderTransactionTable() {
     const body = document.getElementById('report-list-body');
     if (!body) return;
     const filtered = state.transactions.filter(tx => tx.categoryName.toLowerCase().includes(state.searchTerm) || (tx.description || "").toLowerCase().includes(state.searchTerm));
-    body.innerHTML = filtered.map(item => `<tr><td>${item.date}</td><td>${item.categoryName}</td><td class="${item.type==='income'?'amt-income':'amt-expense'}">৳ ${item.amount.toLocaleString()}</td><td>${item.method}</td><td><button class="btn-delete" onclick="window.deleteTx('${item.id}')">❌</button></td></tr>`).join('');
+    body.innerHTML = filtered.map(item => `
+        <tr>
+            <td class="no-print"><input type="checkbox" class="tx-check" data-id="${item.id}" onchange="window.updateBulkBtnVisibility()"></td>
+            <td>${item.date}</td>
+            <td>${item.categoryName}</td>
+            <td class="${item.type==='income'?'amt-income':'amt-expense'}">৳ ${item.amount.toLocaleString()}</td>
+            <td>${item.method}</td>
+            <td><button class="btn-delete" onclick="window.deleteTx('${item.id}')">❌</button></td>
+        </tr>
+    `).join('');
+    window.updateBulkBtnVisibility();
 }
+
+function setupBulkActions() {
+    const selectAll = document.getElementById('select-all-tx');
+    const bulkBtn = document.getElementById('bulk-delete-btn');
+    if (!selectAll || !bulkBtn) return;
+
+    selectAll.onchange = () => {
+        const checks = document.querySelectorAll('.tx-check');
+        checks.forEach(c => c.checked = selectAll.checked);
+        window.updateBulkBtnVisibility();
+    };
+
+    bulkBtn.onclick = async () => {
+        const checked = Array.from(document.querySelectorAll('.tx-check:checked')).map(c => c.getAttribute('data-id'));
+        if (checked.length === 0) return;
+        if (!confirm(`${t('transactions.delete_confirm')} (${checked.length} items)`)) return;
+        
+        bulkBtn.classList.add('btn-loading');
+        try {
+            for (const id of checked) {
+                await DB.delete("transactions", id);
+            }
+            showToast(`Deleted ${checked.length} items!`);
+            selectAll.checked = false;
+            window.updateBulkBtnVisibility();
+        } catch (err) {
+            console.error(err);
+            showToast("Error during bulk delete!", true);
+        } finally {
+            bulkBtn.classList.remove('btn-loading');
+        }
+    };
+}
+
+window.updateBulkBtnVisibility = () => {
+    const checked = document.querySelectorAll('.tx-check:checked').length;
+    const bulkBtn = document.getElementById('bulk-delete-btn');
+    if (bulkBtn) bulkBtn.classList.toggle('hidden', checked === 0);
+};
+
+window.deleteTx = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("transactions", id); };
+window.deleteCat = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("accounts", id); };
+window.deleteRec = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("recurring_templates", id); };
+window.deleteGoal = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("financial_goals", id); };
+window.deleteDebt = async (id) => { if(confirm(t('transactions.delete_confirm'))) await DB.delete("debts_registry", id); };
 
 function setupNavigation() {
     document.querySelectorAll('.nav-links li').forEach(l => {
@@ -931,7 +1020,7 @@ function setupExports() {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-        XLSX.writeFile(wb, "Money_Record_Report.xlsx");
+        XLSX.writeFile(wb, "Foot_Print_Report.xlsx");
     };
     document.getElementById('export-pdf').onclick = async () => {
         await logEvent("export_pdf", state.user.uid);
@@ -939,18 +1028,33 @@ function setupExports() {
         const doc = new jsPDF();
         doc.text("Foot Print of Money Report", 14, 15);
         doc.autoTable({ head: [['Date', 'Category', 'Amount', 'Method']], body: state.transactions.map(t => [t.date, t.categoryName, t.amount, t.method]), startY: 20 });
-        doc.save("Money_Record_Report.pdf");
+        doc.save("Foot_Print_Report.pdf");
     };
+    const migrationBtn = document.getElementById('export-supabase-btn');
+    if (migrationBtn) {
+        migrationBtn.onclick = () => document.getElementById('backup-btn').click();
+    }
 }
 
 function setupBackup() {
     document.getElementById('backup-btn').onclick = async () => {
         await logEvent("export_json", state.user.uid);
-        const backupData = { version: SchemaVersion, timestamp: new Date().toISOString(), data: { transactions: state.transactions, accounts: state.categories, budgets: state.budgets, recurring: state.recurring, goals: state.goals } };
+        const backupData = { 
+            version: SchemaVersion, 
+            timestamp: new Date().toISOString(), 
+            data: { 
+                transactions: state.transactions, 
+                accounts: state.categories, 
+                budgets: state.budgets, 
+                recurring: state.recurring, 
+                goals: state.goals,
+                debts: state.debts 
+            } 
+        };
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `Money_Record_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `Foot_Print_Backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
     };
     const restoreBtn = document.getElementById('restore-btn');
@@ -966,18 +1070,70 @@ function setupBackup() {
                     const backup = JSON.parse(ev.target.result);
                     if (!backup.data || !confirm(t('settings.confirm'))) return;
                     await logEvent("restore_json", state.user.uid, { timestamp: backup.timestamp });
-                    const { transactions, accounts } = backup.data;
-                    if (accounts) for (const item of accounts) await DB.add("accounts", { name: item.name, type: item.type });
-                    if (transactions) for (const item of transactions) await DB.add("transactions", { date: item.date, amount: item.amount, categoryName: item.categoryName, type: item.type, method: item.method, description: item.description });
-                    alert("Restored successfully!"); location.reload();
-                } catch (err) { alert("Invalid format!"); }
+                    
+                    const { transactions, accounts, budgets, recurring, goals, debts } = backup.data;
+                    const accountMap = {};
+                    
+                    // Restore in sequence
+                    if (accounts) {
+                        for (const item of accounts) {
+                            const docRef = await DB.add("accounts", { name: item.name, type: item.type });
+                            accountMap[item.id] = docRef.id;
+                        }
+                    }
+                    if (budgets) {
+                        for (const [oldId, data] of Object.entries(budgets)) {
+                            const newId = accountMap[oldId];
+                            if (newId) {
+                                await DB.update("budgets", newId, { amount: data.amount });
+                            }
+                        }
+                    }
+                    if (transactions) {
+                        for (const item of transactions) {
+                            const payload = { 
+                                date: item.date, 
+                                amount: item.amount, 
+                                categoryName: item.categoryName, 
+                                type: item.type, 
+                                method: item.method, 
+                                description: item.description,
+                                createdAt: Timestamp.now()
+                            };
+                            if (item.categoryId && accountMap[item.categoryId]) {
+                                payload.categoryId = accountMap[item.categoryId];
+                            }
+                            await DB.add("transactions", payload);
+                        }
+                    }
+                    if (recurring) {
+                        for (const r of recurring) {
+                            await DB.add("recurring_templates", { ...r, createdAt: Timestamp.now() });
+                        }
+                    }
+                    if (goals) {
+                        for (const g of goals) {
+                            await DB.add("financial_goals", { name: g.name, target: g.target });
+                        }
+                    }
+                    if (debts) {
+                        for (const d of debts) {
+                            await DB.add("debts_registry", { name: d.name, balance: d.balance, apr: d.apr, minPayment: d.minPayment });
+                        }
+                    }
+
+                    showToast("Restored successfully!"); 
+                    setTimeout(() => location.reload(), 1500);
+                } catch (err) { 
+                    console.error(err);
+                    showToast("Invalid format!", true); 
+                }
             };
             reader.readAsText(file);
         };
     }
 }
 
-let unsubscribers = [];
 let recurringPrompted = false;
 
 function displayDailyTip() {
