@@ -22,3 +22,6 @@ Welcome to the Foot Print of Money! This guide explains how to manage your finan
 ## 💾 Backups
 - The system automatically syncs data to your **Supabase** cloud instance.
 - Administrative users can trigger a manual JSON backup to **Google Drive** using the integrated tools.
+
+---
+**Copyright Reserved: Md Kamrul Ahmed**
