@@ -50,9 +50,10 @@
                             <label data-i18n="email" style="font-size:0.85rem; margin-bottom:4px; display:block"></label>
                             <input type="email" id="auth-email" placeholder="example@mail.com" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="position: relative;">
                             <label data-i18n="password" style="font-size:0.85rem; margin-bottom:4px; display:block"></label>
                             <input type="password" id="auth-password" placeholder="••••••••" required>
+                            <button type="button" id="toggle-password" style="position: absolute; right: 10px; top: 32px; background: none; border: none; cursor: pointer; color: var(--text-muted);">👁️</button>
                         </div>
                         <button type="submit" id="auth-submit-btn" class="btn-outline full-width" data-i18n="login_btn">লগইন করুন</button>
                         <p id="auth-error" class="error-msg hidden" data-i18n="auth_failed">তথ্য সঠিক নয়!</p>
@@ -64,6 +65,7 @@
                 </div>
                 <footer class="auth-footer" data-i18n="footer.copyright">Copyright Reserved: Md Kamrul Ahmed</footer>
             </div>
+            <div id="toast" class="toast">Action Successful!</div>
         </section>
 
 
