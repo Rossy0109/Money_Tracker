@@ -1054,7 +1054,36 @@ function setupExports() {
     };
     const migrationBtn = document.getElementById('export-supabase-btn');
     if (migrationBtn) {
-        migrationBtn.onclick = () => document.getElementById('backup-btn').click();
+        migrationBtn.onclick = () => {
+            const migrationData = {
+                version: "1.0.0",
+                timestamp: new Date().toISOString(),
+                data: {
+                    transactions: state.transactions.map(t => ({
+                        amount: t.amount,
+                        date: t.date,
+                        categoryName: t.categoryName,
+                        type: t.type,
+                        method: t.method,
+                        description: t.description
+                    })),
+                    accounts: state.categories.map(c => ({ name: c.name, type: c.type })),
+                    budgets: state.budgets.map(b => ({ categoryName: b.categoryName, amount: b.amount }))
+                }
+            };
+            
+            // Validate before export
+            if (migrationData.data.transactions && migrationData.data.accounts) {
+                const blob = new Blob([JSON.stringify(migrationData, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `Migration_Data_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                showToast("Migration export ready!");
+            } else {
+                showToast("Data validation failed!", true);
+            }
+        };
     }
 }
 
