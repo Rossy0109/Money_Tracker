@@ -1,48 +1,69 @@
-name: Deploy to GitHub Pages
+name: Production Deployment (10-Year Sustainability)
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject Build Version
-        run: |
-          VERSION=$(date +%Y.%m.%d.%H%M)
-          sed -i "s/{{BUILD_VERSION}}/$VERSION/g" sw.js
-
-      - name: Prepare Distribution
-        run: |
-          mkdir dist
-          cp index.html app.js style.css manifest.json locales.js firebase-config.js sw.js dist/
-          cp *.png dist/ 2>/dev/null || true
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: './dist'
+          node-version: '20'
+      - name: Install dependencies (Root)
+        run: npm install
+      - name: Install dependencies (React Client)
+        run: cd client && npm install
+      - name: Install dependencies (Python Server)
+        run: cd server && pip install -r requirements.txt
+      - name: Run Playwright tests
+        run: |
+          npx playwright install --with-deps
+          npm test
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+  deploy-frontend-vercel:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # Replace placeholders in root app
+      - name: Inject Secrets into Root App
+        run: |
+          sed -i "s|__FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g" firebase-config.js
+          sed -i "s|__FIREBASE_AUTH_DOMAIN__|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" firebase-config.js
+          sed -i "s|__FIREBASE_PROJECT_ID__|${{ secrets.FIREBASE_PROJECT_ID }}|g" firebase-config.js
+          sed -i "s|__FIREBASE_STORAGE_BUCKET__|${{ secrets.FIREBASE_STORAGE_BUCKET }}|g" firebase-config.js
+          sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" firebase-config.js
+          sed -i "s|__FIREBASE_APP_ID__|${{ secrets.FIREBASE_APP_ID }}|g" firebase-config.js
+          sed -i "s|__ADMIN_EMAIL__|${{ secrets.ADMIN_EMAIL }}|g" firebase-config.js
+          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" data-hub.js
+          sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" data-hub.js
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull Vercel Project Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  deploy-backend-render:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Render Deployment
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

@@ -1,33 +1,35 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 console.log("[Firebase] Initializing configuration...");
 
+// Use placeholders for security - these will be replaced during build/deployment
 const firebaseConfig = {
-    apiKey: "AIzaSyAy3rlUWmgPEMy0IgZXp_koD314H8XeqC4",
-    authDomain: "ahmeed-steel-industry.firebaseapp.com",
-    projectId: "ahmeed-steel-industry",
-    storageBucket: "ahmeed-steel-industry.firebasestorage.app",
-    messagingSenderId: "175050164901",
-    appId: "1:175050164901:web:6b5ec4d78151c5248e9b4c"
+    apiKey: "__FIREBASE_API_KEY__",
+    authDomain: "__FIREBASE_AUTH_DOMAIN__",
+    projectId: "__FIREBASE_PROJECT_ID__",
+    storageBucket: "__FIREBASE_STORAGE_BUCKET__",
+    messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+    appId: "__FIREBASE_APP_ID__"
 };
 
-let app, db, auth, googleProvider;
+let app, db, auth, storage, googleProvider;
 
 try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    storage = getStorage(app);
     googleProvider = new GoogleAuthProvider();
     console.log("[Firebase] Services initialized successfully.");
 } catch (error) {
     console.error("[Firebase] Initialization error:", error);
-    alert("Firebase initialization failed. Please check your configuration.");
 }
 
 // Security Constants
-const ADMIN_EMAIL = "rossy@example.com"; // To be moved to app_metadata collection in future
+const ADMIN_EMAIL = "__ADMIN_EMAIL__"; 
 
 /**
  * Log sensitive events to Firestore
@@ -47,4 +49,4 @@ async function logEvent(type, userId, details = {}) {
     }
 }
 
-export { db, auth, googleProvider, ADMIN_EMAIL, logEvent };
+export { db, auth, storage, googleProvider, ADMIN_EMAIL, logEvent };

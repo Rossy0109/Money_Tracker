@@ -2,28 +2,28 @@
   "version": 2,
   "builds": [
     {
-      "src": "Foot_Print_of_Money/client/package.json",
+      "src": "client/package.json",
       "use": "@vercel/static-build",
       "config": { "distDir": "build" }
     },
     {
-      "src": "Foot_Print_of_Money/server/server.py",
+      "src": "server/server.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "Foot_Print_of_Money/server/server.py"
+      "dest": "server/server.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/Foot_Print_of_Money/client/$1",
+      "dest": "/client/$1",
       "check": true
     },
     {
       "src": "/(.*)",
-      "dest": "/Foot_Print_of_Money/client/index.html"
+      "dest": "/client/index.html"
     }
   ]
 }
