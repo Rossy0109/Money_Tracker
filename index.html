@@ -217,25 +217,49 @@
 
                     <!-- 6. Lab -->
                     <div id="section-lab" class="content-section hidden">
-                        <div class="summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
-                            <div class="card lab-card">
-                                <h4 data-i18n="lab.burn_rate">মাসিক বার্ন রেট</h4>
-                                <p id="lab-burn-val">৳ 0</p>
+                        <!-- Debt Snowball Visualizer (New) -->
+                        <div class="card">
+                            <h2 data-i18n="lab.debt_title">🏦 স্মার্ট ডেবট স্নোবল (Debt Lab)</h2>
+                            <form id="debt-form" class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <input type="text" id="debt-name" placeholder="ঋণের নাম" required>
+                                <input type="number" id="debt-balance" placeholder="বকেয়া (৳)" required>
+                                <input type="number" id="debt-apr" placeholder="সুদ (APR %)" required>
+                                <input type="number" id="debt-min" placeholder="ন্যূনতম কিস্তি (৳)" required>
+                                <button type="submit" class="btn-primary" data-i18n="lab.add_debt">যোগ</button>
+                            </form>
+                            
+                            <div class="card" style="margin: 1.5rem 0; background: rgba(0,0,0,0.02);">
+                                <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                                    <div class="form-group">
+                                        <label>কৌশল</label>
+                                        <select id="debt-strategy">
+                                            <option value="avalanche">অ্যাভাল্যাঞ্চ (বেশি সুদ আগে)</option>
+                                            <option value="snowball">স্নোবল (ছোট ঋণ আগে)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>অতিরিক্ত পেমেন্ট (৳)</label>
+                                        <input type="number" id="debt-extra-pay" value="0">
+                                    </div>
+                                    <div class="form-group" style="align-self: flex-end;">
+                                        <button id="btn-calc-debt" class="btn-primary full-width">সিমুলেট</button>
+                                    </div>
+                                </div>
+                                <div class="summary-grid" style="margin-top: 1rem;">
+                                    <div class="card lab-card" style="background: #2563eb; color: white;">
+                                        <h4 data-i18n="lab.freedom_date">ঋণমুক্তির সময়</h4>
+                                        <p id="debt-date-val">--</p>
+                                    </div>
+                                    <div class="card lab-card" style="background: #059669; color: white;">
+                                        <h4 data-i18n="lab.total_interest">সুদ সাশ্রয়</h4>
+                                        <p id="debt-interest-val">৳ 0</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card lab-card">
-                                <h4 data-i18n="lab.runway">আর্থিক রানওয়ে</h4>
-                                <p id="lab-runway-val">--</p>
-                                <small data-i18n="lab.runway_unit">মাস</small>
+                            <div id="debt-chart-container" style="height: 300px;">
+                                <canvas id="debtChart"></canvas>
                             </div>
-                            <div class="card lab-card" style="border-top: 3px solid #3b82f6;">
-                                <h4 data-i18n="lab.dti_ratio">DTI Ratio</h4>
-                                <p id="lab-dti-val">0%</p>
-                            </div>
-                            <div class="card lab-card" style="border-top: 3px solid #10b981;">
-                                <h4 data-i18n="lab.emergency_fund">জরুরী তহবিল</h4>
-                                <p id="lab-emergency-val">0</p>
-                                <small data-i18n="lab.runway_unit">মাস</small>
-                            </div>
+                            <div id="debt-list" class="chip-list" style="margin-top: 1rem;"></div>
                         </div>
 
                         <!-- Wealth Simulator -->

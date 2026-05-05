@@ -1140,7 +1140,7 @@ function setupBackup() {
                     }
                     if (debts) {
                         for (const d of debts) {
-                            await DB.add("debts_registry", { name: d.name, balance: d.balance, apr: d.apr, minPayment: d.minPayment });
+                            await DB.add("debts", { name: d.name, balance: d.balance, apr: d.apr, min_payment: d.min_payment });
                         }
                     }
 
@@ -1156,36 +1156,91 @@ function setupBackup() {
     }
 }
 
-let recurringPrompted = false;
+// --- Debt Snowball Lab ---
+let debtChart = null;
 
-function displayDailyTip() {
-    const tipEl = document.getElementById('daily-tip');
-    if (!tipEl) return;
-    const tips = t('overview.tips');
-    if (Array.isArray(tips)) tipEl.textContent = tips[Math.floor(Math.random() * tips.length)];
+function initDebtLab() {
+    const debtForm = document.getElementById('debt-form');
+    if (!debtForm) return;
+    
+    debtForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const debt = {
+            name: document.getElementById('debt-name').value,
+            balance: parseFloat(document.getElementById('debt-balance').value),
+            apr: parseFloat(document.getElementById('debt-apr').value),
+            min_payment: parseFloat(document.getElementById('debt-min').value)
+        };
+        await DB.add('debts', debt);
+        renderDebts();
+    };
+
+    document.getElementById('btn-calc-debt').onclick = runDebtSimulation;
 }
 
-async function checkRecurringDue() {
-    if (recurringPrompted || state.recurring.length === 0) return;
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const todayDay = today.getDate();
-    const due = state.recurring.filter(r => r.day === todayDay && r.lastTriggered !== todayStr);
-    if (due.length > 0) {
-        recurringPrompted = true;
-        if (confirm(t('recurring.prompt').replace('{count}', due.length))) {
-            for (const r of due) {
-                await DB.add("transactions", {
-                    date: todayStr, categoryId: r.categoryId, categoryName: r.categoryName, type: 'expense',
-                    amount: r.amount, method: 'নগদ টাকা', description: 'Auto-Recurring Entry', createdAt: Timestamp.now()
-                });
-                await DB.update("recurring_templates", r.id, { lastTriggered: todayStr });
-            }
+function runDebtSimulation() {
+    const strategy = document.getElementById('debt-strategy').value;
+    const extra = parseFloat(document.getElementById('debt-extra-pay').value) || 0;
+    
+    let debts = [...state.debts];
+    if (strategy === 'avalanche') debts.sort((a, b) => b.apr - a.apr);
+    else debts.sort((a, b) => a.balance - b.balance);
+
+    const labels = [];
+    const balances = [];
+    let totalBalance = debts.reduce((sum, d) => sum + d.balance, 0);
+    let month = 0;
+    let totalInterest = 0;
+
+    let currentDebts = debts.map(d => ({ ...d }));
+
+    while (totalBalance > 0 && month < 600) {
+        labels.push(`M${month}`);
+        balances.push(totalBalance.toFixed(0));
+
+        let monthlyPayment = extra + currentDebts.reduce((sum, d) => sum + d.min_payment, 0);
+        let interestForMonth = currentDebts.reduce((sum, d) => sum + (d.balance * (d.apr / 100 / 12)), 0);
+        totalInterest += interestForMonth;
+
+        let principal = monthlyPayment - interestForMonth;
+        
+        for (let d of currentDebts) {
+            if (d.balance <= 0) continue;
+            let payment = d.min_payment;
+            d.balance -= (payment - (d.balance * (d.apr / 100 / 12)));
+            if (d.balance < 0) d.balance = 0;
         }
+
+        totalBalance = currentDebts.reduce((sum, d) => sum + d.balance, 0);
+        month++;
     }
+
+    document.getElementById('debt-date-val').textContent = `${month} ${t('lab.months')}`;
+    document.getElementById('debt-interest-val').textContent = `৳ ${Math.floor(totalInterest)}`;
+
+    const ctx = document.getElementById('debtChart').getContext('2d');
+    if (debtChart) debtChart.destroy();
+    debtChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Total Balance (৳)', data: balances, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true }] },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
 }
 
-init().catch(err => {
-    console.error("[App] Application initialization failed:", err);
-    document.body.innerHTML += `<div style="position:fixed; top:0; color:red; background:white; padding:10px; z-index:9999;">Init Error: ${err.message}</div>`;
-});
+function renderDebts() {
+    const list = document.getElementById('debt-list');
+    if (!list) return;
+    list.innerHTML = state.debts.map(d => `
+        <div class="chip">
+            ${d.name}: ৳${d.balance} (APR ${d.apr}%)
+            <button onclick="deleteDebt('${d.id}')">×</button>
+        </div>
+    `).join('');
+}
+
+window.deleteDebt = async (id) => { await DB.delete('debts', id); renderDebts(); };
+
+// Initialization calls
+init();
+initDebtLab();
+renderDebts();
