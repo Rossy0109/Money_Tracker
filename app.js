@@ -660,39 +660,55 @@ function setupForms() {
             saveBtn.classList.add('btn-loading');
 
             try {
+                // Strong Validation
+                if (isNaN(totalAmount) || totalAmount <= 0) {
+                    throw new Error("Amount must be a positive number.");
+                }
+
+                if (!date) {
+                    throw new Error("Date is required.");
+                }
+
                 if (type === 'transfer') {
                     const from = document.getElementById('tx-from-account').value;
                     const to = document.getElementById('tx-to-account').value;
+                    
+                    if (!from || !to) {
+                        throw new Error("Both source and destination are required for transfer.");
+                    }
                     if (from === to) {
-                        saveBtn.classList.remove('btn-loading');
-                        return alert("Source and Destination cannot be the same!");
+                        throw new Error("Source and Destination cannot be the same!");
                     }
                     
-                    // Outflow
+                    // Atomic Transfer Logic (Outflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer Out to ${to}`, type: 'expense',
-                        amount: totalAmount, method: from, description: desc, createdAt: Timestamp.now()
+                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
                     });
-                    // Inflow
+                    // Atomic Transfer Logic (Inflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer In from ${from}`, type: 'income',
-                        amount: totalAmount, method: to, description: desc, createdAt: Timestamp.now()
+                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
                     });
                 } else {
                     const isSplit = !splitContainer.classList.contains('hidden');
                     if (isSplit) {
-                        const splits = Array.from(splitList.querySelectorAll('.form-row')).map(row => ({
+                        const splitRows = Array.from(splitList.querySelectorAll('.form-row'));
+                        if (splitRows.length === 0) throw new Error("At least one split category is required.");
+
+                        const splits = splitRows.map(row => ({
                             catId: row.querySelector('.split-cat').value,
                             catName: row.querySelector('.split-cat').selectedOptions[0].text,
                             amount: parseFloat(row.querySelector('.split-amt').value) || 0
                         }));
+
                         const sum = splits.reduce((s, x) => s + x.amount, 0);
                         if (Math.abs(sum - totalAmount) > 0.01) {
-                            saveBtn.classList.remove('btn-loading');
-                            return alert(`Total amount (৳${totalAmount}) must match sum of splits (৳${sum})`);
+                            throw new Error(`Total amount (৳${totalAmount}) must match sum of splits (৳${sum})`);
                         }
 
                         for (const s of splits) {
+                            if (s.amount <= 0) throw new Error("Split amounts must be positive.");
                             await DB.add("transactions", {
                                 date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
                                 amount: s.amount, method, description: `[Split] ${desc}`, createdAt: Timestamp.now()
@@ -700,11 +716,10 @@ function setupForms() {
                         }
                     } else {
                         const catId = document.getElementById('tx-account').value;
+                        if (!catId) throw new Error("Category is required.");
+
                         const cat = state.categories.find(c => c.id === catId);
-                        if (!cat) {
-                            saveBtn.classList.remove('btn-loading');
-                            return showToast("Category required!", true);
-                        }
+                        if (!cat) throw new Error("Invalid category selected.");
 
                         const vatPercent = parseFloat(document.getElementById('tx-vat').value) || 0;
                         const vatAmount = totalAmount * (vatPercent / 100);
@@ -715,19 +730,21 @@ function setupForms() {
                             amount: finalAmount, vatAmount, method, description: desc, createdAt: Timestamp.now()
                         });
 
-                        // bKash fee
+                        // Automated bKash fee calculation with validation
                         const bkashCheck = document.getElementById('tx-bkash-fee');
                         if (method === 'bKash' && bkashCheck && bkashCheck.checked) {
                             const fee = Math.ceil(totalAmount * 0.0185);
-                            await DB.add("transactions", {
-                                date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
-                                amount: fee, method: 'bKash', description: `Auto-fee for ৳${totalAmount}`, createdAt: Timestamp.now()
-                            });
+                            if (fee > 0) {
+                                await DB.add("transactions", {
+                                    date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
+                                    amount: fee, method: 'bKash', description: `Auto-fee for transaction of ৳${totalAmount}`, createdAt: Timestamp.now()
+                                });
+                            }
                         }
                     }
                 }
 
-                showToast("Transaction Recorded!");
+                showToast("Transaction Recorded Successfully!");
                 e.target.reset();
                 document.getElementById('tx-date').valueAsDate = new Date();
                 splitContainer.classList.add('hidden');
@@ -736,8 +753,8 @@ function setupForms() {
                 populateDropdowns();
                 switchSection('overview');
             } catch (err) {
-                console.error(err);
-                showToast("Error saving data!", true);
+                console.error("[Validation Error]", err);
+                showToast(err.message, true);
             } finally {
                 saveBtn.classList.remove('btn-loading');
             }
