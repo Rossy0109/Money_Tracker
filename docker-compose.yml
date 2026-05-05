@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    build: ./server
+    build: ./Foot_Print_of_Money/server
     ports:
       - "5000:5000"
     environment:
@@ -11,10 +11,10 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
     volumes:
-      - ./server:/app
+      - ./Foot_Print_of_Money/server:/app
 
   client:
-    build: ./client
+    build: ./Foot_Print_of_Money/client
     ports:
       - "3001:3001"
     environment:

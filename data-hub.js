@@ -5,8 +5,8 @@
  */
 
 // Initialize Supabase Client
-const supabaseUrl = "__SUPABASE_URL__";
-const supabaseKey = "__SUPABASE_KEY__";
+const supabaseUrl = window.SUPABASE_URL || "__SUPABASE_URL__";
+const supabaseKey = window.SUPABASE_KEY || "__SUPABASE_KEY__";
 const { createClient } = window.supabase;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
