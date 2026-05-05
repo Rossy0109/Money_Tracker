@@ -27,8 +27,23 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedAccountId || !amount || !description || !selectedPaymentMethodId) {
-      alert('Please fill in all fields.');
+    
+    // Strong Validation
+    const parsedAmount = parseFloat(amount);
+    if (!selectedAccountId) {
+      alert('Please select an account/category.');
+      return;
+    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Please enter a valid positive amount.');
+      return;
+    }
+    if (!description.trim()) {
+      alert('Please enter a description.');
+      return;
+    }
+    if (!selectedPaymentMethodId) {
+      alert('Please select a payment method.');
       return;
     }
 
@@ -38,21 +53,25 @@ function TransactionForm({ onTransactionAdded, accounts, paymentMethods }) {
         .from('transactions')
         .insert({
           account_id: selectedAccountId,
-          amount: parseFloat(amount),
-          description,
+          amount: parsedAmount,
+          description: description.trim(),
           payment_method_id: selectedPaymentMethodId,
           transaction_date: new Date().toISOString().split('T')[0],
           transaction_time: new Date().toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5)
         });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42501') throw new Error('Permission denied. Please check your login status.');
+        throw error;
+      }
       
       onTransactionAdded(); // Trigger refresh in parent
       setDescription('');
       setAmount('');
+      alert('Transaction added successfully!');
     } catch (err) {
       console.error('Error adding transaction:', err);
-      alert('Error adding transaction: ' + err.message);
+      alert('Error: ' + (err.message || 'Failed to add transaction. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
