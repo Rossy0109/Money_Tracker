@@ -189,16 +189,24 @@
                     <!-- 4. Budget -->
                     <div id="section-budget" class="content-section hidden">
                         <div class="card">
-                            <h2 data-i18n="budget.title">📉 মাসিক বাজেট</h2>
-                            <div id="zbb-status" class="card" style="margin-bottom: 1rem; background: rgba(37, 99, 235, 0.05); text-align: center;">
-                                <span data-i18n="budget.zbb_remain">অ্যাসাইন করার বাকি: ৳</span> <strong id="zbb-val">0</strong>
+                            <h2 data-i18n="budget.title">📉 মাসিক বাজেট ও রিপোর্ট</h2>
+                            <div class="summary-grid" id="budget-summary">
+                                <!-- Dynamic Variance Cards -->
                             </div>
-                            <form id="budget-form" class="form-row">
-                                <select id="budget-account" required></select>
-                                <input type="number" id="budget-amount" data-i18n-placeholder="budget.limit" placeholder="সীমা" required>
-                                <button type="submit" class="btn-primary" data-i18n="budget.set">সেট</button>
-                            </form>
-                            <div id="budget-list"></div>
+                            <div class="card list-card" style="margin-top:1.5rem">
+                                <h3 data-i18n="budget.trend_title">৩ মাসের খরচ প্রবণতা</h3>
+                                <table id="budget-variance-table">
+                                    <thead>
+                                        <tr>
+                                            <th data-i18n="budget.category">খাত</th>
+                                            <th data-i18n="budget.budget">বাজেট</th>
+                                            <th data-i18n="budget.spent">খরচ</th>
+                                            <th data-i18n="budget.variance">পার্থক্য</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="variance-list"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 

@@ -1240,7 +1240,38 @@ function renderDebts() {
 
 window.deleteDebt = async (id) => { await DB.delete('debts', id); renderDebts(); };
 
-// Initialization calls
-init();
-initDebtLab();
-renderDebts();
+// --- Budget Variance Reporting ---
+function renderBudgetReport() {
+    const varianceList = document.getElementById('variance-list');
+    if (!varianceList) return;
+    
+    // Aggregate transactions by category
+    const categoryTotals = state.transactions.reduce((acc, tx) => {
+        if (tx.type === 'expense') {
+            acc[tx.categoryName] = (acc[tx.categoryName] || 0) + tx.amount;
+        }
+        return acc;
+    }, {});
+
+    varianceList.innerHTML = state.budgets.map(b => {
+        const spent = categoryTotals[b.categoryName] || 0;
+        const variance = b.amount - spent;
+        const color = variance >= 0 ? '#059669' : '#dc2626';
+        
+        return `
+            <tr onclick="drillDownCategory('${b.categoryName}')" style="cursor:pointer">
+                <td>${b.categoryName}</td>
+                <td>৳${b.amount}</td>
+                <td>৳${spent.toFixed(0)}</td>
+                <td style="color:${color}; font-weight:bold">${variance >= 0 ? 'Under' : 'Over'} ৳${Math.abs(variance).toFixed(0)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.drillDownCategory = (cat) => {
+    state.searchTerm = cat;
+    switchSection('reports');
+    const input = document.getElementById('search-input');
+    if(input) { input.value = cat; renderTransactionTable(); }
+};
