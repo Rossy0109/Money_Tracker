@@ -21,6 +21,20 @@ jobs:
         run: cd client && npm install
       - name: Install dependencies (Python Server)
         run: cd server && pip install -r requirements.txt
+      
+      # Inject Dummy Secrets for Testing to prevent app crash
+      - name: Inject Dummy Secrets for Testing
+        run: |
+          sed -i "s|__FIREBASE_API_KEY__|AIzaDummyKey|g" firebase-config.js
+          sed -i "s|__FIREBASE_AUTH_DOMAIN__|dummy.firebaseapp.com|g" firebase-config.js
+          sed -i "s|__FIREBASE_PROJECT_ID__|dummy-project|g" firebase-config.js
+          sed -i "s|__FIREBASE_STORAGE_BUCKET__|dummy.appspot.com|g" firebase-config.js
+          sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|123456789|g" firebase-config.js
+          sed -i "s|__FIREBASE_APP_ID__|1:123:web:abc|g" firebase-config.js
+          sed -i "s|__ADMIN_EMAIL__|test@example.com|g" firebase-config.js
+          sed -i "s|__SUPABASE_URL__|https://dummy.supabase.co|g" data-hub.js
+          sed -i "s|__SUPABASE_KEY__|dummy-key|g" data-hub.js
+
       - name: Run Playwright tests
         run: |
           npx playwright install --with-deps
