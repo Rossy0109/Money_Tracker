@@ -4,5 +4,26 @@
     "location": "nam5",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "Foot_Print_of_Money/**",
+      "tests/**",
+      "package.json",
+      "package-lock.json",
+      "render.yaml",
+      "vercel.json",
+      "docker-compose.yml"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   }
 }

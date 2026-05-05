@@ -2,12 +2,14 @@ services:
   - type: web
     name: money-tracker-api
     env: python
-    buildCommand: pip install -r server/requirements.txt
-    startCommand: gunicorn --pythonpath server server:app
+    buildCommand: pip install -r Foot_Print_of_Money/server/requirements.txt
+    startCommand: gunicorn --pythonpath Foot_Print_of_Money/server server:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
+        sync: false
+      - key: REDIS_URL
         sync: false
