@@ -1304,3 +1304,6 @@ window.drillDownCategory = (cat) => {
     const input = document.getElementById('search-input');
     if(input) { input.value = cat; renderTransactionTable(); }
 };
+
+console.log("[App] IS_CI_TEST:", IS_CI_TEST);
+init().catch(err => console.error("[App] Init failed:", err));
