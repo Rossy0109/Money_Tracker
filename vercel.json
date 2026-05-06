@@ -1,29 +1,28 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "Foot_Print_of_Money/client/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "build" }
+      "source": "/api/:path*",
+      "destination": "https://money-tracker-api.onrender.com/api/:path*"
     },
     {
-      "src": "Foot_Print_of_Money/server/server.py",
-      "use": "@vercel/python"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
-  "routes": [
+  "headers": [
     {
-      "src": "/api/(.*)",
-      "dest": "Foot_Print_of_Money/server/server.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/Foot_Print_of_Money/client/$1",
-      "check": true
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/Foot_Print_of_Money/client/index.html"
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
     }
   ]
 }
