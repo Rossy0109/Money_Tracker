@@ -4,6 +4,9 @@ test.describe('Foot Print of Money E2E (Ultimate Version)', () => {
   test.beforeEach(async ({ page }) => {
     // Bypass login UI by setting localStorage before the page loads
     await page.addInitScript(() => {
+      window.__ENV = {
+        NEXT_PUBLIC_FIREBASE_API_KEY: 'AIzaDummyKey'
+      };
       window.localStorage.setItem('isLoggedIn', 'true');
       // Set language to English for consistent testing
       window.localStorage.setItem('lang', 'en');

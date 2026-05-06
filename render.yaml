@@ -1,15 +1,23 @@
+# Exported from Render on 2026-05-06T15:37:54Z
+version: "1"
 services:
-  - type: web
-    name: money-tracker-api
-    env: python
-    buildCommand: pip install -r Foot_Print_of_Money/server/requirements.txt
-    startCommand: gunicorn --pythonpath Foot_Print_of_Money/server server:app
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.0
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
-        sync: false
-      - key: REDIS_URL
-        sync: false
+- type: web
+  name: money-tracker-api
+  runtime: python
+  repo: https://github.com/Rossy0109/Money_Tracker
+  plan: starter
+  region: oregon
+  buildCommand: pip install -r Foot_Print_of_Money/server/requirements.txt
+  startCommand: gunicorn --pythonpath Foot_Print_of_Money/server server:app
+  autoDeployTrigger: commit
+  envVars:
+    - key: PYTHON_VERSION
+      value: 3.10.12
+    - key: SUPABASE_URL
+      value: https://ulmaomfsyjbwcwecutcp.supabase.co
+    - key: SUPABASE_KEY
+      sync: false
+    - key: SECRET_KEY
+      sync: false
+    - key: FIREBASE_ADMIN_CREDENTIALS
+      sync: false
