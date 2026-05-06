@@ -42,7 +42,9 @@ let state = {
 };
 
 const SchemaVersion = "1.0.0";
-const IS_CI_TEST = (auth && auth.app && auth.app.options.apiKey === "AIzaDummyKey");
+const IS_CI_TEST = (window.__ENV && window.__ENV.NEXT_PUBLIC_FIREBASE_API_KEY === "AIzaDummyKey") || (auth && auth.app && auth.app.options && auth.app.options.apiKey === "AIzaDummyKey");
+
+console.log("[App] IS_CI_TEST identified as:", IS_CI_TEST);
 
 // --- Infrastructure: DataHub Wrapper ---
 const DB = {
@@ -260,6 +262,7 @@ function setupAuth() {
     };
 
     onAuthStateChanged(auth, (user) => {
+        console.log("[App] Auth state changed. User:", user ? user.uid : "null", "IS_CI_TEST:", IS_CI_TEST, "localStorage.isLoggedIn:", localStorage.getItem('isLoggedIn'));
         if (user) {
             state.user = user;
             state.isAdmin = (user.email === ADMIN_EMAIL);

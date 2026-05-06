@@ -36,7 +36,7 @@ try {
     auth = getAuth(app);
     storage = getStorage(app);
     googleProvider = new GoogleAuthProvider();
-    console.log("[Firebase] Services initialized successfully.");
+    console.log("[Firebase] Services initialized successfully. API Key:", firebaseConfig.apiKey);
 } catch (error) {
     console.error("[Firebase] Initialization error:", error);
 }
