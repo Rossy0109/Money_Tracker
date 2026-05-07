@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💰 Foot Print of Money - আল্টিমেট</title>
+    <!-- PWA Standalone Polish -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Money Footprint">
+    <meta name="mobile-web-app-capable" content="yes">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
@@ -86,6 +92,7 @@
                         <li data-section="goals"><span class="icon">🎯</span> <span data-i18n="sidebar.goals">আর্থিক লক্ষ্য</span></li>
                         <li data-section="lab"><span class="icon">🧪</span> <span data-i18n="sidebar.lab">ফিন্যান্সিয়াল ল্যাব</span></li>
                         <li data-section="reports"><span class="icon">📋</span> <span data-i18n="sidebar.reports">রিপোর্ট</span></li>
+                        <li data-section="reminders"><span class="icon">🔔</span> <span data-i18n="sidebar.reminders">রিমাইন্ডার</span></li>
                         <li data-section="settings"><span class="icon">⚙️</span> <span data-i18n="sidebar.settings">সেটিংস</span></li>
                     </ul>
                     <div class="sidebar-footer">
@@ -452,7 +459,36 @@
                         </div>
                     </div>
 
-                    <!-- 8. Settings -->
+                    <!-- 8. Reminders -->
+                    <div id="section-reminders" class="content-section hidden">
+                        <div class="summary-grid" id="reminders-summary">
+                            <div class="card summary-card balance">
+                                <h3 data-i18n="reminders.total_due">মোট বকেয়া বিল</h3>
+                                <p id="total-reminders-amt">৳ 0</p>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 data-i18n="reminders.title">🔔 বিল ও পেমেন্ট রিমাইন্ডার</h2>
+                            <form id="reminder-form">
+                                <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                    <input type="text" id="rem-name" data-i18n-placeholder="reminders.name_placeholder" placeholder="বিলের নাম (যেমন: ইন্টারনেট)" required>
+                                    <input type="number" id="rem-amount" data-i18n-placeholder="reminders.amount_placeholder" placeholder="পরিমাণ (৳)" required>
+                                    <input type="date" id="rem-date" required>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                                    <input type="checkbox" id="rem-recurring" style="width: auto;">
+                                    <label for="rem-recurring" data-i18n="reminders.repeat_monthly" style="font-size: 0.9rem; cursor: pointer;">প্রতি মাসে রিপিট করুন</label>
+                                </div>
+                                <button type="submit" class="btn-primary full-width" data-i18n="reminders.add_btn">যোগ করুন</button>
+                            </form>
+                            <div id="reminders-list" class="goals-grid" style="margin-top: 1.5rem;">
+                                <!-- Reminder Cards -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 9. Settings -->
                     <div id="section-settings" class="content-section hidden">
                         <div class="card">
                             <h2 data-i18n="settings.categories">⚙️ হিসাবের খাত (Categories)</h2>
