@@ -62,4 +62,4 @@ async function logEvent(type, userId, details = {}) {
     }
 }
 
-export { db, auth, storage, googleProvider, ADMIN_EMAIL, logEvent };
+export { app, db, auth, storage, googleProvider, ADMIN_EMAIL, logEvent };
