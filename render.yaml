@@ -21,3 +21,9 @@ services:
       sync: false
     - key: FIREBASE_ADMIN_CREDENTIALS
       sync: false
+    - key: PORT
+      value: 8080
+    - key: NODE_ENV
+      value: production
+    - key: FLASK_ENV
+      value: production

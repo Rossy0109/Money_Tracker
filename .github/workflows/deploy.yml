@@ -25,12 +25,12 @@ jobs:
       # Inject Dummy Secrets for Testing to prevent app crash
       - name: Inject Dummy Secrets for Testing
         run: |
-          sed -i "s|__FIREBASE_API_KEY__|AIzaDummyKey|g" firebase-config.js
-          sed -i "s|__FIREBASE_AUTH_DOMAIN__|dummy.firebaseapp.com|g" firebase-config.js
-          sed -i "s|__FIREBASE_PROJECT_ID__|dummy-project|g" firebase-config.js
-          sed -i "s|__FIREBASE_STORAGE_BUCKET__|dummy.appspot.com|g" firebase-config.js
-          sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|123456789|g" firebase-config.js
-          sed -i "s|__FIREBASE_APP_ID__|1:123:web:abc|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_API_KEY__|AIzaDummyKey|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__|dummy.firebaseapp.com|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_PROJECT_ID__|dummy-project|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__|dummy.appspot.com|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__|123456789|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_APP_ID__|1:123:web:abc|g" firebase-config.js
           sed -i "s|__ADMIN_EMAIL__|test@example.com|g" firebase-config.js
           sed -i "s|__SUPABASE_URL__|https://dummy.supabase.co|g" data-hub.js
           sed -i "s|__SUPABASE_KEY__|dummy-key|g" data-hub.js
@@ -54,12 +54,12 @@ jobs:
       # Replace placeholders in root app
       - name: Inject Secrets into Root App
         run: |
-          sed -i "s|__FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g" firebase-config.js
-          sed -i "s|__FIREBASE_AUTH_DOMAIN__|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" firebase-config.js
-          sed -i "s|__FIREBASE_PROJECT_ID__|${{ secrets.FIREBASE_PROJECT_ID }}|g" firebase-config.js
-          sed -i "s|__FIREBASE_STORAGE_BUCKET__|${{ secrets.FIREBASE_STORAGE_BUCKET }}|g" firebase-config.js
-          sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" firebase-config.js
-          sed -i "s|__FIREBASE_APP_ID__|${{ secrets.FIREBASE_APP_ID }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_PROJECT_ID__|${{ secrets.FIREBASE_PROJECT_ID }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__|${{ secrets.FIREBASE_STORAGE_BUCKET }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" firebase-config.js
+          sed -i "s|__NEXT_PUBLIC_FIREBASE_APP_ID__|${{ secrets.FIREBASE_APP_ID }}|g" firebase-config.js
           sed -i "s|__ADMIN_EMAIL__|${{ secrets.ADMIN_EMAIL }}|g" firebase-config.js
           sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" data-hub.js
           sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" data-hub.js
