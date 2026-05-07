@@ -1,10 +1,13 @@
 import os
 import io
 import pickle
+import base64
+import json
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from google.oauth2.credentials import Credentials
 import logging
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
@@ -21,26 +24,53 @@ class GoogleDriveSync:
 
     def _authenticate(self):
         creds = None
-        # The file token.pickle stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        if os.path.exists(TOKEN_FILE):
+        
+        # Priority 1: Environment Variables (for CI/CD like GitHub Actions)
+        env_token = os.environ.get('GOOGLE_DRIVE_TOKEN_DATA')
+        env_creds = os.environ.get('GOOGLE_DRIVE_CREDENTIALS_DATA')
+        
+        if env_token:
+            try:
+                self.logger.info("Authenticating via GOOGLE_DRIVE_TOKEN_DATA env var.")
+                token_data = base64.b64decode(env_token)
+                creds = pickle.loads(token_data)
+            except Exception as e:
+                self.logger.error(f"Failed to load credentials from env var: {e}")
+
+        # Priority 2: local token.pickle
+        if not creds and os.path.exists(TOKEN_FILE):
             with open(TOKEN_FILE, 'rb') as token:
                 creds = pickle.load(token)
+        
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                if not os.path.exists(CREDENTIALS_FILE):
+                # In non-interactive environments, we can't run the flow
+                if os.environ.get('GITHUB_ACTIONS'):
+                    self.logger.error("Non-interactive environment detected. Cannot run interactive auth flow.")
+                    return None
+                
+                if env_creds:
+                    try:
+                        creds_dict = json.loads(base64.b64decode(env_creds))
+                        flow = InstalledAppFlow.from_client_config(creds_dict, SCOPES)
+                        creds = flow.run_local_server(port=0)
+                    except Exception as e:
+                        self.logger.error(f"Failed to load credentials from GOOGLE_DRIVE_CREDENTIALS_DATA: {e}")
+                elif os.path.exists(CREDENTIALS_FILE):
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        CREDENTIALS_FILE, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                else:
                     self.logger.error(f"{CREDENTIALS_FILE} not found. Please follow the instructions to create it.")
                     return None
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open(TOKEN_FILE, 'wb') as token:
-                pickle.dump(creds, token)
+            
+            # Save the credentials locally if not in CI
+            if not os.environ.get('GITHUB_ACTIONS'):
+                with open(TOKEN_FILE, 'wb') as token:
+                    pickle.dump(creds, token)
         
         if creds:
             return build('drive', 'v3', credentials=creds)

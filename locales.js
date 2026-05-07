@@ -20,6 +20,7 @@ export const locales = {
             goals: "🎯 আর্থিক লক্ষ্য",
             lab: "🧪 ফিন্যান্সিয়াল ল্যাব",
             reports: "📋 রিপোর্ট",
+            reminders: "🔔 রিমাইন্ডার",
             settings: "⚙️ সেটিংস",
             dark_mode: "🌓 ডার্ক মোড",
             light_mode: "☀️ লাইট মোড",
@@ -129,6 +130,18 @@ export const locales = {
             target: "টার্গেট পরিমাণ",
             add: "যোগ করুন",
             achieved: "অর্জন"
+        },
+        reminders: {
+            title: "🔔 বিল ও পেমেন্ট রিমাইন্ডার",
+            name_placeholder: "বিলের নাম (যেমন: ইন্টারনেট)",
+            amount_placeholder: "পরিমাণ (৳)",
+            add_btn: "যোগ করুন",
+            total_due: "মোট বকেয়া বিল",
+            repeat_monthly: "প্রতি মাসে রিপিট করুন",
+            due_in: "{days} দিন বাকি",
+            due_today: "আজকেই শেষ তারিখ!",
+            overdue: "{days} দিন পার হয়ে গেছে!",
+            pay_now: "পরিশোধ করুন"
         },
         reports: {
             to: "টু",
@@ -286,6 +299,18 @@ export const locales = {
             target: "Target Amount",
             add: "Add",
             achieved: "Achieved"
+        },
+        reminders: {
+            title: "🔔 Bill & Payment Reminders",
+            name_placeholder: "Bill Name (e.g., Rent)",
+            amount_placeholder: "Amount (৳)",
+            add_btn: "Add Reminder",
+            total_due: "Total Outstanding Bills",
+            repeat_monthly: "Repeat Monthly",
+            due_in: "Due in {days} days",
+            due_today: "Due Today!",
+            overdue: "Overdue by {days} days!",
+            pay_now: "Pay Now"
         },
         reports: {
             to: "to",

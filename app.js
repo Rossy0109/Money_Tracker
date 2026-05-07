@@ -24,6 +24,7 @@ let state = {
     recurring: [],
     goals: [],
     debts: [],
+    reminders: [],
     paymentMethods: [
         { id: 1, name: 'নগদ টাকা', icon: '💵' },
         { id: 2, name: 'ব্যাংক অ্যাকাউন্ট', icon: '🏦' },
@@ -129,6 +130,7 @@ async function init() {
     setupSearch();
     setupLab();
     setupBulkActions();
+    setupReminders();
 
     // Security listeners
     ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
@@ -336,6 +338,11 @@ function startDataSync() {
         state.debts = data;
         renderDebtList();
         runDebtSimulation();
+    }));
+
+    unsubscribers.push(DB.sync("bill_reminders", (data) => {
+        state.reminders = data;
+        renderReminders();
     }));
 }
 
@@ -1306,6 +1313,110 @@ window.drillDownCategory = (cat) => {
     switchSection('reports');
     const input = document.getElementById('search-input');
     if(input) { input.value = cat; renderTransactionTable(); }
+};
+
+// --- Smart Bill Reminders ---
+function setupReminders() {
+    const form = document.getElementById('reminder-form');
+    if (!form) return;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const reminder = {
+            name: document.getElementById('rem-name').value,
+            amount: parseFloat(document.getElementById('rem-amount').value),
+            dueDate: document.getElementById('rem-date').value,
+            isRecurring: document.getElementById('rem-recurring').checked,
+            createdAt: Timestamp.now()
+        };
+        await DB.add("bill_reminders", reminder);
+        form.reset();
+        showToast("Reminder Added!");
+    };
+}
+
+function renderReminders() {
+    const list = document.getElementById('reminders-list');
+    const totalAmtEl = document.getElementById('total-reminders-amt');
+    if (!list) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let totalDue = 0;
+    list.innerHTML = state.reminders.map(rem => {
+        totalDue += rem.amount;
+        const dueDate = new Date(rem.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = dueDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        let statusClass = "due-future";
+        let statusText = t('reminders.due_in').replace('{days}', diffDays);
+        
+        if (diffDays === 0) {
+            statusClass = "due-today";
+            statusText = t('reminders.due_today');
+        } else if (diffDays < 0) {
+            statusClass = "due-overdue";
+            statusText = t('reminders.overdue').replace('{days}', Math.abs(diffDays));
+        } else if (diffDays <= 3) {
+            statusClass = "due-soon";
+        }
+
+        return `
+            <div class="card goal-card reminder-card ${statusClass}">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <strong>${rem.name}</strong> ${rem.isRecurring ? '🔄' : ''}
+                        <div class="reminder-amount">৳ ${rem.amount.toLocaleString()}</div>
+                    </div>
+                    <button onclick="window.deleteReminder('${rem.id}')" style="border:none; background:none; color:red; cursor:pointer; font-size:1.2rem;">×</button>
+                </div>
+                <div class="reminder-status" style="margin: 10px 0; font-weight: 600;">
+                    ${statusText}
+                </div>
+                <button class="btn-primary full-width" onclick="window.payReminder('${rem.id}')" style="font-size: 0.85rem; padding: 8px;">
+                    ✅ ${t('reminders.pay_now')}
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    if (totalAmtEl) totalAmtEl.textContent = `৳ ${totalDue.toLocaleString()}`;
+}
+
+window.deleteReminder = async (id) => {
+    if (confirm(t('transactions.delete_confirm'))) {
+        await DB.delete("bill_reminders", id);
+    }
+};
+
+window.payReminder = async (id) => {
+    const rem = state.reminders.find(r => r.id === id);
+    if (!rem) return;
+
+    // Prefill transaction form
+    document.getElementById('tx-amount').value = rem.amount;
+    document.getElementById('tx-desc').value = `[Bill Payment] ${rem.name}`;
+    document.getElementById('tx-type').value = 'expense';
+    
+    // Switch to transactions section
+    switchSection('transactions');
+
+    if (rem.isRecurring) {
+        // Automatically schedule for next month
+        const nextMonth = new Date(rem.dueDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        await DB.update("bill_reminders", rem.id, { 
+            dueDate: nextMonth.toISOString().split('T')[0] 
+        });
+        showToast("Bill paid and scheduled for next month!");
+    } else {
+        await DB.delete("bill_reminders", rem.id);
+        showToast("Bill paid and reminder removed!");
+    }
 };
 
 console.log("[App] IS_CI_TEST:", IS_CI_TEST);
