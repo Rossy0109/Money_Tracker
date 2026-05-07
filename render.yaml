@@ -5,7 +5,7 @@ services:
   name: money-tracker-api
   runtime: python
   repo: https://github.com/Rossy0109/Money_Tracker
-  plan: free
+  plan: free # Free tier ($0/month)
   region: oregon
   buildCommand: pip install -r Foot_Print_of_Money/server/requirements.txt
   startCommand: gunicorn --pythonpath Foot_Print_of_Money/server server:app
