@@ -1,13 +1,16 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+import io
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from datetime import datetime, timedelta
 from backend_utils import (
     get_supabase_client, 
     logger, 
     success_response, 
-    error_response
+    error_response,
+    generate_report_pdf,
+    MockBankProvider
 )
 
 app = Flask(__name__)
@@ -27,6 +30,60 @@ def handle_global_error(e):
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({"status": "healthy", "architecture": "Hybrid (Direct Supabase + Flask Proxy)"})
+
+@app.route('/api/reports/pdf', methods=['GET'])
+def get_pdf_report():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return error_response("user_id is required", "MISSING_PARAM", 400)
+    
+    try:
+        supabase = get_supabase_client()
+        # Fetch last 50 transactions for the report
+        response = supabase.table("transactions") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .order("occurred_at", desc=True) \
+            .limit(50) \
+            .execute()
+        
+        pdf_content = generate_report_pdf(response.data)
+        
+        return send_file(
+            io.BytesIO(pdf_content),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"report_{datetime.now().strftime('%Y%m%d')}.pdf"
+        )
+    except Exception as e:
+        return error_response(str(e), "REPORT_GEN_FAILED", 500)
+
+@app.route('/api/sync/mock-bank', methods=['POST'])
+def sync_mock_bank():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    account_id = data.get('account_id')
+    
+    if not user_id or not account_id:
+        return error_response("user_id and account_id are required", "MISSING_PARAM", 400)
+    
+    try:
+        supabase = get_supabase_client()
+        mock_transactions = MockBankProvider.fetch_transactions(5)
+        
+        # Add user/account info to mock data
+        for t in mock_transactions:
+            t['user_id'] = user_id
+            t['account_id'] = account_id
+            
+        response = supabase.table("transactions").insert(mock_transactions).execute()
+        
+        return success_response({
+            "message": f"Successfully synced {len(response.data)} transactions from Mock Bank",
+            "transactions": response.data
+        }, 201)
+    except Exception as e:
+        return error_response(str(e), "SYNC_FAILED", 500)
 
 @app.route('/api/transactions', methods=['POST'])
 def add_transaction():

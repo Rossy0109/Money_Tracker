@@ -79,3 +79,68 @@ def error_response(message: str, code: str = "INTERNAL_ERROR", status_code: int 
             "code": code
         }
     }, status_code
+
+# 6. PDF Generation Utility
+try:
+    from fpdf import FPDF
+except ImportError:
+    FPDF = object # type: ignore
+
+class PDFReport(FPDF):
+    def header(self):
+        self.set_font('helvetica', 'B', 15)
+        self.cell(0, 10, 'Financial Transaction Report', border=True, ln=1, align='C')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('helvetica', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='C')
+
+def generate_report_pdf(transactions):
+    pdf = PDFReport()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    pdf.set_font('helvetica', '', 10)
+    
+    # Table Header
+    pdf.set_fill_color(200, 220, 255)
+    pdf.cell(40, 10, 'Date', 1, 0, 'C', True)
+    pdf.cell(80, 10, 'Description', 1, 0, 'C', True)
+    pdf.cell(30, 10, 'Type', 1, 0, 'C', True)
+    pdf.cell(40, 10, 'Amount', 1, 1, 'C', True)
+    
+    # Table Rows
+    for t in transactions:
+        date_str = str(t.get('occurred_at', ''))[:10]
+        note_str = str(t.get('notes', ''))[:40] if t.get('notes') else 'N/A'
+        t_type = str(t.get('type', '')).capitalize()
+        amount_str = f"{t.get('currency', '')} {float(t.get('amount', 0)):.2f}"
+        
+        pdf.cell(40, 10, date_str, 1)
+        pdf.cell(80, 10, note_str, 1)
+        pdf.cell(30, 10, t_type, 1)
+        pdf.cell(40, 10, amount_str, 1, 1, 'R')
+        
+    return pdf.output()
+
+# 7. Mock Bank Provider
+import random
+from datetime import datetime, timedelta
+
+class MockBankProvider:
+    @staticmethod
+    def fetch_transactions(count=5):
+        vendors = ["Starbucks", "Amazon", "Uber", "Netflix", "Shell", "Walmart"]
+        mock_data = []
+        for i in range(count):
+            mock_data.append({
+                "amount": round(random.uniform(10.0, 500.0), 2),
+                "currency": "USD",
+                "notes": f"Bank Sync: {random.choice(vendors)}",
+                "type": "expense",
+                "occurred_at": (datetime.now() - timedelta(days=random.randint(0, 7))).isoformat(),
+                "is_cleared": True,
+                "vendor": random.choice(vendors)
+            })
+        return mock_data
