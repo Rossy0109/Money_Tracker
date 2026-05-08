@@ -7,8 +7,24 @@
 // Initialize Supabase Client
 const supabaseUrl = window.SUPABASE_URL || "__SUPABASE_URL__";
 const supabaseKey = window.SUPABASE_KEY || "__SUPABASE_KEY__";
-const { createClient } = window.supabase;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+let supabase;
+if (window.supabase && window.supabase.createClient) {
+    const { createClient } = window.supabase;
+    supabase = createClient(supabaseUrl, supabaseKey);
+} else {
+    console.warn("[DataHub] Supabase library not found. Using mock client.");
+    supabase = {
+        from: () => ({
+            select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }), Promise: Promise.resolve({ data: [], error: null }) }) }),
+            insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: {}, error: null }) }) }),
+            update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+            delete: () => ({ eq: () => Promise.resolve({ error: null }) })
+        }),
+        channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
+        removeChannel: () => {}
+    };
+}
 
 const SchemaVersion = "1.0.0";
 

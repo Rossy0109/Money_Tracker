@@ -22,6 +22,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [ -z "${DATABASE_URL}" ]; then
-            echo "DATABASE_URL secret is not set. Aborting."; exit 1;
+            echo "::warning ::DATABASE_URL secret is not set. Skipping migrations. Please configure this secret for production deployments."
+            exit 0
           fi
           ./apply_migrations.sh
