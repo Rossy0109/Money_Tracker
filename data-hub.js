@@ -3,9 +3,16 @@
  * Architecture: 10-Year Sustainability with strict structural integrity.
  */
 
+// Helper to robustly fetch environment variables
+const _getEnv = (key) => {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
+    if (typeof window !== 'undefined' && window.__ENV && window.__ENV[key]) return window.__ENV[key];
+    return `__${key}__`;
+};
+
 // Initialize Supabase Client
-const supabaseUrl = window.SUPABASE_URL || "__SUPABASE_URL__";
-const supabaseKey = window.SUPABASE_KEY || "__SUPABASE_KEY__";
+const supabaseUrl = _getEnv('SUPABASE_URL');
+const supabaseKey = _getEnv('SUPABASE_KEY');
 const { createClient } = window.supabase;
 const supabase = createClient(supabaseUrl, supabaseKey);
 

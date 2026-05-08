@@ -1,9 +1,5 @@
 import { locales } from './locales.js';
-import { db, auth, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
-import { 
-    collection, addDoc, onSnapshot, query, orderBy, doc, 
-    deleteDoc, setDoc, Timestamp, where, enableIndexedDbPersistence 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { auth, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
 import { 
     signInWithPopup, signOut, onAuthStateChanged,
     createUserWithEmailAndPassword, signInWithEmailAndPassword 
@@ -115,11 +111,6 @@ function checkLockout() {
 // --- Core Initialization ---
 async function init() {
     setupLocalization();
-    try {
-        await enableIndexedDbPersistence(db);
-    } catch (err) {
-        console.warn("[App] Persistence issue:", err.code);
-    }
 
     setupAuth();
     setupNavigation();
@@ -698,12 +689,12 @@ function setupForms() {
                     // Atomic Transfer Logic (Outflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer Out to ${to}`, type: 'expense',
-                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
+                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
                     });
                     // Atomic Transfer Logic (Inflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer In from ${from}`, type: 'income',
-                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
+                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
                     });
                 } else {
                     const isSplit = !splitContainer.classList.contains('hidden');
@@ -726,7 +717,7 @@ function setupForms() {
                             if (s.amount <= 0) throw new Error("Split amounts must be positive.");
                             await DB.add("transactions", {
                                 date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
-                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: Timestamp.now()
+                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: new Date().toISOString()
                             });
                         }
                     } else {
@@ -742,7 +733,7 @@ function setupForms() {
 
                         await DB.add("transactions", {
                             date, categoryId: catId, categoryName: cat.name, type: cat.type,
-                            amount: finalAmount, vatAmount, method, description: desc, createdAt: Timestamp.now()
+                            amount: finalAmount, vatAmount, method, description: desc, createdAt: new Date().toISOString()
                         });
 
                         // Automated bKash fee calculation with validation
@@ -752,7 +743,7 @@ function setupForms() {
                             if (fee > 0) {
                                 await DB.add("transactions", {
                                     date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
-                                    amount: fee, method: 'bKash', description: `Auto-fee for transaction of ৳${totalAmount}`, createdAt: Timestamp.now()
+                                    amount: fee, method: 'bKash', description: `Auto-fee for transaction of ৳${totalAmount}`, createdAt: new Date().toISOString()
                                 });
                             }
                         }
@@ -1159,7 +1150,7 @@ function setupBackup() {
                                 type: item.type, 
                                 method: item.method, 
                                 description: item.description,
-                                createdAt: Timestamp.now()
+                                createdAt: new Date().toISOString()
                             };
                             if (item.categoryId && accountMap[item.categoryId]) {
                                 payload.categoryId = accountMap[item.categoryId];
@@ -1169,7 +1160,7 @@ function setupBackup() {
                     }
                     if (recurring) {
                         for (const r of recurring) {
-                            await DB.add("recurring_templates", { ...r, createdAt: Timestamp.now() });
+                            await DB.add("recurring_templates", { ...r, createdAt: new Date().toISOString() });
                         }
                     }
                     if (goals) {
@@ -1327,7 +1318,7 @@ function setupReminders() {
             amount: parseFloat(document.getElementById('rem-amount').value),
             dueDate: document.getElementById('rem-date').value,
             isRecurring: document.getElementById('rem-recurring').checked,
-            createdAt: Timestamp.now()
+            createdAt: new Date().toISOString()
         };
         await DB.add("bill_reminders", reminder);
         form.reset();
