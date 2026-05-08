@@ -82,8 +82,43 @@ function applyLocales() {
     });
 }
 
-// --- Security Helpers ---
-function resetSessionTimer() {
+function setupChat() {
+    const chatFab = document.getElementById('chat-fab');
+    const chatWindow = document.getElementById('chat-window');
+    const closeChat = document.getElementById('close-chat');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (!chatFab) return;
+
+    chatFab.onclick = () => chatWindow.classList.remove('hidden');
+    closeChat.onclick = () => chatWindow.classList.add('hidden');
+
+    chatInput.onkeydown = async (e) => {
+        if (e.key === 'Enter' && chatInput.value.trim()) {
+            const message = chatInput.value.trim();
+            chatMessages.innerHTML += `<div><b>You:</b> ${message}</div>`;
+            chatInput.value = '';
+            
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: 'user', content: message }], userId: state.user.uid })
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            chatMessages.innerHTML += `<div><b>AI:</b> <span id="ai-resp"></span></div>`;
+            const respEl = document.getElementById('ai-resp');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                respEl.textContent += decoder.decode(value);
+            }
+        }
+    };
+}
     clearTimeout(state.sessionTimeout);
     if (state.user) {
         state.sessionTimeout = setTimeout(async () => {

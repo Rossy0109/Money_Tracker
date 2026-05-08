@@ -509,13 +509,20 @@
                 </main>
             </div>
         </section>
+<!-- Global FAB -->
+<button id="global-fab" class="fab hidden" title="Add Transaction">＋</button>
 
-        <!-- Global FAB -->
-        <button id="global-fab" class="fab hidden" title="Add Transaction">＋</button>
-    </div>
+<!-- Chat FAB -->
+<button id="chat-fab" class="fab chat-fab">💬</button>
+<div id="chat-window" class="chat-window hidden">
+    <div class="chat-header">Financial Assistant <button id="close-chat" style="background:none; border:none; color:white; cursor:pointer;">×</button></div>
+    <div id="chat-messages"></div>
+    <input type="text" id="chat-input" placeholder="Ask about your spending...">
+</div>
 
-    <script type="module" src="app.js"></script>
-    <script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').then(reg => {

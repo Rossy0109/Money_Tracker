@@ -2,8 +2,12 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://money-tracker-api.onrender.com/api/:path*"
+      "source": "/api/debug",
+      "destination": "/api/debug.py"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
       "source": "/(.*)",
