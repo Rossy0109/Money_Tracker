@@ -6,14 +6,9 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-s
 console.log("[Firebase] Initializing configuration...");
 
 // Use placeholders for security - these will be replaced during build/deployment
-// The code reads from (in order): process.env (Node/bundler), window.__ENV (static injection), then falls back to placeholders.
 const _getEnv = (key) => {
-    try {
-        if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
-    } catch (e) {}
-    try {
-        if (typeof window !== 'undefined' && window.__ENV && window.__ENV[key]) return window.__ENV[key];
-    } catch (e) {}
+    if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
+    if (typeof window !== 'undefined' && window.__ENV && window.__ENV[key]) return window.__ENV[key];
     return `__${key}__`;
 };
 

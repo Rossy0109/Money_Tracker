@@ -22,18 +22,32 @@ jobs:
       - name: Install dependencies (Python Server)
         run: cd Foot_Print_of_Money/server && pip install -r requirements.txt
       
-      # Inject Dummy Secrets for Testing to prevent app crash
-      - name: Inject Dummy Secrets for Testing
+      # Generate Environment Configuration
+      - name: Generate Environment Configuration
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_API_KEY__|AIzaDummyKey|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__|dummy.firebaseapp.com|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_PROJECT_ID__|dummy-project|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__|dummy.appspot.com|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__|123456789|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_APP_ID__|1:123:web:abc|g" firebase-config.js
-          sed -i "s|__ADMIN_EMAIL__|test@example.com|g" firebase-config.js
-          sed -i "s|__SUPABASE_URL__|https://dummy.supabase.co|g" data-hub.js
-          sed -i "s|__SUPABASE_KEY__|dummy-key|g" data-hub.js
+          cat <<EOF > env.js
+          window.__ENV = {
+            "NEXT_PUBLIC_FIREBASE_API_KEY": "${FIREBASE_API_KEY:-AIzaDummyKey}",
+            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "${FIREBASE_AUTH_DOMAIN:-dummy.firebaseapp.com}",
+            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID:-dummy-project}",
+            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "${FIREBASE_STORAGE_BUCKET:-dummy.appspot.com}",
+            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "${FIREBASE_MESSAGING_SENDER_ID:-123456789}",
+            "NEXT_PUBLIC_FIREBASE_APP_ID": "${FIREBASE_APP_ID:-1:123:web:abc}",
+            "ADMIN_EMAIL": "${ADMIN_EMAIL:-test@example.com}",
+            "SUPABASE_URL": "${SUPABASE_URL:-https://dummy.supabase.co}",
+            "SUPABASE_KEY": "${SUPABASE_KEY:-dummy-key}"
+          };
+          EOF
 
       - name: Run Playwright tests
         run: |
@@ -51,18 +65,32 @@ jobs:
         with:
           node-version: '20'
       
-      # Replace placeholders in root app
-      - name: Inject Secrets into Root App
+      # Generate Environment Configuration
+      - name: Generate Environment Configuration
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_PROJECT_ID__|${{ secrets.FIREBASE_PROJECT_ID }}|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__|${{ secrets.FIREBASE_STORAGE_BUCKET }}|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" firebase-config.js
-          sed -i "s|__NEXT_PUBLIC_FIREBASE_APP_ID__|${{ secrets.FIREBASE_APP_ID }}|g" firebase-config.js
-          sed -i "s|__ADMIN_EMAIL__|${{ secrets.ADMIN_EMAIL }}|g" firebase-config.js
-          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" data-hub.js
-          sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" data-hub.js
+          cat <<EOF > env.js
+          window.__ENV = {
+            "NEXT_PUBLIC_FIREBASE_API_KEY": "$FIREBASE_API_KEY",
+            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "$FIREBASE_AUTH_DOMAIN",
+            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "$FIREBASE_PROJECT_ID",
+            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "$FIREBASE_STORAGE_BUCKET",
+            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$FIREBASE_MESSAGING_SENDER_ID",
+            "NEXT_PUBLIC_FIREBASE_APP_ID": "$FIREBASE_APP_ID",
+            "ADMIN_EMAIL": "$ADMIN_EMAIL",
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_KEY": "$SUPABASE_KEY"
+          };
+          EOF
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
@@ -94,5 +122,33 @@ jobs:
           node-version: '20'
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
+      
+      # Generate Environment Configuration
+      - name: Generate Environment Configuration
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          cat <<EOF > env.js
+          window.__ENV = {
+            "NEXT_PUBLIC_FIREBASE_API_KEY": "$FIREBASE_API_KEY",
+            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "$FIREBASE_AUTH_DOMAIN",
+            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "$FIREBASE_PROJECT_ID",
+            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "$FIREBASE_STORAGE_BUCKET",
+            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$FIREBASE_MESSAGING_SENDER_ID",
+            "NEXT_PUBLIC_FIREBASE_APP_ID": "$FIREBASE_APP_ID",
+            "ADMIN_EMAIL": "$ADMIN_EMAIL",
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_KEY": "$SUPABASE_KEY"
+          };
+          EOF
+
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive
