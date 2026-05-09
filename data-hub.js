@@ -49,10 +49,10 @@ const SCHEMAS = {
         defaults: {},
         pk: 'id'
     },
-    financial_goals: {
-        required: ['name', 'target'],
-        allowed: ['name', 'target'],
-        defaults: {},
+    financial_targets: {
+        required: ['target_name', 'target_type', 'amount'],
+        allowed: ['target_name', 'target_type', 'amount', 'month_year', 'is_active'],
+        defaults: { is_active: true },
         pk: 'id'
     },
     recurring_templates: {
