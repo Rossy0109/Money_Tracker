@@ -17,10 +17,6 @@ jobs:
           node-version: '20'
       - name: Install dependencies (Root)
         run: npm install
-      - name: Install dependencies (React Client)
-        run: cd Foot_Print_of_Money/client && npm install
-      - name: Install dependencies (Python Server)
-        run: cd Foot_Print_of_Money/server && pip install -r requirements.txt
       
       # Generate Environment Configuration
       - name: Generate Environment Configuration
@@ -100,15 +96,6 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-  deploy-backend-render:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Trigger Render Deployment
-        run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
   deploy-root-firebase:
     needs: test
