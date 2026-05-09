@@ -1130,19 +1130,34 @@ function setupAIAuditor() {
     if (!btn) return;
 
     btn.onclick = async () => {
-        const projectData = state.transactions.filter(t => t.project_id === state.selectedProjectId);
+        const pId = state.selectedProjectId;
+        if (pId === 'all') {
+            results.innerHTML = 'Please select a specific project to audit.';
+            return;
+        }
+
+        const projectData = state.transactions.filter(t => t.project_id === pId);
+        const projectTargets = stateTargets.filter(t => t.project_id === pId); // Assuming targets are project-aware
+        
         results.innerHTML = 'AI is auditing project metrics...';
         
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                messages: [{ role: 'user', content: `Analyze these project transactions for anomalies or budget overruns: ${JSON.stringify(projectData)}` }], 
-                userId: state.user.uid 
-            })
-        });
-        const data = await response.json();
-        results.innerHTML = `<p>${data.content || 'Audit complete.'}</p>`;
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    messages: [{ 
+                        role: 'user', 
+                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
+                    }], 
+                    userId: state.user.uid 
+                })
+            });
+            const data = await response.json();
+            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+        } catch (err) {
+            results.innerHTML = 'Audit failed: ' + err.message;
+        }
     };
 }
     const toggle = document.getElementById('theme-toggle');
