@@ -135,6 +135,7 @@ async function init() {
     setupBulkActions();
     setupReminders();
     setupTargetForm();
+    setupProjectSelector();
 
     // Security & Connectivity
     updateSyncStatus();
@@ -1073,27 +1074,23 @@ function renderBusinessHealth() {
     `).join('');
 }
 
-function setupTargetForm() {
-    const form = document.getElementById('target-form');
-    if (!form) return;
+function setupProjectSelector() {
+    const selector = document.getElementById('project-selector');
+    if (!selector) return;
 
-    // Sync Targets
-    DB.sync('financial_targets', (data) => {
-        stateTargets = data;
-        if (document.getElementById('section-business-health').className.indexOf('hidden') === -1) {
-            renderBusinessHealth();
-        }
+    // Load Projects
+    DB.sync('projects', (data) => {
+        state.projects = data;
+        selector.innerHTML = '<option value="all" data-i18n="projects.all">সব প্রজেক্ট</option>' +
+            data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
     });
 
-    form.onsubmit = async (e) => {
-        e.preventDefault();
-        const data = {
-            target_name: document.getElementById('target-name').value,
-            amount: parseFloat(document.getElementById('target-amount').value),
-            target_type: document.getElementById('target-type').value
-        };
-        await DB.add('financial_targets', data);
-        form.reset();
+    selector.onchange = (e) => {
+        state.selectedProjectId = e.target.value;
+        // Trigger re-render of current view
+        if (state.activeSection === 'overview') renderCharts();
+        if (state.activeSection === 'business-health') renderBusinessHealth();
+        // Add more view triggers if needed
     };
 }
     const toggle = document.getElementById('theme-toggle');
