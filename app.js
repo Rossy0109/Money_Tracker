@@ -1586,5 +1586,43 @@ window.payReminder = async (id) => {
     }
 };
 
+
+function setupAIAuditor() {
+    const btn = document.getElementById('btn-ai-audit');
+    const results = document.getElementById('ai-audit-results');
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const pId = state.selectedProjectId;
+        if (pId === 'all') {
+            results.innerHTML = 'Please select a specific project to audit.';
+            return;
+        }
+
+        const projectData = state.transactions.filter(t => t.project_id === pId);
+        const projectTargets = stateTargets.filter(t => t.project_id === pId); 
+        
+        results.innerHTML = 'AI is auditing project metrics...';
+        
+        try {
+            const response = await fetch('/api/audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    messages: [{ 
+                        role: 'user', 
+                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
+                    }], 
+                    userId: state.user.uid 
+                })
+            });
+            const data = await response.json();
+            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+        } catch (err) {
+            results.innerHTML = 'Audit failed: ' + err.message;
+        }
+    };
+}
+
 console.log("[App] IS_CI_TEST:", IS_CI_TEST);
 init().catch(err => console.error("[App] Init failed:", err));
