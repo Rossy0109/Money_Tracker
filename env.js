@@ -10,6 +10,6 @@ window.__ENV = {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "123456789",
     NEXT_PUBLIC_FIREBASE_APP_ID: "1:123:web:abc",
     ADMIN_EMAIL: "test@example.com",
-    SUPABASE_URL: "https://dummy.supabase.co",
+    SUPABASE_URL: "https://ulmaomfsyjbwcwecutcp.supabase.co",
     SUPABASE_KEY: "dummy-key"
 };
