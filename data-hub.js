@@ -49,10 +49,16 @@ const SCHEMAS = {
         defaults: {},
         pk: 'id'
     },
-    financial_targets: {
-        required: ['target_name', 'target_type', 'amount'],
-        allowed: ['target_name', 'target_type', 'amount', 'month_year', 'is_active'],
-        defaults: { is_active: true },
+    projects: {
+        required: ['name'],
+        allowed: ['name', 'budget', 'status'],
+        defaults: { status: 'active' },
+        pk: 'id'
+    },
+    team_members: {
+        required: ['project_id', 'role'],
+        allowed: ['user_id', 'project_id', 'role'],
+        defaults: { role: 'manager' },
         pk: 'id'
     },
     recurring_templates: {
