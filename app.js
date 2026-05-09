@@ -128,7 +128,6 @@ async function init() {
     setupNavigation();
     setupTheme();
     setupForms();
-    setupBankSync();
     setupExports();
     setupBackup();
     setupSearch();
@@ -1069,57 +1068,6 @@ function setupTheme() {
 function setupSearch() {
     const input = document.getElementById('search-input');
     if (input) input.oninput = (e) => { state.searchTerm = e.target.value.toLowerCase(); renderTransactionTable(); };
-}
-
-function setupBankSync() {
-    const syncBtn = document.getElementById('btn-bank-sync');
-    const syncInput = document.getElementById('bank-sync-input');
-    const syncResults = document.getElementById('bank-sync-results');
-
-    if (!syncBtn) return;
-
-    syncBtn.onclick = async () => {
-        const text = syncInput.value.trim();
-        if (!text) return;
-        
-        syncBtn.disabled = true;
-        syncBtn.textContent = 'Syncing...';
-        syncResults.innerHTML = 'AI is analyzing your data...';
-
-        try {
-            const categories = state.categories.map(c => c.name).join(', ');
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: [{ 
-                        role: 'user', 
-                        content: `Extract transactions from this text as JSON (array of objects {amount, date, description, type, category}). Use these categories only if they match: ${categories}. If not, suggest the most appropriate one: ${text}` 
-                    }], 
-                    userId: state.user.uid 
-                })
-            });
-
-            const data = await response.json();
-            // DataHub handles validation
-            for (const tx of data) {
-                await DB.add('transactions', {
-                    amount: tx.amount,
-                    date: tx.date,
-                    type: tx.type,
-                    categoryName: tx.category,
-                    description: tx.description
-                });
-            }
-            syncResults.innerHTML = 'Successfully synced transactions!';
-            syncBtn.disabled = false;
-            syncBtn.textContent = 'Sync with AI';
-        } catch (err) {
-            syncResults.innerHTML = 'Error syncing: ' + err.message;
-            syncBtn.disabled = false;
-            syncBtn.textContent = 'Sync with AI';
-        }
-    };
 }
 
 function setupExports() {
