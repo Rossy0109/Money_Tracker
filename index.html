@@ -167,6 +167,25 @@
                                     <button type="submit" class="btn-primary">Add</button>
                                 </form>
                                 <div id="target-list"></div>
+<!-- Add to section-business-health -->
+<div class="card" style="margin-top: 1rem;">
+    <h4 data-i18n="business.team">Team Members</h4>
+    <form id="invite-form" class="form-row mb-3">
+        <input type="email" id="invite-email" placeholder="Email" required>
+        <select id="invite-role">
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+        </select>
+        <button type="submit" class="btn-primary">Invite</button>
+    </form>
+    <div id="team-list"></div>
+</div>
+
+<div class="card" style="margin-top: 1rem;">
+    <h4 data-i18n="business.ai_advisor">AI Business Advisor</h4>
+    <button id="btn-ai-audit" class="btn-primary">Audit This Project</button>
+    <div id="ai-audit-results" class="mt-2"></div>
+</div>
                             </div>
                         </div>
                     </div>

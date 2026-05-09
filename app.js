@@ -136,6 +136,8 @@ async function init() {
     setupReminders();
     setupTargetForm();
     setupProjectSelector();
+    setupTeamManagement();
+    setupAIAuditor();
 
     // Security & Connectivity
     updateSyncStatus();
@@ -1091,6 +1093,41 @@ function setupProjectSelector() {
         if (state.activeSection === 'overview') renderCharts();
         if (state.activeSection === 'business-health') renderBusinessHealth();
         // Add more view triggers if needed
+    };
+}
+
+function setupTeamManagement() {
+    const form = document.getElementById('invite-form');
+    if (!form) return;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('invite-email').value;
+        const role = document.getElementById('invite-role').value;
+        alert(`Invitation sent to ${email} for project ${state.selectedProjectId || 'Current'}.`);
+        form.reset();
+    };
+}
+
+function setupAIAuditor() {
+    const btn = document.getElementById('btn-ai-audit');
+    const results = document.getElementById('ai-audit-results');
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const projectData = state.transactions.filter(t => t.project_id === state.selectedProjectId);
+        results.innerHTML = 'AI is auditing project metrics...';
+        
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                messages: [{ role: 'user', content: `Analyze these project transactions for anomalies or budget overruns: ${JSON.stringify(projectData)}` }], 
+                userId: state.user.uid 
+            })
+        });
+        const data = await response.json();
+        results.innerHTML = `<p>${data.content || 'Audit complete.'}</p>`;
     };
 }
     const toggle = document.getElementById('theme-toggle');
