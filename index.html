@@ -85,8 +85,10 @@
                         <div id="user-display" style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px;"></div>
                     </div>
                     <ul class="nav-links">
-                        <li class="active" data-section="overview"><span class="icon">📊</span> <span data-i18n="sidebar.overview">সারসংক্ষেপ</span></li>
+                        <li data-section="overview"><span class="icon">📊</span> <span data-i18n="sidebar.overview">সারসংক্ষেপ</span></li>
+                        <li data-section="business-health"><span class="icon">🏢</span> <span data-i18n="sidebar.business">ব্যবসার স্বাস্থ্য</span></li>
                         <li data-section="transactions"><span class="icon">➕</span> <span data-i18n="sidebar.transactions">নতুন লেনদেন</span></li>
+
                         <li data-section="recurring"><span class="icon">🔄</span> <span data-i18n="sidebar.recurring">নিয়মিত খরচ</span></li>
                         <li data-section="budget"><span class="icon">📉</span> <span data-i18n="sidebar.budget">বাজেট সেট</span></li>
                         <li data-section="goals"><span class="icon">🎯</span> <span data-i18n="sidebar.goals">আর্থিক লক্ষ্য</span></li>
@@ -131,6 +133,37 @@
                             <div class="chart-container card" style="min-height: 350px;">
                                 <h3 data-i18n="overview.pie_title">খরচের বিশ্লেষণ (Pie Chart)</h3>
                                 <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 1b. Business Health -->
+                    <div id="section-business-health" class="content-section hidden">
+                        <div class="card">
+                            <h2 data-i18n="sidebar.business">ব্যবসার স্বাস্থ্য</h2>
+                            <div class="summary-grid">
+                                <div class="card lab-card">
+                                    <h4 data-i18n="business.total_profit">মোট মুনাফা</h4>
+                                    <p id="biz-profit" style="font-size:1.5rem; font-weight:700">৳ 0</p>
+                                </div>
+                                <div class="card lab-card">
+                                    <h4 data-i18n="business.margin">মুনাফার হার (Margin)</h4>
+                                    <p id="biz-margin" style="font-size:1.5rem; font-weight:700">0%</p>
+                                </div>
+                            </div>
+                            <div class="card" style="margin-top: 1rem;">
+                                <h4 data-i18n="business.targets">লক্ষ্যমাত্রা (Targets)</h4>
+                                <form id="target-form" class="form-row mb-3">
+                                    <input type="text" id="target-name" placeholder="Target Name" required>
+                                    <input type="number" id="target-amount" placeholder="Amount (৳)" required>
+                                    <select id="target-type">
+                                        <option value="monthly_profit">Monthly Profit</option>
+                                        <option value="annual_revenue">Annual Revenue</option>
+                                        <option value="expense_cap">Expense Cap</option>
+                                    </select>
+                                    <button type="submit" class="btn-primary">Add</button>
+                                </form>
+                                <div id="target-list"></div>
                             </div>
                         </div>
                     </div>

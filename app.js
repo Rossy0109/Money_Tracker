@@ -134,6 +134,7 @@ async function init() {
     setupLab();
     setupBulkActions();
     setupReminders();
+    setupTargetForm();
 
     // Security & Connectivity
     updateSyncStatus();
@@ -1048,9 +1049,53 @@ function switchSection(section) {
     const fab = document.getElementById('global-fab');
     if (fab) fab.classList.toggle('hidden', section === 'transactions');
     if (section === 'overview') renderCharts();
+    if (section === 'business-health') renderBusinessHealth();
 }
 
-function setupTheme() {
+// --- Business Health Logic ---
+let stateTargets = [];
+
+function renderBusinessHealth() {
+    const totalInc = state.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const totalExp = state.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const profit = totalInc - totalExp;
+    const margin = totalInc > 0 ? ((profit / totalInc) * 100).toFixed(1) : 0;
+
+    document.getElementById('biz-profit').textContent = `৳ ${profit.toLocaleString()}`;
+    document.getElementById('biz-margin').textContent = `${margin}%`;
+
+    const targetList = document.getElementById('target-list');
+    targetList.innerHTML = stateTargets.map(t => `
+        <div class="card mb-2" style="padding:0.5rem; display:flex; justify-content:space-between">
+            <span>${t.target_name} (${t.target_type})</span>
+            <strong>৳ ${t.amount.toLocaleString()}</strong>
+        </div>
+    `).join('');
+}
+
+function setupTargetForm() {
+    const form = document.getElementById('target-form');
+    if (!form) return;
+
+    // Sync Targets
+    DB.sync('financial_targets', (data) => {
+        stateTargets = data;
+        if (document.getElementById('section-business-health').className.indexOf('hidden') === -1) {
+            renderBusinessHealth();
+        }
+    });
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const data = {
+            target_name: document.getElementById('target-name').value,
+            amount: parseFloat(document.getElementById('target-amount').value),
+            target_type: document.getElementById('target-type').value
+        };
+        await DB.add('financial_targets', data);
+        form.reset();
+    };
+}
     const toggle = document.getElementById('theme-toggle');
     if (!toggle) return;
     const update = (mode) => {
