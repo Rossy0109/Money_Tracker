@@ -45,9 +45,9 @@ console.log("[App] IS_CI_TEST identified as:", IS_CI_TEST);
 
 // --- Infrastructure: DataHub Wrapper ---
 const DB = {
-    sync: (coll, callback, orderField = null) => DataHub.sync(coll, callback, orderField, state.user.uid),
-    add: async (coll, data) => await DataHub.add(coll, data, state.user.uid),
-    update: async (coll, id, data) => await DataHub.update(coll, id, data, state.user.uid),
+    sync: (coll, callback, orderField = null) => DataHub.sync(coll, callback, orderField),
+    add: async (coll, data) => await DataHub.add(coll, data),
+    update: async (coll, id, data) => await DataHub.update(coll, id, data),
     delete: async (coll, id) => await DataHub.delete(coll, id)
 };
 
@@ -79,6 +79,18 @@ function applyLocales() {
 }
 
 // --- Security Helpers ---
+function updateSyncStatus() {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) return;
+    
+    if (navigator.onLine) {
+        statusEl.innerHTML = '<span class="text-success">● Online</span>';
+        DataHub.processSyncQueue();
+    } else {
+        statusEl.innerHTML = '<span class="text-warning">○ Offline (Local Mode)</span>';
+    }
+}
+
 function resetSessionTimer() {
     clearTimeout(state.sessionTimeout);
     if (state.user) {
@@ -116,12 +128,18 @@ async function init() {
     setupNavigation();
     setupTheme();
     setupForms();
+    setupBankSync();
     setupExports();
     setupBackup();
     setupSearch();
     setupLab();
     setupBulkActions();
     setupReminders();
+
+    // Security & Connectivity
+    updateSyncStatus();
+    window.addEventListener('online', updateSyncStatus);
+    window.addEventListener('offline', updateSyncStatus);
 
     // Security listeners
     ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
@@ -853,23 +871,28 @@ window.runProjectionSimulation = () => {
     const m = parseFloat(document.getElementById('proj-monthly').value) || 0;
     const r = (parseFloat(document.getElementById('proj-rate').value) || 0) / 100 / 12;
     const n = (parseFloat(document.getElementById('proj-years').value) || 0) * 12;
+    const cut = parseFloat(document.getElementById('proj-whatif-cut').value) || 0;
     
     const labels = [];
-    const nominal = [];
-    let current = p;
+    const baseData = [];
+    const optData = [];
+    let base = p;
+    let opt = p;
     
     for (let i = 0; i <= n; i++) {
         if (i % 12 === 0) {
             labels.push(`Year ${i / 12}`);
-            nominal.push(Math.round(current));
+            baseData.push(Math.round(base));
+            optData.push(Math.round(opt));
         }
-        current = current * (1 + r) + m;
+        base = base * (1 + r) + m;
+        opt = opt * (1 + r) + (m + cut);
     }
     
-    renderProjectionChart(labels, nominal, nominal);
+    renderProjectionChart(labels, baseData, optData);
 };
 
-function renderProjectionChart(labels, nominal, real) {
+function renderProjectionChart(labels, base, opt) {
     const canvas = document.getElementById('projectionChart');
     if (!canvas) return;
     if (state.projectionChart) state.projectionChart.destroy();
@@ -877,9 +900,21 @@ function renderProjectionChart(labels, nominal, real) {
     const textColor = isDark ? '#f8fafc' : '#020617';
     state.projectionChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
-        data: { labels, datasets: [{ label: t('lab.nominal_label'), data: nominal, borderColor: '#2563eb', fill: false, tension: 0.4 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }, plugins: { legend: { labels: { color: textColor } } } }
+        data: { 
+            labels, 
+            datasets: [
+                { label: 'Base Projection', data: base, borderColor: '#64748b', fill: false, tension: 0.4 },
+                { label: 'Optimized (Extra Savings)', data: opt, borderColor: '#22c55e', fill: false, tension: 0.4 }
+            ] 
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }, 
+            plugins: { legend: { labels: { color: textColor } } } 
+        }
     });
+};
 }
 
 function populateDropdowns() {
@@ -1036,6 +1071,57 @@ function setupSearch() {
     if (input) input.oninput = (e) => { state.searchTerm = e.target.value.toLowerCase(); renderTransactionTable(); };
 }
 
+function setupBankSync() {
+    const syncBtn = document.getElementById('btn-bank-sync');
+    const syncInput = document.getElementById('bank-sync-input');
+    const syncResults = document.getElementById('bank-sync-results');
+
+    if (!syncBtn) return;
+
+    syncBtn.onclick = async () => {
+        const text = syncInput.value.trim();
+        if (!text) return;
+        
+        syncBtn.disabled = true;
+        syncBtn.textContent = 'Syncing...';
+        syncResults.innerHTML = 'AI is analyzing your data...';
+
+        try {
+            const categories = state.categories.map(c => c.name).join(', ');
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    messages: [{ 
+                        role: 'user', 
+                        content: `Extract transactions from this text as JSON (array of objects {amount, date, description, type, category}). Use these categories only if they match: ${categories}. If not, suggest the most appropriate one: ${text}` 
+                    }], 
+                    userId: state.user.uid 
+                })
+            });
+
+            const data = await response.json();
+            // DataHub handles validation
+            for (const tx of data) {
+                await DB.add('transactions', {
+                    amount: tx.amount,
+                    date: tx.date,
+                    type: tx.type,
+                    categoryName: tx.category,
+                    description: tx.description
+                });
+            }
+            syncResults.innerHTML = 'Successfully synced transactions!';
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Sync with AI';
+        } catch (err) {
+            syncResults.innerHTML = 'Error syncing: ' + err.message;
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Sync with AI';
+        }
+    };
+}
+
 function setupExports() {
     document.getElementById('export-excel').onclick = async () => {
         await logEvent("export_excel", state.user.uid);
@@ -1049,9 +1135,42 @@ function setupExports() {
         await logEvent("export_pdf", state.user.uid);
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Foot Print of Money Report", 14, 15);
-        doc.autoTable({ head: [['Date', 'Category', 'Amount', 'Method']], body: state.transactions.map(t => [t.date, t.categoryName, t.amount, t.method]), startY: 20 });
-        doc.save("Foot_Print_Report.pdf");
+        
+        // Branded Header
+        doc.setFontSize(18);
+        doc.setTextColor(37, 99, 235); // Primary Blue
+        doc.text("Foot Print of Money Statement", 14, 20);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+
+        // Financial Summary Box
+        const inc = state.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const exp = state.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        
+        doc.autoTable({
+            startY: 35,
+            head: [['Summary', 'Amount (৳)']],
+            body: [
+                ['Total Income', inc.toLocaleString()],
+                ['Total Expenses', exp.toLocaleString()],
+                ['Net Balance', (inc - exp).toLocaleString()]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235] }
+        });
+
+        // Transaction Details
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 10,
+            head: [['Date', 'Description', 'Category', 'Amount']],
+            body: state.transactions.map(t => [t.date, t.description, t.categoryName, `৳ ${t.amount.toLocaleString()}`]),
+            theme: 'striped',
+            headStyles: { fillColor: [55, 65, 81] },
+            columnStyles: { 3: { halign: 'right' } }
+        });
+
+        doc.save(`Statement_${new Date().toISOString().split('T')[0]}.pdf`);
     };
     const migrationBtn = document.getElementById('export-supabase-btn');
     if (migrationBtn) {

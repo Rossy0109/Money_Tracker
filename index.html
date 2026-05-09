@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💰 Foot Print of Money - আল্টিমেট</title>
+    <title>💰 Foot Print of Money - </title>
     <!-- PWA Standalone Polish -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -137,6 +137,12 @@
 
                     <!-- 2. Transactions -->
                     <div id="section-transactions" class="content-section hidden">
+                        <div id="bank-sync-box" class="card mb-4">
+                            <h5 data-i18n="transactions.bank_sync">🚀 AI Bank Sync (Beta)</h5>
+                            <textarea id="bank-sync-input" class="form-control" placeholder="Paste bank SMS or statement text here..." rows="3"></textarea>
+                            <button id="btn-bank-sync" class="btn-primary mt-2">Sync with AI</button>
+                            <div id="bank-sync-results" class="mt-2"></div>
+                        </div>
                         <div class="card">
                             <h2 data-i18n="transactions.new">➕ নতুন লেনদেন</h2>
                             <form id="transaction-form">
@@ -377,6 +383,10 @@
                                 <div class="form-group">
                                     <label data-i18n="lab.years">Years</label>
                                     <input type="number" id="proj-years" value="10">
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="lab.whatif_savings">Expense Cut (৳)</label>
+                                    <input type="number" id="proj-whatif-cut" value="1000">
                                 </div>
                                 <button onclick="window.runProjectionSimulation()" class="btn-primary" style="align-self: flex-end" data-i18n="lab.calculate">Calculate</button>
                             </div>
