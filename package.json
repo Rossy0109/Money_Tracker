@@ -11,7 +11,9 @@
     "start": "serve ."
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.71",
     "@supabase/supabase-js": "^2.0.0",
+    "ai": "^6.0.177",
     "firebase": "^12.12.1"
   }
 }
