@@ -16,11 +16,9 @@ const ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
-    'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js',
     'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
     'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js',
-    'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js',
-    'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js'
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js'
 ];
 
 // Install Event: Cache everything
