@@ -1,6 +1,6 @@
 export const locales = {
     bn: {
-        title: "💰 Foot Print of Money - আল্টিমেট",
+        title: "💰 Foot Print of Money - ",
         login_title: "Foot Print of Money",
         login_subtitle: "আপনার নিরাপদ আর্থিক বন্ধু",
         google_login: "Google দিয়ে লগইন করুন",
@@ -170,7 +170,7 @@ export const locales = {
         }
     },
     en: {
-        title: "💰 Foot Print of Money - Ultimate",
+        title: "💰 Foot Print of Money - Foot Print of Money",
         login_title: "Foot Print of Money",
         login_subtitle: "Your Secure Financial Companion",
         google_login: "Login with Google",

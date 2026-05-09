@@ -1,4 +1,4 @@
-# 💰 Foot Print of Money (Ultimate Version)
+# 💰 Foot Print of Money 
 
 A professional personal finance management system designed for longevity and sustainability.
 
@@ -31,7 +31,7 @@ The project uses a hardened `env.js` system. For local development, ensure `env.
 
 ### 2. Local Development
 ```bash
-# Serve the Ultimate Version
+# Serve the 
 python3 -m http.server 8000
 ```
 Visit `http://localhost:8000`.
