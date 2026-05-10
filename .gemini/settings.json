@@ -3,5 +3,13 @@
     "supabase": {
       "httpUrl": "https://mcp.supabase.com/mcpproject_ref=ulmaomfsyjbwcwecutcp&features=functions%2Cdevelopment%2Cdebugging%2Caccount%2Cdatabase"
     }
+  },
+  "security": {
+    "auth": {
+      "selectedType": "oauth-personal"
+    }
+  },
+  "general": {
+    "preferredEditor": "vim"
   }
 }

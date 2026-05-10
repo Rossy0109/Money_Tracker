@@ -4,9 +4,16 @@
  * Architecture: 10-Year Sustainability with Supabase as primary DB.
  */
 
+// Helper to robustly fetch environment variables
+const _getEnv = (key) => {
+    try { if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key]; } catch (e) {}
+    try { if (typeof window !== 'undefined' && window.__ENV && window.__ENV[key]) return window.__ENV[key]; } catch (e) {}
+    return `__${key}__`;
+};
+
 // Initialize Supabase Client
-const supabaseUrl = window.SUPABASE_URL || "__SUPABASE_URL__";
-const supabaseKey = window.SUPABASE_KEY || "__SUPABASE_KEY__";
+const supabaseUrl = _getEnv('NEXT_PUBLIC_SUPABASE_URL');
+const supabaseKey = _getEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || _getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 const { createClient } = window.supabase;
 const supabase = createClient(supabaseUrl, supabaseKey);
 

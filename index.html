@@ -116,6 +116,13 @@
                             <div class="card summary-card expense"><h3 data-i18n="overview.expense">মোট খরচ</h3><p id="total-expense">৳ 0</p></div>
                             <div class="card summary-card balance"><h3 data-i18n="overview.balance">ব্যালেন্স</h3><p id="total-balance">৳ 0</p></div>
                         </div>
+                        <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                            <button id="btn-ai-insights" class="btn-primary" onclick="window.requestAiAnalysis()">🤖 Get AI Insights</button>
+                        </div>
+                        <div id="ai-insights-container" class="card" style="margin-top: 1rem;">
+                            <h3 data-i18n="overview.ai_history">AI Insights History</h3>
+                            <div id="ai-insights-list"></div>
+                        </div>
                         <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
                             <div class="chart-container card" style="min-height: 350px;">
                                 <h3 data-i18n="overview.trend_title">আয় বনাম ব্যয় ট্রেন্ড</h3>

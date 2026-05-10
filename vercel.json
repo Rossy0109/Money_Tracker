@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://money-tracker-api.onrender.com/api/:path*"
+      "destination": "https://money-tracker-api-c6xu.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

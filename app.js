@@ -54,6 +54,59 @@ const DB = {
     delete: async (coll, id) => await DataHub.delete(coll, id)
 };
 
+window.loadAiInsights = async () => {
+    const list = document.getElementById('ai-insights-list');
+    if (!list) return;
+
+    try {
+        // Query Firestore 'insights' collection for the current user
+        const q = query(collection(db, "insights"), where("userId", "==", state.user.uid), orderBy("timestamp", "desc"));
+        const snapshot = await getDocs(q);
+        
+        list.innerHTML = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return `
+                <div class="card" style="margin-bottom: 10px; padding: 10px;">
+                    <small>${data.timestamp.toDate().toLocaleString()}</small>
+                    <p>${data.analysis.substring(0, 100)}...</p>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error("Failed to load insights", err);
+    }
+};
+
+window.startAiPolling = () => {
+    // Poll for new insights every 60 seconds
+    setInterval(window.loadAiInsights, 60000);
+};
+
+window.requestAiAnalysis = async () => {
+    const btn = document.getElementById('btn-ai-insights');
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+    try {
+        const response = await fetch('/api/ai/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                transactions: state.transactions, 
+                budgets: state.budgets 
+            })
+        });
+        const data = await response.json();
+        showToast("AI Insight Generated!");
+        alert(data.analysis);
+    } catch (err) {
+        showToast("Failed to fetch AI insights", true);
+        console.error(err);
+    } finally {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+    }
+};
+
 // --- Localization Hub ---
 function setupLocalization() {
     applyLocales();
@@ -296,6 +349,8 @@ function showDashboard() {
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-section').classList.remove('hidden');
     startDataSync();
+    window.loadAiInsights();
+    window.startAiPolling();
 }
 
 // --- Data Sync ---
