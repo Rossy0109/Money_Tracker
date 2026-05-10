@@ -1,9 +1,5 @@
 import { locales } from './locales.js';
-import { db, auth, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
-import { 
-    collection, addDoc, onSnapshot, query, orderBy, doc, 
-    deleteDoc, setDoc, Timestamp, where, enableIndexedDbPersistence 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { auth, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
 import { 
     signInWithPopup, signOut, onAuthStateChanged,
     createUserWithEmailAndPassword, signInWithEmailAndPassword 
@@ -24,6 +20,7 @@ let state = {
     recurring: [],
     goals: [],
     debts: [],
+    reminders: [],
     paymentMethods: [
         { id: 1, name: 'নগদ টাকা', icon: '💵' },
         { id: 2, name: 'ব্যাংক অ্যাকাউন্ট', icon: '🏦' },
@@ -48,9 +45,9 @@ console.log("[App] IS_CI_TEST identified as:", IS_CI_TEST);
 
 // --- Infrastructure: DataHub Wrapper ---
 const DB = {
-    sync: (coll, callback, orderField = null) => DataHub.sync(coll, callback, orderField, state.user.uid),
-    add: async (coll, data) => await DataHub.add(coll, data, state.user.uid),
-    update: async (coll, id, data) => await DataHub.update(coll, id, data, state.user.uid),
+    sync: (coll, callback, orderField = null) => DataHub.sync(coll, callback, orderField),
+    add: async (coll, data) => await DataHub.add(coll, data),
+    update: async (coll, id, data) => await DataHub.update(coll, id, data),
     delete: async (coll, id) => await DataHub.delete(coll, id)
 };
 
@@ -135,6 +132,18 @@ function applyLocales() {
 }
 
 // --- Security Helpers ---
+function updateSyncStatus() {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) return;
+    
+    if (navigator.onLine) {
+        statusEl.innerHTML = '<span class="text-success">● Online</span>';
+        DataHub.processSyncQueue();
+    } else {
+        statusEl.innerHTML = '<span class="text-warning">○ Offline (Local Mode)</span>';
+    }
+}
+
 function resetSessionTimer() {
     clearTimeout(state.sessionTimeout);
     if (state.user) {
@@ -167,11 +176,6 @@ function checkLockout() {
 // --- Core Initialization ---
 async function init() {
     setupLocalization();
-    try {
-        await enableIndexedDbPersistence(db);
-    } catch (err) {
-        console.warn("[App] Persistence issue:", err.code);
-    }
 
     setupAuth();
     setupNavigation();
@@ -182,6 +186,16 @@ async function init() {
     setupSearch();
     setupLab();
     setupBulkActions();
+    setupReminders();
+    setupTargetForm();
+    setupProjectSelector();
+    setupTeamManagement();
+    setupAIAuditor();
+
+    // Security & Connectivity
+    updateSyncStatus();
+    window.addEventListener('online', updateSyncStatus);
+    window.addEventListener('offline', updateSyncStatus);
 
     // Security listeners
     ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
@@ -391,6 +405,11 @@ function startDataSync() {
         state.debts = data;
         renderDebtList();
         runDebtSimulation();
+    }));
+
+    unsubscribers.push(DB.sync("bill_reminders", (data) => {
+        state.reminders = data;
+        renderReminders();
     }));
 }
 
@@ -746,12 +765,12 @@ function setupForms() {
                     // Atomic Transfer Logic (Outflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer Out to ${to}`, type: 'expense',
-                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
+                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
                     });
                     // Atomic Transfer Logic (Inflow)
                     await DB.add("transactions", {
                         date, categoryName: `Transfer In from ${from}`, type: 'income',
-                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: Timestamp.now()
+                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
                     });
                 } else {
                     const isSplit = !splitContainer.classList.contains('hidden');
@@ -774,7 +793,7 @@ function setupForms() {
                             if (s.amount <= 0) throw new Error("Split amounts must be positive.");
                             await DB.add("transactions", {
                                 date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
-                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: Timestamp.now()
+                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: new Date().toISOString()
                             });
                         }
                     } else {
@@ -790,7 +809,7 @@ function setupForms() {
 
                         await DB.add("transactions", {
                             date, categoryId: catId, categoryName: cat.name, type: cat.type,
-                            amount: finalAmount, vatAmount, method, description: desc, createdAt: Timestamp.now()
+                            amount: finalAmount, vatAmount, method, description: desc, createdAt: new Date().toISOString()
                         });
 
                         // Automated bKash fee calculation with validation
@@ -800,7 +819,7 @@ function setupForms() {
                             if (fee > 0) {
                                 await DB.add("transactions", {
                                     date, categoryName: "bKash Fee (Cash Out)", type: 'expense',
-                                    amount: fee, method: 'bKash', description: `Auto-fee for transaction of ৳${totalAmount}`, createdAt: Timestamp.now()
+                                    amount: fee, method: 'bKash', description: `Auto-fee for transaction of ৳${totalAmount}`, createdAt: new Date().toISOString()
                                 });
                             }
                         }
@@ -910,23 +929,28 @@ window.runProjectionSimulation = () => {
     const m = parseFloat(document.getElementById('proj-monthly').value) || 0;
     const r = (parseFloat(document.getElementById('proj-rate').value) || 0) / 100 / 12;
     const n = (parseFloat(document.getElementById('proj-years').value) || 0) * 12;
+    const cut = parseFloat(document.getElementById('proj-whatif-cut').value) || 0;
     
     const labels = [];
-    const nominal = [];
-    let current = p;
+    const baseData = [];
+    const optData = [];
+    let base = p;
+    let opt = p;
     
     for (let i = 0; i <= n; i++) {
         if (i % 12 === 0) {
             labels.push(`Year ${i / 12}`);
-            nominal.push(Math.round(current));
+            baseData.push(Math.round(base));
+            optData.push(Math.round(opt));
         }
-        current = current * (1 + r) + m;
+        base = base * (1 + r) + m;
+        opt = opt * (1 + r) + (m + cut);
     }
     
-    renderProjectionChart(labels, nominal, nominal);
+    renderProjectionChart(labels, baseData, optData);
 };
 
-function renderProjectionChart(labels, nominal, real) {
+function renderProjectionChart(labels, base, opt) {
     const canvas = document.getElementById('projectionChart');
     if (!canvas) return;
     if (state.projectionChart) state.projectionChart.destroy();
@@ -934,9 +958,21 @@ function renderProjectionChart(labels, nominal, real) {
     const textColor = isDark ? '#f8fafc' : '#020617';
     state.projectionChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
-        data: { labels, datasets: [{ label: t('lab.nominal_label'), data: nominal, borderColor: '#2563eb', fill: false, tension: 0.4 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }, plugins: { legend: { labels: { color: textColor } } } }
+        data: { 
+            labels, 
+            datasets: [
+                { label: 'Base Projection', data: base, borderColor: '#64748b', fill: false, tension: 0.4 },
+                { label: 'Optimized (Extra Savings)', data: opt, borderColor: '#22c55e', fill: false, tension: 0.4 }
+            ] 
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }, 
+            plugins: { legend: { labels: { color: textColor } } } 
+        }
     });
+};
 }
 
 function populateDropdowns() {
@@ -1071,9 +1107,114 @@ function switchSection(section) {
     const fab = document.getElementById('global-fab');
     if (fab) fab.classList.toggle('hidden', section === 'transactions');
     if (section === 'overview') renderCharts();
+    if (section === 'business-health') renderBusinessHealth();
 }
 
-function setupTheme() {
+// --- Business Health Logic ---
+let stateTargets = [];
+
+function renderBusinessHealth() {
+    const totalInc = state.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const totalExp = state.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const profit = totalInc - totalExp;
+    const margin = totalInc > 0 ? ((profit / totalInc) * 100).toFixed(1) : 0;
+
+    document.getElementById('biz-profit').textContent = `৳ ${profit.toLocaleString()}`;
+    document.getElementById('biz-margin').textContent = `${margin}%`;
+
+    const targetList = document.getElementById('target-list');
+    targetList.innerHTML = stateTargets.map(t => `
+        <div class="card mb-2" style="padding:0.5rem; display:flex; justify-content:space-between">
+            <span>${t.target_name} (${t.target_type})</span>
+            <strong>৳ ${t.amount.toLocaleString()}</strong>
+        </div>
+    `).join('');
+}
+
+function setupProjectSelector() {
+    const selector = document.getElementById('project-selector');
+    if (!selector) return;
+
+    // Load Projects
+    DB.sync('projects', (data) => {
+        state.projects = data;
+        selector.innerHTML = '<option value="all" data-i18n="projects.all">সব প্রজেক্ট</option>' +
+            data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    });
+
+    selector.onchange = (e) => {
+        state.selectedProjectId = e.target.value;
+        // Trigger re-render of current view
+        if (state.activeSection === 'overview') renderCharts();
+        if (state.activeSection === 'business-health') renderBusinessHealth();
+        // Add more view triggers if needed
+    };
+}
+
+function setupTeamManagement() {
+    const form = document.getElementById('invite-form');
+    if (!form) return;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('invite-email').value;
+        const role = document.getElementById('invite-role').value;
+        
+        // 1. Find user by email (Simplified lookup: assuming user exists in profiles)
+        // Note: For real security, this should be done via a secure Edge Function
+        // to avoid exposing user emails to the client.
+        console.log(`[Team] Inviting ${email} to project ${state.selectedProjectId} as ${role}`);
+        
+        try {
+            // Placeholder: Adding to team_members
+            await DB.add('team_members', {
+                project_id: state.selectedProjectId,
+                role: role
+            });
+            alert(`Successfully invited ${email} to this project.`);
+            form.reset();
+        } catch (err) {
+            alert("Error inviting user: " + err.message);
+        }
+    };
+}
+
+function setupAIAuditor() {
+    const btn = document.getElementById('btn-ai-audit');
+    const results = document.getElementById('ai-audit-results');
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const pId = state.selectedProjectId;
+        if (pId === 'all') {
+            results.innerHTML = 'Please select a specific project to audit.';
+            return;
+        }
+
+        const projectData = state.transactions.filter(t => t.project_id === pId);
+        const projectTargets = stateTargets.filter(t => t.project_id === pId); // Assuming targets are project-aware
+        
+        results.innerHTML = 'AI is auditing project metrics...';
+        
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    messages: [{ 
+                        role: 'user', 
+                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
+                    }], 
+                    userId: state.user.uid 
+                })
+            });
+            const data = await response.json();
+            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+        } catch (err) {
+            results.innerHTML = 'Audit failed: ' + err.message;
+        }
+    };
+}
     const toggle = document.getElementById('theme-toggle');
     if (!toggle) return;
     const update = (mode) => {
@@ -1106,9 +1247,42 @@ function setupExports() {
         await logEvent("export_pdf", state.user.uid);
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Foot Print of Money Report", 14, 15);
-        doc.autoTable({ head: [['Date', 'Category', 'Amount', 'Method']], body: state.transactions.map(t => [t.date, t.categoryName, t.amount, t.method]), startY: 20 });
-        doc.save("Foot_Print_Report.pdf");
+        
+        // Branded Header
+        doc.setFontSize(18);
+        doc.setTextColor(37, 99, 235); // Primary Blue
+        doc.text("Foot Print of Money Statement", 14, 20);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+
+        // Financial Summary Box
+        const inc = state.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const exp = state.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        
+        doc.autoTable({
+            startY: 35,
+            head: [['Summary', 'Amount (৳)']],
+            body: [
+                ['Total Income', inc.toLocaleString()],
+                ['Total Expenses', exp.toLocaleString()],
+                ['Net Balance', (inc - exp).toLocaleString()]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235] }
+        });
+
+        // Transaction Details
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 10,
+            head: [['Date', 'Description', 'Category', 'Amount']],
+            body: state.transactions.map(t => [t.date, t.description, t.categoryName, `৳ ${t.amount.toLocaleString()}`]),
+            theme: 'striped',
+            headStyles: { fillColor: [55, 65, 81] },
+            columnStyles: { 3: { halign: 'right' } }
+        });
+
+        doc.save(`Statement_${new Date().toISOString().split('T')[0]}.pdf`);
     };
     const migrationBtn = document.getElementById('export-supabase-btn');
     if (migrationBtn) {
@@ -1207,7 +1381,7 @@ function setupBackup() {
                                 type: item.type, 
                                 method: item.method, 
                                 description: item.description,
-                                createdAt: Timestamp.now()
+                                createdAt: new Date().toISOString()
                             };
                             if (item.categoryId && accountMap[item.categoryId]) {
                                 payload.categoryId = accountMap[item.categoryId];
@@ -1217,7 +1391,7 @@ function setupBackup() {
                     }
                     if (recurring) {
                         for (const r of recurring) {
-                            await DB.add("recurring_templates", { ...r, createdAt: Timestamp.now() });
+                            await DB.add("recurring_templates", { ...r, createdAt: new Date().toISOString() });
                         }
                     }
                     if (goals) {
@@ -1362,6 +1536,148 @@ window.drillDownCategory = (cat) => {
     const input = document.getElementById('search-input');
     if(input) { input.value = cat; renderTransactionTable(); }
 };
+
+// --- Smart Bill Reminders ---
+function setupReminders() {
+    const form = document.getElementById('reminder-form');
+    if (!form) return;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const reminder = {
+            name: document.getElementById('rem-name').value,
+            amount: parseFloat(document.getElementById('rem-amount').value),
+            dueDate: document.getElementById('rem-date').value,
+            isRecurring: document.getElementById('rem-recurring').checked,
+            createdAt: new Date().toISOString()
+        };
+        await DB.add("bill_reminders", reminder);
+        form.reset();
+        showToast("Reminder Added!");
+    };
+}
+
+function renderReminders() {
+    const list = document.getElementById('reminders-list');
+    const totalAmtEl = document.getElementById('total-reminders-amt');
+    if (!list) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let totalDue = 0;
+    list.innerHTML = state.reminders.map(rem => {
+        totalDue += rem.amount;
+        const dueDate = new Date(rem.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = dueDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        let statusClass = "due-future";
+        let statusText = t('reminders.due_in').replace('{days}', diffDays);
+        
+        if (diffDays === 0) {
+            statusClass = "due-today";
+            statusText = t('reminders.due_today');
+        } else if (diffDays < 0) {
+            statusClass = "due-overdue";
+            statusText = t('reminders.overdue').replace('{days}', Math.abs(diffDays));
+        } else if (diffDays <= 3) {
+            statusClass = "due-soon";
+        }
+
+        return `
+            <div class="card goal-card reminder-card ${statusClass}">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <strong>${rem.name}</strong> ${rem.isRecurring ? '🔄' : ''}
+                        <div class="reminder-amount">৳ ${rem.amount.toLocaleString()}</div>
+                    </div>
+                    <button onclick="window.deleteReminder('${rem.id}')" style="border:none; background:none; color:red; cursor:pointer; font-size:1.2rem;">×</button>
+                </div>
+                <div class="reminder-status" style="margin: 10px 0; font-weight: 600;">
+                    ${statusText}
+                </div>
+                <button class="btn-primary full-width" onclick="window.payReminder('${rem.id}')" style="font-size: 0.85rem; padding: 8px;">
+                    ✅ ${t('reminders.pay_now')}
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    if (totalAmtEl) totalAmtEl.textContent = `৳ ${totalDue.toLocaleString()}`;
+}
+
+window.deleteReminder = async (id) => {
+    if (confirm(t('transactions.delete_confirm'))) {
+        await DB.delete("bill_reminders", id);
+    }
+};
+
+window.payReminder = async (id) => {
+    const rem = state.reminders.find(r => r.id === id);
+    if (!rem) return;
+
+    // Prefill transaction form
+    document.getElementById('tx-amount').value = rem.amount;
+    document.getElementById('tx-desc').value = `[Bill Payment] ${rem.name}`;
+    document.getElementById('tx-type').value = 'expense';
+    
+    // Switch to transactions section
+    switchSection('transactions');
+
+    if (rem.isRecurring) {
+        // Automatically schedule for next month
+        const nextMonth = new Date(rem.dueDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        await DB.update("bill_reminders", rem.id, { 
+            dueDate: nextMonth.toISOString().split('T')[0] 
+        });
+        showToast("Bill paid and scheduled for next month!");
+    } else {
+        await DB.delete("bill_reminders", rem.id);
+        showToast("Bill paid and reminder removed!");
+    }
+};
+
+
+function setupAIAuditor() {
+    const btn = document.getElementById('btn-ai-audit');
+    const results = document.getElementById('ai-audit-results');
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const pId = state.selectedProjectId;
+        if (pId === 'all') {
+            results.innerHTML = 'Please select a specific project to audit.';
+            return;
+        }
+
+        const projectData = state.transactions.filter(t => t.project_id === pId);
+        const projectTargets = stateTargets.filter(t => t.project_id === pId); 
+        
+        results.innerHTML = 'AI is auditing project metrics...';
+        
+        try {
+            const response = await fetch('/api/audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    messages: [{ 
+                        role: 'user', 
+                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
+                    }], 
+                    userId: state.user.uid 
+                })
+            });
+            const data = await response.json();
+            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+        } catch (err) {
+            results.innerHTML = 'Audit failed: ' + err.message;
+        }
+    };
+}
 
 console.log("[App] IS_CI_TEST:", IS_CI_TEST);
 init().catch(err => console.error("[App] Init failed:", err));

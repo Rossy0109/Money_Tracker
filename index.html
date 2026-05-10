@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💰 Foot Print of Money - আল্টিমেট</title>
+    <title>💰 Foot Print of Money - </title>
+    <!-- PWA Standalone Polish -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Money Footprint">
+    <meta name="mobile-web-app-capable" content="yes">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
@@ -76,16 +82,22 @@
                 <nav class="sidebar">
                     <div class="sidebar-header">
                         <span class="logo">💰 Money Footprint</span>
+                        <select id="project-selector" class="form-control" style="width: 100%; margin-top: 10px;">
+                            <option value="all" data-i18n="projects.all">সব প্রজেক্ট</option>
+                        </select>
                         <div id="user-display" style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px;"></div>
                     </div>
                     <ul class="nav-links">
-                        <li class="active" data-section="overview"><span class="icon">📊</span> <span data-i18n="sidebar.overview">সারসংক্ষেপ</span></li>
+                        <li data-section="overview"><span class="icon">📊</span> <span data-i18n="sidebar.overview">সারসংক্ষেপ</span></li>
+                        <li data-section="business-health"><span class="icon">🏢</span> <span data-i18n="sidebar.business">ব্যবসার স্বাস্থ্য</span></li>
                         <li data-section="transactions"><span class="icon">➕</span> <span data-i18n="sidebar.transactions">নতুন লেনদেন</span></li>
+
                         <li data-section="recurring"><span class="icon">🔄</span> <span data-i18n="sidebar.recurring">নিয়মিত খরচ</span></li>
                         <li data-section="budget"><span class="icon">📉</span> <span data-i18n="sidebar.budget">বাজেট সেট</span></li>
                         <li data-section="goals"><span class="icon">🎯</span> <span data-i18n="sidebar.goals">আর্থিক লক্ষ্য</span></li>
                         <li data-section="lab"><span class="icon">🧪</span> <span data-i18n="sidebar.lab">ফিন্যান্সিয়াল ল্যাব</span></li>
                         <li data-section="reports"><span class="icon">📋</span> <span data-i18n="sidebar.reports">রিপোর্ট</span></li>
+                        <li data-section="reminders"><span class="icon">🔔</span> <span data-i18n="sidebar.reminders">রিমাইন্ডার</span></li>
                         <li data-section="settings"><span class="icon">⚙️</span> <span data-i18n="sidebar.settings">সেটিংস</span></li>
                     </ul>
                     <div class="sidebar-footer">
@@ -131,6 +143,56 @@
                             <div class="chart-container card" style="min-height: 350px;">
                                 <h3 data-i18n="overview.pie_title">খরচের বিশ্লেষণ (Pie Chart)</h3>
                                 <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 1b. Business Health -->
+                    <div id="section-business-health" class="content-section hidden">
+                        <div class="card">
+                            <h2 data-i18n="sidebar.business">ব্যবসার স্বাস্থ্য</h2>
+                            <div class="summary-grid">
+                                <div class="card lab-card">
+                                    <h4 data-i18n="business.total_profit">মোট মুনাফা</h4>
+                                    <p id="biz-profit" style="font-size:1.5rem; font-weight:700">৳ 0</p>
+                                </div>
+                                <div class="card lab-card">
+                                    <h4 data-i18n="business.margin">মুনাফার হার (Margin)</h4>
+                                    <p id="biz-margin" style="font-size:1.5rem; font-weight:700">0%</p>
+                                </div>
+                            </div>
+                            <div class="card" style="margin-top: 1rem;">
+                                <h4 data-i18n="business.targets">লক্ষ্যমাত্রা (Targets)</h4>
+                                <form id="target-form" class="form-row mb-3">
+                                    <input type="text" id="target-name" placeholder="Target Name" required>
+                                    <input type="number" id="target-amount" placeholder="Amount (৳)" required>
+                                    <select id="target-type">
+                                        <option value="monthly_profit">Monthly Profit</option>
+                                        <option value="annual_revenue">Annual Revenue</option>
+                                        <option value="expense_cap">Expense Cap</option>
+                                    </select>
+                                    <button type="submit" class="btn-primary">Add</button>
+                                </form>
+                                <div id="target-list"></div>
+<!-- Add to section-business-health -->
+<div class="card" style="margin-top: 1rem;">
+    <h4 data-i18n="business.team">Team Members</h4>
+    <form id="invite-form" class="form-row mb-3">
+        <input type="email" id="invite-email" placeholder="Email" required>
+        <select id="invite-role">
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+        </select>
+        <button type="submit" class="btn-primary">Invite</button>
+    </form>
+    <div id="team-list"></div>
+</div>
+
+<div class="card" style="margin-top: 1rem;">
+    <h4 data-i18n="business.ai_advisor">AI Business Advisor</h4>
+    <button id="btn-ai-audit" class="btn-primary">Audit This Project</button>
+    <div id="ai-audit-results" class="mt-2"></div>
+</div>
                             </div>
                         </div>
                     </div>
@@ -378,6 +440,10 @@
                                     <label data-i18n="lab.years">Years</label>
                                     <input type="number" id="proj-years" value="10">
                                 </div>
+                                <div class="form-group">
+                                    <label data-i18n="lab.whatif_savings">Expense Cut (৳)</label>
+                                    <input type="number" id="proj-whatif-cut" value="1000">
+                                </div>
                                 <button onclick="window.runProjectionSimulation()" class="btn-primary" style="align-self: flex-end" data-i18n="lab.calculate">Calculate</button>
                             </div>
                             <div style="height: 300px; margin-top: 1rem;">
@@ -459,7 +525,36 @@
                         </div>
                     </div>
 
-                    <!-- 8. Settings -->
+                    <!-- 8. Reminders -->
+                    <div id="section-reminders" class="content-section hidden">
+                        <div class="summary-grid" id="reminders-summary">
+                            <div class="card summary-card balance">
+                                <h3 data-i18n="reminders.total_due">মোট বকেয়া বিল</h3>
+                                <p id="total-reminders-amt">৳ 0</p>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 data-i18n="reminders.title">🔔 বিল ও পেমেন্ট রিমাইন্ডার</h2>
+                            <form id="reminder-form">
+                                <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                    <input type="text" id="rem-name" data-i18n-placeholder="reminders.name_placeholder" placeholder="বিলের নাম (যেমন: ইন্টারনেট)" required>
+                                    <input type="number" id="rem-amount" data-i18n-placeholder="reminders.amount_placeholder" placeholder="পরিমাণ (৳)" required>
+                                    <input type="date" id="rem-date" required>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                                    <input type="checkbox" id="rem-recurring" style="width: auto;">
+                                    <label for="rem-recurring" data-i18n="reminders.repeat_monthly" style="font-size: 0.9rem; cursor: pointer;">প্রতি মাসে রিপিট করুন</label>
+                                </div>
+                                <button type="submit" class="btn-primary full-width" data-i18n="reminders.add_btn">যোগ করুন</button>
+                            </form>
+                            <div id="reminders-list" class="goals-grid" style="margin-top: 1.5rem;">
+                                <!-- Reminder Cards -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 9. Settings -->
                     <div id="section-settings" class="content-section hidden">
                         <div class="card">
                             <h2 data-i18n="settings.categories">⚙️ হিসাবের খাত (Categories)</h2>
@@ -484,6 +579,9 @@
         <!-- Global FAB -->
         <button id="global-fab" class="fab hidden" title="Add Transaction">＋</button>
     </div>
+
+    <!-- Environment Configuration -->
+    <script src="env.js"></script>
 
     <script type="module" src="app.js"></script>
     <script>

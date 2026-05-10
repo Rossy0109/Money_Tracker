@@ -14,12 +14,16 @@
     "start": "serve ."
   },
   "dependencies": {
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.71",
     "@genkit-ai/dotprompt": "^0.9.12",
     "@genkit-ai/google-genai": "^1.33.0",
     "@supabase/supabase-js": "^2.0.0",
+    "ai": "^6.0.177",
     "express": "^4.18.2",
     "firebase": "^12.12.1",
     "firebase-admin": "^11.10.0",
     "genkit": "^1.33.0"
+  }
   }
 }

@@ -47,7 +47,7 @@ app.post('/api/ai/analyze', async (req, res) => {
 app.use(express.static(path.join(__dirname, '/')));
 
 // Health check endpoint
-app.get('/healthz', (req, res) => {
+app.get(['/healthz', '/api/health'], (req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 

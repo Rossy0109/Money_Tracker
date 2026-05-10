@@ -1,45 +1,37 @@
-# 💰 Foot Print of Money (Ultimate Version)
+# 💰 Foot Print of Money 
 
-A professional personal finance management system designed for **GitHub Pages**.
+A professional personal finance management system designed for longevity and sustainability.
 
-## 🏗️ Architecture
-- **Frontend**: HTML5, Vanilla CSS, Vanilla JavaScript (ES6 Modules)
-- **Database**: Firebase Firestore (Real-time)
-- **Authentication**: Firebase Auth (Google Sign-In)
-- **Hosting**: GitHub Pages (via GitHub Actions)
+## 🏗️ Architecture: The Serverless Stack
+This project follows a **10-Year Sustainability** mandate using a robust, decoupled architecture:
+- **Primary Database**: **Supabase (PostgreSQL)** for real-time data sync and relational integrity.
+- **Authentication**: **Firebase Auth** for secure Google and Email logins.
+- **AI Orchestration**: **Vercel Edge Functions** powering the Financial Assistant.
+- **Frontend**: 
+  - **Ultimate (Root)**: Lightweight Vanilla JS PWA (Hosted on Firebase/GitHub Pages).
+  - **Standard (`/Foot_Print_of_Money`)**: Robust React application (Hosted on Vercel).
+- **Hardened Security**: Unified `env.js` configuration system with secure GitHub Actions injection.
 
-## 🚀 Mathematical & Financial Features
+## 🚀 Advanced Features
 
-1.  **Financial Lab**: Advanced analytical tools for deep financial insights.
-    - **Financial Runway**: Calculates how many months your savings will last.
-    - **Burn Rate Analysis**: Shows your average monthly spending power.
-    - **Wealth Simulator**: Interactive compound interest growth projection.
-    - **Debt Payoff Lab**: Tracks net debt and estimated clearance timelines.
-2.  **Multi-User Support**: Data is private and secure via Firebase Auth.
-3.  **Financial Health Score**: Real-time 0-100 score based on savings and budget compliance.
-4.  **Floating Action Button (FAB)**: Mobile-first quick entry for transactions.
-5.  **Offline-First (PWA)**: Enhanced Service Worker with Stale-While-Revalidate caching.
-6.  **Dark Mode**: Professional, eye-friendly theme with glassmorphism effects.
-7.  **Data Portability**: Export to **PDF**, **Excel**, or a full **JSON Backup**.
+1.  **🤖 AI Financial Assistant**: Real-time streaming assistant powered by Google AI SDK to answer questions about your spending and budgets.
+2.  **🧪 Financial Lab**: Deep analytical tools:
+    - **Financial Runway**: Savings longevity calculation.
+    - **Burn Rate**: Monthly spending power analysis.
+    - **Wealth Simulator**: Compound interest growth projections.
+    - **Debt Payoff Lab**: Strategic payoff timelines (Snowball/Avalanche).
+3.  **📈 Financial Health Score**: Dynamic 0-100 score based on savings rate, budget compliance, and emergency fund status.
+4.  **📱 Mobile-First UX**: Floating Action Button (FAB), Dark Mode, and Offline-First PWA support.
+5.  **💾 Data Sovereignty**: 100% data portability with exports to **PDF**, **Excel**, and full **JSON Backups**.
 
-## 🏗️ Architecture: The "Dual-Core" Strategy
+## 🛠️ Setup & Development
 
-This project maintains two synchronized versions:
-
--   **Ultimate Version (Root)**: The primary, low-dependency PWA using Vanilla JS and Firebase. Best for rapid mobile use and maximum uptime.
--   **Standard Version (`/Foot_Print_of_Money`)**: A robust React + Flask stack using Supabase. Ideal for complex management.
-
-**Unified Data Hub**: Both versions share a compatible JSON schema via the **Migration Hub**.
-
-## 🛠️ Setup Instructions
-
-### 1. Firebase Configuration
-1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
-2. Enable **Firestore Database** and **Authentication** (Google Provider).
-3. Create a Web App and copy the `firebaseConfig` object into `firebase-config.js`.
+### 1. Environment Configuration
+The project uses a hardened `env.js` system. For local development, ensure `env.js` contains your API keys. In production, these are injected securely via GitHub Actions.
 
 ### 2. Local Development
 ```bash
+# Serve the 
 python3 -m http.server 8000
 ```
 Visit `http://localhost:8000`.
@@ -48,4 +40,7 @@ Visit `http://localhost:8000`.
 **Copyright Reserved: Md Kamrul Ahmed**
 
 ## 🚢 Deployment
-Every push to the `main` branch automatically deploys the latest version to your GitHub Pages site.
+Every push to the `main` branch automatically triggers:
+1. **Playwright E2E Tests** for quality assurance.
+2. **Secure Secret Injection** for production environments.
+3. **Multi-Platform Deploy** to Firebase Hosting, Vercel, and GitHub Pages.

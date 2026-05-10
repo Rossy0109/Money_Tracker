@@ -4,6 +4,8 @@ test.describe('Foot Print of Money E2E (Ultimate Version)', () => {
   test.beforeEach(async ({ page }) => {
     // Pipe browser console to stdout
     page.on('console', msg => console.log(`[BROWSER] ${msg.type().toUpperCase()}: ${msg.text()}`));
+    page.on('pageerror', err => console.log(`[BROWSER ERROR] ${err.message}`));
+    page.on('requestfailed', request => console.log(`[BROWSER REQ FAIL] ${request.url()}: ${request.failure().errorText}`));
 
     // Bypass login UI by setting localStorage before the page loads
     await page.addInitScript(() => {
@@ -21,6 +23,10 @@ test.describe('Foot Print of Money E2E (Ultimate Version)', () => {
 
   test('application dashboard and navigation', async ({ page }) => {
     // 1. Verify Dashboard Visibility (Bypassed login should land us here)
+    // Ensure the dashboard section itself is visible before checking the logo
+    const dashboardSection = page.locator('#dashboard-section');
+    await expect(dashboardSection).toBeVisible({ timeout: 20000 });
+    
     const logo = page.locator('.logo');
     await expect(logo).toBeVisible({ timeout: 20000 });
     
