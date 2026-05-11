@@ -290,6 +290,7 @@ function setupAuth() {
             // Secure CI Bypass: Only triggers if the API key is exactly the dummy CI key
             state.user = { uid: 'ci-test-uid', email: 'test@example.com' };
             showDashboard();
+            console.log("[App] CI Bypass triggered: Dashboard shown.");
         } else {
             showLogin();
         }
