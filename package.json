@@ -4,6 +4,7 @@
   "description": "Foot Print of Money - Professional Personal Finance Tracker",
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "dotenv": "^17.4.2",
     "serve": "^14.2.1"
   },
   "scripts": {
@@ -14,6 +15,8 @@
     "@ai-sdk/google": "^3.0.71",
     "@supabase/supabase-js": "^2.0.0",
     "ai": "^6.0.177",
-    "firebase": "^12.12.1"
+    "firebase": "^12.12.1",
+    "google-auth-library": "^10.6.2",
+    "googleapis": "^171.4.0"
   }
 }

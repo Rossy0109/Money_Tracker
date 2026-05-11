@@ -229,8 +229,11 @@
                                 </div>
                                 <input type="number" id="tx-amount" data-i18n-placeholder="transactions.amount" placeholder="পরিমাণ (৳)" required>
                                 <textarea id="tx-desc" data-i18n-placeholder="transactions.desc" placeholder="বিবরণ..."></textarea>
-                                <button type="submit" class="btn-primary full-width" data-i18n="transactions.save">সংরক্ষণ করুন</button>
-                            </form>
+                                <div class="form-group" style="margin-top:10px">
+                                   <label for="tx-receipt" style="font-size:0.8rem">রসিদ ছবি (ঐচ্ছিক):</label>
+                                   <input type="file" id="tx-receipt" accept="image/*">
+                                </div>
+                                <button type="submit" class="btn-primary full-width" data-i18n="transactions.save">সংরক্ষণ করুন</button>                            </form>
                         </div>
                     </div>
 
@@ -281,9 +284,9 @@
                                 <input type="number" id="goal-target" data-i18n-placeholder="goals.target" placeholder="টার্গেট পরিমাণ" required>
                                 <button type="submit" class="btn-primary" data-i18n="goals.add">যোগ করুন</button>
                             </form>
+                            <div id="targets-list" class="goals-grid" style="margin-bottom: 20px;"></div>
                             <div id="goals-list" class="goals-grid"></div>
-                        </div>
-                    </div>
+                            </div>                    </div>
 
                     <!-- 6. Lab -->
                     <div id="section-lab" class="content-section hidden">
@@ -443,44 +446,6 @@
                                 <canvas id="projectionChart"></canvas>
                             </div>
                         </div>
-
-                        <!-- Extreme Debt Lab -->
-                            <form id="debt-form" class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
-                                <input type="text" id="debt-name" data-i18n-placeholder="lab.debt_name" placeholder="ঋণের নাম" required>
-                                <input type="number" id="debt-balance" data-i18n-placeholder="lab.debt_balance" placeholder="বকেয়া" required>
-                                <input type="number" id="debt-apr" data-i18n-placeholder="lab.debt_apr" placeholder="সুদ (APR %)" required>
-                                <input type="number" id="debt-min" data-i18n-placeholder="lab.debt_min" placeholder="ন্যূনতম কিস্তি" required>
-                                <button type="submit" class="btn-primary" data-i18n="lab.add_debt">যোগ</button>
-                            </form>
-                            
-                            <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div class="card" style="margin: 0; background: rgba(0,0,0,0.05);">
-                                    <label data-i18n="lab.debt_strategy">কৌশল</label>
-                                    <select id="debt-strategy">
-                                        <option value="avalanche" data-i18n="lab.avalanche">অ্যাভাল্যাঞ্চ (বেশি সুদ আগে)</option>
-                                        <option value="snowball" data-i18n="lab.snowball">স্নোবল (ছোট ঋণ আগে)</option>
-                                    </select>
-                                </div>
-                                <div class="card" style="margin: 0; background: rgba(0,0,0,0.05);">
-                                    <label data-i18n="lab.debt_extra">অতিরিক্ত মাসিক পেমেন্ট</label>
-                                    <input type="number" id="debt-extra-pay" value="0">
-                                </div>
-                            </div>
-
-                            <div id="debt-results" class="summary-grid" style="margin-top: 1.5rem;">
-                                <div class="card lab-card" style="background: var(--primary); color: white;">
-                                    <h4 data-i18n="lab.freedom_date">ঋণমুক্তির সময়</h4>
-                                    <p id="debt-months-val">--</p>
-                                    <small data-i18n="lab.months">মাস</small>
-                                </div>
-                                <div class="card lab-card" style="background: var(--expense); color: white;">
-                                    <h4 data-i18n="lab.total_interest">মোট সুদ</h4>
-                                    <p id="debt-interest-val">৳ 0</p>
-                                </div>
-                            </div>
-
-                            <div id="debt-list" style="margin-top: 1rem;"></div>
-                        </div>
                     </div>
 
                     <!-- 7. Reports -->
@@ -562,6 +527,12 @@
                             <h2 data-i18n="interconnect.title">🔗 Migration Hub (Interconnect)</h2>
                             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;" data-i18n="interconnect.desc">Transfer your data to the Standard (React/Supabase) version seamlessly.</p>
                             <button id="export-supabase-btn" class="btn-outline full-width">🚀 Export for Standard Version</button>
+                        </div>
+                        <div class="card">
+                            <h2 data-i18n="settings.bank_sync">🏦 Bank Sync (Simulator)</h2>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Simulate importing transactions from your bank statement.</p>
+                            <button id="btn-bank-sync" class="btn-primary full-width">📥 Ingest Bank Statement</button>
+                            <div id="bank-sync-results" class="mt-2" style="font-size: 0.85rem;"></div>
                         </div>
                     </div>
                     <footer class="main-footer" data-i18n="footer.copyright">Copyright Reserved: Md Kamrul Ahmed</footer>

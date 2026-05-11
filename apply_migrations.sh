@@ -17,4 +17,7 @@ psql "$DATABASE_URL" -f "$DIR/migrations-0001_base_schema.sql"
 echo "Applying migrations-0002_extras_rls_indexes.sql..."
 psql "$DATABASE_URL" -f "$DIR/migrations-0002_extras_rls_indexes.sql"
 
+echo "Applying 20260511000000_data_layer_completion.sql..."
+psql "$DATABASE_URL" -f "$DIR/supabase/migrations/20260511000000_data_layer_completion.sql"
+
 echo "Migrations applied successfully."

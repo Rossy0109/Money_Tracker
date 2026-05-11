@@ -159,7 +159,8 @@ export const locales = {
             categories: "⚙️ হিসাবের খাত (Categories)",
             new_cat: "নতুন খাত",
             add: "যোগ",
-            confirm: "নিশ্চিত?"
+            confirm: "নিশ্চিত?",
+            bank_sync: "ব্যাংক সিঙ্ক"
         },
         interconnect: {
             title: "🔗 Migration Hub (Interconnect)",
@@ -184,12 +185,14 @@ export const locales = {
         enter: "Enter",
         sidebar: {
             overview: "📊 Overview",
+            business: "🏢 Business Health",
             transactions: "➕ Transactions",
             recurring: "🔄 Recurring",
             budget: "📉 Budget",
             goals: "🎯 Goals",
             lab: "🧪 Financial Lab",
             reports: "📋 Reports",
+            reminders: "🔔 Reminders",
             settings: "⚙️ Settings",
             dark_mode: "🌓 Dark Mode",
             light_mode: "☀️ Light Mode",
@@ -216,6 +219,13 @@ export const locales = {
                 "Following a budget is the first step to financial freedom.",
                 "Focus on needs over wants for long-term stability."
             ]
+        },
+        business: {
+            total_profit: "Total Profit",
+            margin: "Profit Margin",
+            targets: "Financial Targets",
+            team: "Team Members",
+            ai_advisor: "AI Business Advisor"
         },
         lab: {
             title: "🧪 Financial Lab (Advanced)",
@@ -249,7 +259,7 @@ export const locales = {
             add_debt: "Add Loan",
             zakat_title: "🌙 Zakat Calculator",
             zakat_eligible: "Zakat Eligible Wealth",
-            zakat_nisab: "Nisab (52.5 Tola Silver)",
+            zakat_nisab: "Nisab (Estimated)",
             zakat_amount: "Zakat Amount (2.5%)",
             emi_title: "🏠 EMI & Loan Lab",
             loan_amount: "Loan Amount",
@@ -291,7 +301,12 @@ export const locales = {
             limit: "Limit",
             set: "Set",
             rollover: "Rollover (Add Remaining)",
-            zbb_remain: "To Assign: ৳"
+            zbb_remain: "To Assign: ৳",
+            trend_title: "3-Month Expense Trend",
+            category: "Category",
+            budget: "Budget",
+            spent: "Spent",
+            variance: "Variance"
         },
         goals: {
             title: "🎯 Financial Goals",
@@ -328,7 +343,8 @@ export const locales = {
             categories: "⚙️ Categories",
             new_cat: "New Category",
             add: "Add",
-            confirm: "Confirm?"
+            confirm: "Confirm?",
+            bank_sync: "Bank Sync"
         },
         interconnect: {
             title: "🔗 Migration Hub (Interconnect)",

@@ -25,34 +25,35 @@ const supabaseKey = _getEnv('SUPABASE_KEY');
 const { createClient } = window.supabase;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const SchemaVersion = "1.0.0";
+const SchemaVersion = "1.1.0";
 
 /**
  * SCHEMA GUARDIAN: Hardened definitions for all collections
+ * Aligned with 20260511000000_data_layer_completion.sql
  */
 const SCHEMAS = {
     accounts: {
         required: ['name', 'type'],
-        allowed: ['name', 'type'],
-        defaults: { type: 'expense' },
-        pk: 'account_id'
+        allowed: ['name', 'type', 'currency', 'balance', 'institution', 'metadata', 'user_id'],
+        defaults: { type: 'cash', currency: 'USD', balance: 0 },
+        pk: 'id'
     },
     transactions: {
-        required: ['amount', 'date', 'type', 'categoryName'],
-        allowed: ['amount', 'date', 'type', 'categoryName', 'method', 'description', 'categoryId', 'vatAmount', 'createdAt'],
-        defaults: { method: 'Cash', description: '' },
-        pk: 'transaction_id'
+        required: ['amount', 'date', 'type', 'category_name'],
+        allowed: ['amount', 'date', 'type', 'category_name', 'method', 'description', 'category_id', 'project_id', 'currency', 'user_id', 'metadata'],
+        defaults: { method: 'Cash', description: '', currency: 'USD' },
+        pk: 'id'
     },
     budgets: {
-        required: ['amount'],
-        allowed: ['amount', 'categoryName'],
-        defaults: {},
+        required: ['amount', 'category_name'],
+        allowed: ['amount', 'category_name', 'category_id', 'project_id', 'month_year', 'user_id'],
+        defaults: { amount: 0 },
         pk: 'id'
     },
     projects: {
         required: ['name'],
-        allowed: ['name', 'budget', 'status'],
-        defaults: { status: 'active' },
+        allowed: ['name', 'budget', 'status', 'user_id'],
+        defaults: { status: 'active', budget: 0 },
         pk: 'id'
     },
     team_members: {
@@ -62,15 +63,27 @@ const SCHEMAS = {
         pk: 'id'
     },
     recurring_templates: {
-        required: ['amount', 'categoryName', 'day'],
-        allowed: ['amount', 'categoryName', 'day', 'createdAt'],
-        defaults: {},
+        required: ['amount', 'category_name', 'day'],
+        allowed: ['amount', 'category_name', 'category_id', 'day', 'project_id', 'user_id'],
+        defaults: { amount: 0 },
         pk: 'id'
     },
-    debts_registry: {
+    financial_goals: {
+        required: ['name', 'target_amount'],
+        allowed: ['name', 'target_amount', 'current_amount', 'is_completed', 'project_id', 'user_id'],
+        defaults: { current_amount: 0, is_completed: false },
+        pk: 'id'
+    },
+    debts: {
         required: ['name', 'balance'],
-        allowed: ['name', 'balance', 'apr', 'minPayment'],
-        defaults: { apr: 0, minPayment: 0 },
+        allowed: ['name', 'balance', 'apr', 'min_payment', 'project_id', 'user_id'],
+        defaults: { apr: 0, min_payment: 0, balance: 0 },
+        pk: 'id'
+    },
+    bill_reminders: {
+        required: ['name', 'amount', 'due_date'],
+        allowed: ['name', 'amount', 'due_date', 'repeat_monthly', 'is_paid', 'project_id', 'user_id'],
+        defaults: { repeat_monthly: false, is_paid: false, amount: 0 },
         pk: 'id'
     }
 };
@@ -82,9 +95,16 @@ const validate = (coll, data) => {
     const schema = SCHEMAS[coll];
     if (!schema) return data; // Pass-through for unknown collections
 
+    // Map camelCase to snake_case if necessary for database compatibility
+    const mappedData = { ...data };
+    if (data.categoryName) mappedData.category_name = data.categoryName;
+    if (data.targetAmount) mappedData.target_amount = data.targetAmount;
+    if (data.minPayment) mappedData.min_payment = data.minPayment;
+    if (data.dueDate) mappedData.due_date = data.dueDate;
+
     // 1. Check required fields
     for (const key of schema.required) {
-        if (data[key] === undefined || data[key] === null || data[key] === '') {
+        if (mappedData[key] === undefined || mappedData[key] === null || mappedData[key] === '') {
             throw new Error(`[Schema Guardian] Missing required field: ${key} in ${coll}`);
         }
     }
@@ -92,7 +112,7 @@ const validate = (coll, data) => {
     // 2. Filter only allowed fields (strip "dirty" data)
     const cleaned = {};
     for (const key of schema.allowed) {
-        cleaned[key] = data[key] !== undefined ? data[key] : (schema.defaults[key] || null);
+        cleaned[key] = mappedData[key] !== undefined ? mappedData[key] : (schema.defaults[key] !== undefined ? schema.defaults[key] : null);
     }
 
     return cleaned;
@@ -118,6 +138,12 @@ export const DataHub = {
             let query = supabase.from(coll).select('*').eq('user_id', userId);
             if (orderField) {
                 query = query.order(orderField, { ascending: false });
+            } else {
+                // Default sort by created_at if exists
+                const schema = SCHEMAS[coll];
+                if (schema && schema.allowed.includes('created_at')) {
+                    query = query.order('created_at', { ascending: false });
+                }
             }
             const { data, error } = await query;
             if (error) {
@@ -204,9 +230,8 @@ export const DataHub = {
             const pk = schema?.pk || 'id';
             const cleaned = {};
             if (schema) {
-                Object.keys(data).forEach(key => {
-                    if (schema.allowed.includes(key)) cleaned[key] = data[key];
-                });
+                const validatedData = validate(coll, data);
+                Object.assign(cleaned, validatedData);
             } else {
                 Object.assign(cleaned, data);
             }
@@ -275,11 +300,13 @@ export const DataHub = {
     /**
      * Pushes all pending offline changes to Supabase.
      */
+    isProcessingSync: false,
     processSyncQueue: async () => {
-        if (!navigator.onLine) return;
+        if (!navigator.onLine || DataHub.isProcessingSync) return;
         const queue = _getQueue();
         if (queue.length === 0) return;
 
+        DataHub.isProcessingSync = true;
         console.log(`[DataHub] Processing ${queue.length} queued items...`);
         const remaining = [];
 
@@ -300,6 +327,7 @@ export const DataHub = {
         }
 
         _setQueue(remaining);
+        DataHub.isProcessingSync = false;
         if (remaining.length === 0) console.log("[DataHub] Sync Queue cleared successfully.");
     }
 };

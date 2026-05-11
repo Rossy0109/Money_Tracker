@@ -30,3 +30,6 @@ build/
 Thumbs.db
 .vercel
 .env*.local
+
+.gemini/
+gha-creds-*.json

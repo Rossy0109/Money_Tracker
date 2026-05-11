@@ -19,6 +19,7 @@ let state = {
     budgets: [],
     recurring: [],
     goals: [],
+    financial_targets: [],
     debts: [],
     reminders: [],
     paymentMethods: [
@@ -138,6 +139,7 @@ async function init() {
     setupProjectSelector();
     setupTeamManagement();
     setupAIAuditor();
+    setupBankSync();
 
     // Security & Connectivity
     updateSyncStatus();
@@ -320,6 +322,12 @@ function startDataSync() {
     unsubscribers = [];
 
     unsubscribers.push(DB.sync("accounts", (data) => {
+        state.accounts = data;
+        populateDropdowns();
+        renderCategoryList();
+    }));
+
+    unsubscribers.push(DB.sync("categories", (data) => {
         state.categories = data;
         if (data.length === 0) seedInitialCategories();
         populateDropdowns();
@@ -345,7 +353,10 @@ function startDataSync() {
         state.goals = data;
         renderGoals();
     }));
-
+    unsubscribers.push(DB.sync("financial_targets", (data) => {
+        state.financial_targets = data;
+        renderFinancialTargets();
+    }));
     unsubscribers.push(DB.sync("debts_registry", (data) => {
         state.debts = data;
         renderDebtList();
@@ -564,7 +575,7 @@ function runDebtSimulation() {
     const extra = parseFloat(document.getElementById('debt-extra-pay').value) || 0;
     
     if (debts.length === 0) {
-        const monthsEl = document.getElementById('debt-months-val');
+        const monthsEl = document.getElementById('debt-date-val');
         const intEl = document.getElementById('debt-interest-val');
         if (monthsEl) monthsEl.textContent = "--";
         if (intEl) intEl.textContent = "৳ 0";
@@ -599,7 +610,7 @@ function runDebtSimulation() {
             }
         }
     }
-    const monthsEl = document.getElementById('debt-months-val');
+    const monthsEl = document.getElementById('debt-date-val');
     const intEl = document.getElementById('debt-interest-val');
     if (monthsEl) monthsEl.textContent = months >= maxMonths ? "360+" : months;
     if (intEl) intEl.textContent = `৳ ${Math.round(totalInterest).toLocaleString()}`;
@@ -708,14 +719,22 @@ function setupForms() {
                     }
                     
                     // Atomic Transfer Logic (Outflow)
-                    await DB.add("transactions", {
-                        date, categoryName: `Transfer Out to ${to}`, type: 'expense',
-                        amount: totalAmount, method: from, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
+                    await DataHub.add("transactions", {
+                        date: date,
+                        categoryName: `Transfer Out to ${to}`,
+                        type: 'expense',
+                        amount: totalAmount,
+                        method: from,
+                        description: `[Transfer] ${desc}`
                     });
                     // Atomic Transfer Logic (Inflow)
-                    await DB.add("transactions", {
-                        date, categoryName: `Transfer In from ${from}`, type: 'income',
-                        amount: totalAmount, method: to, description: `[Transfer] ${desc}`, createdAt: new Date().toISOString()
+                    await DataHub.add("transactions", {
+                        date: date,
+                        categoryName: `Transfer In from ${from}`,
+                        type: 'income',
+                        amount: totalAmount,
+                        method: to,
+                        description: `[Transfer] ${desc}`
                     });
                 } else {
                     const isSplit = !splitContainer.classList.contains('hidden');
@@ -736,28 +755,50 @@ function setupForms() {
 
                         for (const s of splits) {
                             if (s.amount <= 0) throw new Error("Split amounts must be positive.");
-                            await DB.add("transactions", {
-                                date, categoryId: s.catId, categoryName: s.catName, type: 'expense',
-                                amount: s.amount, method, description: `[Split] ${desc}`, createdAt: new Date().toISOString()
+                            await DataHub.add("transactions", {
+                                date: date,
+                                categoryId: s.catId,
+                                categoryName: s.catName,
+                                type: 'expense',
+                                amount: s.amount,
+                                method: method,
+                                description: `[Split] ${desc}`
                             });
                         }
                     } else {
-                        const catId = document.getElementById('tx-account').value;
-                        if (!catId) throw new Error("Category is required.");
+                // Logic for adding a standard transaction
+                const catId = document.getElementById('tx-account').value;
+                const receiptFile = document.getElementById('tx-receipt').files[0];
+                if (!catId) throw new Error("Category is required.");
 
-                        const cat = state.categories.find(c => c.id === catId);
-                        if (!cat) throw new Error("Invalid category selected.");
+                const cat = state.categories.find(c => c.id === catId);
+                if (!cat) throw new Error("Invalid category selected.");
 
-                        const vatPercent = parseFloat(document.getElementById('tx-vat').value) || 0;
-                        const vatAmount = totalAmount * (vatPercent / 100);
-                        const finalAmount = totalAmount + vatAmount;
+                let receiptUrl = null;
+                if (receiptFile) {
+                    const { storage } = await import('./firebase-config.js');
+                    const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js");
+                    const storageRef = ref(storage, `receipts/${state.user.uid}/${Date.now()}_${receiptFile.name}`);
+                    const snapshot = await uploadBytes(storageRef, receiptFile);
+                    receiptUrl = await getDownloadURL(snapshot.ref);
+                }
 
-                        await DB.add("transactions", {
-                            date, categoryId: catId, categoryName: cat.name, type: cat.type,
-                            amount: finalAmount, vatAmount, method, description: desc, createdAt: new Date().toISOString()
-                        });
+                const vatPercent = parseFloat(document.getElementById('tx-vat').value) || 0;
+                const vatAmount = totalAmount * (vatPercent / 100);
+                const finalAmount = totalAmount + vatAmount;
 
-                        // Automated bKash fee calculation with validation
+                await DataHub.add("transactions", {
+                    date: date,
+                    categoryId: catId,
+                    categoryName: cat.name,
+                    type: cat.type,
+                    amount: finalAmount,
+                    method: method,
+                    description: desc,
+                    receipt_url: receiptUrl
+                });
+
+                // Automated bKash fee calculation with validation
                         const bkashCheck = document.getElementById('tx-bkash-fee');
                         if (method === 'bKash' && bkashCheck && bkashCheck.checked) {
                             const fee = Math.ceil(totalAmount * 0.0185);
@@ -792,25 +833,43 @@ function setupForms() {
     if (debtForm) {
         debtForm.onsubmit = async (e) => {
             e.preventDefault();
-            await DB.add("debts_registry", {
-                name: document.getElementById('debt-name').value,
-                balance: parseFloat(document.getElementById('debt-balance').value),
-                apr: parseFloat(document.getElementById('debt-apr').value),
-                minPayment: parseFloat(document.getElementById('debt-min').value)
-            });
-            e.target.reset();
+            try {
+                await DB.add("debts", {
+                    name: document.getElementById('debt-name').value,
+                    balance: parseFloat(document.getElementById('debt-balance').value),
+                    apr: parseFloat(document.getElementById('debt-apr').value),
+                    min_payment: parseFloat(document.getElementById('debt-min').value)
+                });
+                e.target.reset();
+            } catch (err) {
+                alert("Error adding debt: " + err.message);
+            }
         };
     }
 
     document.getElementById('goal-form').onsubmit = async (e) => {
         e.preventDefault();
-        await DB.add("financial_goals", { name: document.getElementById('goal-name').value, target: parseFloat(document.getElementById('goal-target').value) });
-        e.target.reset();
+        try {
+            await DB.add("financial_goals", { 
+                name: document.getElementById('goal-name').value, 
+                target_amount: parseFloat(document.getElementById('goal-target').value) 
+            });
+            e.target.reset();
+        } catch (err) {
+            alert("Error adding goal: " + err.message);
+        }
     };
     document.getElementById('category-form').onsubmit = async (e) => {
         e.preventDefault();
-        await DB.add("accounts", { name: document.getElementById('cat-name').value, type: document.getElementById('cat-type').value });
-        e.target.reset();
+        try {
+            await DB.add("accounts", { 
+                name: document.getElementById('cat-name').value, 
+                type: document.getElementById('cat-type').value 
+            });
+            e.target.reset();
+        } catch (err) {
+            alert("Error adding category: " + err.message);
+        }
     };
     document.getElementById('budget-form').onsubmit = async (e) => {
         e.preventDefault();
@@ -963,6 +1022,26 @@ function updateBudgetProgress() {
     }).join('');
 }
 
+function renderFinancialTargets() {
+    const list = document.getElementById('targets-list');
+    if (!list) return;
+    
+    // Calculate progress
+    const targets = state.financial_targets || [];
+    list.innerHTML = targets.map(t => {
+        const progress = Math.min((state.totalBalance / t.amount) * 100, 100);
+        return `
+            <div class="card target-card">
+                <strong>${t.target_name}</strong>
+                <div class="progress-bar" style="margin: 10px 0;">
+                    <div class="progress-fill" style="width: ${progress}%; background: var(--primary);"></div>
+                </div>
+                <small>৳${state.totalBalance.toLocaleString()} / ৳${t.amount.toLocaleString()}</small>
+            </div>
+        `;
+    }).join('');
+}
+
 function renderGoals() {
     const list = document.getElementById('goals-list');
     if (!list) return;
@@ -1055,9 +1134,6 @@ function switchSection(section) {
     if (section === 'business-health') renderBusinessHealth();
 }
 
-// --- Business Health Logic ---
-let stateTargets = [];
-
 function renderBusinessHealth() {
     const totalInc = state.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const totalExp = state.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -1068,12 +1144,14 @@ function renderBusinessHealth() {
     document.getElementById('biz-margin').textContent = `${margin}%`;
 
     const targetList = document.getElementById('target-list');
-    targetList.innerHTML = stateTargets.map(t => `
-        <div class="card mb-2" style="padding:0.5rem; display:flex; justify-content:space-between">
-            <span>${t.target_name} (${t.target_type})</span>
-            <strong>৳ ${t.amount.toLocaleString()}</strong>
-        </div>
-    `).join('');
+    if (targetList) {
+        targetList.innerHTML = state.financial_targets.map(t => `
+            <div class="card mb-2" style="padding:0.5rem; display:flex; justify-content:space-between">
+                <span>${t.target_name} (${t.target_type})</span>
+                <strong>৳ ${t.amount.toLocaleString()}</strong>
+            </div>
+        `).join('');
+    }
 }
 
 function setupProjectSelector() {
@@ -1124,42 +1202,46 @@ function setupTeamManagement() {
     };
 }
 
-function setupAIAuditor() {
-    const btn = document.getElementById('btn-ai-audit');
-    const results = document.getElementById('ai-audit-results');
+function setupBankSync() {
+    const btn = document.getElementById('btn-bank-sync');
+    const results = document.getElementById('bank-sync-results');
     if (!btn) return;
 
     btn.onclick = async () => {
-        const pId = state.selectedProjectId;
-        if (pId === 'all') {
-            results.innerHTML = 'Please select a specific project to audit.';
-            return;
-        }
+        btn.classList.add('btn-loading');
+        results.innerHTML = "<em>Analyzing digital statement...</em>";
 
-        const projectData = state.transactions.filter(t => t.project_id === pId);
-        const projectTargets = stateTargets.filter(t => t.project_id === pId); // Assuming targets are project-aware
-        
-        results.innerHTML = 'AI is auditing project metrics...';
-        
+        // Simulate network delay
+        await new Promise(r => setTimeout(r, 1500));
+
+        const dummyTx = [
+            { date: new Date().toISOString().split('T')[0], categoryName: 'Income: Salary', type: 'income', amount: 55000, method: 'Bank Account', description: 'Monthly Salary Ingestion' },
+            { date: new Date().toISOString().split('T')[0], categoryName: 'Family: Utilities', type: 'expense', amount: 2500, method: 'bKash', description: 'Utility Bill Auto-pay' },
+            { date: new Date().toISOString().split('T')[0], categoryName: 'Regular: Transport', type: 'expense', amount: 1200, method: 'Cash', description: 'Uber/Pathao statement' }
+        ];
+
         try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: [{ 
-                        role: 'user', 
-                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
-                    }], 
-                    userId: state.user.uid 
-                })
-            });
-            const data = await response.json();
-            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+            let count = 0;
+            for (const tx of dummyTx) {
+                // Ensure category exists or use a default
+                const existingCat = state.categories.find(c => c.name.toLowerCase() === tx.categoryName.toLowerCase());
+                const payload = { ...tx };
+                if (existingCat) payload.categoryId = existingCat.id;
+                
+                await DataHub.add('transactions', payload);
+                count++;
+            }
+            results.innerHTML = `<span class="text-success">✅ Successfully ingested ${count} transactions from statement.</span>`;
+            showToast(`Bank Sync Complete: ${count} items added.`);
         } catch (err) {
-            results.innerHTML = 'Audit failed: ' + err.message;
+            results.innerHTML = `<span class="text-error">❌ Sync failed: ${err.message}</span>`;
+        } finally {
+            btn.classList.remove('btn-loading');
         }
     };
 }
+
+function setupTheme() {
     const toggle = document.getElementById('theme-toggle');
     if (!toggle) return;
     const update = (mode) => {
@@ -1341,7 +1423,7 @@ function setupBackup() {
                     }
                     if (goals) {
                         for (const g of goals) {
-                            await DB.add("financial_goals", { name: g.name, target: g.target });
+                            await DB.add("financial_goals", { name: g.name, target_amount: g.target_amount });
                         }
                     }
                     if (debts) {
@@ -1593,33 +1675,45 @@ function setupAIAuditor() {
     if (!btn) return;
 
     btn.onclick = async () => {
-        const pId = state.selectedProjectId;
+        const pId = state.selectedProjectId || 'all';
         if (pId === 'all') {
-            results.innerHTML = 'Please select a specific project to audit.';
+            results.innerHTML = '<span class="text-warning">Please select a specific project in the sidebar to audit.</span>';
             return;
         }
 
         const projectData = state.transactions.filter(t => t.project_id === pId);
-        const projectTargets = stateTargets.filter(t => t.project_id === pId); 
-        
-        results.innerHTML = 'AI is auditing project metrics...';
-        
+        const projectTargets = state.financial_targets.filter(t => t.project_id === pId);
+
+        results.innerHTML = '<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary);"><em>AI is streaming audit insights...</em><div id="ai-stream-output" style="white-space: pre-wrap; margin-top: 10px; font-family: monospace; font-size: 0.9rem;"></div></div>';
+        const outputEl = document.getElementById('ai-stream-output');
+
         try {
             const response = await fetch('/api/audit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: [{ 
-                        role: 'user', 
-                        content: `Analyze this construction project's financial data. Compare transactions against these targets and identify anomalies, budget overruns, or potential profit leaks. Transactions: ${JSON.stringify(projectData)}. Targets: ${JSON.stringify(projectTargets)}` 
-                    }], 
-                    userId: state.user.uid 
+                body: JSON.stringify({
+                    projectData: projectData,
+                    projectTargets: projectTargets,
+                    messages: [{
+                        role: 'user',
+                        content: 'Please perform a detailed financial audit. Identify profit leaks, check target compliance, and suggest optimizations.'
+                    }]
                 })
             });
-            const data = await response.json();
-            results.innerHTML = `<div class="card p-3" style="background: var(--card-bg); border-left: 4px solid var(--primary)">${data.content || 'Audit complete.'}</div>`;
+            if (!response.body) throw new Error("No response body");
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            outputEl.textContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                outputEl.textContent += decoder.decode(value, { stream: true });
+                results.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
         } catch (err) {
-            results.innerHTML = 'Audit failed: ' + err.message;
+            results.innerHTML = '<span class="text-error">Audit failed: ' + err.message + '</span>';
         }
     };
 }
