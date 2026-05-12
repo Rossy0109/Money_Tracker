@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.72",
-    "@ducanh2912/next-pwa": "^10.2.9",
+    "@ducanh2912/next-pwa": "^10.2.6",
     "@supabase/supabase-js": "^2.105.4",
     "ai": "^6.0.177",
     "chart.js": "^4.5.1",
@@ -24,7 +24,6 @@
     "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {
-    "@next/swc-android-arm64": "^13.2.4",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
