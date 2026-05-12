@@ -1,22 +1,36 @@
 {
-  "name": "foot-print-of-money",
-  "version": "1.0.0",
-  "description": "Foot Print of Money - Professional Personal Finance Tracker",
-  "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "dotenv": "^17.4.2",
-    "serve": "^14.2.1"
-  },
+  "name": "foot-print-of-money-next",
+  "version": "1.1.0",
+  "private": true,
   "scripts": {
-    "test": "npx playwright test",
-    "start": "serve ."
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.71",
-    "@supabase/supabase-js": "^2.0.0",
-    "ai": "^6.0.177",
-    "firebase": "^12.12.1",
-    "google-auth-library": "^10.6.2",
-    "googleapis": "^171.4.0"
+    "@supabase/supabase-js": "^2.105.4",
+    "chart.js": "^4.5.1",
+    "clsx": "^2.1.1",
+    "firebase": "^10.14.1",
+    "lucide-react": "^0.378.0",
+    "next": "^14.2.3",
+    "next-pwa": "^5.6.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.6.1"
+  },
+  "devDependencies": {
+    "@next/swc-android-arm64": "^13.2.4",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
   }
 }

@@ -1,46 +1,56 @@
-# 💰 Foot Print of Money 
+# 💰 Foot Print of Money (Next.js Edition)
 
-A professional personal finance management system designed for longevity and sustainability.
+আপনার নিরাপদ আর্থিক বন্ধু - Now powered by Next.js 14.
 
-## 🏗️ Architecture: The Serverless Stack
-This project follows a **10-Year Sustainability** mandate using a robust, decoupled architecture:
-- **Primary Database**: **Supabase (PostgreSQL)** for real-time data sync and relational integrity.
-- **Authentication**: **Firebase Auth** for secure Google and Email logins.
-- **AI Orchestration**: **Vercel Edge Functions** powering the Financial Assistant.
-- **Frontend**: 
-  - **Ultimate (Root)**: Lightweight Vanilla JS PWA (Hosted on Firebase/GitHub Pages).
-  - **Standard (`/Foot_Print_of_Money`)**: Robust React application (Hosted on Vercel).
-- **Hardened Security**: Unified `env.js` configuration system with secure GitHub Actions injection.
+## 🚀 Tech Stack
+- **Frontend**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS + Lucide Icons
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: Firebase Auth (with Supabase Profile Sync)
+- **PWA**: next-pwa (Offline support)
+- **Hosting**: Vercel
 
-## 🚀 Advanced Features
+## 🛠️ Setup Instructions
 
-1.  **🤖 AI Financial Assistant**: Real-time streaming assistant powered by Google AI SDK to answer questions about your spending and budgets.
-2.  **🧪 Financial Lab**: Deep analytical tools:
-    - **Financial Runway**: Savings longevity calculation.
-    - **Burn Rate**: Monthly spending power analysis.
-    - **Wealth Simulator**: Compound interest growth projections.
-    - **Debt Payoff Lab**: Strategic payoff timelines (Snowball/Avalanche).
-3.  **📈 Financial Health Score**: Dynamic 0-100 score based on savings rate, budget compliance, and emergency fund status.
-4.  **📱 Mobile-First UX**: Floating Action Button (FAB), Dark Mode, and Offline-First PWA support.
-5.  **💾 Data Sovereignty**: 100% data portability with exports to **PDF**, **Excel**, and full **JSON Backups**.
+### 1. Environment Variables
+Create a `.env.local` file in the root directory and add the following:
 
-## 🛠️ Setup & Development
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-### 1. Environment Configuration
-The project uses a hardened `env.js` system. For local development, ensure `env.js` contains your API keys. In production, these are injected securely via GitHub Actions.
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 
-### 2. Local Development
-```bash
-# Serve the 
-python3 -m http.server 8000
+NEXT_PUBLIC_ADMIN_EMAIL=your_primary_admin_email
 ```
-Visit `http://localhost:8000`.
 
-## 🔐 Copyright
-**Copyright Reserved: Md Kamrul Ahmed**
+### 2. Installation
+```bash
+npm install
+```
 
-## 🚢 Deployment
-Every push to the `main` branch automatically triggers:
-1. **Playwright E2E Tests** for quality assurance.
-2. **Secure Secret Injection** for production environments.
-3. **Multi-Platform Deploy** to Firebase Hosting, Vercel, and GitHub Pages.
+### 3. Development
+```bash
+npm run dev
+```
+
+### 4. Build for Production
+```bash
+npm run build
+npm start
+```
+
+## 🛡️ Architecture & Features
+- **DataHub**: A centralized library for real-time data sync with offline-first caching and transaction queueing.
+- **Role-Based Access**: Multi-role support (ADMIN, ACCOUNTANT, VIEWER).
+- **Financial Lab**: Advanced calculators for Debt Snowball, Zakat, and EMI.
+- **Auto-Sync**: Seamless synchronization between Firebase Auth and Supabase profiles.
+- **Error Boundaries**: Prevents app-wide crashes during runtime errors.
+
+## 📄 License
+Copyright Reserved © Md Kamrul Ahmed
