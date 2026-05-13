@@ -1,12 +1,13 @@
-import { AuthProvider } from '@/context/AuthContext';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import AIAssistant from '@/components/AIAssistant';
-import './globals.css';
+import { AuthProvider } from "@/context/AuthContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import AIAssistant from "@/components/AIAssistant";
+import "./globals.css";
+import ClientWrapper from "./ClientWrapper";
 
 export const metadata = {
-  title: 'Foot Print of Money',
-  description: 'Professional Personal Finance Tracker',
-  manifest: '/manifest.json',
+  title: "Foot Print of Money",
+  description: "Professional Personal Finance Tracker",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }) {
@@ -14,14 +15,10 @@ export default function RootLayout({ children }) {
     <html lang="bn">
       <body>
         <ErrorBoundary>
-          <AuthProvider>
-            <div id="root">
-              {children}
-              <AIAssistant />
-            </div>
-          </AuthProvider>
+          <ClientWrapper>{children}</ClientWrapper>
         </ErrorBoundary>
       </body>
     </html>
   );
 }
+

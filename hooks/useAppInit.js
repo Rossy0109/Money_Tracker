@@ -19,7 +19,7 @@ export function useAppInit() {
             
             try {
                 // Set DataHub user context
-                DataHub.setUser(user.uid);
+                DataHub.setUser(user.id);
                 
                 // Perform any additional startup checks here (e.g. connectivity, migration check)
                 
