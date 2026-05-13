@@ -2,11 +2,11 @@
 echo "🚀 Deploy শুরু হচ্ছে..."
 
 # Memory fix
-export NODE_OPTIONS="--max-old-space-size=512"
+export NODE_OPTIONS="--max-old-space-size=2048"
 
 # Build
 echo "📦 Building..."
-npm run build
+npx next build --webpack
 if [ $? -ne 0 ]; then
   echo "❌ Build failed!"
   exit 1
@@ -15,15 +15,15 @@ fi
 # GitHub push
 echo "📤 GitHub push করছি..."
 git add .
-git commit -m "deploy: $(date '+%Y-%m-%d %H:%M')"
+git commit -m "deploy: 2026-05-13 12:00:00"
 git push origin main
 
 # Vercel deploy
 echo "▲ Vercel deploy করছি..."
-vercel --prod
+vercel --prod --yes
 
 # Firebase deploy
 echo "🔥 Firebase deploy করছি..."
-firebase deploy --only hosting
+firebase deploy --only hosting --non-interactive
 
 echo "✅ Deploy সম্পন্ন!"

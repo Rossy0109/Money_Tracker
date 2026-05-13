@@ -18,7 +18,8 @@ import {
     Bell, 
     Settings,
     LogOut,
-    ShieldAlert
+    ShieldAlert,
+    Landmark
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
