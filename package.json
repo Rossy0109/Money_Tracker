@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.72",
     "@supabase/supabase-js": "^2.105.4",
+    "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.177",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",

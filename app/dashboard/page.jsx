@@ -22,12 +22,37 @@ export default function DashboardOverview() {
         return () => unsub();
     }, []);
 
-    // Placeholder data for chart until full logic is migrated
+    // Calculate dynamic chart data based on real transactions
+    const months = [...new Set(transactions.map(t => t.date.substring(0, 7)))].sort().slice(-6);
     const chartData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+        labels: months.map(m => {
+            const [y, mm] = m.split('-');
+            const date = new Date(y, parseInt(mm) - 1);
+            return date.toLocaleString('default', { month: 'short' });
+        }),
         datasets: [
-            { label: 'আয়', data: [1200, 1900, 3000, 5000, 2300], borderColor: COLORS.income },
-            { label: 'ব্যয়', data: [1000, 2300, 2200, 4500, 1800], borderColor: COLORS.expense }
+            { 
+                label: 'আয়', 
+                data: months.map(m => transactions
+                    .filter(t => t.type === 'income' && t.date.startsWith(m))
+                    .reduce((s, t) => s + t.amount, 0)
+                ), 
+                borderColor: COLORS.income,
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                fill: true,
+                tension: 0.4
+            },
+            { 
+                label: 'ব্যয়', 
+                data: months.map(m => transactions
+                    .filter(t => t.type === 'expense' && t.date.startsWith(m))
+                    .reduce((s, t) => s + t.amount, 0)
+                ), 
+                borderColor: COLORS.expense,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.4
+            }
         ]
     };
 

@@ -26,10 +26,14 @@ import { twMerge } from 'tailwind-merge';
 
 const navItems = [
     { name: 'সারসংক্ষেপ', href: '/dashboard', icon: LayoutDashboard, section: 'overview' },
-    { name: 'নতুন লেনদেন', href: '/dashboard/transactions', icon: CirclePlus, section: 'transactions' },
-    { name: 'নিয়মিত খরচ', href: '/dashboard/recurring', icon: RefreshCw, section: 'recurring' },
+    { name: 'লেনদেন', href: '/dashboard/transactions', icon: CirclePlus, section: 'transactions' },
+    { name: 'অ্যাকাউন্টস', href: '/dashboard/accounts', icon: Wallet, section: 'accounts' },
     { name: 'বাজেট', href: '/dashboard/budget', icon: PieChart, section: 'budget' },
+    { name: 'নিয়মিত খরচ', href: '/dashboard/recurring', icon: RefreshCw, section: 'recurring' },
+    { name: 'প্রজেক্টস', href: '/dashboard/projects', icon: Landmark, section: 'projects' },
     { name: 'আর্থিক লক্ষ্য', href: '/dashboard/goals', icon: Target, section: 'goals' },
+    { name: 'বকেয়া ও ঋণ', href: '/dashboard/debts', icon: ShieldAlert, section: 'debts' },
+    { name: 'টার্গেট', href: '/dashboard/targets', icon: FileText, section: 'targets' },
     { name: 'ব্যাংক সিংক্রোনাইজেশন', href: '/dashboard/lab/bank-sync', icon: Landmark, section: 'banksync' },
     { name: 'ফিন্যান্সিয়াল ল্যাব', href: '/dashboard/lab', icon: FlaskConical, section: 'lab' },
     { name: 'রিপোর্ট', href: '/dashboard/reports', icon: FileText, section: 'reports' },
