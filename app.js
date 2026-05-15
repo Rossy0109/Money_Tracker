@@ -51,7 +51,7 @@ const DICTIONARY = {
 };
 
 const DEFAULT_CATEGORIES = [
-    { name: 'পারিবারিক: দৈনিক বাজার', type: 'expense' }, { name: 'পারিবারিক: ইউটিলিটি', type: 'expense' }, { name: 'ব্যবসায়িক: ঠিকাদারী', type: 'expense' }, { name: 'নিয়মিত: বেতন', type: 'expense' }, { name: 'আয়: বেতন', type: 'income' }, { name: 'আয়: ব্যবসা', type: 'income' }, { name: 'অন্যান্য: বিবিধ', type: 'expense' }
+    { name: 'পারিবারিক: দৈনিক বাজার', type: 'expense' }, { name: 'পারিবারিক: ইউটিলিটি', type: 'expense' }, { name: 'ব্যবসায়িক: ঠিকাদারী', type: 'expense' }, { name: 'নিয়মিত: বেতন', type: 'expense' }, { name: 'আয়: বেতন', type: 'income' }, { name: 'আয়: ব্যবসা', type: 'income' }, { name: 'আয়: বার্ষিক ভাড়া', type: 'income' }, { name: 'অন্যান্য: বিবিধ', type: 'expense' }
 ];
 
 // --- DOM ---
