@@ -1,0 +1,25 @@
+name: Weekly Automated Backup
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Fetch Data from Supabase
+        run: |
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/transactions?select=*" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" > backup.json
+      - name: Commit and Push Backup
+        run: |
+          git config --global user.name "Backup Bot"
+          git config --global user.email "bot@github.com"
+          mkdir -p backups
+          mv backup.json backups/money_backup_$(date +%F).json
+          git add backups/
+          git commit -m "chore: automated weekly backup $(date +%F)"
+          git push

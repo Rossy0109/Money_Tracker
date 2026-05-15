@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+.vercel/
+
+# Backups & Local Data
+*.json
+!manifest.json
+!vercel.json
+*.log
+
+# Environment Variables
+.env
+.env.local
+env.js

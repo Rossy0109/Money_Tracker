@@ -1,0 +1,88 @@
+:root {
+  --primary: #2563eb;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --income: #10b981;
+  --expense: #ef4444;
+  --border: #e2e8f0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 500px;
+  padding: 1rem;
+}
+
+.card {
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+}
+
+.hidden { display: none !important; }
+
+/* Auth UI */
+.auth-card { text-align: center; margin-top: 2rem; }
+input {
+  width: 100%;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+button {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+.text-link { color: var(--primary); cursor: pointer; font-size: 0.9rem; }
+
+/* Dashboard UI */
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.summary-card { padding: 1rem; border-radius: 0.75rem; text-align: center; }
+.balance-card { grid-column: span 2; background: var(--primary); color: white; }
+.income-val { color: var(--income); font-weight: bold; }
+.expense-val { color: var(--expense); font-weight: bold; }
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.transaction-item:last-child { border-bottom: none; }
+
+.nav-tabs { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.tab { flex: 1; text-align: center; padding: 0.5rem; border-bottom: 2px solid transparent; cursor: pointer; }
+.tab.active { border-color: var(--primary); font-weight: bold; }
+
+@media print {
+  body { background: white; }
+  .no-print, .nav-tabs, .auth-card, #auth-section { display: none !important; }
+  .app-container { max-width: 100%; padding: 0; }
+  .card { box-shadow: none; border: none; padding: 0; }
+  #tab-reports { display: block !important; }
+  .hidden { display: none !important; }
+}

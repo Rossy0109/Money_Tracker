@@ -1,0 +1,16 @@
+{
+  "name": "Simple Money Tracker",
+  "short_name": "MoneyTracker",
+  "description": "A simple and free money tracking PWA.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "../logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
