@@ -1,9 +1,15 @@
-// app.js - Production Grade Logic
-const SUPABASE_URL = window.__ENV?.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = window.__ENV?.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// app.js - Production Grade Logic with local fallback
+const SUPABASE_URL = window.__ENV?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
+const SUPABASE_KEY = window.__ENV?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY');
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error("Critical Error: Missing Supabase Configuration.");
+if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_KEY === 'your_project_url') {
+    const url = prompt("Enter Supabase URL (from your project settings):");
+    const key = prompt("Enter Supabase Anon Key:");
+    if (url && key) {
+        localStorage.setItem('SUPABASE_URL', url);
+        localStorage.setItem('SUPABASE_KEY', key);
+        location.reload();
+    }
 }
 
 const { createClient } = window.supabase;
@@ -44,6 +50,10 @@ const transactionList = document.getElementById('transaction-list');
 const categorySelect = document.getElementById('category');
 const typeSelect = document.getElementById('type');
 const tabs = document.querySelectorAll('.tab[data-tab]');
+const dashboardMonth = document.getElementById('dashboard-month');
+
+// Set current month as default
+dashboardMonth.value = new Date().toISOString().substring(0, 7);
 
 // --- UI Helpers ---
 function updateCategoryOptions() {
@@ -77,20 +87,26 @@ async function fetchData() {
     if (!user) return;
     updateCategoryOptions();
 
+    const selectedMonth = dashboardMonth.value; // YYYY-MM
     const { data: txs } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id).order('occurred_at', { ascending: false });
     
+    // Filter by selected month for totals and charts
+    const filteredTxs = txs?.filter(t => t.occurred_at.startsWith(selectedMonth)) || [];
+    
     let inc = 0, exp = 0;
-    txs?.forEach(t => { if (t.type === 'income') inc += parseFloat(t.amount); else exp += parseFloat(t.amount); });
+    filteredTxs.forEach(t => { if (t.type === 'income') inc += parseFloat(t.amount); else exp += parseFloat(t.amount); });
 
     document.getElementById('total-balance').innerText = `${currency}${(inc - exp).toFixed(0)}`;
     document.getElementById('total-income').innerText = `${currency}${inc.toFixed(0)}`;
     document.getElementById('total-expense').innerText = `${currency}${exp.toFixed(0)}`;
 
-    renderTransactions(txs?.slice(0, 10) || []);
-    renderCharts(txs || []);
-    updateAssistant(inc, exp, txs || []);
-    processRecurring(txs || []);
+    renderTransactions(filteredTxs.slice(0, 10));
+    renderCharts(filteredTxs);
+    updateAssistant(inc, exp, filteredTxs);
+    processRecurring(txs);
 }
+
+dashboardMonth.onchange = fetchData;
 
 function renderTransactions(list) {
     transactionList.innerHTML = list.map(t => `
@@ -98,7 +114,7 @@ function renderTransactions(list) {
             <div><strong>${t.category_name || 'N/A'}</strong><br><small>${t.metadata?.sector || 'Gen'} | ${t.method || 'Cash'}</small></div>
             <span style="color:${t.type === 'income' ? 'var(--income)' : 'var(--expense)'}">${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}</span>
         </div>
-    `).join('');
+    `).join('') || '<p class="text-muted">No transactions for this period.</p>';
 }
 
 // --- Visual Analytics (Charts) ---
@@ -106,7 +122,6 @@ function renderCharts(txs) {
     const ctxMain = document.getElementById('income-expense-chart').getContext('2d');
     const ctxPie = document.getElementById('category-chart').getContext('2d');
 
-    // Aggregate by category
     const catData = {};
     txs.filter(t => t.type === 'expense').forEach(t => {
         catData[t.category_name] = (catData[t.category_name] || 0) + parseFloat(t.amount);
@@ -150,14 +165,12 @@ async function processRecurring(txs) {
     
     for (const r of (recs || [])) {
         if (r.next_date === today) {
-            // Check if already added today
             const already = txs.find(t => t.notes === `Auto:${r.name}` && new Date(t.occurred_at).toDateString() === new Date().toDateString());
             if (!already) {
                 await supabaseClient.from('transactions').insert([{
                     user_id: user.id, amount: r.amount, type: r.type, category_name: r.category_name, 
                     notes: `Auto:${r.name}`, occurred_at: new Date().toISOString()
                 }]);
-                console.log(`[Recurring] Added: ${r.name}`);
             }
         }
     }
@@ -192,10 +205,8 @@ function switchTab(tabName) {
     if (tabName === 'accounting') fetchAccountingData();
     if (tabName === 'reports') generateReport();
 }
-
 tabs.forEach(tab => tab.onclick = () => switchTab(tab.dataset.tab));
 
-// Sub-tabs handlers
 ['acc', 'lab'].forEach(prefix => {
     document.querySelectorAll(`.${prefix}-subtab`).forEach(tab => {
         tab.onclick = () => {
@@ -299,13 +310,45 @@ async function generateReport() {
 document.getElementById('report-sector').onchange = generateReport;
 document.getElementById('print-btn').onclick = () => window.print();
 
+// PDF Generation using jsPDF
+document.getElementById('pdf-btn').onclick = async () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const sectorFilter = document.getElementById('report-sector').value;
+    const { data: txs } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id).order('occurred_at', { ascending: false });
+    const filtered = txs?.filter(t => sectorFilter === 'all' || (t.metadata?.sector === sectorFilter)) || [];
+
+    doc.setFontSize(20);
+    doc.text("Money Footprint Lite - Financial Report", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Sector: ${sectorFilter}`, 14, 36);
+
+    const tableData = filtered.map(t => [
+        new Date(t.occurred_at).toLocaleDateString(),
+        t.category_name || 'N/A',
+        t.metadata?.sector || 'General',
+        `${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}`
+    ]);
+
+    doc.autoTable({
+        head: [['Date', 'Category', 'Sector', 'Amount']],
+        body: tableData,
+        startY: 45,
+        theme: 'striped',
+        headStyles: { fillStyle: [37, 99, 235] }
+    });
+
+    doc.save(`Financial_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
 // --- Accounting Logic (Expanded) ---
 async function fetchAccountingData() {
     const { data: txs } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id);
     const { data: buds } = await supabaseClient.from('budgets').select('*').eq('user_id', user.id);
     const { data: recs } = await supabaseClient.from('recurring_transactions').select('*').eq('user_id', user.id);
 
-    // Render P&L
     const sectors = {};
     txs?.forEach(t => {
         const s = t.metadata?.sector || 'General';
@@ -325,36 +368,43 @@ async function fetchAccountingData() {
         </div>
     `).join('') || 'No data.';
 
-    // Render Budgets
     document.getElementById('budget-list').innerHTML = buds?.map(b => {
         const spent = txs.filter(t => t.category_name === b.category_name && t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
         const percent = Math.min(100, Math.round((spent / b.amount) * 100));
         return `
             <div class="card" style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                    <strong>${b.category_name}</strong>
-                    <span>${currency}${spent} / ${currency}${b.amount}</span>
-                </div>
-                <div style="width:100%; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
-                    <div style="width:${percent}%; height:100%; background:${percent > 90 ? 'var(--expense)' : 'var(--primary)'}"></div>
-                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><strong>${b.category_name}</strong><span>${currency}${spent} / ${currency}${b.amount}</span></div>
+                <div style="width:100%; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden;"><div style="width:${percent}%; height:100%; background:${percent > 90 ? 'var(--expense)' : 'var(--primary)'}"></div></div>
             </div>
         `;
     }).join('') || 'No budgets set.';
 
-    // Render Recurring
     document.getElementById('recurring-list').innerHTML = recs?.map(r => `
         <div class="card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <strong>${r.name}</strong><br>
-                <small>${r.type.toUpperCase()} | Day ${r.next_date} of month</small>
-            </div>
+            <div><strong>${r.name}</strong><br><small>${r.type.toUpperCase()} | Day ${r.next_date}</small></div>
             <strong>${currency}${r.amount}</strong>
         </div>
     `).join('') || 'No recurring items.';
 }
 
-// Data Export/Import logic (from previous version)
+// Lab Logic: Zakat
+document.getElementById('zakat-assets').oninput = (e) => {
+    const val = parseFloat(e.target.value || 0);
+    document.getElementById('zakat-result').innerText = `${currency}${(val * 0.025).toFixed(2)}`;
+};
+
+// Lab Logic: EMI
+const updateEMI = () => {
+    const p = parseFloat(document.getElementById('emi-principal').value || 0);
+    const r = parseFloat(document.getElementById('emi-rate').value || 0) / 12 / 100;
+    const n = parseFloat(document.getElementById('emi-months').value || 0);
+    if (!p || !r || !n) { document.getElementById('emi-result').innerText = `${currency}0.00`; return; }
+    const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    document.getElementById('emi-result').innerText = `${currency}${emi.toFixed(2)}`;
+};
+['emi-principal', 'emi-rate', 'emi-months'].forEach(id => document.getElementById(id).oninput = updateEMI);
+
+// Data Export/Import logic
 document.getElementById('export-btn').onclick = async () => {
     const { data: transactions } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id);
     const blob = new Blob([JSON.stringify({ transactions }, null, 2)], { type: 'application/json' });

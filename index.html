@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -50,6 +52,10 @@
 
             <!-- Dashboard Tab -->
             <div id="tab-dashboard">
+                <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: 600;">View Period:</label>
+                    <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.5rem; font-size: 0.8rem;">
+                </div>
                 <div class="summary-grid">
                     <div class="card summary-card balance-card">
                         <small>Total Balance</small>
@@ -218,6 +224,7 @@
             <div id="tab-reports" class="hidden">
                 <div class="card no-print">
                     <h3>📄 Generate Reports</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Filter and download professional PDF statements.</p>
                     <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
                         <select id="report-sector" style="flex: 1; padding: 0.5rem; border-radius: 5px; border: 1px solid var(--border);">
                             <option value="all">All Sectors</option>
@@ -226,6 +233,7 @@
                             <option value="Business">Business</option>
                             <option value="Social">Social</option>
                         </select>
+                        <button id="pdf-btn" style="background: #1e40af; width: auto; padding: 0.5rem 1.5rem;">📥 Download PDF</button>
                         <button id="print-btn" style="background: #64748b; width: auto; padding: 0.5rem 1.5rem;">🖨️ Print</button>
                     </div>
                 </div>
@@ -268,7 +276,7 @@
                         <input type="number" id="emi-principal" placeholder="Principal">
                         <input type="number" id="emi-rate" placeholder="Yearly Interest %">
                         <input type="number" id="emi-months" placeholder="Months">
-                        <div class="card" style="background: #eef2ff; border: 1px solid #4f46e5; margin-top: 1rem;">
+                        <div class="card" style="background: #eef2ff; border: solid 1px #4f46e5; margin-top: 1rem;">
                             <p style="color: #4338ca; font-size: 0.8rem; font-weight: bold;">MONTHLY EMI</p>
                             <h2 id="emi-result" style="color: #3730a3;">$0.00</h2>
                         </div>
