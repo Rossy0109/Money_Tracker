@@ -193,12 +193,32 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 
 transactionForm.onsubmit = async (e) => {
     e.preventDefault();
-    await supabaseClient.from('transactions').insert([{
-        user_id: user.id, amount: parseFloat(document.getElementById('amount').value),
-        type: document.getElementById('type').value, category_name: document.getElementById('category').value,
-        metadata: { sector: document.getElementById('sector').value }, method: document.getElementById('account').value, notes: document.getElementById('note').value, occurred_at: new Date().toISOString()
-    }]);
-    transactionForm.reset(); switchTab('dashboard'); fetchData();
+    console.log("Submitting transaction...");
+    try {
+        const { data, error } = await supabaseClient.from('transactions').insert([{
+            user_id: user.id, 
+            amount: parseFloat(document.getElementById('amount').value),
+            type: document.getElementById('type').value, 
+            category_name: document.getElementById('category').value,
+            metadata: { sector: document.getElementById('sector').value }, 
+            method: document.getElementById('account').value, 
+            notes: document.getElementById('note').value, 
+            occurred_at: new Date().toISOString()
+        }]);
+
+        if (error) {
+            console.error("Supabase Error:", error);
+            alert("Submission error: " + error.message);
+        } else {
+            console.log("Success:", data);
+            transactionForm.reset(); 
+            switchTab('dashboard'); 
+            fetchData();
+        }
+    } catch (err) {
+        console.error("Catch Error:", err);
+        alert("Unexpected error: " + err.message);
+    }
 };
 
 document.getElementById('asset-form').onsubmit = async (e) => {
