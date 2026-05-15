@@ -16,7 +16,7 @@
     <div class="app-container">
         <!-- Brand Identity -->
         <div style="text-align: center; margin: 1.5rem 0;">
-            <img src="https://raw.githubusercontent.com/Rossy0109/Money_Tracker/main/logo.png" alt="Money Footprint Logo" style="width: 70px; height: 70px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <img src="logo.png" alt="Money Footprint Logo" style="width: 70px; height: 70px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); object-fit: cover;">
             <h2 style="margin-top: 0.5rem; color: var(--primary); font-family: 'Hind Siliguri', sans-serif;">Money Footprint</h2>
         </div>
 
@@ -24,7 +24,7 @@
         <div id="auth-section" class="card auth-card">
             <h2 id="auth-title" data-i18n="auth.login">Login</h2>
             <div id="github-login-container" style="margin-bottom: 1.5rem;">
-                <button id="github-login-btn" style="background: #24292e; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <button id="github-login-btn" style="background: #24292e; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
                     <svg height="20" width="20" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
                     <span data-i18n="auth.github">Login with GitHub</span>
                 </button>
@@ -63,7 +63,7 @@
                         <label style="font-size: 0.8rem; font-weight: 600;" data-i18n="dash.view_period">View Period:</label>
                         <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.5rem; font-size: 0.8rem;">
                     </div>
-                    <button id="lang-toggle-btn" style="width: auto; padding: 4px 12px; font-size: 0.75rem; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;">EN / বাংলা</button>
+                    <button id="lang-toggle-btn" style="width: auto; padding: 4px 12px; font-size: 0.75rem; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; border-radius: 5px;">EN / বাংলা</button>
                 </div>
                 
                 <div class="summary-grid">
@@ -105,7 +105,7 @@
                         <input type="text" id="tx-search" data-i18n-placeholder="dash.search" placeholder="Search..." style="width: 120px; margin: 0; padding: 4px 8px; font-size: 0.8rem;">
                     </div>
                     <div id="transaction-list"></div>
-                    <button id="load-more-btn" style="background: transparent; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; font-size: 0.8rem;" data-i18n="dash.load_more">Load More</button>
+                    <button id="load-more-btn" style="background: transparent; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; font-size: 0.8rem; width: 100%;" data-i18n="dash.load_more">Load More</button>
                 </div>
             </div>
 
@@ -217,6 +217,18 @@
                         </div>
                         <div id="recurring-list"></div>
                     </div>
+                    
+                    <div id="acc-estimates" class="acc-content hidden">
+                        <div class="card" style="margin-top: 1rem;">
+                            <h4 style="margin-bottom: 10px;" data-i18n="acc.estimates">Estimates</h4>
+                            <form id="estimate-form">
+                                <input type="text" id="est-name" placeholder="Project Name">
+                                <input type="number" id="est-amount" placeholder="Target Amount">
+                                <button type="submit" data-i18n="acc.save">Add Estimate</button>
+                            </form>
+                        </div>
+                        <div id="estimate-list"></div>
+                    </div>
                 </div>
             </div>
 
@@ -234,7 +246,8 @@
                         </select>
                         <div style="display: flex; gap: 5px;">
                             <button id="pdf-btn" style="background: #1e40af; flex: 1;" data-i18n="reports.download_pdf">📥 Download PDF</button>
-                            <button id="csv-btn" style="background: #10b981; flex: 1;" data-i18n="reports.download_csv">📊 Export Excel (CSV)</button>
+                            <button id="csv-btn" style="background: #10b981; flex: 1;" data-i18n="reports.download_csv">📊 Export CSV</button>
+                            <button id="print-btn" style="background: #64748b; flex: 1;">🖨️ Print</button>
                         </div>
                     </div>
                 </div>
@@ -288,8 +301,25 @@
             <!-- Settings Tab -->
             <div id="tab-settings" class="hidden">
                 <div class="card">
-                    <h3>🌍 Global Settings</h3>
-                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;">Backup to JSON</button>
+                    <h3 data-i18n="settings.global">🌍 Global Preferences</h3>
+                    <label style="font-size: 0.8rem;" data-i18n="settings.currency">Base Currency</label>
+                    <select id="set-currency" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
+                        <option value="৳">BDT (৳)</option>
+                        <option value="$">USD ($)</option>
+                        <option value="€">EUR (€)</option>
+                    </select>
+                </div>
+                <div class="card">
+                    <h3>🔒 Security (PIN)</h3>
+                    <input type="password" id="set-pin" data-i18n-placeholder="settings.pin_placeholder" placeholder="Enter PIN" maxlength="4">
+                    <button id="save-pin-btn" data-i18n="settings.save_pin">Save PIN</button>
+                    <button id="clear-pin-btn" style="background: #64748b;" data-i18n="settings.clear_pin">Clear PIN</button>
+                </div>
+                <div class="card">
+                    <h3 data-i18n="settings.data">📥 Data Sovereignty</h3>
+                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;" data-i18n="settings.export">Export JSON</button>
+                    <input type="file" id="import-file" class="hidden" accept=".json">
+                    <button id="import-btn" style="background: #6366f1;" data-i18n="settings.import">Import JSON</button>
                 </div>
             </div>
 
