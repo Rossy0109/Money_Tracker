@@ -191,18 +191,27 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     else { document.getElementById('auth-section').classList.remove('hidden'); document.getElementById('app-section').classList.add('hidden'); }
 });
 
+// Form Submissions
 transactionForm.onsubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitting transaction...");
+    const amount = document.getElementById('amount').value;
+    const type = document.getElementById('type').value;
+    const category = document.getElementById('category').value;
+    const sector = document.getElementById('sector').value;
+    const method = document.getElementById('account').value;
+    const note = document.getElementById('note').value;
+
+    console.log("Submitting:", { amount, type, category, sector, method, note });
+
     try {
         const { data, error } = await supabaseClient.from('transactions').insert([{
             user_id: user.id, 
-            amount: parseFloat(document.getElementById('amount').value),
-            type: document.getElementById('type').value, 
-            category_name: document.getElementById('category').value,
-            metadata: { sector: document.getElementById('sector').value }, 
-            method: document.getElementById('account').value, 
-            notes: document.getElementById('note').value, 
+            amount: parseFloat(amount),
+            type: type, 
+            category_name: category,
+            metadata: { sector: sector }, 
+            method: method, 
+            notes: note, 
             occurred_at: new Date().toISOString()
         }]);
 
