@@ -118,12 +118,29 @@ document.getElementById('type').onchange = fetchData;
 
 function renderTransactions(list) {
     transactionList.innerHTML = list.map(t => `
-        <div class="transaction-item">
-            <div><strong>${t.category_name || 'N/A'}</strong><br><small>${t.metadata?.sector || 'Gen'} | ${t.method || 'Cash'}</small></div>
-            <span style="color:${t.type === 'income' ? 'var(--income)' : 'var(--expense)'}">${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}</span>
+        <div class="transaction-item" style="display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+            <div>
+                <strong>${t.category_name || 'N/A'}</strong><br>
+                <small>${t.metadata?.sector || 'Gen'} | ${t.method || 'Cash'}</small>
+            </div>
+            <div style="text-align:right;">
+                <span style="color:${t.type === 'income' ? 'var(--income)' : 'var(--expense)'}; display:block; margin-bottom:5px;">
+                    ${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}
+                </span>
+                <button onclick="deleteTransaction('${t.id}')" style="background:#ef4444; padding:2px 8px; font-size:0.7rem;">Delete</button>
+            </div>
         </div>
     `).join('') || `<p class="text-muted">${currentLang === 'en' ? 'No transactions.' : 'কোন লেনদেন নেই।'}</p>`;
 }
+
+async function deleteTransaction(id) {
+    if (!confirm("Delete this transaction?")) return;
+    const { error } = await supabaseClient.from('transactions').delete().eq('id', id);
+    if (error) alert("Delete error: " + error.message);
+    else fetchData();
+}
+
+window.deleteTransaction = deleteTransaction;
 
 document.getElementById('tx-search').oninput = (e) => {
     const q = e.target.value.toLowerCase();
