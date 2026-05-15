@@ -191,21 +191,15 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     else { document.getElementById('auth-section').classList.remove('hidden'); document.getElementById('app-section').classList.add('hidden'); }
 });
 
-// Form Submissions
+// Manual Form Submission
 document.addEventListener('DOMContentLoaded', () => {
-    const transactionForm = document.getElementById('transaction-form');
-    if (transactionForm) {
-        transactionForm.onsubmit = async (e) => {
-            e.preventDefault();
-            console.log("Submit triggered!");
-            
-            const amountEl = document.getElementById('amount');
-            const typeEl = document.getElementById('type');
-            const catEl = document.getElementById('category');
-            
-            const amount = amountEl.value;
-            const type = typeEl.value;
-            const category = catEl.value;
+    const btn = document.getElementById('submit-transaction-btn');
+    if (btn) {
+        btn.onclick = async () => {
+            console.log("Manual submit triggered!");
+            const amount = document.getElementById('amount').value;
+            const type = document.getElementById('type').value;
+            const category = document.getElementById('category').value;
             const sector = document.getElementById('sector').value;
             const method = document.getElementById('account').value;
             const note = document.getElementById('note').value;
@@ -223,15 +217,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }]);
 
                 if (error) {
-                    console.error("Supabase Error:", error);
                     alert("Submission error: " + error.message);
                 } else {
-                    transactionForm.reset(); 
+                    document.getElementById('transaction-form').reset(); 
                     switchTab('dashboard'); 
                     fetchData();
                 }
             } catch (err) {
-                console.error("Catch Error:", err);
                 alert("Unexpected error: " + err.message);
             }
         };
