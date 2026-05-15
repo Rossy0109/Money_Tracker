@@ -6,7 +6,7 @@
     <title>Money Footprint Lite</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,124 +16,128 @@
     <div class="app-container">
         <!-- Auth Section -->
         <div id="auth-section" class="card auth-card">
-            <h2 id="auth-title">Login</h2>
+            <h2 id="auth-title" data-i18n="auth.login">Login</h2>
             <div id="github-login-container" style="margin-bottom: 1.5rem;">
                 <button id="github-login-btn" style="background: #24292e; display: flex; align-items: center; justify-content: center; gap: 10px;">
                     <svg height="20" width="20" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-                    Login with GitHub
+                    <span data-i18n="auth.github">Login with GitHub</span>
                 </button>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 1rem; color: var(--text-muted);">
                 <hr style="flex: 1; border: 0.5px solid var(--border);">
-                <span style="margin: 0 10px; font-size: 0.8rem;">OR EMAIL</span>
+                <span style="margin: 0 10px; font-size: 0.8rem;" data-i18n="auth.or">OR EMAIL</span>
                 <hr style="flex: 1; border: 0.5px solid var(--border);">
             </div>
             <form id="auth-form">
-                <input type="email" id="email" placeholder="Email" required>
-                <input type="password" id="password" placeholder="Password" required>
-                <button type="submit" id="submit-btn">Login</button>
+                <input type="email" id="email" data-i18n-placeholder="auth.email" placeholder="Email" required>
+                <input type="password" id="password" data-i18n-placeholder="auth.password" placeholder="Password" required>
+                <button type="submit" id="submit-btn" data-i18n="auth.login">Login</button>
             </form>
             <p style="margin-top: 1rem;">
-                <span id="toggle-auth" class="text-link">Don't have an account? Sign Up</span>
+                <span id="toggle-auth" class="text-link" data-i18n="auth.signup_link">Don't have an account? Sign Up</span>
             </p>
         </div>
 
         <!-- Main App Section -->
         <div id="app-section" class="hidden">
-            <div class="nav-tabs">
-                <div class="tab active" data-tab="dashboard">Dashboard</div>
-                <div class="tab" data-tab="add">Add</div>
-                <div class="tab" data-tab="accounting">Accounting</div>
-                <div class="tab" data-tab="reports">Reports</div>
-                <div class="tab" data-tab="lab">Lab</div>
-                <div class="tab" data-tab="settings">Settings</div>
-                <div id="logout-btn" class="tab" style="color: var(--expense)">Logout</div>
+            <div class="nav-tabs" style="overflow-x: auto; white-space: nowrap;">
+                <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
+                <div class="tab" data-tab="add" data-i18n="nav.add">Add</div>
+                <div class="tab" data-tab="accounting" data-i18n="nav.accounting">Accounting</div>
+                <div class="tab" data-tab="reports" data-i18n="nav.reports">Reports</div>
+                <div class="tab" data-tab="lab" data-i18n="nav.lab">Lab</div>
+                <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
+                <div id="logout-btn" class="tab" style="color: var(--expense)" data-i18n="nav.logout">Logout</div>
             </div>
 
             <!-- Dashboard Tab -->
             <div id="tab-dashboard">
-                <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
-                    <label style="font-size: 0.8rem; font-weight: 600;">View Period:</label>
-                    <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.5rem; font-size: 0.8rem;">
+                <div style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 0.8rem; font-weight: 600;" data-i18n="dash.view_period">View Period:</label>
+                        <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.5rem; font-size: 0.8rem;">
+                    </div>
+                    <button id="lang-toggle-btn" style="width: auto; padding: 4px 12px; font-size: 0.75rem; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;">EN / বাংলা</button>
                 </div>
+                
                 <div class="summary-grid">
                     <div class="card summary-card balance-card">
-                        <small>Total Balance</small>
+                        <small data-i18n="dash.balance">Total Balance</small>
                         <h1 id="total-balance">৳0.00</h1>
                     </div>
                     <div class="card summary-card">
-                        <small>Income</small>
+                        <small data-i18n="dash.income">Income</small>
                         <p class="income-val" id="total-income">৳0.00</p>
                     </div>
                     <div class="card summary-card">
-                        <small>Expense</small>
+                        <small data-i18n="dash.expense">Expense</small>
                         <p class="expense-val" id="total-expense">৳0.00</p>
                     </div>
                 </div>
 
                 <!-- Financial Assistant Card -->
-                <div class="card" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe;">
+                <div class="card assistant-gradient">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3 style="color: #1e40af; margin: 0;">🤖 Financial Assistant</h3>
+                        <h3 style="color: #1e40af; margin: 0;"><span data-i18n="dash.assistant_title">🤖 Financial Assistant</span></h3>
                         <div id="health-score-badge" style="background: #1e40af; color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem;">Score: 0</div>
                     </div>
                     <div id="assistant-advice" style="color: #1e3a8a; font-size: 0.9rem;">
-                        <p>Loading your financial pulse...</p>
+                        <p data-i18n="dash.loading">Loading your financial pulse...</p>
                     </div>
                 </div>
 
                 <!-- Charts Card -->
                 <div class="card">
-                    <h3 style="margin-bottom: 1rem;">📊 Visual Analytics</h3>
+                    <h3 style="margin-bottom: 1rem;" data-i18n="dash.visuals">📊 Visual Analytics</h3>
                     <canvas id="income-expense-chart" height="200"></canvas>
                     <canvas id="category-chart" height="200" style="margin-top: 1.5rem;"></canvas>
                 </div>
 
                 <div class="card">
-                    <h3>Recent Transactions</h3>
-                    <div id="transaction-list">
-                        <!-- Items injected by JS -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 data-i18n="dash.recent">Recent Transactions</h3>
+                        <input type="text" id="tx-search" data-i18n-placeholder="dash.search" placeholder="Search..." style="width: 120px; margin: 0; padding: 4px 8px; font-size: 0.8rem;">
                     </div>
+                    <div id="transaction-list"></div>
+                    <button id="load-more-btn" style="background: transparent; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; font-size: 0.8rem;" data-i18n="dash.load_more">Load More</button>
                 </div>
             </div>
 
             <!-- Add Transaction Tab -->
             <div id="tab-add" class="hidden">
                 <div class="card">
-                    <h3>New Transaction</h3>
+                    <h3 data-i18n="add.title">New Transaction</h3>
                     <form id="transaction-form">
-                        <input type="number" id="amount" placeholder="Amount" step="0.01" required>
+                        <input type="number" id="amount" data-i18n-placeholder="add.amount" placeholder="Amount" step="0.01" required>
                         
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Type</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="add.type">Type</label>
                         <select id="type" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
-                            <option value="expense">Expense</option>
-                            <option value="income">Income</option>
+                            <option value="expense" data-i18n="add.expense">Expense</option>
+                            <option value="income" data-i18n="add.income">Income</option>
                         </select>
 
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Category</label>
-                        <select id="category" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
-                            <!-- Injected by JS -->
-                        </select>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="add.category">Category</label>
+                        <select id="category" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;"></select>
 
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Sector (Project)</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="add.sector">Sector (Project)</label>
                         <select id="sector" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
-                            <option value="General">General</option>
-                            <option value="Personal">Personal</option>
-                            <option value="Business">Business</option>
-                            <option value="Social">Social</option>
+                            <option value="General" data-i18n="sectors.general">General</option>
+                            <option value="Personal" data-i18n="sectors.personal">Personal</option>
+                            <option value="Business" data-i18n="sectors.business">Business</option>
+                            <option value="Social" data-i18n="sectors.social">Social</option>
                         </select>
 
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Account (Method)</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="add.method">Account (Method)</label>
                         <select id="account" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
-                            <option value="Cash">Cash (নগদ)</option>
-                            <option value="Bank">Bank (ব্যাংক)</option>
+                            <option value="Cash" data-i18n="methods.cash">Cash</option>
+                            <option value="Bank" data-i18n="methods.bank">Bank</option>
                             <option value="bKash">bKash</option>
                             <option value="Nagad">Nagad</option>
                             <option value="Rocket">Rocket</option>
                         </select>
 
-                        <input type="text" id="note" placeholder="Note (optional)">
-                        <button type="submit">Save Transaction</button>
+                        <input type="text" id="note" data-i18n-placeholder="add.note" placeholder="Note (optional)">
+                        <button type="submit" data-i18n="add.save">Save Transaction</button>
                     </form>
                 </div>
             </div>
@@ -141,102 +145,71 @@
             <!-- Accounting Tab -->
             <div id="tab-accounting" class="hidden">
                 <div class="card">
-                    <h3>📈 Financial Accounting</h3>
+                    <h3 data-i18n="acc.title">📈 Financial Accounting</h3>
                     <div class="nav-tabs" style="font-size: 0.7rem; margin-top: 10px; overflow-x: auto; white-space: nowrap;">
-                        <div class="tab acc-subtab active" data-acc="pnl">P&L</div>
-                        <div class="tab acc-subtab" data-acc="balance">Balance</div>
-                        <div class="tab acc-subtab" data-acc="budget">Budgets</div>
-                        <div class="tab acc-subtab" data-acc="recurring">Recurring</div>
-                        <div class="tab acc-subtab" data-acc="estimates">Estimates</div>
+                        <div class="tab acc-subtab active" data-acc="pnl" data-i18n="acc.pnl">P&L</div>
+                        <div class="tab acc-subtab" data-acc="balance" data-i18n="acc.balance">Balance</div>
+                        <div class="tab acc-subtab" data-acc="budget" data-i18n="acc.budget">Budgets</div>
+                        <div class="tab acc-subtab" data-acc="recurring" data-i18n="acc.recurring">Recurring</div>
+                        <div class="tab acc-subtab" data-acc="estimates" data-i18n="acc.estimates">Estimates</div>
                     </div>
 
-                    <!-- P&L View -->
                     <div id="acc-pnl" class="acc-content">
                         <div id="pnl-report" style="margin-top: 1rem;"></div>
                     </div>
 
-                    <!-- Balance Sheet View -->
                     <div id="acc-balance" class="acc-content hidden">
                         <div class="summary-grid" style="margin-top: 1rem;">
                             <div class="card" style="background: #f0fdf4;">
-                                <small style="color: #166534;">Assets</small>
+                                <small style="color: #166534;" data-i18n="acc.assets">Assets</small>
                                 <h2 id="total-assets" style="color: #14532d;">৳0.00</h2>
                             </div>
                             <div class="card" style="background: #fef2f2;">
-                                <small style="color: #991b1b;">Liabilities</small>
+                                <small style="color: #991b1b;" data-i18n="acc.liabilities">Liabilities</small>
                                 <h2 id="total-liabilities" style="color: #7f1d1d;">৳0.00</h2>
                             </div>
                         </div>
                         <div class="card" style="background: var(--primary); color: white; margin-bottom: 1.5rem;">
-                            <small>Net Worth</small>
+                            <small data-i18n="acc.networth">Net Worth</small>
                             <h2 id="net-worth">৳0.00</h2>
                         </div>
-
-                        <!-- Data Entry for Assets/Liabilities -->
                         <div class="card">
-                            <h4 style="margin-bottom: 10px;">➕ Add Asset (Account)</h4>
+                            <h4 style="margin-bottom: 10px;" data-i18n="acc.add_asset">➕ Add Asset</h4>
                             <form id="asset-form">
-                                <input type="text" id="asset-name" placeholder="Account Name (e.g. Dutch Bangla Bank)" required>
-                                <input type="number" id="asset-balance" placeholder="Current Balance" required>
-                                <button type="submit" style="background: #10b981;">Add Asset</button>
+                                <input type="text" id="asset-name" data-i18n-placeholder="acc.asset_name" placeholder="Account Name" required>
+                                <input type="number" id="asset-balance" data-i18n-placeholder="acc.balance_placeholder" placeholder="Balance" required>
+                                <button type="submit" style="background: #10b981;" data-i18n="acc.save">Add Asset</button>
                             </form>
                             <div id="asset-list" style="margin-top: 10px;"></div>
                         </div>
-
-                        <div class="card" style="margin-top: 1rem;">
-                            <h4 style="margin-bottom: 10px;">➕ Add Liability (Debt)</h4>
-                            <form id="liability-form">
-                                <input type="text" id="liability-name" placeholder="Debt Name (e.g. Home Loan)" required>
-                                <input type="number" id="liability-balance" placeholder="Remaining Balance" required>
-                                <button type="submit" style="background: #ef4444;">Add Liability</button>
-                            </form>
-                            <div id="liability-list" style="margin-top: 10px;"></div>
-                        </div>
                     </div>
 
-                    <!-- Budgeting View -->
                     <div id="acc-budget" class="acc-content hidden">
                         <div class="card" style="margin-top: 1rem;">
-                            <h4 style="margin-bottom: 10px;">Set Monthly Budget</h4>
+                            <h4 style="margin-bottom: 10px;" data-i18n="acc.set_budget">Set Monthly Budget</h4>
                             <form id="budget-form">
                                 <select id="budget-category" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;"></select>
-                                <input type="number" id="budget-amount" placeholder="Limit Amount">
-                                <button type="submit">Set Budget</button>
+                                <input type="number" id="budget-amount" data-i18n-placeholder="acc.limit_placeholder" placeholder="Limit">
+                                <button type="submit" data-i18n="acc.save">Set Budget</button>
                             </form>
                         </div>
                         <div id="budget-list"></div>
                     </div>
 
-                    <!-- Recurring View -->
                     <div id="acc-recurring" class="acc-content hidden">
                         <div class="card" style="margin-top: 1rem;">
-                            <h4 style="margin-bottom: 10px;">New Recurring Entry</h4>
+                            <h4 style="margin-bottom: 10px;" data-i18n="acc.new_recurring">New Recurring Entry</h4>
                             <form id="recurring-form">
-                                <input type="text" id="rec-name" placeholder="Name (e.g. Monthly Rent)" required>
-                                <input type="number" id="rec-amount" placeholder="Amount" required>
+                                <input type="text" id="rec-name" data-i18n-placeholder="acc.name_placeholder" placeholder="Name" required>
+                                <input type="number" id="rec-amount" data-i18n-placeholder="add.amount" placeholder="Amount" required>
                                 <select id="rec-type" style="width: 100%; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid var(--border); border-radius: 0.5rem;">
-                                    <option value="expense">Expense</option>
-                                    <option value="income">Income</option>
+                                    <option value="expense" data-i18n="add.expense">Expense</option>
+                                    <option value="income" data-i18n="add.income">Income</option>
                                 </select>
-                                <label style="font-size: 0.8rem;">Day of Month (1-28)</label>
-                                <input type="number" id="rec-day" min="1" max="28" value="1">
-                                <button type="submit">Enable Auto-Add</button>
+                                <button type="submit" data-i18n="acc.enable_auto">Enable Auto-Add</button>
                             </form>
                         </div>
                         <div id="recurring-list"></div>
-                    </div>
-
-                    <!-- Estimates View -->
-                    <div id="acc-estimates" class="acc-content hidden">
-                        <div class="card" style="margin-top: 1rem;">
-                            <h4 style="margin-bottom: 10px;">New Estimate</h4>
-                            <form id="estimate-form">
-                                <input type="text" id="est-name" placeholder="Project Name">
-                                <input type="number" id="est-amount" placeholder="Estimated Cost">
-                                <button type="submit">Add Estimate</button>
-                            </form>
-                        </div>
-                        <div id="estimate-list"></div>
                     </div>
                 </div>
             </div>
@@ -244,33 +217,34 @@
             <!-- Reports Tab -->
             <div id="tab-reports" class="hidden">
                 <div class="card no-print">
-                    <h3>📄 Generate Reports</h3>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Filter and download professional PDF statements.</p>
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                        <select id="report-sector" style="flex: 1; padding: 0.5rem; border-radius: 5px; border: 1px solid var(--border);">
-                            <option value="all">All Sectors</option>
-                            <option value="General">General</option>
-                            <option value="Personal">Personal</option>
-                            <option value="Business">Business</option>
-                            <option value="Social">Social</option>
+                    <h3 data-i18n="reports.title">📄 Generate Reports</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                        <select id="report-sector" style="padding: 0.5rem; border-radius: 5px; border: 1px solid var(--border);">
+                            <option value="all" data-i18n="reports.all_sectors">All Sectors</option>
+                            <option value="General" data-i18n="sectors.general">General</option>
+                            <option value="Personal" data-i18n="sectors.personal">Personal</option>
+                            <option value="Business" data-i18n="sectors.business">Business</option>
+                            <option value="Social" data-i18n="sectors.social">Social</option>
                         </select>
-                        <button id="pdf-btn" style="background: #1e40af; width: auto; padding: 0.5rem 1.5rem;">📥 Download PDF</button>
-                        <button id="print-btn" style="background: #64748b; width: auto; padding: 0.5rem 1.5rem;">🖨️ Print</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button id="pdf-btn" style="background: #1e40af; flex: 1;" data-i18n="reports.download_pdf">📥 Download PDF</button>
+                            <button id="csv-btn" style="background: #10b981; flex: 1;" data-i18n="reports.download_csv">📊 Export Excel (CSV)</button>
+                        </div>
                     </div>
                 </div>
                 <div id="printable-report" class="card">
                     <div class="print-header" style="text-align: center; margin-bottom: 2rem;">
                         <h2 style="margin: 0;">Money Footprint Lite</h2>
-                        <p style="margin: 5px 0; color: var(--text-muted);">Financial Statement Report</p>
+                        <p style="margin: 5px 0; color: var(--text-muted);" data-i18n="reports.statement">Financial Statement Report</p>
                         <small id="report-date-range"></small>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                         <thead>
                             <tr style="background: #f1f5f9; text-align: left; border-bottom: 2px solid var(--border);">
-                                <th style="padding: 10px;">Date</th>
-                                <th style="padding: 10px;">Category</th>
-                                <th style="padding: 10px;">Sector</th>
-                                <th style="padding: 10px; text-align: right;">Amount</th>
+                                <th style="padding: 10px;" data-i18n="reports.date">Date</th>
+                                <th style="padding: 10px;" data-i18n="reports.category">Category</th>
+                                <th style="padding: 10px;" data-i18n="reports.sector">Sector</th>
+                                <th style="padding: 10px; text-align: right;" data-i18n="reports.amount">Amount</th>
                             </tr>
                         </thead>
                         <tbody id="report-table-body"></tbody>
@@ -281,25 +255,25 @@
             <!-- Lab Tab -->
             <div id="tab-lab" class="hidden">
                 <div class="card">
-                    <h3>Financial Lab</h3>
+                    <h3 data-i18n="lab.title">Financial Lab</h3>
                     <div class="nav-tabs" style="font-size: 0.8rem; margin-top: 10px;">
-                        <div class="tab lab-subtab active" data-lab="zakat">Zakat</div>
-                        <div class="tab lab-subtab" data-lab="emi">EMI</div>
+                        <div class="tab lab-subtab active" data-lab="zakat" data-i18n="lab.zakat">Zakat</div>
+                        <div class="tab lab-subtab" data-lab="emi" data-i18n="lab.emi">EMI</div>
                     </div>
                     <div id="lab-zakat" class="lab-content">
-                        <input type="number" id="zakat-assets" placeholder="Zakat-able Assets">
+                        <input type="number" id="zakat-assets" data-i18n-placeholder="lab.assets_placeholder" placeholder="Assets">
                         <div class="card" style="background: #ecfdf5; border: 1px solid #10b981; margin-top: 1rem;">
-                            <p style="color: #047857; font-size: 0.8rem; font-weight: bold;">PAYABLE ZAKAT (2.5%)</p>
-                            <h2 id="zakat-result" style="color: #065f46;">$0.00</h2>
+                            <p style="color: #047857; font-size: 0.8rem; font-weight: bold;" data-i18n="lab.payable">PAYABLE ZAKAT (2.5%)</p>
+                            <h2 id="zakat-result">৳0.00</h2>
                         </div>
                     </div>
                     <div id="lab-emi" class="lab-content hidden">
                         <input type="number" id="emi-principal" placeholder="Principal">
-                        <input type="number" id="emi-rate" placeholder="Yearly Interest %">
+                        <input type="number" id="emi-rate" placeholder="Rate %">
                         <input type="number" id="emi-months" placeholder="Months">
                         <div class="card" style="background: #eef2ff; border: solid 1px #4f46e5; margin-top: 1rem;">
                             <p style="color: #4338ca; font-size: 0.8rem; font-weight: bold;">MONTHLY EMI</p>
-                            <h2 id="emi-result" style="color: #3730a3;">$0.00</h2>
+                            <h2 id="emi-result">৳0.00</h2>
                         </div>
                     </div>
                 </div>
@@ -308,26 +282,25 @@
             <!-- Settings Tab -->
             <div id="tab-settings" class="hidden">
                 <div class="card">
-                    <h3>🌍 Global Preferences</h3>
-                    <label style="font-size: 0.8rem;">Base Currency</label>
+                    <h3 data-i18n="settings.global">🌍 Global Preferences</h3>
+                    <label style="font-size: 0.8rem;" data-i18n="settings.currency">Base Currency</label>
                     <select id="set-currency" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
                         <option value="৳">BDT (৳)</option>
                         <option value="$">USD ($)</option>
                         <option value="€">EUR (€)</option>
-                        <option value="£">GBP (£)</option>
                     </select>
                 </div>
                 <div class="card">
-                    <h3>🔒 Security (PIN)</h3>
-                    <input type="password" id="set-pin" placeholder="Enter 4-digit PIN" maxlength="4">
-                    <button id="save-pin-btn">Save PIN</button>
-                    <button id="clear-pin-btn" style="background: #64748b; margin-top: 5px;">Clear PIN</button>
+                    <h3 data-i18n="settings.security">🔒 Security (PIN)</h3>
+                    <input type="password" id="set-pin" data-i18n-placeholder="settings.pin_placeholder" placeholder="Enter PIN" maxlength="4">
+                    <button id="save-pin-btn" data-i18n="settings.save_pin">Save PIN</button>
+                    <button id="clear-pin-btn" style="background: #64748b;" data-i18n="settings.clear_pin">Clear PIN</button>
                 </div>
                 <div class="card">
-                    <h3>📥 Data Sovereignty</h3>
-                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;">Export JSON</button>
+                    <h3 data-i18n="settings.data">📥 Data Sovereignty</h3>
+                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;" data-i18n="settings.export">Export JSON</button>
                     <input type="file" id="import-file" class="hidden" accept=".json">
-                    <button id="import-btn" style="background: #6366f1;">Import JSON</button>
+                    <button id="import-btn" style="background: #6366f1;" data-i18n="settings.import">Import JSON</button>
                 </div>
             </div>
         </div>
