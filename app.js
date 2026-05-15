@@ -1,4 +1,4 @@
-// app.js - Production Grade Logic with local fallback
+// app.js - Production Grade Logic with full internal functions
 const SUPABASE_URL = window.__ENV?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
 const SUPABASE_KEY = window.__ENV?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY');
 
@@ -345,10 +345,14 @@ document.getElementById('pdf-btn').onclick = async () => {
 
 // --- Accounting Logic (Expanded) ---
 async function fetchAccountingData() {
+    if (!user) return;
     const { data: txs } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id);
     const { data: buds } = await supabaseClient.from('budgets').select('*').eq('user_id', user.id);
     const { data: recs } = await supabaseClient.from('recurring_transactions').select('*').eq('user_id', user.id);
+    const { data: assets } = await supabaseClient.from('accounts').select('*').eq('user_id', user.id);
+    const { data: debts } = await supabaseClient.from('debts').select('*').eq('user_id', user.id);
 
+    // 1. Render P&L
     const sectors = {};
     txs?.forEach(t => {
         const s = t.metadata?.sector || 'General';
@@ -368,6 +372,28 @@ async function fetchAccountingData() {
         </div>
     `).join('') || 'No data.';
 
+    // 2. Render Balance Sheet
+    const totalAssets = assets?.reduce((s, a) => s + parseFloat(a.balance || 0), 0) || 0;
+    const totalLiabilities = debts?.reduce((s, d) => s + parseFloat(d.balance || 0), 0) || 0;
+    document.getElementById('total-assets').innerText = `${currency}${totalAssets.toFixed(0)}`;
+    document.getElementById('total-liabilities').innerText = `${currency}${totalLiabilities.toFixed(0)}`;
+    document.getElementById('net-worth').innerText = `${currency}${(totalAssets - totalLiabilities).toFixed(0)}`;
+
+    document.getElementById('asset-list').innerHTML = assets?.map(a => `
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding: 5px 0; border-bottom: 1px solid var(--border);">
+            <span>${a.name}</span>
+            <strong>${currency}${parseFloat(a.balance).toFixed(0)}</strong>
+        </div>
+    `).join('') || 'No assets.';
+
+    document.getElementById('liability-list').innerHTML = debts?.map(d => `
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding: 5px 0; border-bottom: 1px solid var(--border);">
+            <span>${d.name}</span>
+            <strong style="color:var(--expense)">${currency}${parseFloat(d.balance).toFixed(0)}</strong>
+        </div>
+    `).join('') || 'No liabilities.';
+
+    // 3. Render Budgets
     document.getElementById('budget-list').innerHTML = buds?.map(b => {
         const spent = txs.filter(t => t.category_name === b.category_name && t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
         const percent = Math.min(100, Math.round((spent / b.amount) * 100));
@@ -379,13 +405,41 @@ async function fetchAccountingData() {
         `;
     }).join('') || 'No budgets set.';
 
+    // 4. Render Recurring
     document.getElementById('recurring-list').innerHTML = recs?.map(r => `
         <div class="card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
             <div><strong>${r.name}</strong><br><small>${r.type.toUpperCase()} | Day ${r.next_date}</small></div>
             <strong>${currency}${r.amount}</strong>
         </div>
     `).join('') || 'No recurring items.';
+
+    // 5. Render Estimates
+    const { data: estimates } = await supabaseClient.from('financial_targets').select('*').eq('user_id', user.id).eq('target_type', 'estimate');
+    document.getElementById('estimate-list').innerHTML = estimates?.map(e => `
+        <div class="transaction-item"><div><strong>${e.target_name}</strong><br><small>Planned Cost</small></div><strong>${currency}${parseFloat(e.amount).toFixed(0)}</strong></div>
+    `).join('') || 'No estimates.';
 }
+
+// Balance Sheet Form Submissions
+document.getElementById('asset-form').onsubmit = async (e) => {
+    e.preventDefault();
+    await supabaseClient.from('accounts').insert([{
+        user_id: user.id, name: document.getElementById('asset-name').value,
+        balance: parseFloat(document.getElementById('asset-balance').value)
+    }]);
+    document.getElementById('asset-form').reset();
+    fetchAccountingData();
+};
+
+document.getElementById('liability-form').onsubmit = async (e) => {
+    e.preventDefault();
+    await supabaseClient.from('debts').insert([{
+        user_id: user.id, name: document.getElementById('liability-name').value,
+        balance: parseFloat(document.getElementById('liability-balance').value)
+    }]);
+    document.getElementById('liability-form').reset();
+    fetchAccountingData();
+};
 
 // Lab Logic: Zakat
 document.getElementById('zakat-assets').oninput = (e) => {

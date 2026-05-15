@@ -167,9 +167,30 @@
                                 <h2 id="total-liabilities" style="color: #7f1d1d;">৳0.00</h2>
                             </div>
                         </div>
-                        <div class="card" style="background: var(--primary); color: white;">
+                        <div class="card" style="background: var(--primary); color: white; margin-bottom: 1.5rem;">
                             <small>Net Worth</small>
                             <h2 id="net-worth">৳0.00</h2>
+                        </div>
+
+                        <!-- Data Entry for Assets/Liabilities -->
+                        <div class="card">
+                            <h4 style="margin-bottom: 10px;">➕ Add Asset (Account)</h4>
+                            <form id="asset-form">
+                                <input type="text" id="asset-name" placeholder="Account Name (e.g. Dutch Bangla Bank)" required>
+                                <input type="number" id="asset-balance" placeholder="Current Balance" required>
+                                <button type="submit" style="background: #10b981;">Add Asset</button>
+                            </form>
+                            <div id="asset-list" style="margin-top: 10px;"></div>
+                        </div>
+
+                        <div class="card" style="margin-top: 1rem;">
+                            <h4 style="margin-bottom: 10px;">➕ Add Liability (Debt)</h4>
+                            <form id="liability-form">
+                                <input type="text" id="liability-name" placeholder="Debt Name (e.g. Home Loan)" required>
+                                <input type="number" id="liability-balance" placeholder="Remaining Balance" required>
+                                <button type="submit" style="background: #ef4444;">Add Liability</button>
+                            </form>
+                            <div id="liability-list" style="margin-top: 10px;"></div>
                         </div>
                     </div>
 
