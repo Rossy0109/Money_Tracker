@@ -192,56 +192,51 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 });
 
 // Form Submissions
-const transactionForm = document.getElementById('transaction-form');
-console.log("Transaction Form Found:", !!transactionForm);
+document.addEventListener('DOMContentLoaded', () => {
+    const transactionForm = document.getElementById('transaction-form');
+    if (transactionForm) {
+        transactionForm.onsubmit = async (e) => {
+            e.preventDefault();
+            console.log("Submit triggered!");
+            
+            const amountEl = document.getElementById('amount');
+            const typeEl = document.getElementById('type');
+            const catEl = document.getElementById('category');
+            
+            const amount = amountEl.value;
+            const type = typeEl.value;
+            const category = catEl.value;
+            const sector = document.getElementById('sector').value;
+            const method = document.getElementById('account').value;
+            const note = document.getElementById('note').value;
 
-transactionForm.onsubmit = async (e) => {
-    e.preventDefault();
-    console.log("Submit triggered!");
-    
-    const amountEl = document.getElementById('amount');
-    const typeEl = document.getElementById('type');
-    const catEl = document.getElementById('category');
-    
-    console.log("Values:", {
-        amount: amountEl?.value,
-        type: typeEl?.value,
-        category: catEl?.value
-    });
+            try {
+                const { data, error } = await supabaseClient.from('transactions').insert([{
+                    user_id: user.id, 
+                    amount: parseFloat(amount),
+                    type: type, 
+                    category_name: category,
+                    metadata: { sector: sector }, 
+                    method: method, 
+                    notes: note, 
+                    occurred_at: new Date().toISOString()
+                }]);
 
-    const amount = amountEl.value;
-    const type = typeEl.value;
-    const category = catEl.value;
-    const sector = document.getElementById('sector').value;
-    const method = document.getElementById('account').value;
-    const note = document.getElementById('note').value;
-
-    try {
-        const { data, error } = await supabaseClient.from('transactions').insert([{
-            user_id: user.id, 
-            amount: parseFloat(amount),
-            type: type, 
-            category_name: category,
-            metadata: { sector: sector }, 
-            method: method, 
-            notes: note, 
-            occurred_at: new Date().toISOString()
-        }]);
-
-        if (error) {
-            console.error("Supabase Error:", error);
-            alert("Submission error: " + error.message);
-        } else {
-            console.log("Success:", data);
-            transactionForm.reset(); 
-            switchTab('dashboard'); 
-            fetchData();
-        }
-    } catch (err) {
-        console.error("Catch Error:", err);
-        alert("Unexpected error: " + err.message);
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    alert("Submission error: " + error.message);
+                } else {
+                    transactionForm.reset(); 
+                    switchTab('dashboard'); 
+                    fetchData();
+                }
+            } catch (err) {
+                console.error("Catch Error:", err);
+                alert("Unexpected error: " + err.message);
+            }
+        };
     }
-};
+});
 
 document.getElementById('asset-form').onsubmit = async (e) => {
     e.preventDefault();
