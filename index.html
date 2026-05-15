@@ -14,6 +14,12 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Brand Identity -->
+        <div style="text-align: center; margin: 1.5rem 0;">
+            <img src="https://raw.githubusercontent.com/Rossy0109/Money_Tracker/main/logo.png" alt="Money Footprint Logo" style="width: 70px; height: 70px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0.5rem; color: var(--primary); font-family: 'Hind Siliguri', sans-serif;">Money Footprint</h2>
+        </div>
+
         <!-- Auth Section -->
         <div id="auth-section" class="card auth-card">
             <h2 id="auth-title" data-i18n="auth.login">Login</h2>
@@ -282,27 +288,15 @@
             <!-- Settings Tab -->
             <div id="tab-settings" class="hidden">
                 <div class="card">
-                    <h3 data-i18n="settings.global">🌍 Global Preferences</h3>
-                    <label style="font-size: 0.8rem;" data-i18n="settings.currency">Base Currency</label>
-                    <select id="set-currency" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;">
-                        <option value="৳">BDT (৳)</option>
-                        <option value="$">USD ($)</option>
-                        <option value="€">EUR (€)</option>
-                    </select>
-                </div>
-                <div class="card">
-                    <h3 data-i18n="settings.security">🔒 Security (PIN)</h3>
-                    <input type="password" id="set-pin" data-i18n-placeholder="settings.pin_placeholder" placeholder="Enter PIN" maxlength="4">
-                    <button id="save-pin-btn" data-i18n="settings.save_pin">Save PIN</button>
-                    <button id="clear-pin-btn" style="background: #64748b;" data-i18n="settings.clear_pin">Clear PIN</button>
-                </div>
-                <div class="card">
-                    <h3 data-i18n="settings.data">📥 Data Sovereignty</h3>
-                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;" data-i18n="settings.export">Export JSON</button>
-                    <input type="file" id="import-file" class="hidden" accept=".json">
-                    <button id="import-btn" style="background: #6366f1;" data-i18n="settings.import">Import JSON</button>
+                    <h3>🌍 Global Settings</h3>
+                    <button id="export-btn" style="background: #10b981; margin-bottom: 5px;">Backup to JSON</button>
                 </div>
             </div>
+
+            <!-- Footer -->
+            <footer style="text-align: center; margin-top: 2rem; padding: 1rem; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border);">
+                &copy; <span id="current-year"></span> | <strong>Kamrul Ahmed</strong> | All Rights Reserved
+            </footer>
         </div>
 
         <!-- PIN Overlay -->
@@ -315,6 +309,7 @@
     </div>
     <script>
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+        document.getElementById('current-year').innerText = new Date().getFullYear();
     </script>
     <script type="module" src="app.js"></script>
 </body>
