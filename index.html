@@ -184,7 +184,7 @@
                             <form id="asset-form">
                                 <input type="text" id="asset-name" data-i18n-placeholder="acc.asset_name" placeholder="Account Name" required>
                                 <input type="number" id="asset-balance" data-i18n-placeholder="acc.balance_placeholder" placeholder="Balance" required>
-                                <button type="submit" style="background: #10b981;" data-i18n="acc.save">Add Asset</button>
+                                <button type="button" id="submit-asset-btn" style="background: #10b981;" data-i18n="acc.save">Add Asset</button>
                             </form>
                             <div id="asset-list" style="margin-top: 10px;"></div>
                         </div>
@@ -196,7 +196,7 @@
                             <form id="budget-form">
                                 <select id="budget-category" class="form-control" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem;"></select>
                                 <input type="number" id="budget-amount" data-i18n-placeholder="acc.limit_placeholder" placeholder="Limit">
-                                <button type="submit" data-i18n="acc.save">Set Budget</button>
+                                <button type="button" id="submit-budget-btn" data-i18n="acc.save">Set Budget</button>
                             </form>
                         </div>
                         <div id="budget-list"></div>
@@ -212,7 +212,7 @@
                                     <option value="expense" data-i18n="add.expense">Expense</option>
                                     <option value="income" data-i18n="add.income">Income</option>
                                 </select>
-                                <button type="submit" data-i18n="acc.enable_auto">Enable Auto-Add</button>
+                                <button type="button" id="submit-recurring-btn" data-i18n="acc.enable_auto">Enable Auto-Add</button>
                             </form>
                         </div>
                         <div id="recurring-list"></div>
@@ -224,7 +224,7 @@
                             <form id="estimate-form">
                                 <input type="text" id="est-name" placeholder="Project Name">
                                 <input type="number" id="est-amount" placeholder="Target Amount">
-                                <button type="submit" data-i18n="acc.save">Add Estimate</button>
+                                <button type="button" id="submit-estimate-btn" data-i18n="acc.save">Add Estimate</button>
                             </form>
                         </div>
                         <div id="estimate-list"></div>
