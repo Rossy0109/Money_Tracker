@@ -192,16 +192,29 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 });
 
 // Form Submissions
+const transactionForm = document.getElementById('transaction-form');
+console.log("Transaction Form Found:", !!transactionForm);
+
 transactionForm.onsubmit = async (e) => {
     e.preventDefault();
-    const amount = document.getElementById('amount').value;
-    const type = document.getElementById('type').value;
-    const category = document.getElementById('category').value;
+    console.log("Submit triggered!");
+    
+    const amountEl = document.getElementById('amount');
+    const typeEl = document.getElementById('type');
+    const catEl = document.getElementById('category');
+    
+    console.log("Values:", {
+        amount: amountEl?.value,
+        type: typeEl?.value,
+        category: catEl?.value
+    });
+
+    const amount = amountEl.value;
+    const type = typeEl.value;
+    const category = catEl.value;
     const sector = document.getElementById('sector').value;
     const method = document.getElementById('account').value;
     const note = document.getElementById('note').value;
-
-    console.log("Submitting:", { amount, type, category, sector, method, note });
 
     try {
         const { data, error } = await supabaseClient.from('transactions').insert([{
