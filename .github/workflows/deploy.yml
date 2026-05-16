@@ -1,165 +1,30 @@
-name: Production Deployment (10-Year Sustainability)
+name: Deploy to Firebase
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  test:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies (Root)
+
+      - name: Install Dependencies
         run: npm install
-      
-      # Generate Environment Configuration
-      - name: Generate Environment Configuration
+
+      - name: Run Tests
+        run: npx playwright install --with-deps && npm test
+
+      - name: Deploy to Firebase
         env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
-          cat <<EOF > env.js
-          window.__ENV = {
-            "NEXT_PUBLIC_FIREBASE_API_KEY": "${FIREBASE_API_KEY:-AIzaDummyKey}",
-            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "${FIREBASE_AUTH_DOMAIN:-dummy.firebaseapp.com}",
-            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID:-dummy-project}",
-            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "${FIREBASE_STORAGE_BUCKET:-dummy.appspot.com}",
-            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "${FIREBASE_MESSAGING_SENDER_ID:-123456789}",
-            "NEXT_PUBLIC_FIREBASE_APP_ID": "${FIREBASE_APP_ID:-1:123:web:abc}",
-            "ADMIN_EMAIL": "${ADMIN_EMAIL:-test@example.com}",
-            "SUPABASE_URL": "${SUPABASE_URL:-https://dummy.supabase.co}",
-            "SUPABASE_KEY": "${SUPABASE_KEY:-dummy-key}"
-          };
-          EOF
-
-      - name: Run Playwright tests
-        run: |
-          npx playwright install --with-deps
-          npm test
-
-  deploy-frontend-vercel:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      # Generate Environment Configuration
-      - name: Generate Environment Configuration
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
-        run: |
-          cat <<EOF > env.js
-          window.__ENV = {
-            "NEXT_PUBLIC_FIREBASE_API_KEY": "$FIREBASE_API_KEY",
-            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "$FIREBASE_AUTH_DOMAIN",
-            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "$FIREBASE_PROJECT_ID",
-            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "$FIREBASE_STORAGE_BUCKET",
-            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$FIREBASE_MESSAGING_SENDER_ID",
-            "NEXT_PUBLIC_FIREBASE_APP_ID": "$FIREBASE_APP_ID",
-            "ADMIN_EMAIL": "$ADMIN_EMAIL",
-            "SUPABASE_URL": "$SUPABASE_URL",
-            "SUPABASE_KEY": "$SUPABASE_KEY"
-          };
-          EOF
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-      - name: Pull Vercel Project Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-  deploy-root-firebase:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-      
-      # Generate Environment Configuration
-      - name: Generate Environment Configuration
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
-        run: |
-          cat <<EOF > env.js
-          window.__ENV = {
-            "NEXT_PUBLIC_FIREBASE_API_KEY": "$FIREBASE_API_KEY",
-            "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "$FIREBASE_AUTH_DOMAIN",
-            "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "$FIREBASE_PROJECT_ID",
-            "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "$FIREBASE_STORAGE_BUCKET",
-            "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$FIREBASE_MESSAGING_SENDER_ID",
-            "NEXT_PUBLIC_FIREBASE_APP_ID": "$FIREBASE_APP_ID",
-            "ADMIN_EMAIL": "$ADMIN_EMAIL",
-            "SUPABASE_URL": "$SUPABASE_URL",
-            "SUPABASE_KEY": "$SUPABASE_KEY"
-          };
-          EOF
-
-      - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive
-
-  deploy-github-pages:
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          npx firebase-tools@latest dataconnect:compile
+          npx firebase-tools@latest deploy --only dataconnect,hosting --token "$FIREBASE_TOKEN"
