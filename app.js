@@ -73,8 +73,19 @@ async function handleAuth(e) {
     e.preventDefault();
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const { error } = isSignup ? await supabaseClient.auth.signUp({ email, password }) : await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
+    
+    console.log("Auth attempt:", { email, isSignup });
+    
+    const { data, error } = isSignup 
+        ? await supabaseClient.auth.signUp({ email, password }) 
+        : await supabaseClient.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+        console.error("Supabase Auth Error:", error);
+        alert("Login/Signup Error: " + error.message);
+    } else {
+        console.log("Auth success!", data);
+    }
 }
 authForm.onsubmit = handleAuth;
 document.getElementById('github-login-btn').onclick = () => supabaseClient.auth.signInWithOAuth({ 
