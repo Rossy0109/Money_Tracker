@@ -227,12 +227,36 @@ async function fetchAccountingData() {
     document.getElementById('estimate-list').innerHTML = ests?.map(e => `<div class='transaction-item'><span>${e.target_name}</span><strong>${currency}${e.amount}</strong></div>`).join('') || '';
 }
 
-// --- Lifecycle ---
-supabaseClient.auth.onAuthStateChange((event, session) => {
+// --- Auth and Data Initialization ---
+async function initApp() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
     user = session?.user;
-    if (user) { document.getElementById('auth-section').classList.add('hidden'); document.getElementById('app-section').classList.remove('hidden'); fetchData(); }
-    else { document.getElementById('auth-section').classList.remove('hidden'); document.getElementById('app-section').classList.add('hidden'); }
+    
+    if (user) {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        await fetchData();
+    } else {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('app-section').classList.add('hidden');
+    }
+}
+
+supabaseClient.auth.onAuthStateChange((_event, session) => {
+    user = session?.user;
+    if (user) {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        fetchData();
+        if (localStorage.getItem('app_pin')) document.getElementById('pin-overlay').classList.remove('hidden');
+    } else {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('app-section').classList.add('hidden');
+        document.getElementById('pin-overlay').classList.add('hidden');
+    }
 });
+
+initApp(); // Run immediately on load
 
 // Manual Form Submission
 document.addEventListener('DOMContentLoaded', () => {
