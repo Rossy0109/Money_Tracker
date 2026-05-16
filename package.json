@@ -1,0 +1,39 @@
+{
+  "name": "foot-print-of-money-next",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.72",
+    "@supabase/supabase-js": "^2.105.4",
+    "@vercel/analytics": "^2.0.1",
+    "ai": "^6.0.177",
+    "chart.js": "^4.5.1",
+    "clsx": "^2.1.1",
+    "firebase": "^12.13.0",
+    "lucide-react": "^0.378.0",
+    "next": "16.2.6",
+    "next-pwa": "^5.6.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^10.3.0",
+    "eslint-config-next": "16.2.6",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}
