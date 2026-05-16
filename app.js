@@ -102,14 +102,29 @@ document.getElementById('logout-btn').onclick = () => supabaseClient.auth.signOu
 
 // --- Data ---
 async function fetchData() {
-    if (!user) return;
+    console.log("fetchData triggered, user:", user);
+    if (!user) {
+        console.warn("No user, fetchData skipped");
+        return;
+    }
     applyLocales();
-    const type = document.getElementById('type').value;
-    document.getElementById('category').innerHTML = DEFAULT_CATEGORIES.filter(c => c.type === type).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    document.getElementById('budget-category').innerHTML = DEFAULT_CATEGORIES.filter(c => c.type === 'expense').map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    updateCategoryOptions();
 
     const selectedMonth = dashboardMonth.value;
-    const { data: txs } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id).order('occurred_at', { ascending: false });
+    console.log("Fetching transactions for:", selectedMonth);
+    
+    const { data: txs, error } = await supabaseClient.from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('occurred_at', { ascending: false });
+    
+    if (error) {
+        console.error("Supabase Data Error:", error);
+        alert("Data load error: " + error.message);
+        return;
+    }
+    
+    console.log("Transactions loaded:", txs);
     allTransactions = txs || [];
     
     const filtered = allTransactions.filter(t => t.occurred_at.startsWith(selectedMonth));
