@@ -17,14 +17,15 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install
+        run: cd Foot_Print_of_Money && npm install
 
       - name: Run Tests
-        run: npx playwright install --with-deps && npm test
+        run: cd Foot_Print_of_Money && npx playwright install --with-deps && npm test
 
       - name: Deploy to Firebase
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
+          cd Foot_Print_of_Money
           npx firebase-tools@latest dataconnect:compile
           npx firebase-tools@latest deploy --only dataconnect,hosting --token "$FIREBASE_TOKEN"

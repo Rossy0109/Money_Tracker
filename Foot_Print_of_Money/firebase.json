@@ -1,17 +1,10 @@
 {
   "hosting": {
-    "public": ".",
+    "public": "frontend/pwa",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**",
-      "Foot_Print_of_Money/**",
-      "tests/**",
-      "package.json",
-      "package-lock.json",
-      "render.yaml",
-      "vercel.json",
-      "docker-compose.yml"
+      "**/node_modules/**"
     ],
     "rewrites": [
       {
@@ -22,10 +15,10 @@
   },
   "emulators": {
     "dataconnect": {
-      "dataDir": "dataconnect/.dataconnect/pgliteData"
+      "dataDir": "backend/dataconnect/.dataconnect/pgliteData"
     }
   },
   "dataconnect": {
-    "source": "dataconnect"
+    "source": "backend/dataconnect"
   }
 }
