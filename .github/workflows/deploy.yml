@@ -29,3 +29,10 @@ jobs:
           cd Foot_Print_of_Money
           npx firebase-tools@latest dataconnect:compile
           npx firebase-tools@latest deploy --only dataconnect,hosting --token "$FIREBASE_TOKEN"
+
+  deploy-vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel
+        run: cd Foot_Print_of_Money/frontend && npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}

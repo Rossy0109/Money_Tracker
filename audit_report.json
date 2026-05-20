@@ -1,0 +1,30 @@
+{
+  "score": 3,
+  "summary": "Initial audit of the Supabase migrations and RLS policies reveals a solid foundation, but several security and performance improvements are needed.",
+  "findings": [
+    {
+      "check": "RLS Policies",
+      "severity": "moderate",
+      "issue": "The 'transactions_access' policy allows access if the user is the owner OR a team member. However, it does not check if the project itself has active status, potentially allowing access to data within inactive or archived projects.",
+      "recommendation": "Update RLS policies to check the project status (e.g., project.status = 'active') as part of the access verification."
+    },
+    {
+      "check": "Auth Logic",
+      "severity": "major",
+      "issue": "The 'is_admin()' function uses 'metadata->>role', which is retrieved from 'profiles.metadata'. If this metadata is updated by the client directly without strict RLS on the profile table, it could lead to privilege escalation.",
+      "recommendation": "Ensure the 'profiles' table has strict RLS and that updates to 'metadata' can only be performed by admins or via a secure backend function."
+    },
+    {
+      "check": "Data Integrity",
+      "severity": "minor",
+      "issue": "Missing explicit 'is_active' check on non-profile tables when accessing projects.",
+      "recommendation": "Add a join or subquery in the RLS policy to ensure 'is_active = true' for the user accessing the data."
+    },
+    {
+      "check": "Performance",
+      "severity": "minor",
+      "issue": "RLS policies use 'EXISTS (SELECT 1 FROM public.team_members tm...)' for every transaction check. This can be a performance bottleneck as the transaction count grows.",
+      "recommendation": "Consider denormalizing project_id or using an index on team_members(user_id, project_id) to optimize the lookup."
+    }
+  ]
+}
