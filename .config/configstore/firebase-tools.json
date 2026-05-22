@@ -1,0 +1,59 @@
+{
+	"motd": {
+		"cloudBuildErrorAfter": 1594252800000,
+		"cloudBuildWarnAfter": 1590019200000,
+		"defaultNode10After": 1594252800000,
+		"minVersion": "3.0.5",
+		"node8DeploysDisabledAfter": 1613390400000,
+		"node8RuntimeDisabledAfter": 1615809600000,
+		"node8WarnAfter": 1600128000000,
+		"fetched": 1779489381767
+	},
+	"gemini": true,
+	"usage": true,
+	"analytics-uuid": "548b2c30-d456-4370-9c94-2535ca616b27",
+	"activeProjects": {
+		"/data/data/com.termux/files/home": "ahmeed-steel-industry"
+	},
+	"user": {
+		"iss": "accounts.google.com",
+		"azp": "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com",
+		"aud": "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com",
+		"sub": "111621878526098806579",
+		"email": "kamrul01@gmail.com",
+		"email_verified": true,
+		"at_hash": "oy5gkFo_tIsOlLZy9P6kug",
+		"iat": 1778259390,
+		"exp": 1778262990
+	},
+	"tokens": {
+		"expires_at": 1779492748001,
+		"refresh_token": "1//0gkpurYets31CCgYIARAAGBASNwF-L9Irf6sDr92HX6t-NMn3L5WJWlgw7BY8lVIZ1RBhqujPSty-PJyjtPE8KqAHE9F8oVQSmaY",
+		"scopes": [],
+		"access_token": "ya29.a0AQvPyINjoBSgB8n_0SOfMtaLinsq1XTdCoy3Eu6hGxp31zsiYbDfygs1IFC1UeajpcQaO1SQZ3XfBlmEWeRehZ5oE_IKZnTWV0xYNt1jybvjxdOZmkZmz45V11RieIzzlx6qudzjQhfXzaxocow4fhEjKadr-T_NfL6pojL1-Hjx51udVpmhcDnMJwzq0t2WMEg4dM3U3pyk9AaCgYKAQkSAQ8SFQHGX2MiN1o9w3h66ODaN9syOQ28qw0213",
+		"expires_in": 3599,
+		"scope": "https://www.googleapis.com/auth/cloudplatformprojects.readonly https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/userinfo.email openid https://www.googleapis.com/auth/cloud-platform",
+		"token_type": "Bearer",
+		"id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjQxYjJlMTFmZjljYTI2ZTc4YzAyNWE5ZDRhNDI5Y2IwNjAxMzk1NmUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwiYXpwIjoiNTYzNTg0MzM1ODY5LWZncmhnbWQ0N2JxbmVraWo1aThiNXByMDNobzg0OWU2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiYXVkIjoiNTYzNTg0MzM1ODY5LWZncmhnbWQ0N2JxbmVraWo1aThiNXByMDNobzg0OWU2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwic3ViIjoiMTExNjIxODc4NTI2MDk4ODA2NTc5IiwiZW1haWwiOiJrYW1ydWwwMUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXRfaGFzaCI6IlVtZFQ5MlJrN1FrMnlCOEZtT09qZkEiLCJpYXQiOjE3Nzk0ODkxNDgsImV4cCI6MTc3OTQ5Mjc0OH0.BNff_5ftlpgDw0emcyd457Is73ZFRj3OU0V9oM9MUVRPDHRjByakL0IAQNbgLa8OAZawb7IVEX5--P08I5pRd9HG8TpggTz_f6pKhBagHr7oTAEyah1JX8m7kwsBe5cVobU4psLZltOmw8RZMsMgy4TiZXgIIeOxh0tVcU-1_O-JF5ps8Xen2ErSpA-WsoqThPJO7HD5hMgFNNPKLNOHR21gd4npo6YSPsPc4In74BXBJKwtsjvFX1IqZ-4Wdfiz7Vm8KeA0pD8ZorALDUDD7-_MLlsZ9VFmcR3Iutal2KoFpPwdUt2pK0ev7d2f_65gLgy9TB6KPGpF18V8_TohWQ"
+	},
+	"loginScopes": [
+		"email",
+		"openid",
+		"https://www.googleapis.com/auth/cloudplatformprojects.readonly",
+		"https://www.googleapis.com/auth/firebase",
+		"https://www.googleapis.com/auth/cloud-platform"
+	],
+	"apiEnablementCache": {
+		"ahmeed-steel-industry": {
+			"firebasedataconnect.googleapis.com": true,
+			"storage.googleapis.com": true,
+			"firebaseremoteconfig.googleapis.com": true,
+			"fcm.googleapis.com": true,
+			"identitytoolkit.googleapis.com": true,
+			"firestore.googleapis.com": true,
+			"developerknowledge.googleapis.com": true,
+			"sqladmin.googleapis.com": true,
+			"firebaseappdistribution.googleapis.com": true
+		}
+	}
+}

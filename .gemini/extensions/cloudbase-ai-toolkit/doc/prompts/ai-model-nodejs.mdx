@@ -1,0 +1,35 @@
+# 在 Node.js 后端中集成 AI 功能
+
+在 Node.js 后端服务或云函数中使用 CloudBase AI 模型，支持文本生成、流式响应和图片生成
+
+## 如何使用
+
+查看[如何使用Skill](/ai/cloudbase-ai-toolkit/prompts/how-to-use)了解详细的使用方法。
+
+### 测试 Skill
+
+你可以使用以下提示词来测试：
+
+- "在 CloudBase 云函数中集成 AI 模型，实现文本生成功能"
+- "创建一个使用 CloudBase AI 模型生成图片的云函数"
+- "在 Express 后端服务中使用 CloudBase AI 模型处理用户请求"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="ai-model-nodejs" />
+
+## 安装与查看
+
+如果需要安装全部 CloudBase Skills，可执行：
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+如果只安装当前 Skill，可执行：
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill ai-model-nodejs
+```
+
+当前 Skill 在线查看： [ai-model-nodejs](https://skills.sh/tencentcloudbase/skills/ai-model-nodejs)

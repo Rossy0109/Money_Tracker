@@ -1,0 +1,22 @@
+[package]
+name = "speedate"
+authors = ["Samuel Colvin <s@muelcolvin.com>"]
+version = "0.17.0"
+edition = "2021"
+description = "Fast and simple datetime, date, time and duration parsing"
+readme = "README.md"
+license = "MIT"
+keywords = ["ISO8601", "RFC3339", "datetime", "date", "time"]
+categories = ["date-and-time", "parsing"]
+homepage = "https://github.com/pydantic/speedate/"
+repository = "https://github.com/pydantic/speedate/"
+
+[dependencies]
+lexical-parse-float = "1.0.5"
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+
+[dev-dependencies]
+chrono = "0.4.19"
+iso8601 = "0.6.1"
+paste = "1.0.7"

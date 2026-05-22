@@ -1,0 +1,2 @@
+./regexp.go
+./regexp_dontprecompile.go

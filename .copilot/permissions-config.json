@@ -1,0 +1,23 @@
+{
+  "locations": {
+    "/data/data/com.termux/files/home/Money_Tracker": {
+      "tool_approvals": [
+        {
+          "kind": "write"
+        },
+        {
+          "kind": "commands",
+          "commandIdentifiers": [
+            "mkdir"
+          ]
+        },
+        {
+          "kind": "commands",
+          "commandIdentifiers": [
+            "curl"
+          ]
+        }
+      ]
+    }
+  }
+}

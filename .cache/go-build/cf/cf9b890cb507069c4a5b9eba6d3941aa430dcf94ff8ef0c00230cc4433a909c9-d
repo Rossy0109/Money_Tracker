@@ -1,0 +1,17 @@
+./configwrapper.go
+./confirm.go
+./context.go
+./details.go
+./dimensionmodel.go
+./error.go
+./exec.go
+./form.go
+./formwithaction.go
+./list.go
+./logs.go
+./messages.go
+./scrollbar.go
+./simplemodel.go
+./stack.go
+./table.go
+./tabs.go

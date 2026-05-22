@@ -1,0 +1,13 @@
+./diff.go
+./enum_sql_generator.go
+./function_sql_vertex_generator.go
+./named_schema_sql_generator.go
+./plan.go
+./plan_generator.go
+./policy_sql_generator.go
+./procedure_sql_vertex_generator.go
+./schema_source.go
+./sql_generator.go
+./sql_graph.go
+./sql_vertex_generator.go
+./transform_diff.go

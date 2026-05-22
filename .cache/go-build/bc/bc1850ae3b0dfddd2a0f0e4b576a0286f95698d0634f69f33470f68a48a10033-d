@@ -1,0 +1,11 @@
+./doc.go
+./gocompat_errors_go120.go
+./gocompat_generics_go121.go
+./join.go
+./lookup_linux.go
+./mkdir_linux.go
+./open_linux.go
+./openat2_linux.go
+./openat_linux.go
+./procfs_linux.go
+./vfs.go

@@ -1,0 +1,63 @@
+{
+  "name": "@google-cloud/cloud-run-mcp",
+  "version": "1.10.0",
+  "type": "module",
+  "description": "Cloud Run MCP deployment tool",
+  "main": "mcp-server.js",
+  "bin": {
+    "cloud-run-mcp": "mcp-server.js"
+  },
+  "scripts": {
+    "deploy": "gcloud run deploy cloud-run-mcp --source . --no-invoker-iam-check",
+    "test:workflows": "node --test test/need-gcp/workflows/*.test.js",
+    "test:deploy": "node test/need-gcp/deployer.test.js",
+    "test:projects": "node test/need-gcp/gcp-projects.test.js",
+    "test:services": "node test/need-gcp/cloud-run-services.test.js",
+    "test:gcp-auth": "node test/need-gcp/gcp-auth-check.test.js",
+    "test:prompts": "node --test test/local/prompts.test.js",
+    "test:mcp": "node --test test/local/mcp-server.test.js",
+    "test:tools": "node --test test/local/tools.test.js",
+    "test:local": "node --test test/local/*.test.js test/local/**/*.test.js",
+    "test": "c8 --check-coverage npm run test:local",
+    "mcp-inspector": "npx @modelcontextprotocol/inspector node mcp-server.js",
+    "start": "node mcp-server.js",
+    "lint:check": "prettier --check .",
+    "lint": "prettier --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoogleCloudPlatform/cloud-run-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "cloud-run",
+    "gcp"
+  ],
+  "author": "steren@google.com",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/GoogleCloudPlatform/cloud-run-mcp/issues"
+  },
+  "homepage": "https://github.com/GoogleCloudPlatform/cloud-run-mcp#readme",
+  "dependencies": {
+    "@google-cloud/artifact-registry": "^4.0.1",
+    "@google-cloud/billing": "^5.0.1",
+    "@google-cloud/cloudbuild": "^5.0.1",
+    "@google-cloud/logging": "^11.2.0",
+    "@google-cloud/resource-manager": "^6.0.1",
+    "@google-cloud/run": "^3.1.0",
+    "@google-cloud/service-usage": "^4.1.0",
+    "@google-cloud/storage": "^7.16.0",
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "archiver": "^7.0.1",
+    "@dotenvx/dotenvx": "^1.52.0",
+    "express": "^5.1.0",
+    "google-proto-files": "^5.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "c8": "^10.1.3",
+    "esmock": "^2.7.1",
+    "prettier": "^3.8.0"
+  }
+}

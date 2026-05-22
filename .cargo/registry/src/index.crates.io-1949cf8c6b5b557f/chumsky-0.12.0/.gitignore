@@ -1,0 +1,8 @@
+# IDE projects
+.idea/
+.vscode/
+
+# Project output
+/target
+flamegraph.svg
+perf.data*

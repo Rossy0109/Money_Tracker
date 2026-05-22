@@ -1,0 +1,7 @@
+./doc.go
+./errors.go
+./io_utils.go
+./metadatastore.go
+./store.go
+./storeconfig.go
+./tlsstore.go

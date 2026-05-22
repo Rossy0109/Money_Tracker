@@ -1,0 +1,52 @@
+{
+  "name": "unifi-mcp",
+  "version": "1.0.2",
+  "description": "UniFi network management via MCP tools. Monitor devices, clients, network health, firewall rules, and perform management operations.",
+  "author": {
+    "name": "Jacob Magar",
+    "email": "jmagar@users.noreply.github.com"
+  },
+  "repository": "https://github.com/jmagar/unifi-mcp",
+  "homepage": "https://github.com/jmagar/unifi-mcp",
+  "license": "MIT",
+  "keywords": [
+    "unifi",
+    "networking",
+    "monitoring",
+    "homelab",
+    "mcp"
+  ],
+  "userConfig": {
+    "unifi_mcp_url": {
+      "type": "string",
+      "title": "UniFi MCP Server URL",
+      "description": "Full MCP endpoint URL including /mcp path. Default http://localhost:8001/mcp works if running via docker compose in this repo. Change if running on a different host or port.",
+      "default": "https://unifi.tootie.tv/mcp",
+      "sensitive": false
+    },
+    "unifi_mcp_token": {
+      "type": "string",
+      "title": "MCP Server Bearer Token",
+      "description": "Bearer token for authenticating with the MCP server. Must match UNIFI_MCP_TOKEN in .env. Generate with: openssl rand -hex 32",
+      "sensitive": true
+    },
+    "unifi_url": {
+      "type": "string",
+      "title": "UniFi Controller URL",
+      "description": "URL of your UniFi controller, e.g. https://192.168.1.1:443. No trailing slash.",
+      "sensitive": true
+    },
+    "unifi_username": {
+      "type": "string",
+      "title": "UniFi Username",
+      "description": "UniFi controller admin username.",
+      "sensitive": true
+    },
+    "unifi_password": {
+      "type": "string",
+      "title": "UniFi Password",
+      "description": "UniFi controller admin password.",
+      "sensitive": true
+    }
+  }
+}

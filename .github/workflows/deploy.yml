@@ -17,21 +17,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 24
 
       - name: Install Dependencies
         run: cd Foot_Print_of_Money && npm install
 
       - name: Run Tests
         run: cd Foot_Print_of_Money && npx playwright install --with-deps && npm test
-
-      - name: Deploy to Firebase
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: |
-          cd Foot_Print_of_Money
-          npx firebase-tools@latest dataconnect:compile
-          npx firebase-tools@latest deploy --only dataconnect,hosting --token "$FIREBASE_TOKEN"
+- name: Deploy to Firebase
+  uses: FirebaseExtended/action-hosting-deploy@v0
+  with:
+    repoToken: ${{ secrets.GITHUB_TOKEN }}
+    firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+    channelId: live
+    projectId: ahmeed-steel-industry
+    entryPoint: Foot_Print_of_Money
 
   deploy-vercel:
     runs-on: ubuntu-latest

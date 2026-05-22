@@ -1,0 +1,12 @@
+./align.go
+./ansi.go
+./ansi_unix.go
+./color.go
+./color_html.go
+./cursor.go
+./filter.go
+./format.go
+./string.go
+./transformer.go
+./valign.go
+./wrap.go

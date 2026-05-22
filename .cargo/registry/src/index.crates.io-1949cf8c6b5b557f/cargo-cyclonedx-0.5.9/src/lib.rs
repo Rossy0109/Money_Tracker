@@ -1,0 +1,43 @@
+#![doc = concat!(
+    "## WARNING\n",
+    "\n",
+    "The library API of `cargo-cyclonedx` is **unstable** and not subject to semantic versioning guarantees!\n",
+    "\n",
+    "If the command-line interface is not sufficient, you can depend on this API and avoid breakage\n",
+    "so long as you pin a specific version:\n",
+    "\n",
+    "```toml\n",
+    "cargo-cyclonedx = \"= ", env!("CARGO_PKG_VERSION"), "\" # avoids build failures\n",
+    "```\n",
+    "\n",
+    "Do **NOT** do this:\n",
+    "```toml\n",
+    "cargo-cyclonedx = \"", env!("CARGO_PKG_VERSION"), "\" # WRONG, don't use, will break!\n",
+    "```",
+)]
+
+/*
+ * This file is part of CycloneDX Rust Cargo.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+pub mod config;
+pub mod format;
+pub mod generator;
+pub mod platform;
+pub mod purl;
+
+pub use crate::generator::*;

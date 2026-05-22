@@ -1,0 +1,47 @@
+{
+  "cloudbase-ai-toolkit": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "google-adk-agent-extension": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "google-workspace-cli": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "unifi-mcp": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "supabase": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "cloud-run": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "render-com-mcp": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "vercel-mcp": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  },
+  "firebase": {
+    "overrides": [
+      "/data/data/com.termux/files/home/*"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+[package]
+name = "python3-dll-a"
+version = "0.2.14"
+edition = "2021"
+description = "Standalone python3(y)(t).dll import library generator"
+repository = "https://github.com/PyO3/python3-dll-a"
+authors = ["Sergey Kvachonok <ravenexp@gmail.com>", "messense <messense@icloud.com>", "Adam Reichold <adam.reichold@t-online.de>"]
+license = "MIT"
+keywords = ["build-dependencies", "python", "windows", "mingw", "msvc"]
+categories = ["development-tools::build-utils"]
+readme = "README.md"
+
+[target.'cfg(windows)'.dependencies]
+cc = "1.0.73"

@@ -1,0 +1,36 @@
+# 身份认证：配置管理
+
+配置和管理 CloudBase 认证提供商，启用/禁用登录方式（短信、邮箱、微信、Google、匿名、用户名密码等）
+
+## 如何使用
+
+查看[如何使用Skill](/ai/cloudbase-ai-toolkit/prompts/how-to-use)了解详细的使用方法。
+
+### 测试 Skill
+
+你可以使用以下提示词来测试：
+
+- "在 CloudBase 控制台帮我配置短信登录方式"
+- "在 CloudBase 中启用邮箱验证码登录"
+- "在 CloudBase 中配置微信开放平台登录"
+- "在 CloudBase 中设置匿名登录功能"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="auth-tool" />
+
+## 安装与查看
+
+如果需要安装全部 CloudBase Skills，可执行：
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+如果只安装当前 Skill，可执行：
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill auth-tool
+```
+
+当前 Skill 在线查看： [auth-tool](https://skills.sh/tencentcloudbase/skills/auth-tool)

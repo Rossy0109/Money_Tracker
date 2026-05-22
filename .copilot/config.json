@@ -1,0 +1,8 @@
+// User settings belong in settings.json.
+// This file is managed automatically.
+{
+  "firstLaunchAt": "2026-05-06T08:00:17.704Z",
+  "trustedFolders": [
+    "/data/data/com.termux/files/home"
+  ]
+}

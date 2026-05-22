@@ -1,0 +1,3 @@
+prompt = """
+Use the `list_adks` tool to fetch the list of available ADK servers.
+"""

@@ -1,0 +1,5 @@
+prompt = """
+Run the `quick_status` prompt from the Vercel MCP server.
+If specific project details are needed but not provided, ask me for clarification.
+Please summarize the status in the user's preferred language (Chinese/English).
+"""

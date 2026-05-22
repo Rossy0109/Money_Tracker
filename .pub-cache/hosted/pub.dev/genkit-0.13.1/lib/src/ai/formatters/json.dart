@@ -1,0 +1,47 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import 'dart:convert';
+
+import '../../extract.dart';
+import '../../schema_extensions.dart';
+import '../../types.dart';
+import 'types.dart';
+
+final jsonFormatter = Formatter(
+  name: 'json',
+  config: GenerateActionOutputConfig(
+    format: 'json',
+    contentType: 'application/json',
+    constrained: true,
+    defaultInstructions: false,
+  ),
+  handler: (schema) {
+    String? instructions;
+    if (schema != null) {
+      final schemaString = const JsonEncoder.withIndent('  ').convert(schema);
+      instructions =
+          'Output should be in JSON format and conform to the following schema:\n\n```\n$schemaString\n```\n';
+    }
+    return FormatterHandlerResult(
+      parseMessage: (message) {
+        return extractJson(message.text);
+      },
+      parseChunk: (chunk) {
+        return extractJson(chunk.accumulatedText, allowPartial: true);
+      },
+      instructions: instructions,
+    );
+  },
+);

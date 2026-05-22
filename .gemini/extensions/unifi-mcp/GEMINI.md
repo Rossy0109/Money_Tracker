@@ -1,0 +1,1 @@
+/data/data/com.termux/files/usr/tmp/gemini-extension7wo6RU/CLAUDE.md

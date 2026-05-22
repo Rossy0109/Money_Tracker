@@ -1,0 +1,34 @@
+# 关系型数据库：工具与规则
+
+操作 CloudBase 关系型数据库的工具和规则,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)
+
+## 如何使用
+
+查看[如何使用Skill](/ai/cloudbase-ai-toolkit/prompts/how-to-use)了解详细的使用方法。
+
+### 测试 Skill
+
+你可以使用以下提示词来测试：
+
+- "在 CloudBase 关系型数据库中帮我创建一个用户表并设置权限"
+- "在 CloudBase 关系型数据库中执行 SQL 查询和更新操作"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="relational-database-tool" />
+
+## 安装与查看
+
+如果需要安装全部 CloudBase Skills，可执行：
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+如果只安装当前 Skill，可执行：
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill relational-database-tool
+```
+
+当前 Skill 在线查看： [relational-database-tool](https://skills.sh/tencentcloudbase/skills/relational-database-tool)

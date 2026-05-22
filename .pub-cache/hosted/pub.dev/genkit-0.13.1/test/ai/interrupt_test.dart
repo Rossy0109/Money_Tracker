@@ -1,0 +1,632 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import 'package:genkit/genkit.dart';
+import 'package:genkit/src/ai/generate.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('Interrupts', () {
+    late Genkit genkit;
+
+    setUp(() {
+      genkit = Genkit(isDevEnv: false);
+    });
+
+    tearDown(() async {
+      await genkit.shutdown();
+    });
+
+    test('should interrupt tool execution and return metadata', () async {
+      const modelName = 'interruptModel';
+      const toolName = 'interruptTool';
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'name': 'interrupt me'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolName,
+        description: 'Interrupts execution',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          context.interrupt('CONFIRM_ME');
+        },
+      );
+
+      final response = await genkit.generate(
+        model: modelRef(modelName),
+        prompt: 'trigger interrupt',
+        toolNames: [toolName],
+      );
+
+      expect(response.finishReason, FinishReason.interrupted);
+
+      final part = response.message!.content.first;
+      expect(part.toolRequestPart, isNotNull);
+      expect(part.metadata?['interrupt'], 'CONFIRM_ME');
+
+      expect(response.interrupts.length, 1);
+      expect(response.interrupts.first.toolRequest.name, toolName);
+
+      // Verify messages getter
+      expect(response.messages.length, 2);
+      expect(response.messages[0].role, Role.user);
+      expect(response.messages[1].role, Role.model);
+      expect(response.messages[1].toJson(), response.message!.toJson());
+    });
+
+    test('should validly resume from interrupt', () async {
+      const modelName = 'resumeModel';
+      const toolName = 'interruptTool';
+
+      var modelCallCount = 0;
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          modelCallCount++;
+          // If it's the resume call (history has tool response)
+          if (request.messages.last.role == Role.tool) {
+            return ModelResponse(
+              finishReason: FinishReason.stop,
+              message: Message(
+                role: Role.model,
+                content: [TextPart(text: 'Resumed!')],
+              ),
+            );
+          }
+          // Initial call
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'name': 'interrupt me'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolName,
+        description: 'Interrupts execution',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          context.interrupt('CONFIRM_ME');
+        },
+      );
+
+      final response1 = await genkit.generate(
+        model: modelRef(modelName),
+        prompt: 'trigger interrupt',
+        toolNames: [toolName],
+      );
+
+      expect(response1.finishReason, FinishReason.interrupted);
+
+      // Construct history
+      final history = [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'trigger interrupt')],
+        ),
+        response1.message!,
+      ];
+
+      // 2. Resume Call
+      final response2 = await genkit.generate(
+        model: modelRef(modelName),
+        messages: history,
+        toolNames: [toolName],
+        interruptRespond: [
+          InterruptResponse(
+            response1.message!.content.first.toolRequestPart!,
+            'UserConfirmed',
+          ),
+        ],
+      );
+
+      expect(response2.text, 'Resumed!');
+      expect(modelCallCount, 2);
+
+      // Verify messages getter on resume
+      expect(
+        response2.messages.length,
+        4,
+      ); // User, Model(Interrupt), Tool(Resume), Model(Final)
+      expect(response2.messages[0].role, Role.user);
+      expect(response2.messages[1].role, Role.model);
+      expect(response2.messages[2].toJson(), {
+        'role': 'tool',
+        'content': [
+          {
+            'toolResponse': {
+              'name': 'interruptTool',
+              'output': 'UserConfirmed',
+            },
+          },
+        ],
+      });
+      expect(response2.messages[3].role, Role.model);
+      expect(response2.messages[3].toJson(), response2.message!.toJson());
+    });
+
+    test('partial interruption (one success, one interrupt)', () async {
+      const modelName = 'partialModel';
+      const toolSafe = 'safeTool';
+      const toolInterrupt = 'interruptTool';
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (req, ctx) async {
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(name: toolSafe, input: {}),
+                ),
+                ToolRequestPart(
+                  toolRequest: ToolRequest(name: toolInterrupt, input: {}),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolSafe,
+        description: 'Safe',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (_, _) async => 'SafeOutput',
+      );
+      genkit.defineTool(
+        name: toolInterrupt,
+        description: 'Interrupted',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (_, c) async => c.interrupt('STOP'),
+      );
+
+      final response = await genkit.generate(
+        model: modelRef(modelName),
+        prompt: 'go',
+        toolNames: [toolSafe, toolInterrupt],
+      );
+
+      expect(response.finishReason, FinishReason.interrupted);
+
+      final content = response.message!.content;
+      expect(content.length, 2);
+
+      final safePart = content.firstWhere(
+        (p) => p.toolRequestPart?.toolRequest.name == toolSafe,
+      );
+      final interruptPart = content.firstWhere(
+        (p) => p.toolRequestPart?.toolRequest.name == toolInterrupt,
+      );
+
+      expect(safePart.metadata?['pendingOutput'], 'SafeOutput');
+      expect(interruptPart.metadata?['interrupt'], 'STOP');
+
+      expect(response.interrupts.length, 1);
+      expect(response.interrupts.first.toolRequest.name, toolInterrupt);
+    });
+
+    test('runGenerateAction should correctly resume using respond', () async {
+      const modelName = 'actionResumeModel';
+      const toolName = 'interruptTool';
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          if (request.messages.length > 1 &&
+              request.messages.last.role == Role.tool) {
+            return ModelResponse(
+              finishReason: FinishReason.stop,
+              message: Message(
+                role: Role.model,
+                content: [TextPart(text: 'Resumed via Action!')],
+              ),
+            );
+          }
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'name': 'interrupt me'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolName,
+        description: 'Interrupts execution',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          context.interrupt('CONFIRM_ME');
+        },
+      );
+
+      // 1. Initial Call
+      final response1 = await runGenerateAction(
+        genkit.registry,
+        GenerateActionOptions(
+          model: modelName,
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'trigger interrupt')],
+            ),
+          ],
+          tools: [toolName],
+        ),
+        (
+          streamingRequested: false,
+          sendChunk: (_) {},
+          inputStream: null,
+          init: null,
+          context: null,
+        ),
+      );
+
+      expect(response1.finishReason, FinishReason.interrupted);
+
+      final history = [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'trigger interrupt')],
+        ),
+        response1.message!,
+      ];
+
+      final toolReq = response1.message!.content.first.toolRequestPart!;
+
+      // 2. Resume Call with 'respond'
+      final response2 = await runGenerateAction(
+        genkit.registry,
+        GenerateActionOptions(
+          model: modelName,
+          messages: history,
+          tools: [toolName],
+          resume: GenerateResumeOptions(
+            respond: [
+              ToolResponsePart(
+                toolResponse: ToolResponse(
+                  name: toolReq.toolRequest.name,
+                  ref: toolReq.toolRequest.ref,
+                  output: 'UserConfirmedAction',
+                ),
+              ),
+            ],
+          ),
+        ),
+        (
+          streamingRequested: false,
+          sendChunk: (_) {},
+          inputStream: null,
+          init: null,
+          context: null,
+        ),
+      );
+
+      expect(response2.text, 'Resumed via Action!');
+    });
+
+    test('runGenerateAction should correctly resume using restart', () async {
+      const modelName = 'actionRestartModel';
+      const toolName = 'restartTool';
+
+      var toolCallCount = 0;
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          if (request.messages.length > 1 &&
+              request.messages.last.role == Role.tool) {
+            return ModelResponse(
+              finishReason: FinishReason.stop,
+              message: Message(
+                role: Role.model,
+                content: [TextPart(text: 'Restarted via Action!')],
+              ),
+            );
+          }
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'name': 'interrupt me'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolName,
+        description: 'Interrupts and restarts execution',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          if (toolCallCount == 0) {
+            toolCallCount++;
+            context.interrupt('CONFIRM_ME');
+          }
+          return 'ToolExecuted';
+        },
+      );
+
+      // 1. Initial Call
+      final response1 = await runGenerateAction(
+        genkit.registry,
+        GenerateActionOptions(
+          model: modelName,
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'trigger interrupt')],
+            ),
+          ],
+          tools: [toolName],
+        ),
+        (
+          streamingRequested: false,
+          sendChunk: (_) {},
+          inputStream: null,
+          init: null,
+          context: null,
+        ),
+      );
+
+      expect(response1.finishReason, FinishReason.interrupted);
+
+      final history = [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'trigger interrupt')],
+        ),
+        response1.message!,
+      ];
+
+      final toolReq = response1.message!.content.first.toolRequestPart!;
+
+      // 2. Resume Call with 'restart'
+      final response2 = await runGenerateAction(
+        genkit.registry,
+        GenerateActionOptions(
+          model: modelName,
+          messages: history,
+          tools: [toolName],
+          resume: GenerateResumeOptions(
+            restart: [ToolRequestPart(toolRequest: toolReq.toolRequest)],
+          ),
+        ),
+        (
+          streamingRequested: false,
+          sendChunk: (_) {},
+          inputStream: null,
+          init: null,
+          context: null,
+        ),
+      );
+
+      expect(response2.text, 'Restarted via Action!');
+      expect(toolCallCount, 1);
+    });
+
+    test('should validly resume from interrupt using restart', () async {
+      const modelName = 'restartModel';
+      const toolName = 'interruptTool';
+
+      var modelCallCount = 0;
+      var toolCallCount = 0;
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          modelCallCount++;
+          // If it's the resume call (history has tool response)
+          if (request.messages.last.role == Role.tool) {
+            return ModelResponse(
+              finishReason: FinishReason.stop,
+              message: Message(
+                role: Role.model,
+                content: [TextPart(text: 'Restarted!')],
+              ),
+            );
+          }
+          // Initial call
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'name': 'interrupt me'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      genkit.defineTool(
+        name: toolName,
+        description: 'Interrupts execution',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          if (toolCallCount == 0) {
+            toolCallCount++;
+            context.interrupt('CONFIRM_ME');
+          }
+          return 'ToolExecuted';
+        },
+      );
+
+      final response1 = await genkit.generate(
+        model: modelRef(modelName),
+        prompt: 'trigger interrupt',
+        toolNames: [toolName],
+      );
+
+      expect(response1.finishReason, FinishReason.interrupted);
+
+      // Construct history
+      final history = [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'trigger interrupt')],
+        ),
+        response1.message!,
+      ];
+
+      // 2. Resume Call with restart
+      final response2 = await genkit.generate(
+        model: modelRef(modelName),
+        messages: history,
+        toolNames: [toolName],
+        interruptRestart: [response1.message!.content.first.toolRequestPart!],
+      );
+
+      expect(response2.text, 'Restarted!');
+      expect(modelCallCount, 2);
+      expect(toolCallCount, 1);
+    });
+
+    test('should access metadata in tool', () async {
+      const modelName = 'metaModel';
+      const toolName = 'metaTool';
+
+      genkit.defineModel(
+        name: modelName,
+        fn: (request, context) async {
+          if (request.messages.last.role == Role.tool) {
+            return ModelResponse(
+              finishReason: FinishReason.stop,
+              message: Message(
+                role: Role.model,
+                content: [TextPart(text: 'Final response')],
+              ),
+            );
+          }
+          return ModelResponse(
+            finishReason: FinishReason.stop,
+            message: Message(
+              role: Role.model,
+              content: [
+                ToolRequestPart(
+                  toolRequest: ToolRequest(
+                    name: toolName,
+                    input: {'foo': 'bar'},
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      Map<String, dynamic>? capturedMetadata;
+      genkit.defineTool(
+        name: toolName,
+        description: 'Tool that checks metadata',
+        inputSchema: .map(.string(), .dynamicSchema()),
+        fn: (input, context) async {
+          capturedMetadata = context.toolRequest?.metadata ?? {};
+          if (context.toolRequest?.metadata?['approved'] != true) {
+            context.interrupt('NEEDS_APPROVAL');
+          }
+          return 'Metadata: ${context.toolRequest?.metadata}';
+        },
+      );
+
+      final response1 = await genkit.generate(
+        model: modelRef(modelName),
+        prompt: 'hello',
+        toolNames: [toolName],
+      );
+
+      expect(response1.finishReason, FinishReason.interrupted);
+      expect(capturedMetadata, isEmpty);
+
+      // Construct history
+      final history = [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'hello')],
+        ),
+        response1.message!,
+      ];
+
+      final toolReq = response1.message!.content.first.toolRequestPart!;
+
+      final response2 = await genkit.generate(
+        model: modelRef(modelName),
+        messages: history,
+        toolNames: [toolName],
+        interruptRestart: [
+          toolReq.withMetadata({'approved': true, 'secret': 'abc'}),
+        ],
+      );
+
+      expect(response2.text, 'Final response');
+      expect(capturedMetadata, {
+        'interrupt': 'NEEDS_APPROVAL',
+        'approved': true,
+        'secret': 'abc',
+      });
+    });
+  });
+}

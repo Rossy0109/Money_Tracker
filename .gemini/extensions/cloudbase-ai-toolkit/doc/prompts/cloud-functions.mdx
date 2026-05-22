@@ -1,0 +1,36 @@
+# 后端开发：云函数
+
+开发和部署 Node.js 云函数，包括运行时选择、部署、日志查询、HTTP 访问配置
+
+## 如何使用
+
+查看[如何使用Skill](/ai/cloudbase-ai-toolkit/prompts/how-to-use)了解详细的使用方法。
+
+### 测试 Skill
+
+你可以使用以下提示词来测试：
+
+- "帮我创建一个 CloudBase 云函数并部署"
+- "配置 CloudBase 云函数的 HTTP 访问"
+- "查询 CloudBase 云函数的执行日志"
+- "更新 CloudBase 云函数的环境变量"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="cloud-functions" />
+
+## 安装与查看
+
+如果需要安装全部 CloudBase Skills，可执行：
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+如果只安装当前 Skill，可执行：
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill cloud-functions
+```
+
+当前 Skill 在线查看： [cloud-functions](https://skills.sh/tencentcloudbase/skills/cloud-functions)

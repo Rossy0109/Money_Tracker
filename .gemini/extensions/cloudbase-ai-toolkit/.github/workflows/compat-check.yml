@@ -1,0 +1,40 @@
+name: Compat Check
+
+on:
+  pull_request:
+    paths:
+      - 'config/source/skills/**'
+      - 'config/source/guideline/**'
+      - 'config/source/editor-config/**'
+      - 'scripts/build-compat-config.mjs'
+      - 'scripts/diff-compat-config.mjs'
+      - 'scripts/update-compat-baseline.mjs'
+      - 'scripts/sync-config.mjs'
+      - 'package.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'config/source/skills/**'
+      - 'config/source/guideline/**'
+      - 'config/source/editor-config/**'
+      - 'scripts/build-compat-config.mjs'
+      - 'scripts/diff-compat-config.mjs'
+      - 'scripts/update-compat-baseline.mjs'
+      - 'scripts/sync-config.mjs'
+      - 'package.json'
+
+jobs:
+  compat-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify compatibility contract and advisory text surface drift
+        run: npm run check:compat-diff

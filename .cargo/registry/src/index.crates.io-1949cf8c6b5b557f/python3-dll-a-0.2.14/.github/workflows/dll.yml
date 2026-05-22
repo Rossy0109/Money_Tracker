@@ -1,0 +1,54 @@
+name: Collect pythonXY.dll
+
+on: workflow_dispatch
+
+jobs:
+  collect:
+    name: Collect pythonXY.dll
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: |
+              pypy3.8
+              pypy3.9
+              pypy3.10
+              pypy3.11
+              3.7
+              3.8
+              3.9
+              3.10
+              3.11
+              3.12
+              3.13
+              3.13t
+              3.14-dev
+              3.14t-dev
+          allow-prereleases: true
+      - name: Copy pythonXY.dll
+        shell: bash
+        run: |
+          set -e
+          for VER in 3.7 3.8 3.9 3.10 3.11 3.12 3.13 3.13t 3.14 3.14t; do
+            VER_NUM=$(echo $VER | sed 's/\.//')
+            PREFIX=$(py -$VER -c "import sys; print(sys.base_prefix, end='')")
+            cp "$PREFIX/python$VER_NUM.dll" .
+          done
+
+          # PyPy 3.7 & 3.8 uses libpypy3-c.dll
+          PREFIX=$(pypy3.8 -c "import sys; print(sys.base_prefix, end='')")
+          cp "$PREFIX/libpypy3-c.dll" .
+
+          # PyPy 3.9 and later use libpypy3.Y-c.dll
+          for VER in 3.9 3.10 3.11; do
+            VER_NUM=$(echo $VER | sed 's/\.//')
+            PREFIX=$(pypy$VER -c "import sys; print(sys.base_prefix, end='')")
+            cp "$PREFIX/libpypy$VER-c.dll" .
+          done
+          ls *.dll
+      - name: Upload DLLs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dll
+          path: |
+            *.dll

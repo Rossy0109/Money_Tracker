@@ -1,0 +1,657 @@
+use crate::internal::codepage::CodePage;
+use crate::internal::language::Language;
+use crate::internal::propset::{OperatingSystem, PropertySet, PropertyValue};
+use crate::internal::timestamp::Timestamp;
+use std::io::{self, Read, Seek, Write};
+use std::time::SystemTime;
+use uuid::Uuid;
+
+// ========================================================================= //
+
+// This constant is this UUID:
+//     F29F85E0-4FF9-1068-AB91-08002B27B3D9
+// Which comes from this page:
+//     https://msdn.microsoft.com/en-us/library/windows/desktop/
+//     aa380052(v=vs.85).aspx
+// The first three fields are in little-endian, and the last two in big-endian,
+// because that's how Windows encodes UUIDs.  For details, see:
+//     https://en.wikipedia.org/wiki/Universally_unique_identifier#Encoding
+const FMTID: [u8; 16] =
+    *b"\xe0\x85\x9f\xf2\xf9\x4f\x68\x10\xab\x91\x08\x00\x2b\x27\xb3\xd9";
+
+const PROPERTY_TITLE: u32 = 2;
+const PROPERTY_SUBJECT: u32 = 3;
+const PROPERTY_AUTHOR: u32 = 4;
+const PROPERTY_KEYWORDS: u32 = 5;
+const PROPERTY_COMMENTS: u32 = 6;
+const PROPERTY_TEMPLATE: u32 = 7;
+const PROPERTY_LAST_SAVED_BY: u32 = 8;
+const PROPERTY_UUID: u32 = 9;
+const PROPERTY_LAST_PRINTED: u32 = 11;
+const PROPERTY_CREATION_TIME: u32 = 12;
+const PROPERTY_LAST_SAVE_TIME: u32 = 13;
+const PROPERTY_PAGE_COUNT: u32 = 14;
+const PROPERTY_WORD_COUNT: u32 = 15;
+const PROPERTY_CHARACTER_COUNT: u32 = 16;
+const PROPERTY_CREATING_APP: u32 = 18;
+const PROPERTY_DOC_SECURITY: u32 = 19;
+
+// ========================================================================= //
+
+/// Summary information (e.g. title, author) about an MSI package.
+pub struct SummaryInfo {
+    properties: PropertySet,
+}
+
+impl SummaryInfo {
+    /// Creates an empty `SummaryInfo` with no properties set.
+    pub(crate) fn new() -> SummaryInfo {
+        let properties = PropertySet::new(OperatingSystem::Win32, 10, FMTID);
+        let mut summary = SummaryInfo { properties };
+        summary.set_codepage(CodePage::Utf8);
+        summary
+    }
+
+    pub(crate) fn read<R: Read + Seek>(reader: R) -> io::Result<SummaryInfo> {
+        let properties = PropertySet::read(reader)?;
+        if properties.format_identifier() != &FMTID {
+            invalid_data!("Property set has wrong format identifier");
+        }
+        Ok(SummaryInfo { properties })
+    }
+
+    pub(crate) fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        self.properties.write(writer)
+    }
+
+    /// Gets the architecture string from the "template" property, if one is
+    /// set. This indicates the hardware architecture that this package is
+    /// intended for (e.g. `"x64"`).
+    #[must_use]
+    pub fn arch(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_TEMPLATE) {
+            Some(PropertyValue::LpStr(template)) => {
+                let arch =
+                    template.split_once(';').map_or(&**template, |x| x.0);
+                if arch.is_empty() {
+                    None
+                } else {
+                    Some(arch)
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the architecture string in the "template" property.
+    pub fn set_arch<S: Into<String>>(&mut self, arch: S) {
+        let langs = match self.properties.get(PROPERTY_TEMPLATE) {
+            Some(PropertyValue::LpStr(template)) => {
+                let parts: Vec<&str> = template.splitn(2, ';').collect();
+                if parts.len() > 1 {
+                    parts[1].to_string()
+                } else {
+                    String::new()
+                }
+            }
+            _ => String::new(),
+        };
+        let template = format!("{};{}", arch.into(), langs);
+        self.properties.set(PROPERTY_TEMPLATE, PropertyValue::LpStr(template));
+    }
+
+    /// Clears the architecture string in the "template" property.
+    pub fn clear_arch(&mut self) {
+        self.set_arch("");
+    }
+
+    /// Gets the "author" property, if one is set.  This indicates the name of
+    /// the person or company that created the package.
+    #[must_use]
+    pub fn author(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_AUTHOR) {
+            Some(PropertyValue::LpStr(author)) => Some(author.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Sets the "author" property.
+    pub fn set_author<S: Into<String>>(&mut self, author: S) {
+        self.properties
+            .set(PROPERTY_AUTHOR, PropertyValue::LpStr(author.into()));
+    }
+
+    /// Clears the "author" property.
+    pub fn clear_author(&mut self) {
+        self.properties.remove(PROPERTY_AUTHOR);
+    }
+
+    /// Gets the code page used for serializing this summary info.
+    #[must_use]
+    pub fn codepage(&self) -> CodePage {
+        self.properties.codepage()
+    }
+
+    /// Sets the code page used for serializing this summary info.
+    pub fn set_codepage(&mut self, codepage: CodePage) {
+        self.properties.set_codepage(codepage);
+    }
+
+    /// Gets the "comments" property, if one is set.  This typically gives a
+    /// brief description of the application/software that will be installed by
+    /// the package.
+    #[must_use]
+    pub fn comments(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_COMMENTS) {
+            Some(PropertyValue::LpStr(comments)) => Some(comments.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Sets the "comments" property.
+    pub fn set_comments<S: Into<String>>(&mut self, comments: S) {
+        self.properties
+            .set(PROPERTY_COMMENTS, PropertyValue::LpStr(comments.into()));
+    }
+
+    /// Clears the "comments" property.
+    pub fn clear_comments(&mut self) {
+        self.properties.remove(PROPERTY_COMMENTS);
+    }
+
+    /// Gets the "creating application" property, if one is set.  This
+    /// indicates the name of the software application/tool that was used to
+    /// create the package.
+    #[must_use]
+    pub fn creating_application(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_CREATING_APP) {
+            Some(PropertyValue::LpStr(app_name)) => Some(app_name.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Sets the "creating application" property.
+    pub fn set_creating_application<S: Into<String>>(&mut self, app_name: S) {
+        self.properties
+            .set(PROPERTY_CREATING_APP, PropertyValue::LpStr(app_name.into()));
+    }
+
+    /// Clears the "creating application" property.
+    pub fn clear_creating_application(&mut self) {
+        self.properties.remove(PROPERTY_CREATING_APP);
+    }
+
+    /// Gets the "creation time" property, if one is set.  This indicates the
+    /// date/time when the package was created.
+    #[must_use]
+    pub fn creation_time(&self) -> Option<SystemTime> {
+        match self.properties.get(PROPERTY_CREATION_TIME) {
+            Some(&PropertyValue::FileTime(timestamp)) => {
+                Some(timestamp.to_system_time())
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the "creation time" property.
+    pub fn set_creation_time(&mut self, timestamp: SystemTime) {
+        self.properties.set(
+            PROPERTY_CREATION_TIME,
+            PropertyValue::FileTime(Timestamp::from_system_time(timestamp)),
+        );
+    }
+
+    /// Sets the "creation time" property to the current time.
+    pub fn set_creation_time_to_now(&mut self) {
+        self.set_creation_time(SystemTime::now());
+    }
+
+    /// Clears the "creation time" property.
+    pub fn clear_creation_time(&mut self) {
+        self.properties.remove(PROPERTY_CREATION_TIME);
+    }
+
+    /// Gets the "Last Printed" property, if one is set.
+    #[must_use]
+    pub fn last_printed(&self) -> Option<SystemTime> {
+        match self.properties.get(PROPERTY_LAST_PRINTED) {
+            Some(&PropertyValue::FileTime(timestamp)) => {
+                Some(timestamp.to_system_time())
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the "Last Printed" property.
+    pub fn set_last_printed(&mut self, timestamp: SystemTime) {
+        self.properties.set(
+            PROPERTY_LAST_PRINTED,
+            PropertyValue::FileTime(Timestamp::from_system_time(timestamp)),
+        );
+    }
+
+    /// Sets the "Last Printed" property to the current time.
+    pub fn set_last_printed_to_now(&mut self) {
+        self.set_last_printed(SystemTime::now());
+    }
+
+    /// Clears the "Last Printed" property.
+    pub fn clear_last_printed(&mut self) {
+        self.properties.remove(PROPERTY_LAST_PRINTED);
+    }
+
+    /// Gets the "last save time" property, if one is set.  This indicates the
+    /// date/time when the package was last saved.
+    // TODO: Deduplicate the code for the FileTime properties as these all have the same functions
+    // just with different property names. Want to get this thing working first though.
+    #[must_use]
+    pub fn last_saved_time(&self) -> Option<SystemTime> {
+        match self.properties.get(PROPERTY_LAST_SAVE_TIME) {
+            Some(&PropertyValue::FileTime(timestamp)) => {
+                Some(timestamp.to_system_time())
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the "last save time" property.
+    pub fn set_last_save_time(&mut self, timestamp: SystemTime) {
+        self.properties.set(
+            PROPERTY_LAST_SAVE_TIME,
+            PropertyValue::FileTime(Timestamp::from_system_time(timestamp)),
+        );
+    }
+
+    /// Sets the "last save time" property to the current time.
+    pub fn set_last_save_time_to_now(&mut self) {
+        self.set_last_save_time(SystemTime::now());
+    }
+
+    /// Clears the "last save time" property.
+    pub fn clear_last_save_time(&mut self) {
+        self.properties.remove(PROPERTY_LAST_SAVE_TIME);
+    }
+
+    /// Gets the list of languages from the "template" property, if one is set.
+    /// This indicates the languages that this package supports.
+    pub fn languages(&self) -> Vec<Language> {
+        match self.properties.get(PROPERTY_TEMPLATE) {
+            Some(PropertyValue::LpStr(template)) => {
+                let parts: Vec<&str> = template.splitn(2, ';').collect();
+                if parts.len() > 1 {
+                    parts[1]
+                        .split(',')
+                        .filter_map(|code| code.parse().ok())
+                        .map(Language::from_code)
+                        .collect()
+                } else {
+                    Vec::new()
+                }
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Sets the list of languages in the "template" property.
+    pub fn set_languages(&mut self, languages: &[Language]) {
+        let mut template = match self.properties.get(PROPERTY_TEMPLATE) {
+            Some(PropertyValue::LpStr(template)) => template
+                .split_once(';')
+                .map_or(&**template, |x| x.0)
+                .to_string(),
+            _ => String::new(),
+        };
+        template.push(';');
+        let mut first = true;
+        for language in languages {
+            if first {
+                first = false;
+            } else {
+                template.push(',');
+            }
+            template.push_str(&format!("{}", language.code()));
+        }
+        self.properties.set(PROPERTY_TEMPLATE, PropertyValue::LpStr(template));
+    }
+
+    /// Clears the list of languages in the "template" property.
+    pub fn clear_languages(&mut self) {
+        self.set_languages(&[]);
+    }
+
+    /// Gets the list of keywords
+    pub fn keywords(&self) -> Vec<String> {
+        if let Some(PropertyValue::LpStr(keywords)) =
+            self.properties.get(PROPERTY_KEYWORDS)
+        {
+            if !keywords.is_empty() {
+                return keywords
+                    .split("; ")
+                    .map(str::trim_end)
+                    .map(String::from)
+                    .collect();
+            }
+        }
+        Vec::new()
+    }
+
+    /// Sets the list of keywords
+    pub fn set_keywords(&mut self, keywords: &[String]) {
+        self.properties
+            .set(PROPERTY_KEYWORDS, PropertyValue::LpStr(keywords.join("; ")));
+    }
+
+    /// Clears the list of keywords from the keyword property except for the required default
+    /// value.
+    pub fn clear_keywords(&mut self) {
+        self.set_keywords(&[]);
+    }
+
+    /// Gets the "subject" property, if one is set.  This typically indicates
+    /// the name of the application/software that will be installed by the
+    /// package.
+    #[must_use]
+    pub fn subject(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_SUBJECT) {
+            Some(PropertyValue::LpStr(subject)) => Some(subject.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Sets the "subject" property.
+    pub fn set_subject<S: Into<String>>(&mut self, subject: S) {
+        self.properties
+            .set(PROPERTY_SUBJECT, PropertyValue::LpStr(subject.into()));
+    }
+
+    /// Clears the "subject" property.
+    pub fn clear_subject(&mut self) {
+        self.properties.remove(PROPERTY_SUBJECT);
+    }
+
+    /// Gets the "title" property, if one is set.  This indicates the type of
+    /// the installer package (e.g. "Installation Database" or "Patch").
+    #[must_use]
+    pub fn title(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_TITLE) {
+            Some(PropertyValue::LpStr(title)) => Some(title.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Sets the "title" property.
+    pub fn set_title<S: Into<String>>(&mut self, title: S) {
+        self.properties
+            .set(PROPERTY_TITLE, PropertyValue::LpStr(title.into()));
+    }
+
+    /// Clears the "title" property.
+    pub fn clear_title(&mut self) {
+        self.properties.remove(PROPERTY_TITLE);
+    }
+
+    /// Gets the "UUID" property, if one is set.
+    #[must_use]
+    pub fn uuid(&self) -> Option<Uuid> {
+        match self.properties.get(PROPERTY_UUID) {
+            Some(PropertyValue::LpStr(string)) => {
+                let trimmed =
+                    string.trim_start_matches('{').trim_end_matches('}');
+                Uuid::parse_str(trimmed).ok()
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the "UUID" property.
+    pub fn set_uuid(&mut self, uuid: Uuid) {
+        let mut string = format!("{{{}}}", uuid.hyphenated());
+        string.make_ascii_uppercase();
+        self.properties.set(PROPERTY_UUID, PropertyValue::LpStr(string));
+    }
+
+    /// Clears the "UUID" property.
+    pub fn clear_uuid(&mut self) {
+        self.properties.remove(PROPERTY_UUID);
+    }
+
+    /// Gets the "Word Count" property, if one is set.
+    #[must_use]
+    pub fn word_count(&self) -> Option<i32> {
+        match self.properties.get(PROPERTY_WORD_COUNT) {
+            Some(PropertyValue::I4(word_count)) => Some(*word_count),
+            _ => None,
+        }
+    }
+
+    /// Sets the "Word Count" property.
+    pub fn set_word_count(&mut self, word_count: i32) {
+        self.properties
+            .set(PROPERTY_WORD_COUNT, PropertyValue::I4(word_count));
+    }
+
+    /// Clears the "Word Count" property.
+    pub fn clear_word_count(&mut self) {
+        self.properties.remove(PROPERTY_WORD_COUNT);
+    }
+
+    /// Gets the "Page Count" property, if one is set.
+    #[must_use]
+    pub fn page_count(&self) -> Option<i32> {
+        match self.properties.get(PROPERTY_PAGE_COUNT) {
+            Some(PropertyValue::I4(page_count)) => Some(*page_count),
+            _ => None,
+        }
+    }
+
+    /// Sets the "Page Count" property.
+    pub fn set_page_count(&mut self, page_count: i32) {
+        self.properties
+            .set(PROPERTY_PAGE_COUNT, PropertyValue::I4(page_count));
+    }
+
+    /// Clears the "Page Count" property.
+    pub fn clear_page_count(&mut self) {
+        self.properties.remove(PROPERTY_PAGE_COUNT);
+    }
+
+    /// Gets the "Security" property, if one is set.
+    #[must_use]
+    pub fn doc_security(&self) -> Option<i32> {
+        match self.properties.get(PROPERTY_DOC_SECURITY) {
+            Some(PropertyValue::I4(doc_security)) => Some(*doc_security),
+            _ => None,
+        }
+    }
+
+    /// Sets the "Security" property.
+    pub fn set_doc_security(&mut self, doc_security: i32) {
+        self.properties
+            .set(PROPERTY_DOC_SECURITY, PropertyValue::I4(doc_security));
+    }
+
+    /// Clears the "Security" property.
+    pub fn clear_doc_security(&mut self) {
+        self.properties.remove(PROPERTY_DOC_SECURITY);
+    }
+
+    /// Gets the "Character Count" property, if one is set.
+    #[must_use]
+    pub fn character_count(&self) -> Option<i32> {
+        match self.properties.get(PROPERTY_CHARACTER_COUNT) {
+            Some(PropertyValue::I4(character_count)) => Some(*character_count),
+            _ => None,
+        }
+    }
+
+    /// Sets the "Character Count" property.
+    pub fn set_character_count(&mut self, character_count: i32) {
+        self.properties
+            .set(PROPERTY_CHARACTER_COUNT, PropertyValue::I4(character_count));
+    }
+
+    /// Clears the "Character Count" property.
+    pub fn clear_character_count(&mut self) {
+        self.properties.remove(PROPERTY_CHARACTER_COUNT);
+    }
+
+    /// Gets the "Last Saved By" property, if one is set.
+    #[must_use]
+    pub fn last_saved_by(&self) -> Option<&str> {
+        match self.properties.get(PROPERTY_LAST_SAVED_BY) {
+            Some(PropertyValue::LpStr(last_saved_by)) => {
+                Some(last_saved_by.as_str())
+            }
+            _ => None,
+        }
+    }
+
+    /// Sets the "Last Saved By" property.
+    pub fn set_last_saved_by<S: Into<String>>(&mut self, last_saved_by: S) {
+        self.properties.set(
+            PROPERTY_LAST_SAVED_BY,
+            PropertyValue::LpStr(last_saved_by.into()),
+        );
+    }
+
+    /// Clears the "Last Saved By" property.
+    pub fn clear_last_saved_by(&mut self) {
+        self.properties.remove(PROPERTY_LAST_SAVED_BY);
+    }
+}
+
+// ========================================================================= //
+
+#[cfg(test)]
+mod tests {
+    use super::SummaryInfo;
+    use crate::internal::{
+        language::Language,
+        summary::{
+            PROPERTY_CREATION_TIME, PROPERTY_LAST_PRINTED,
+            PROPERTY_LAST_SAVE_TIME,
+        },
+    };
+    use std::time::{Duration, UNIX_EPOCH};
+    use uuid::Uuid;
+
+    #[test]
+    fn set_properties() {
+        let languages = vec![
+            Language::from_tag("en-CA"),
+            Language::from_tag("fr-CA"),
+            Language::from_tag("en-US"),
+            Language::from_tag("es-MX"),
+        ];
+        let uuid =
+            Uuid::parse_str("0000002a-000c-0005-0c03-0938362b0809").unwrap();
+
+        let mut summary_info = SummaryInfo::new();
+        summary_info.set_title("Installation Package");
+        summary_info.set_subject("My Great App");
+        summary_info.set_author("Jane Doe");
+        summary_info
+            .set_keywords(&["Test", "Package"].map(ToString::to_string));
+        summary_info.set_comments("This app is the greatest!");
+        summary_info.set_arch("x64");
+        summary_info.set_languages(&languages);
+        summary_info.set_last_saved_by("John Doe");
+        summary_info.set_uuid(uuid);
+        let last_printed_timestamp =
+            UNIX_EPOCH + Duration::from_secs(PROPERTY_LAST_PRINTED as u64);
+        summary_info.set_last_printed(last_printed_timestamp);
+        let creation_timestamp =
+            UNIX_EPOCH + Duration::from_secs(PROPERTY_CREATION_TIME as u64);
+        summary_info.set_creation_time(creation_timestamp);
+        let last_save_timestamp =
+            UNIX_EPOCH + Duration::from_secs(PROPERTY_LAST_SAVE_TIME as u64);
+        summary_info.set_last_save_time(last_save_timestamp);
+        summary_info.set_page_count(500);
+        summary_info.set_word_count(8);
+        summary_info.set_character_count(12);
+        summary_info.set_creating_application("cargo-test");
+        summary_info.set_doc_security(2);
+
+        assert_eq!(summary_info.title(), Some("Installation Package"));
+        assert_eq!(summary_info.subject(), Some("My Great App"));
+        assert_eq!(summary_info.author(), Some("Jane Doe"));
+        assert_eq!(
+            summary_info.keywords(),
+            Vec::from(["Test", "Package"].map(ToString::to_string))
+        );
+        assert_eq!(summary_info.comments(), Some("This app is the greatest!"));
+        assert_eq!(summary_info.arch(), Some("x64"));
+        assert_eq!(summary_info.languages(), languages);
+        assert_eq!(summary_info.last_saved_by(), Some("John Doe"));
+        assert_eq!(summary_info.uuid(), Some(uuid));
+        assert_eq!(summary_info.last_printed(), Some(last_printed_timestamp));
+        assert_eq!(summary_info.creation_time(), Some(creation_timestamp));
+        assert_eq!(summary_info.last_saved_time(), Some(last_save_timestamp));
+        assert_eq!(summary_info.page_count(), Some(500));
+        assert_eq!(summary_info.word_count(), Some(8));
+        assert_eq!(summary_info.character_count(), Some(12));
+        assert_eq!(summary_info.creating_application(), Some("cargo-test"));
+        assert_eq!(summary_info.doc_security(), Some(2));
+
+        summary_info.clear_title();
+        assert_eq!(summary_info.title(), None);
+        summary_info.clear_subject();
+        assert_eq!(summary_info.subject(), None);
+        summary_info.clear_author();
+        assert_eq!(summary_info.author(), None);
+        summary_info.clear_keywords();
+        assert_eq!(summary_info.keywords(), Vec::<String>::new());
+        summary_info.clear_comments();
+        assert_eq!(summary_info.comments(), None);
+        summary_info.clear_arch();
+        assert_eq!(summary_info.arch(), None);
+        summary_info.clear_languages();
+        assert_eq!(summary_info.languages(), Vec::new());
+        summary_info.clear_last_saved_by();
+        assert_eq!(summary_info.last_saved_by(), None);
+        summary_info.clear_uuid();
+        assert_eq!(summary_info.uuid(), None);
+        summary_info.clear_last_printed();
+        assert_eq!(summary_info.last_printed(), None);
+        summary_info.clear_creation_time();
+        assert_eq!(summary_info.creation_time(), None);
+        summary_info.clear_last_save_time();
+        assert_eq!(summary_info.last_saved_time(), None);
+        summary_info.clear_page_count();
+        assert_eq!(summary_info.page_count(), None);
+        summary_info.clear_word_count();
+        assert_eq!(summary_info.word_count(), None);
+        summary_info.clear_character_count();
+        assert_eq!(summary_info.character_count(), None);
+        summary_info.clear_creating_application();
+        assert_eq!(summary_info.creating_application(), None);
+        summary_info.clear_doc_security();
+        assert_eq!(summary_info.doc_security(), None);
+    }
+
+    #[test]
+    fn template_property() {
+        // Set language before setting arch:
+        let mut summary_info = SummaryInfo::new();
+        assert_eq!(summary_info.arch(), None);
+        summary_info.set_languages(&[Language::from_tag("en")]);
+        assert_eq!(summary_info.arch(), None);
+        assert_eq!(summary_info.languages(), vec![Language::from_tag("en")]);
+        summary_info.set_arch("Intel");
+        assert_eq!(summary_info.arch(), Some("Intel"));
+        assert_eq!(summary_info.languages(), vec![Language::from_tag("en")]);
+
+        // Set arch before setting language:
+        let mut summary_info = SummaryInfo::new();
+        assert_eq!(summary_info.languages(), vec![]);
+        assert_eq!(summary_info.arch(), None);
+        summary_info.set_arch("Intel");
+        assert_eq!(summary_info.languages(), vec![]);
+        assert_eq!(summary_info.arch(), Some("Intel"));
+        summary_info.set_languages(&[Language::from_tag("en")]);
+        assert_eq!(summary_info.languages(), vec![Language::from_tag("en")]);
+        assert_eq!(summary_info.arch(), Some("Intel"));
+    }
+}
+
+// ========================================================================= //

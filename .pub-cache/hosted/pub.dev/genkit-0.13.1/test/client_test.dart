@@ -1,0 +1,352 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// ignore_for_file: avoid_dynamic_calls
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:genkit/client.dart';
+import 'package:http/http.dart' as http;
+import 'package:mockito/annotations.dart';
+import 'package:mockito/mockito.dart';
+import 'package:test/test.dart';
+
+@GenerateMocks([http.Client])
+import 'client_test.mocks.dart';
+import 'schemas/my_schemas.dart';
+import 'schemas/stream_schemas.dart';
+
+void main() {
+  late MockClient mockClient;
+  late RemoteAction<String, String, String, void> testAction;
+
+  setUp(() {
+    mockClient = MockClient();
+    testAction = RemoteAction(
+      url: 'http://localhost:3400/test',
+      httpClient: mockClient,
+      fromResponse: (data) => data as String,
+      fromStreamChunk: (data) => data['chunk'] as String,
+    );
+  });
+
+  group('RemoteAction - Core Functionality', () {
+    group('call method', () {
+      test('should handle successful response', () async {
+        final input = 'test input';
+        final expectedOutput = 'test output';
+
+        when(
+          mockClient.post(
+            Uri.parse('http://localhost:3400/test'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'data': input}),
+          ),
+        ).thenAnswer(
+          (_) async =>
+              http.Response(jsonEncode({'result': expectedOutput}), 200),
+        );
+
+        final result = await testAction(input: input);
+        expect(result, expectedOutput);
+      });
+
+      test('should send custom headers', () async {
+        final input = 'test input';
+        final customHeaders = {'Authorization': 'Bearer token'};
+
+        when(
+          mockClient.post(
+            any,
+            headers: anyNamed('headers'),
+            body: anyNamed('body'),
+          ),
+        ).thenAnswer(
+          (_) async => http.Response(jsonEncode({'result': 'success'}), 200),
+        );
+
+        await testAction(input: input, headers: customHeaders);
+
+        verify(
+          mockClient.post(
+            any,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer token',
+            },
+            body: anyNamed('body'),
+          ),
+        ).called(1);
+      });
+    });
+
+    group('stream method', () {
+      test('should handle streaming response', () async {
+        final input = 'stream input';
+        final expectedChunks = ['chunk1', 'chunk2', 'chunk3'];
+        final expectedResponse = 'final response';
+
+        final responseBody =
+            '${expectedChunks.map((chunk) => 'data: ${jsonEncode({
+              'message': {'chunk': chunk},
+            })}').join('\n\n')}\n\ndata: ${jsonEncode({'result': expectedResponse})}\n\n';
+
+        when(mockClient.send(any)).thenAnswer((_) async {
+          return http.StreamedResponse(
+            Stream.fromIterable([responseBody.codeUnits]),
+            200,
+          );
+        });
+
+        final stream = testAction.stream(input: input);
+        final chunks = <String>[];
+
+        await for (final chunk in stream) {
+          chunks.add(chunk);
+        }
+
+        final finalResponse = stream.result;
+
+        expect(chunks, expectedChunks);
+        expect(finalResponse, expectedResponse);
+      });
+    });
+  });
+
+  group('RemoteAction - Error Handling', () {
+    test('should throw GenkitException on HTTP error status', () async {
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: anyNamed('body'),
+        ),
+      ).thenAnswer((_) async => http.Response('Server Error', 500));
+
+      expect(
+        () => testAction(input: 'test'),
+        throwsA(
+          isA<GenkitException>().having(
+            (e) => e.statusCode,
+            'statusCode',
+            StatusCodes.INTERNAL.value,
+          ),
+        ),
+      );
+    });
+
+    test('should throw GenkitException on invalid JSON response', () async {
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: anyNamed('body'),
+        ),
+      ).thenAnswer((_) async => http.Response('invalid json', 200));
+
+      expect(
+        () => testAction(input: 'test'),
+        throwsA(
+          isA<GenkitException>().having(
+            (e) => e.message,
+            'message',
+            contains('Failed to decode JSON'),
+          ),
+        ),
+      );
+    });
+
+    test('should throw GenkitException on network error', () async {
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: anyNamed('body'),
+        ),
+      ).thenThrow(Exception('Network error'));
+
+      expect(
+        () => testAction(input: 'test'),
+        throwsA(
+          isA<GenkitException>().having(
+            (e) => e.message,
+            'message',
+            contains('HTTP request failed'),
+          ),
+        ),
+      );
+    });
+
+    test('should throw GenkitException on server error response', () async {
+      final errorResponse = {
+        'error': {'message': 'Flow execution failed'},
+      };
+
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: anyNamed('body'),
+        ),
+      ).thenAnswer((_) async => http.Response(jsonEncode(errorResponse), 200));
+
+      expect(
+        () => testAction(input: 'test'),
+        throwsA(
+          isA<GenkitException>().having(
+            (e) => e.message,
+            'message',
+            'Flow execution failed',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('RemoteAction - Type Safety', () {
+    test('should handle typed objects', () async {
+      final typedAction =
+          RemoteAction<MyInput, MyOutput, TestStreamChunk, void>(
+            url: 'http://localhost:3400/typed',
+            httpClient: mockClient,
+            fromResponse: (data) =>
+                MyOutput.fromJson(data as Map<String, dynamic>),
+            fromStreamChunk: (data) =>
+                TestStreamChunk.fromJson(data as Map<String, dynamic>),
+          );
+
+      final input = MyInput(message: 'test', count: 1);
+      final expectedOutput = MyOutput(reply: 'processed', newCount: 2);
+
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: jsonEncode({'data': input.toJson()}),
+        ),
+      ).thenAnswer(
+        (_) async =>
+            http.Response(jsonEncode({'result': expectedOutput.toJson()}), 200),
+      );
+
+      final result = await typedAction(input: input);
+
+      expect(result.reply, expectedOutput.reply);
+      expect(result.newCount, expectedOutput.newCount);
+    });
+  });
+
+  group('defineRemoteAction helper function', () {
+    test('should create RemoteAction instance', () {
+      final action = defineRemoteAction(
+        url: 'http://localhost:3400/helper',
+        inputSchema: .string(),
+        fromResponse: (data) => data as String,
+      );
+
+      expect(action, isA<RemoteAction<dynamic, String, dynamic, dynamic>>());
+    });
+
+    test('should set default headers', () {
+      final defaultHeaders = {'X-API-Key': 'test-key'};
+
+      final action = defineRemoteAction(
+        url: 'http://localhost:3400/helper',
+        fromResponse: (data) => data as String,
+        defaultHeaders: defaultHeaders,
+      );
+
+      expect(action, isA<RemoteAction<dynamic, String, dynamic, dynamic>>());
+    });
+
+    test('should work with SchemanticType', () async {
+      final action = defineRemoteAction(
+        url: 'http://localhost:3400/test',
+        inputSchema: .string(),
+        httpClient: mockClient,
+        outputSchema: .string(),
+      );
+
+      when(
+        mockClient.post(
+          any,
+          headers: anyNamed('headers'),
+          body: anyNamed('body'),
+        ),
+      ).thenAnswer(
+        (_) async => http.Response(jsonEncode({'result': 'success'}), 200),
+      );
+
+      final result = await action(input: 'input');
+      expect(result, 'success');
+    });
+
+    test('should work with SchemanticType for streaming', () async {
+      final action = defineRemoteAction(
+        url: 'http://localhost:3400/stream',
+        httpClient: mockClient,
+        inputSchema: .string(),
+        outputSchema: .string(),
+        streamSchema: .string(),
+      );
+
+      final expectedChunks = ['chunk1', 'chunk2'];
+      final expectedResponse = 'done';
+      final responseBody =
+          '${expectedChunks.map((chunk) => 'data: ${jsonEncode({'message': chunk})}').join('\n\n')}\n\ndata: ${jsonEncode({'result': expectedResponse})}\n\n';
+
+      when(mockClient.send(any)).thenAnswer((_) async {
+        return http.StreamedResponse(
+          Stream.fromIterable([responseBody.codeUnits]),
+          200,
+        );
+      });
+
+      final stream = action.stream(input: 'start');
+      final chunks = <String>[];
+      await for (final chunk in stream) {
+        chunks.add(chunk);
+      }
+
+      expect(chunks, expectedChunks);
+      expect(await stream.onResult, expectedResponse);
+    });
+
+    test('should validate mutually exclusive options', () {
+      expect(
+        () => defineRemoteAction(
+          url: 'http://localhost:3400/helper',
+          fromResponse: (data) => data as String,
+          outputSchema: .string(),
+        ),
+        throwsArgumentError,
+      );
+
+      expect(
+        () => defineRemoteAction(
+          url: 'http://localhost:3400/test',
+          fromResponse: (d) => d as String,
+          fromStreamChunk: (d) => d as String,
+          streamSchema: .string(),
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  tearDown(() {
+    reset(mockClient);
+  });
+}

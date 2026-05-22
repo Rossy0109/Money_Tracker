@@ -1,0 +1,6 @@
+{
+  "source": "https://github.com/gemini-cli-extensions/jules",
+  "type": "github-release",
+  "autoUpdate": true,
+  "releaseTag": "v0.1.0"
+}

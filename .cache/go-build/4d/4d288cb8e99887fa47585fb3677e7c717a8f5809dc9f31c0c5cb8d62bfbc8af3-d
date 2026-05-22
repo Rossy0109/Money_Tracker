@@ -1,0 +1,6 @@
+./analytics.go
+./api.go
+./batch.go
+./buckets.go
+./objects.go
+./vector.go

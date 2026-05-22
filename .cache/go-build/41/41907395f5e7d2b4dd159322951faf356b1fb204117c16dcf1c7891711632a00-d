@@ -1,0 +1,4 @@
+./client.go
+./client_gen.go
+./cursorparams.go
+./types_gen.go

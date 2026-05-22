@@ -1,0 +1,12 @@
+node_modules/
+.next/
+*.db
+__pycache__/
+.env
+.gemini/
+.mcp.json
+audit_report.json
+client/node_modules/
+client/build/
+storage/
+downloads/

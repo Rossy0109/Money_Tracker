@@ -1,0 +1,12 @@
+./batch.go
+./conn.go
+./copy_from.go
+./doc.go
+./extended_query_builder.go
+./go_stdlib.go
+./large_objects.go
+./logger.go
+./messages.go
+./rows.go
+./tx.go
+./values.go

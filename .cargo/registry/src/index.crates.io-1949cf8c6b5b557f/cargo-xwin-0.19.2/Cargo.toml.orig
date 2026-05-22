@@ -1,0 +1,51 @@
+[package]
+name = "cargo-xwin"
+version = "0.19.2"
+edition = "2024"
+description = "Cross compile Cargo project to Windows MSVC target with ease"
+license = "MIT"
+keywords = ["windows", "cargo", "msvc"]
+readme = "README.md"
+repository = "https://github.com/rust-cross/cargo-xwin"
+rust-version = "1.85"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }.{ target }.{ archive-format }"
+
+[dependencies]
+anyhow = "1.0.53"
+cargo-config2 = "0.1.4"
+cargo-options = "0.7.6"
+clap = { version = "4.3.0", features = [
+    "derive",
+    "env",
+    "wrap_help",
+    "unstable-styles",
+] }
+dirs = "6.0.0"
+fs-err = "3.0.0"
+humantime = "2.1.0"
+indicatif = "0.17.2"
+paste = "1.0.12"
+path-slash = "0.2.0"
+serde = { version = "1.0.216", features = ["derive"] }
+tar = "0.4.43"
+tracing-subscriber = { version = "0.3.17", features = ["fmt"] }
+ureq = { version = "3.0.12", default-features = false, features = [
+    "gzip",
+    "json",
+    "socks-proxy",
+] }
+which = "8.0.0"
+xwin = { version = "0.6.6", default-features = false }
+xz2 = "0.1.7"
+
+[features]
+# By default we use rustls for TLS
+default = ["rustls-tls", "xz2/static"]
+rustls-tls = ["ureq/rustls", "ureq/platform-verifier"]
+# If this feature is enabled we instead use the native TLS implementation for the
+# target platform
+native-tls = ["ureq/native-tls"]

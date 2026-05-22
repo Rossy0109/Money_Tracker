@@ -1,0 +1,6 @@
+./chip.go
+./colors.go
+./count.go
+./note.go
+./output.go
+./str.go

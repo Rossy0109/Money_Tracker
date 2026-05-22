@@ -1,0 +1,24 @@
+[package]
+name = "rfc2047-decoder"
+description = "Rust library for decoding RFC 2047 MIME Message Headers."
+version = "1.1.0"
+authors = ["soywod <clement.douin@posteo.net>", "TornaxO7 <tornax07@gmail.com>"]
+edition = "2018"
+repository = "https://github.com/TornaxO7/rfc2047-decoder"
+documentation = "https://docs.rs/rfc2047-decoder"
+homepage = "https://github.com/TornaxO7/rfc2047-decoder"
+categories = ["email", "encoding", "parsing", "parser-implementations"]
+keywords = ["rfc2047", "mime", "header", "decoder", "decoding"]
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "rfc2047_decoder"
+
+[dependencies]
+base64 = "0.22"
+charset = "0.1"
+chumsky = "0.12"
+memchr = "2.5"
+quoted_printable = "0.5"
+thiserror = "2.0"

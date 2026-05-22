@@ -1,30 +1,14 @@
-// app.js - Definitive Ultimate Edition: Full Logic + Redirect Fix
-const SUPABASE_URL = window.__ENV?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
-const SUPABASE_KEY = window.__ENV?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY');
-
-if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_KEY === 'your_project_url') {
-    const url = prompt("Enter Supabase URL:");
-    const key = prompt("Enter Supabase Anon Key:");
-    if (url && key) {
-        localStorage.setItem('SUPABASE_URL', url);
-        localStorage.setItem('SUPABASE_KEY', key);
-        location.reload();
-    }
-}
-
-const { createClient } = window.supabase;
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+import { supabaseClient } from './src/modules/supabase.js';
+import { handleAuth, toggleAuthMode, logout, getUser } from './src/modules/auth.js';
 
 // --- Global State ---
-let user = null;
-let isSignup = false;
 let currentLang = localStorage.getItem('app_lang') || 'en';
 let currency = localStorage.getItem('base_currency') || '৳';
 let charts = { main: null, pie: null };
 let allTransactions = [];
 
-const DICTIONARY = {
-    en: {
+// ... [Dictionary remains the same] ...
+
         "auth.login": "Login", "auth.signup": "Sign Up", "auth.email": "Email", "auth.password": "Password", "auth.github": "Login with GitHub", "auth.or": "OR EMAIL", "auth.signup_link": "Don't have an account? Sign Up", "auth.login_link": "Already have an account? Login",
         "nav.dashboard": "Dashboard", "nav.add": "Add", "nav.accounting": "Accounting", "nav.reports": "Reports", "nav.lab": "Lab", "nav.settings": "Settings", "nav.logout": "Logout",
         "dash.balance": "Total Balance", "dash.income": "Income", "dash.expense": "Expense", "dash.assistant_title": "🤖 Financial Assistant", "dash.visuals": "📊 Visual Analytics", "dash.recent": "Recent Transactions", "dash.search": "Search...", "dash.load_more": "Load More", "dash.view_period": "View Period:", "dash.loading": "Loading your financial pulse...",
@@ -50,94 +34,55 @@ const DICTIONARY = {
     }
 };
 
-const DEFAULT_CATEGORIES = [
-    { name: 'পারিবারিক: দৈনিক বাজার', type: 'expense' }, { name: 'পারিবারিক: ইউটিলিটি', type: 'expense' }, { name: 'ব্যবসায়িক: ঠিকাদারী', type: 'expense' }, { name: 'নিয়মিত: বেতন', type: 'expense' }, { name: 'আয়: বেতন', type: 'income' }, { name: 'আয়: ব্যবসা', type: 'income' }, { name: 'আয়: বার্ষিক ভাড়া', type: 'income' }, { name: 'অন্যান্য: বিবিধ', type: 'expense' }
-];
-
-// --- DOM ---
+// --- DOM Initialization ---
 const authForm = document.getElementById('auth-form');
 const transactionForm = document.getElementById('transaction-form');
 const transactionList = document.getElementById('transaction-list');
 const dashboardMonth = document.getElementById('dashboard-month');
 dashboardMonth.value = new Date().toISOString().substring(0, 7);
 
-// --- Localization ---
-function applyLocales() {
-    document.querySelectorAll('[data-i18n]').forEach(el => el.innerText = DICTIONARY[currentLang][el.getAttribute('data-i18n')] || el.innerText);
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => el.placeholder = DICTIONARY[currentLang][el.getAttribute('data-i18n-placeholder')] || el.placeholder);
-}
+// --- Event Listeners & State Binding ---
 document.getElementById('lang-toggle-btn').onclick = () => { currentLang = currentLang === 'en' ? 'bn' : 'en'; localStorage.setItem('app_lang', currentLang); applyLocales(); fetchData(); };
 
-// --- Auth ---
-async function handleAuth(e) {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    console.log("Auth attempt:", { email, isSignup });
-    
-    const { data, error } = isSignup 
-        ? await supabaseClient.auth.signUp({ email, password }) 
-        : await supabaseClient.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-        console.error("Supabase Auth Error:", error);
-        alert("Login/Signup Error: " + error.message);
-    } else {
-        console.log("Auth success!", data);
-    }
-}
 authForm.onsubmit = handleAuth;
 document.getElementById('github-login-btn').onclick = () => supabaseClient.auth.signInWithOAuth({ 
     provider: 'github',
     options: { redirectTo: window.location.origin } 
 });
+
 document.getElementById('toggle-auth').onclick = () => {
-    isSignup = !isSignup;
+    toggleAuthMode(!isSignup);
     document.getElementById('auth-title').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
     document.getElementById('submit-btn').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
     document.getElementById('toggle-auth').innerText = isSignup ? DICTIONARY[currentLang]["auth.login_link"] : DICTIONARY[currentLang]["auth.signup_link"];
 };
-document.getElementById('logout-btn').onclick = () => supabaseClient.auth.signOut();
+document.getElementById('logout-btn').onclick = () => logout();
 
 // --- Data ---
 async function fetchData() {
-    console.log("fetchData triggered, user:", user);
-    if (!user) {
-        console.warn("No user, fetchData skipped");
-        return;
-    }
+    const user = getUser();
+    if (!user) return;
+    
     applyLocales();
     updateCategoryOptions();
 
     const selectedMonth = dashboardMonth.value;
-    console.log("Fetching transactions for:", selectedMonth);
-    
-    const { data: txs, error } = await supabaseClient.from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('occurred_at', { ascending: false });
-    
-    if (error) {
-        console.error("Supabase Data Error:", error);
+    try {
+        const txs = await fetchTransactions(user.id);
+        const filtered = txs.filter(t => t.occurred_at.startsWith(selectedMonth));
+        let inc = 0, exp = 0;
+        filtered.forEach(t => { if (t.type === 'income') inc += parseFloat(t.amount); else exp += parseFloat(t.amount); });
+
+        document.getElementById('total-balance').innerText = `${currency}${(inc - exp).toFixed(0)}`;
+        document.getElementById('total-income').innerText = `${currency}${inc.toFixed(0)}`;
+        document.getElementById('total-expense').innerText = `${currency}${exp.toFixed(0)}`;
+
+        renderTransactions(filtered.slice(0, 10));
+        renderCharts(filtered);
+        updateAssistant(inc, exp, filtered);
+    } catch (error) {
         alert("Data load error: " + error.message);
-        return;
     }
-    
-    console.log("Transactions loaded:", txs);
-    allTransactions = txs || [];
-    
-    const filtered = allTransactions.filter(t => t.occurred_at.startsWith(selectedMonth));
-    let inc = 0, exp = 0;
-    filtered.forEach(t => { if (t.type === 'income') inc += parseFloat(t.amount); else exp += parseFloat(t.amount); });
-
-    document.getElementById('total-balance').innerText = `${currency}${(inc - exp).toFixed(0)}`;
-    document.getElementById('total-income').innerText = `${currency}${inc.toFixed(0)}`;
-    document.getElementById('total-expense').innerText = `${currency}${exp.toFixed(0)}`;
-
-    renderTransactions(filtered.slice(0, 10));
-    renderCharts(filtered);
-    updateAssistant(inc, exp, filtered);
 }
 dashboardMonth.onchange = fetchData;
 document.getElementById('type').onchange = fetchData;
@@ -159,14 +104,16 @@ function renderTransactions(list) {
     `).join('') || `<p class="text-muted">${currentLang === 'en' ? 'No transactions.' : 'কোন লেনদেন নেই।'}</p>`;
 }
 
-async function deleteTransaction(id) {
+async function handleDelete(id) {
     if (!confirm("Delete this transaction?")) return;
-    const { error } = await supabaseClient.from('transactions').delete().eq('id', id);
-    if (error) alert("Delete error: " + error.message);
-    else fetchData();
+    try {
+        await deleteTx(id);
+        fetchData();
+    } catch (error) {
+        alert("Delete error: " + error.message);
+    }
 }
-
-window.deleteTransaction = deleteTransaction;
+window.deleteTransaction = handleDelete;
 
 document.getElementById('tx-search').oninput = (e) => {
     const q = e.target.value.toLowerCase();
@@ -230,9 +177,9 @@ async function fetchAccountingData() {
 // --- Auth and Data Initialization ---
 async function initApp() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    user = session?.user;
+    setUser(session?.user);
     
-    if (user) {
+    if (getUser()) {
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         await fetchData();
@@ -243,16 +190,14 @@ async function initApp() {
 }
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
-    user = session?.user;
-    if (user) {
+    setUser(session?.user);
+    if (getUser()) {
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         fetchData();
-        if (localStorage.getItem('app_pin')) document.getElementById('pin-overlay').classList.remove('hidden');
     } else {
         document.getElementById('auth-section').classList.remove('hidden');
         document.getElementById('app-section').classList.add('hidden');
-        document.getElementById('pin-overlay').classList.add('hidden');
     }
 });
 
@@ -319,6 +264,8 @@ document.getElementById('zakat-assets').oninput = (e) => document.getElementById
 document.getElementById('print-btn').onclick = () => window.print();
 document.getElementById('pdf-btn').onclick = () => window.print(); // Simple PDF fallback
 document.getElementById('export-btn').onclick = async () => {
-    const { data } = await supabaseClient.from('transactions').select('*').eq('user_id', user.id);
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' })); a.download = 'backup.json'; a.click();
+    const user = getUser();
+    const transactions = await fetchTransactions(user.id);
+    const categories = await fetchCategories(user.id);
+    exportData(transactions, categories);
 };

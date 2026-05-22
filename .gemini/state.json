@@ -1,0 +1,13 @@
+{
+  "defaultBannerShownCount": {
+    "99b5387c226beb91d5b8940c5a23fe84b765697991ebb69f908d0938da542947": 5,
+    "fa657983c0322a3c78542d2f891d32754f9a08380f66d03ff52487f410227e03": 5,
+    "3a1e05807b0856d4df68c0fc49c8afe0e2993dc0afac4118f162fe3f87de5083": 5,
+    "0bb64b0e8440afc305a336bede152f9389ede841378cda7df768c6b35b16ce11": 5
+  },
+  "tipsShown": 10,
+  "startupWarningCounts": {
+    "home-directory": 1
+  },
+  "focusUiEnabled": false
+}

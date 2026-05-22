@@ -1,0 +1,35 @@
+# 应用集成：微信小程序
+
+微信小程序开发、tabBar 配置与 CloudBase 集成
+
+## 如何使用
+
+查看[如何使用Skill](/ai/cloudbase-ai-toolkit/prompts/how-to-use)了解详细的使用方法。
+
+### 测试 Skill
+
+你可以使用以下提示词来测试：
+
+- "帮我创建一个微信小程序项目并集成 CloudBase"
+- "实现小程序与 CloudBase 的完整集成"
+- "我想把微信小程序 tabBar 调整为纯文字样式，怎么去掉图标占位并消除标签上方留白？"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="miniprogram-development" />
+
+## 安装与查看
+
+如果需要安装全部 CloudBase Skills，可执行：
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+如果只安装当前 Skill，可执行：
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill miniprogram-development
+```
+
+当前 Skill 在线查看： [miniprogram-development](https://skills.sh/tencentcloudbase/skills/miniprogram-development)

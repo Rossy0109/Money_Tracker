@@ -1,0 +1,46 @@
+[package]
+name = "cargo-zigbuild"
+version = "0.22.1"
+edition = "2024"
+description = "Compile Cargo project with zig as linker"
+license = "MIT"
+keywords = ["zig", "cargo"]
+readme = "README.md"
+repository = "https://github.com/rust-cross/cargo-zigbuild"
+rust-version = "1.88"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.53"
+cargo-config2 = "0.1.24"
+cargo-options = "0.7.4"
+cargo_metadata = "0.23.1"
+clap = { version = "4.3.0", features = ["derive", "env", "wrap_help", "unstable-styles"] }
+crc = "3.2.1"
+dirs = "6.0.0"
+fat-macho = { version = "0.4.6", default-features = false, optional = true }
+fs-err = "3.0.0"
+goblin = { version = "0.10.5", default-features = false, features = ["mach32", "mach64", "std"] }
+path-slash = "0.2.0"
+rustc_version = "0.4.0"
+rustflags = "0.1.6"
+scroll = "0.13"
+semver = "1.0.5"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
+shell-words = "1.1.1"
+target-lexicon = { version = "0.13.0", features = ["std"] }
+which = "8.0.0"
+
+[features]
+default = ["universal2"]
+universal2 = ["fat-macho"]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[dev-dependencies]
+tempfile = "3.25.0"

@@ -1,0 +1,70 @@
+name: Update python.def
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Collect pythonXY.dll
+    types:
+      - completed
+  schedule:
+    # Run every week
+    - cron: '0 0 * * 0'
+
+jobs:
+  update-stable-abi:
+    name: Update stable_abi.toml
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Fetch latest stable_abi.toml
+      run: |
+        curl https://raw.githubusercontent.com/python/cpython/main/Misc/stable_abi.toml > stable_abi.toml
+    - name: Install Python TOML parser
+      run: |
+        pip install tomli
+    - name: Parse stable_abi.toml to produce python3.def
+      run: |
+        ./parse-stable-abi.py < stable_abi.toml > src/python3.def
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v4
+      with:
+        branch: update-stable-abi
+        delete-branch: true
+        add-paths: |
+          src/python3.def
+        title: 'Update python3.def using stable_abi.toml from the latest main'
+        commit-message: 'chore: Update python3.def using stable_abi.toml from the latest main'
+        body: 'Source: https://raw.githubusercontent.com/python/cpython/main/Misc/stable_abi.toml'
+
+  update-pythonxy:
+    name: Update pythonXY.def
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install gendef
+      run: |
+        sudo apt-get install -y mingw-w64-tools
+    - name: Download DLLs
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: dll.yml
+        workflow_conclusion: success
+    - name: Generate DEF
+      shell: bash
+      run: |
+        set -e
+        for f in dll/*.dll; do
+          gendef $f
+        done
+        ls -lrth *.def
+        mv *.def src/
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v4
+      with:
+        branch: update-pythonxy
+        delete-branch: true
+        add-paths: |
+          src/*.def
+        title: 'Update pythonXY.def'
+        commit-message: 'chore: Update pythonXY.def'

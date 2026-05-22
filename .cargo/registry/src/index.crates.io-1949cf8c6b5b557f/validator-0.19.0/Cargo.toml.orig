@@ -1,0 +1,30 @@
+[package]
+name = "validator"
+version = "0.19.0"
+authors = ["Vincent Prouillet <hello@vincentprouillet.com"]
+license = "MIT"
+description = "Common validation functions (email, url, length, ...) and trait - to be used with `validator_derive`"
+homepage = "https://github.com/Keats/validator"
+repository = "https://github.com/Keats/validator"
+keywords = ["validation", "api", "validator"]
+edition = "2021"
+readme = "../README.md"
+
+[dependencies]
+url = "2"
+regex = { version = "1", default-features = false, features = ["std"] }
+once_cell = "1.18.0"
+idna = "1"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+validator_derive = { version = "0.19", path = "../validator_derive", optional = true }
+card-validate = { version = "2.3", optional = true }
+unic-ucd-common = { version = "0.9", optional = true }
+indexmap = { version = "2.0.0", features = ["serde"], optional = true }
+
+[features]
+card = ["card-validate"]
+unic = ["unic-ucd-common"]
+derive = ["validator_derive"]
+derive_nightly_features = ["derive","validator_derive/nightly_features"]

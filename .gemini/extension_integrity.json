@@ -1,0 +1,53 @@
+{
+  "store": {
+    "github": {
+      "hash": "5079a8b42152410e07a2ebd7247d257d78a8937d0f45a03cbc4b11f4299f7899",
+      "signature": "be297ec313d3b667f0982b9047c7b5b9b3267a3454542d814dd4be489eb235f1"
+    },
+    "bigquery-data-analytics": {
+      "hash": "e51150ebf049c100807f4e212bf40c539f7373ccf1397610264ca45b26cd3393",
+      "signature": "4729852a50c3b7b64e49114d0f7bd1e9f4a497389b2721c6ac603f64b78f7878"
+    },
+    "google-workspace-cli": {
+      "hash": "f3b173b7a40c3e1e1304cbe9b3bb6f719121891d6afed93874ba3e48a6b4808e",
+      "signature": "76309b7c74d99f6e563fa393b0f29e5167ce6f8d3216dbc94ede51c2784ee17c"
+    },
+    "context7": {
+      "hash": "0531462feae59b635dc26ab658615d34c3c692045da611111da647d5642a7749",
+      "signature": "6aa1eca5d32f7bd54b052f0b4e829d16c969101a540c7f040512e1a5c752a927"
+    },
+    "cloudbase-ai-toolkit": {
+      "hash": "3f32fb8fa1a76d91d8b20f3b95080daa67ca5674d1cbbd9ee946326204dcdd66",
+      "signature": "8a43864ef48854cf8794a826660367f1590ad574d87cb8555628b8b8b71850ec"
+    },
+    "unifi-mcp": {
+      "hash": "9dbddb1c38257058fc632179957fdc2e4b217c9efc3625febb0a49912d4753c9",
+      "signature": "d963b51e9d63f98cd59a6ea5d8d9478374a3de2e2f96c7e9e7127c8f0fad71e4"
+    },
+    "mcp-toolbox-for-databases": {
+      "hash": "218dc2eebbfa664c4c2139073ccf7ff6844d942ae64ee4c77a1ae71512d672fd",
+      "signature": "0e36cf8698a23043b347aef297358db5987ddc1a7c9c47dae7021e478c34682b"
+    },
+    "supabase": {
+      "hash": "e35e04d7a21c787631e36d2ca6555bebace035c8f6614ca7034c377ed9be63d2",
+      "signature": "b1ac7430f72bde08b12401bc3fbbd46284684979fc34859ff7b9444463c02145"
+    },
+    "vercel-mcp": {
+      "hash": "0080cc810df4c0123fcd52ce4c9e72bf96b0f8ac2aae77704dc153257644fbe7",
+      "signature": "76a34ad3568fdafadeb6d80af3763ec28f8b758cb93ce10eb280db424182094c"
+    },
+    "render-com-mcp": {
+      "hash": "f07a8b30bd235b915c1e0094f2540c9b8774ddecbec1bb9d95a6cceeaa49d175",
+      "signature": "24fd4c286c9765d8952efa3be0750a887f5c4c974795ad51420574bfdb75bd72"
+    },
+    "firebase": {
+      "hash": "a12ba7dc7bf55525d10355dde8dfe326db8d04adc7de655b1a99f2257d156fb1",
+      "signature": "4cfb39df7aa3d154f83995690ff0e6073a3f331d4ad1f4639e16758e2ad053c9"
+    },
+    "cloud-run": {
+      "hash": "471e4584e3620ec97f7feef4c62595e9afc612e7856befd24cf3250d6e62e680",
+      "signature": "d4b4db7cd06bdececa8126ffde668d70860b76c09196d542c4e5e91392460033"
+    }
+  },
+  "signature": "fb2dc2f88c3517993e69a76e935778f915a1425402ff10836128223168de38ed"
+}

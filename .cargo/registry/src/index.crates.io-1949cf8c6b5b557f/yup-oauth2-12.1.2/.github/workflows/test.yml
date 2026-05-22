@@ -1,0 +1,54 @@
+on: [push, pull_request]
+
+name: Actions CI
+
+jobs:
+  build_and_test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["service_account,hyper-rustls,ring",
+        "service_account,hyper-rustls,aws-lc-rs",
+        "service_account,hyper-tls,ring", "service_account,hyper-tls,aws-lc-rs",
+        "hyper-rustls,ring"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - run: cargo test --no-default-features --features ${{ matrix.features }}
+
+  doc:
+    name: Create docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+      - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: --cfg docsrs -D warnings
+
+  fmt:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - run: cargo fmt -- --check
+  
+  clippy:
+    name: Run clippy lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo clippy --all-features --all-targets -- -D warnings

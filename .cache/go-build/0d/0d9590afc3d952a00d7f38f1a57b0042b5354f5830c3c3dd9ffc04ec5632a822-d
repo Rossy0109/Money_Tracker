@@ -1,0 +1,6 @@
+./previews.go
+./runtime.go
+./secretfile.go
+./servicecreate.go
+./servicetype.go
+./serviceupdate.go

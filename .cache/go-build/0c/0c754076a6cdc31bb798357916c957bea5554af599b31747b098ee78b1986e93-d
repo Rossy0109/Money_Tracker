@@ -1,0 +1,5 @@
+./deploy.go
+./envvar.go
+./ipallowlist.go
+./region.go
+./util.go

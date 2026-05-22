@@ -1,0 +1,6 @@
+{
+  "name": "vercel-mcp",
+  "version": "1.0.0",
+  "description": "A Gemini CLI extension for Vercel's official MCP server.",
+  "license": "GPLv3"
+}

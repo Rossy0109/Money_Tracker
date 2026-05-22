@@ -9,8 +9,18 @@
   --border: #e2e8f0;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --card: #1f2937;
+    --text: #f9fafb;
+    --text-muted: #9ca3af;
+    --border: #374151;
+  }
+}
 
+* { box-sizing: border-box; margin: 0; padding: 0; }
+...
 body {
   font-family: 'Inter', sans-serif;
   background-color: var(--bg);

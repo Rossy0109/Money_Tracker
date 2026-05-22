@@ -1,0 +1,142 @@
+[package]
+name = "rpds"
+description = "Persistent data structures with structural sharing"
+version = "1.1.1"
+authors = ["Diogo Sousa <diogogsousa@gmail.com>"]
+
+edition = "2024"
+rust-version = "1.85.0"
+
+homepage = "https://github.com/orium/rpds"
+repository = "https://github.com/orium/rpds"
+documentation = "https://docs.rs/rpds"
+readme = "README.md"
+
+keywords = ["data-structure", "data-structures", "persistent", "immutable", "no_std"]
+categories = ["data-structures"]
+
+license = "MPL-2.0"
+
+# What to include when packaging.
+include = [
+    "/src/**/*.rs",
+    "/benches/**/*.rs",
+    "/Cargo.toml",
+    "/LICENSE.md",
+    "/README.md",
+    "/release-notes.md",
+]
+
+[badges]
+codecov = { repository = "orium/rpds", branch = "main", service = "github" }
+
+[dependencies]
+archery = { version = "1.2.1", features = ["triomphe"] }
+serde = { version = "1.0.219", optional = true, default-features = false }
+
+[dev-dependencies]
+criterion = "0.5.1"
+pretty_assertions = "1.4.1"
+rand = "0.9.0"
+# Needed to test serde:
+serde_json = "1.0.140"
+static_assertions = "1.1.0"
+
+[features]
+default = ["std"]
+fatal-warnings = []
+std = []
+
+[lints.clippy]
+all = { level = "warn", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -2 }
+
+enum-glob-use = "allow"
+if-not-else = "allow"
+match-bool = "allow"
+match-same-arms = "allow"
+missing-panics-doc = "allow"
+module-name-repetitions = "allow"
+multiple-bound-locations = "allow"
+similar-names = "allow"
+single-match-else = "allow"
+struct-field-names = "allow"
+type-complexity = "allow"
+type-repetition-in-bounds = "allow"
+unnested-or-patterns = "allow"
+use-self = "allow"
+wildcard-imports = "allow"
+
+[lints.rustdoc]
+# TODO This is only needed because `cargo-rdme` requires a path like `crate::⋯`. Once that limitation is lifted we
+#      can remove this.
+redundant-explicit-links = "allow"
+
+[package.metadata.docs.rs]
+features = ["serde"]
+
+[lib]
+# Disable libtest to make sure criterion can parse the command line flags.
+# See https://bheisler.github.io/criterion.rs/book/faq.html and https://github.com/rust-lang/rust/issues/47241.
+bench = false
+
+[[bench]]
+name = "std_linked_list"
+harness = false
+
+[[bench]]
+name = "rpds_list"
+harness = false
+
+[[bench]]
+name = "rpds_list_sync"
+harness = false
+
+[[bench]]
+name = "std_vec"
+harness = false
+
+[[bench]]
+name = "rpds_queue"
+harness = false
+
+[[bench]]
+name = "rpds_queue_sync"
+harness = false
+
+[[bench]]
+name = "std_vec_deque"
+harness = false
+
+[[bench]]
+name = "rpds_vector"
+harness = false
+
+[[bench]]
+name = "rpds_vector_sync"
+harness = false
+
+[[bench]]
+name = "std_hash_map"
+harness = false
+
+[[bench]]
+name = "rpds_hash_trie_map"
+harness = false
+
+[[bench]]
+name = "rpds_hash_trie_map_sync"
+harness = false
+
+[[bench]]
+name = "std_btree_map"
+harness = false
+
+[[bench]]
+name = "rpds_red_black_tree_map"
+harness = false
+
+[[bench]]
+name = "rpds_red_black_tree_map_sync"
+harness = false

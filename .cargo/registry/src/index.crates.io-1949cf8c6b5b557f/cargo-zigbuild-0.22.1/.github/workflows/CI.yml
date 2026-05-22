@@ -1,0 +1,282 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+name: CI
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --all
+
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.zig == 'master' || matrix.toolchain == 'nightly' || matrix.os == 'windows-latest' }}
+    strategy:
+      # If one platform fails, allow the rest to keep testing if `CI-no-fail-fast` label is present
+      fail-fast: ${{ !contains(github.event.pull_request.labels.*.name, 'CI-no-fail-fast') }}
+      matrix:
+        os: [ubuntu-latest, macos-15, windows-latest]
+        toolchain: [1.88.0, stable, nightly]
+        zig: [0.11.0, 0.15.2, master]
+        exclude:
+          # Only test MSRV with zig stable version
+          - toolchain: 1.88.0
+            zig: master
+    env:
+      RUST_BACKTRACE: "1"
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jlumbroso/free-disk-space@main
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          docker-images: false
+      - name: setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: dtolnay/rust-toolchain@master
+        id: rustup
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ matrix.zig }}
+          use-cache: false
+      - name: Install LLVM and Clang
+        if: ${{ !startsWith(matrix.os, 'macos') }}
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "21"
+      - name: Install LLVM and Clang
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          brew install llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+      - name: Install mingw-w64 (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+      - name: Install mingw-w64 (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install mingw-w64
+      - run: cargo build
+      - name: Install Rust targets
+        shell: bash
+        run: |
+          rustup target add aarch64-unknown-linux-gnu \
+            x86_64-unknown-linux-gnu \
+            i686-unknown-linux-gnu \
+            arm-unknown-linux-gnueabihf \
+            armv7-unknown-linux-gnueabihf \
+            aarch64-apple-darwin \
+            x86_64-apple-darwin \
+            x86_64-pc-windows-gnu
+      - name: Test bindgen
+        shell: bash
+        run: |
+          set -e
+          git clone --recurse-submodules https://github.com/gyscos/zstd-rs.git tests/zstd-rs
+          cargo run zigbuild --manifest-path tests/zstd-rs/Cargo.toml --features bindgen --target aarch64-unknown-linux-gnu
+          cargo run zigbuild --manifest-path tests/zstd-rs/Cargo.toml --features bindgen --target x86_64-pc-windows-gnu
+          cargo run zigbuild --manifest-path tests/zstd-rs/Cargo.toml --features bindgen --target aarch64-apple-darwin
+      - name: Test bindgen-exhaustive
+        shell: bash
+        run: |
+          set -e
+          cargo run zigbuild --manifest-path tests/bindgen-exhaustive/Cargo.toml --target aarch64-unknown-linux-gnu
+          cargo run zigbuild --manifest-path tests/bindgen-exhaustive/Cargo.toml --target x86_64-pc-windows-gnu
+          cargo run zigbuild --manifest-path tests/bindgen-exhaustive/Cargo.toml --target aarch64-apple-darwin
+      - name: Install x86-instruction-set-analyzer
+        uses: taiki-e/install-action@v2
+        with:
+          tool: x86-instruction-set-analyzer@0.1.0
+      - name: Test RUSTFLAGS
+        shell: bash
+        run: |
+          set -e
+          cargo build  # Build without RUSTFLAGS
+
+          echo "Running -C target_cpu=x86-64..."
+          echo
+          export RUSTFLAGS="-C target_cpu=x86-64"
+          target/debug/cargo-zigbuild zigbuild --manifest-path tests/target-cpu/Cargo.toml --target x86_64-unknown-linux-gnu --release
+          x86-instruction-set-analyzer tests/target-cpu/target/x86_64-unknown-linux-gnu/release/target-cpu | tee output.txt
+          echo
+          if grep -q 'AVX2' output.txt; then
+            echo "Test fail, should not contain AVX2 instruction set"
+            false
+          else
+            echo "Test pass"
+          fi
+
+          echo "Running -C target_cpu=x86-64-v4..."
+          echo
+          export RUSTFLAGS="-C target_cpu=x86-64-v4"
+          target/debug/cargo-zigbuild zigbuild --manifest-path tests/target-cpu/Cargo.toml --target x86_64-unknown-linux-gnu --release
+          x86-instruction-set-analyzer tests/target-cpu/target/x86_64-unknown-linux-gnu/release/target-cpu | tee output.txt
+          echo
+          if ! grep -q 'AVX2' output.txt; then
+            echo "Test fail, should contain AVX2 instruction set"
+            false
+          else
+            echo "Test pass"
+          fi
+      - name: macOS - Test build
+        run: |
+          cargo run zigbuild --target aarch64-apple-darwin
+          cargo run zigbuild --target aarch64-apple-darwin --release
+      - name: macOS - Test build universal2
+        run: cargo run zigbuild --target universal2-apple-darwin
+      - name: macOS - Test build with SDKROOT
+        # Zig 0.14+ doesn't properly configure framework search paths for cross-compilation
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.zig == '0.11.0' }}
+        env:
+          SDK: MacOSX11.3.sdk
+        run: |
+          set -e
+          curl -sqL https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/$SDK.tar.xz | tar -Jx
+          export SDKROOT=$PWD/$SDK
+
+          cargo run zigbuild --target aarch64-apple-darwin --manifest-path tests/hello-tls/Cargo.toml
+          cargo run zigbuild --target aarch64-apple-darwin --manifest-path tests/hello-rustls/Cargo.toml
+      - name: macOS - Test build bindgen with SDKROOT
+        # Only test with Zig 0.11.0 due to framework linking issues in Zig 0.14+
+        # See: https://github.com/ziglang/zig/issues/25010
+        # Zig 0.14+ doesn't properly configure framework search paths for cross-compilation
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.zig == '0.11.0' }}
+        env:
+          SDK: MacOSX11.3.sdk
+        run: cargo run zigbuild --manifest-path tests/zstd-rs/Cargo.toml --features bindgen --target aarch64-apple-darwin
+      - name: Linux - Test x86_64 build
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo run zigbuild --target x86_64-unknown-linux-gnu
+          ldd -r -v ./target/x86_64-unknown-linux-gnu/debug/cargo-zigbuild
+      - name: Linux - Test x86_64 glibc build
+        if: ${{ matrix.os == 'ubuntu-latest' && (matrix.toolchain == 'stable' || matrix.toolchain == 'nightly') }}
+        run: |
+          cargo run zigbuild --target x86_64-unknown-linux-gnu.2.17
+      - name: Linux - Test x86_64 glibc run
+        if: ${{ matrix.os == 'ubuntu-latest' && (matrix.toolchain == 'stable' || matrix.toolchain == 'nightly') }}
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/io -w /io centos:7 bash -c \
+            "ldd -r -v ./target/x86_64-unknown-linux-gnu/debug/cargo-zigbuild && \
+             ./target/x86_64-unknown-linux-gnu/debug/cargo-zigbuild --help"
+      - name: Linux - Test glibc build
+        run: |
+          cargo run zigbuild --target aarch64-unknown-linux-gnu
+          cargo run zigbuild --target aarch64-unknown-linux-gnu.2.17
+
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/hello-cmake/Cargo.toml
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/hello-rustls/Cargo.toml
+          cargo run zigbuild --target armv7-unknown-linux-gnueabihf --manifest-path tests/hello-rustls/Cargo.toml
+          cargo run zigbuild --target arm-unknown-linux-gnueabihf --manifest-path tests/hello-rustls/Cargo.toml
+          cargo run zigbuild --target i686-unknown-linux-gnu --manifest-path tests/hello-rustls/Cargo.toml
+
+          # Test building shared library
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/libhello/Cargo.toml
+      - name: Linux - Test glibc run/test
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Install qemu for `cargo-zigbuild run` support
+          sudo apt-get update
+          sudo apt-get install -y qemu-user qemu-user-static gcc-aarch64-linux-gnu binfmt-support
+          sudo update-binfmts --enable qemu-aarch64
+          export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
+
+          cargo run run --target aarch64-unknown-linux-gnu --manifest-path tests/hello-rustls/Cargo.toml
+          cargo run test --target aarch64-unknown-linux-gnu --manifest-path tests/hello-rustls/Cargo.toml
+      - name: Test aws-lc-rs build
+        if: ${{ matrix.os != 'windows-latest' && matrix.zig != '0.11.0' }}
+        env:
+          # See https://github.com/aws/aws-lc-rs/issues/512
+          AWS_LC_SYS_NO_ASM: "1"
+        run: |
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/hello-aws-lc-rs/Cargo.toml
+      - name: Test aws-lc-rs build for macOS
+        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.zig != '0.11.0' }}
+        env:
+          AWS_LC_SYS_NO_ASM: "1"
+          SDK: MacOSX11.3.sdk
+        run: |
+          set -e
+          curl -sqL https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/$SDK.tar.xz | tar -Jx
+          export SDKROOT=$PWD/$SDK
+          cargo run zigbuild --target aarch64-apple-darwin --manifest-path tests/hello-aws-lc-rs/Cargo.toml
+      - name: Test aws-lc-rs build for macOS (native)
+        if: ${{ startsWith(matrix.os, 'macos') && matrix.zig != '0.11.0' }}
+        env:
+          AWS_LC_SYS_NO_ASM: "1"
+        run: |
+          cargo run zigbuild --target aarch64-apple-darwin --manifest-path tests/hello-aws-lc-rs/Cargo.toml
+      - name: Linux - Test glibc build openssl
+        if: matrix.os != 'windows-latest'
+        run: |
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/hello-tls/Cargo.toml
+      - name: Linux - Test musl libc build
+        run: |
+          rustup target add aarch64-unknown-linux-musl
+          cargo run zigbuild --target aarch64-unknown-linux-musl
+          cargo run zigbuild --target aarch64-unknown-linux-musl --manifest-path tests/hello-rustls/Cargo.toml
+      - name: Windows - Test gnu build
+        if: ${{ matrix.zig != 'master' }}
+        run: |
+          cargo run zigbuild --target x86_64-pc-windows-gnu
+          cargo run zigbuild --target x86_64-pc-windows-gnu --manifest-path tests/hello-windows/Cargo.toml
+      - name: Windows - Test build curl
+        if: matrix.os == 'windows-latest'
+        run: |
+          cargo run zigbuild --target aarch64-unknown-linux-gnu --manifest-path tests/hello-rustls/Cargo.toml --features curl
+      - name: Windows - Test run
+        if: ${{ matrix.os == 'windows-latest' && matrix.zig != 'master' }}
+        run: |
+          ./target/x86_64-pc-windows-gnu/debug/cargo-zigbuild.exe zigbuild --help
+          ./tests/hello-windows/target/x86_64-pc-windows-gnu/debug/hello-windows.exe
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --all-features
+
+  spellcheck:
+    name: spellcheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: codespell-project/actions-codespell@master

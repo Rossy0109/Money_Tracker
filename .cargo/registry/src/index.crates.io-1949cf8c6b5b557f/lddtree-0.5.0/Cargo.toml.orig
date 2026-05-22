@@ -1,0 +1,18 @@
+[package]
+name = "lddtree"
+version = "0.5.0"
+edition = "2024"
+description = "Read the ELF dependency tree"
+license = "MIT"
+keywords = ["ldd", "elf"]
+readme = "README.md"
+repository = "https://github.com/messense/lddtree-rs"
+rust-version = "1.85.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fs-err = "3.0.0"
+glob = "0.3.0"
+goblin = "0.10.3"
+memmap2 = "0.9"

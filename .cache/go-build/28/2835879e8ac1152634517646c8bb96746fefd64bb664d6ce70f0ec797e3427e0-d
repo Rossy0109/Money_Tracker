@@ -1,0 +1,7 @@
+./apply.go
+./drop.go
+./dump.go
+./file.go
+./history.go
+./list.go
+./seed.go
