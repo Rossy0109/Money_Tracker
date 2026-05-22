@@ -17,7 +17,6 @@ const nextConfig = {
   },
   // Ensure we are NOT using output: 'export'
   // output: 'export', 
-  turbopack: {},
   // Disable static page generation to avoid prerender errors with Context hooks
   experimental: {
     // This often helps with dynamic context apps
