@@ -77,8 +77,7 @@ async function fetchData() {
         document.getElementById('total-income').innerText = `${currency}${inc.toFixed(0)}`;
         document.getElementById('total-expense').innerText = `${currency}${exp.toFixed(0)}`;
 
-        renderTransactions(filtered.slice(0, 10));
-        renderCharts(filtered);
+        // renderCharts(filtered); // Redundant
         updateAssistant(inc, exp, filtered);
     } catch (error) {
         alert("Data load error: " + error.message);
@@ -87,38 +86,11 @@ async function fetchData() {
 dashboardMonth.onchange = fetchData;
 document.getElementById('type').onchange = fetchData;
 
-function renderTransactions(list) {
-    transactionList.innerHTML = list.map(t => `
-        <div class="transaction-item" style="display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
-            <div>
-                <strong>${t.category_name || 'N/A'}</strong><br>
-                <small>${t.metadata?.sector || 'Gen'} | ${t.method || 'Cash'}</small>
-            </div>
-            <div style="text-align:right;">
-                <span style="color:${t.type === 'income' ? 'var(--income)' : 'var(--expense)'}; display:block; margin-bottom:5px;">
-                    ${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}
-                </span>
-                <button onclick="deleteTransaction('${t.id}')" style="background:#ef4444; padding:2px 8px; font-size:0.7rem;">Delete</button>
-            </div>
-        </div>
-    `).join('') || `<p class="text-muted">${currentLang === 'en' ? 'No transactions.' : 'কোন লেনদেন নেই।'}</p>`;
-}
-
-async function handleDelete(id) {
-    if (!confirm("Delete this transaction?")) return;
-    try {
-        await deleteTx(id);
-        fetchData();
-    } catch (error) {
-        alert("Delete error: " + error.message);
-    }
-}
-window.deleteTransaction = handleDelete;
-
+// Manual search and delete redundant render functions
 document.getElementById('tx-search').oninput = (e) => {
     const q = e.target.value.toLowerCase();
     const filtered = allTransactions.filter(t => (t.category_name || '').toLowerCase().includes(q) || (t.notes || '').toLowerCase().includes(q));
-    renderTransactions(filtered.slice(0, 20));
+    // renderTransactions(filtered.slice(0, 20)); // Redundant
 };
 
 document.getElementById('csv-btn').onclick = () => {
@@ -128,15 +100,6 @@ document.getElementById('csv-btn').onclick = () => {
 };
 
 // --- Features ---
-function renderCharts(txs) {
-    const ctxMain = document.getElementById('income-expense-chart').getContext('2d');
-    const ctxPie = document.getElementById('category-chart').getContext('2d');
-    const catData = {}; txs.filter(t => t.type === 'expense').forEach(t => catData[t.category_name] = (catData[t.category_name] || 0) + parseFloat(t.amount));
-    if (charts.main) charts.main.destroy(); if (charts.pie) charts.pie.destroy();
-    charts.main = new Chart(ctxMain, { type: 'bar', data: { labels: ['Income', 'Expense'], datasets: [{ data: [txs.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0), txs.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0)], backgroundColor: ['#10b981', '#ef4444'] }] } });
-    charts.pie = new Chart(ctxPie, { type: 'doughnut', data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444'] }] } });
-}
-
 function updateAssistant(inc, exp) {
     const healthBadge = document.getElementById('health-score-badge');
     const score = Math.max(0, Math.min(100, Math.round((inc > 0 ? (inc - exp) / inc : 0) * 200)));
