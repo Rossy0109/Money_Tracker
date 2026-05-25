@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "unifi-mcp": {
-      "type": "http",
-      "url": "${UNIFI_MCP_URL}"
-    }
-  }
-}

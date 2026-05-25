@@ -30,4 +30,35 @@ build/
 Thumbs.db
 .vercel
 .env*.local
+
+# Local Tools and Extensions
+.gemini/
+.pyenv/
+claude-skills/
+money_tracker_temp_2/
+simple/
+vertex-ai-creative-studio/
 Foot_Print_of_Money/Gcloud-SDK
+
+# Cache and Config
+.cache/
+.config/
+.npm/
+.cargo/
+.bash_history
+.node_repl_history
+.wget-hsts
+.pub-cache/
+.dartServer/
+.pytest_cache/
+.local/
+.mcp-auth/
+
+# Language specific
+go/
+cli/
+node_modules/
+dist/
+build/
+.next/
+out/

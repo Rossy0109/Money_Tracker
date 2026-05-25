@@ -1,3 +1,0 @@
-prompt = """
-Use the `list_adk_servers` tool to list the configured ADK servers.
-"""

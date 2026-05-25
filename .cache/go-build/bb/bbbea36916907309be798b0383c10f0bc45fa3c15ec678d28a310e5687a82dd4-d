@@ -1,9 +1,0 @@
-./loader.go
-./tasklist.go
-./taskrun.go
-./taskrunlist.go
-./types.go
-./versionlist.go
-./versionrelease.go
-./workflowcreate.go
-./workflowlist.go

@@ -1,5 +1,0 @@
-./interpolate.go
-./loader.go
-./merge.go
-./volume.go
-./windows_path.go

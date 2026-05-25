@@ -1,5 +1,0 @@
-prompt = """
-Run the `debug_deployment_issues` or `fix_recent_build` prompt.
-Analyze the latest build logs using `get_deployment_build_logs` if necessary.
-Explain the error and suggest a fix in Chinese (unless requested otherwise).
-"""

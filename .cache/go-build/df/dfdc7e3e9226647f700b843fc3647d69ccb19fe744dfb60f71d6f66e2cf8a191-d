@@ -1,4 +1,0 @@
-./keyring.go
-./keyring_fallback.go
-./keyring_mock.go
-./keyring_unix.go

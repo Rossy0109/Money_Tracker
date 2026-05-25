@@ -1,2 +1,0 @@
-bin.name = "cargo-mimic"
-args = "doc --help"

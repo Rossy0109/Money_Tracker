@@ -1,3 +1,0 @@
-./commandconn.go
-./pdeathsig_linux.go
-./session_unix.go

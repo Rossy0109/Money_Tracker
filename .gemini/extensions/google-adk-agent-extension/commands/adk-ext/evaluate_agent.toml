@@ -1,3 +1,0 @@
-prompt = """
-Use the `evaluate_agent` tool to evaluate an ADK agent. The user's arguments `{{args}}` will contain the agent path and the evaluation set path.
-"""
