@@ -7,8 +7,9 @@ let currency = localStorage.getItem('base_currency') || '৳';
 let charts = { main: null, pie: null };
 let allTransactions = [];
 
-// ... [Dictionary remains the same] ...
-
+// --- Localization Dictionary ---
+const dict = {
+    en: {
         "auth.login": "Login", "auth.signup": "Sign Up", "auth.email": "Email", "auth.password": "Password", "auth.github": "Login with GitHub", "auth.or": "OR EMAIL", "auth.signup_link": "Don't have an account? Sign Up", "auth.login_link": "Already have an account? Login",
         "nav.dashboard": "Dashboard", "nav.add": "Add", "nav.accounting": "Accounting", "nav.reports": "Reports", "nav.lab": "Lab", "nav.settings": "Settings", "nav.logout": "Logout",
         "dash.balance": "Total Balance", "dash.income": "Income", "dash.expense": "Expense", "dash.assistant_title": "🤖 Financial Assistant", "dash.visuals": "📊 Visual Analytics", "dash.recent": "Recent Transactions", "dash.search": "Search...", "dash.load_more": "Load More", "dash.view_period": "View Period:", "dash.loading": "Loading your financial pulse...",

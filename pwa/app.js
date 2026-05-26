@@ -972,7 +972,6 @@ function renderProjectionChart(labels, base, opt) {
             plugins: { legend: { labels: { color: textColor } } } 
         }
     });
-};
 }
 
 function populateDropdowns() {

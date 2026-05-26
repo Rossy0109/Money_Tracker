@@ -1,4 +1,4 @@
-const CACHE_NAME = 'money-footprint-v1';
+const CACHE_NAME = 'money-footprint-v2';
 const ASSETS = [
   './',
   './index.html',
