@@ -1,7 +1,7 @@
 import { supabaseClient } from './supabase.js';
 
 let user = null;
-let isSignup = false;
+export let isSignup = false;
 
 export function getUser() { return user; }
 export function setUser(newUser) { user = newUser; }

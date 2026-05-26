@@ -17,14 +17,20 @@ export default [
       ".gemini/**",
       "pwa_tests/**",
       ".pub-cache/**",
-      "claude-skills/**"
+      "claude-skills/**",
+      ".aider-desk/**",
+      ".cloudbase-mcp/**",
+      "**/public/workbox-*.js",
+      "**/public/sw.js",
+      "**/.next/**"
     ]
   },
   js.configs.recommended,
   {
     rules: {
       "no-unused-vars": "warn",
-      "no-undef": "error"
+      "no-undef": "error",
+      "no-empty": "warn"
     },
     languageOptions: {
       ecmaVersion: "latest",
@@ -49,6 +55,8 @@ export default [
         CustomEvent: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         atob: "readonly",
@@ -73,7 +81,25 @@ export default [
         URLSearchParams: "readonly",
         CustomElements: "readonly",
         customElements: "readonly",
-        confirm: "readonly"
+        confirm: "readonly",
+        indexedDB: "readonly",
+        IDBDatabase: "readonly",
+        IDBTransaction: "readonly",
+        IDBRequest: "readonly",
+        IDBObjectStore: "readonly",
+        IDBIndex: "readonly",
+        IDBCursor: "readonly",
+        DOMException: "readonly",
+        FetchEvent: "readonly",
+        registration: "readonly",
+        importScripts: "readonly",
+        define: "readonly",
+        Notification: "readonly",
+        queueMicrotask: "readonly",
+        reportError: "readonly",
+        WorkerGlobalScope: "readonly",
+        XMLHttpRequest: "readonly",
+        Chart: "readonly"
       }
     }
   }

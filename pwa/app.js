@@ -1,9 +1,12 @@
 import { locales } from './locales.js';
-import { auth, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
+import { auth, db, googleProvider, ADMIN_EMAIL, logEvent } from './firebase-config.js';
 import { 
     signInWithPopup, signOut, onAuthStateChanged,
     createUserWithEmailAndPassword, signInWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { 
+    collection, query, where, orderBy, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { DataHub } from './data-hub.js';
 
 console.log("[App] Loading modules...");

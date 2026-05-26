@@ -1,5 +1,6 @@
 import { supabaseClient } from './src/modules/supabase.js';
-import { handleAuth, toggleAuthMode, logout, getUser } from './src/modules/auth.js';
+import { handleAuth, toggleAuthMode, logout, getUser, setUser, isSignup } from './src/modules/auth.js';
+import { fetchTransactions, fetchCategories, exportData } from './src/modules/data.js';
 
 // --- Global State ---
 let currentLang = localStorage.getItem('app_lang') || 'en';
@@ -8,7 +9,7 @@ let charts = { main: null, pie: null };
 let allTransactions = [];
 
 // --- Localization Dictionary ---
-const dict = {
+const DICTIONARY = {
     en: {
         "auth.login": "Login", "auth.signup": "Sign Up", "auth.email": "Email", "auth.password": "Password", "auth.github": "Login with GitHub", "auth.or": "OR EMAIL", "auth.signup_link": "Don't have an account? Sign Up", "auth.login_link": "Already have an account? Login",
         "nav.dashboard": "Dashboard", "nav.add": "Add", "nav.accounting": "Accounting", "nav.reports": "Reports", "nav.lab": "Lab", "nav.settings": "Settings", "nav.logout": "Logout",
@@ -35,29 +36,64 @@ const dict = {
     }
 };
 
+// --- Localization Logic ---
+function t(path) {
+    const keys = path.split('.');
+    let value = DICTIONARY[currentLang];
+    for (const key of keys) {
+        if (!value) break;
+        value = value[key];
+    }
+    return value || path;
+}
+
+function applyLocales() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+}
+
 // --- DOM Initialization ---
 const authForm = document.getElementById('auth-form');
-const transactionForm = document.getElementById('transaction-form');
-const transactionList = document.getElementById('transaction-list');
 const dashboardMonth = document.getElementById('dashboard-month');
-dashboardMonth.value = new Date().toISOString().substring(0, 7);
+if (dashboardMonth) dashboardMonth.value = new Date().toISOString().substring(0, 7);
 
 // --- Event Listeners & State Binding ---
-document.getElementById('lang-toggle-btn').onclick = () => { currentLang = currentLang === 'en' ? 'bn' : 'en'; localStorage.setItem('app_lang', currentLang); applyLocales(); fetchData(); };
+const langBtn = document.getElementById('lang-toggle-btn');
+if (langBtn) {
+    langBtn.onclick = () => { 
+        currentLang = currentLang === 'en' ? 'bn' : 'en'; 
+        localStorage.setItem('app_lang', currentLang); 
+        applyLocales(); 
+        fetchData(); 
+    };
+}
 
-authForm.onsubmit = handleAuth;
-document.getElementById('github-login-btn').onclick = () => supabaseClient.auth.signInWithOAuth({ 
-    provider: 'github',
-    options: { redirectTo: window.location.origin } 
-});
+if (authForm) authForm.onsubmit = handleAuth;
 
-document.getElementById('toggle-auth').onclick = () => {
-    toggleAuthMode(!isSignup);
-    document.getElementById('auth-title').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
-    document.getElementById('submit-btn').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
-    document.getElementById('toggle-auth').innerText = isSignup ? DICTIONARY[currentLang]["auth.login_link"] : DICTIONARY[currentLang]["auth.signup_link"];
-};
-document.getElementById('logout-btn').onclick = () => logout();
+const githubBtn = document.getElementById('github-login-btn');
+if (githubBtn) {
+    githubBtn.onclick = () => supabaseClient.auth.signInWithOAuth({ 
+        provider: 'github',
+        options: { redirectTo: window.location.origin } 
+    });
+}
+
+const toggleAuthBtn = document.getElementById('toggle-auth');
+if (toggleAuthBtn) {
+    toggleAuthBtn.onclick = () => {
+        toggleAuthMode(!isSignup);
+        document.getElementById('auth-title').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
+        document.getElementById('submit-btn').innerText = isSignup ? DICTIONARY[currentLang]["auth.signup"] : DICTIONARY[currentLang]["auth.login"];
+        toggleAuthBtn.innerText = isSignup ? DICTIONARY[currentLang]["auth.login_link"] : DICTIONARY[currentLang]["auth.signup_link"];
+    };
+}
+
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) logoutBtn.onclick = () => logout();
 
 // --- Data ---
 async function fetchData() {
@@ -67,76 +103,95 @@ async function fetchData() {
     applyLocales();
     updateCategoryOptions();
 
-    const selectedMonth = dashboardMonth.value;
+    const selectedMonth = dashboardMonth ? dashboardMonth.value : new Date().toISOString().substring(0, 7);
     try {
         const txs = await fetchTransactions(user.id);
+        allTransactions = txs;
         const filtered = txs.filter(t => t.occurred_at.startsWith(selectedMonth));
         let inc = 0, exp = 0;
         filtered.forEach(t => { if (t.type === 'income') inc += parseFloat(t.amount); else exp += parseFloat(t.amount); });
 
-        document.getElementById('total-balance').innerText = `${currency}${(inc - exp).toFixed(0)}`;
-        document.getElementById('total-income').innerText = `${currency}${inc.toFixed(0)}`;
-        document.getElementById('total-expense').innerText = `${currency}${exp.toFixed(0)}`;
+        const balanceEl = document.getElementById('total-balance');
+        if (balanceEl) balanceEl.innerText = `${currency}${(inc - exp).toFixed(0)}`;
+        
+        const incEl = document.getElementById('total-income');
+        if (incEl) incEl.innerText = `${currency}${inc.toFixed(0)}`;
+        
+        const expEl = document.getElementById('total-expense');
+        if (expEl) expEl.innerText = `${currency}${exp.toFixed(0)}`;
 
-        // renderCharts(filtered); // Redundant
-        updateAssistant(inc, exp, filtered);
+        updateAssistant(inc, exp);
+        renderTransactionList(filtered);
     } catch (error) {
-        alert("Data load error: " + error.message);
+        console.error("Data load error:", error);
     }
 }
-dashboardMonth.onchange = fetchData;
-document.getElementById('type').onchange = fetchData;
 
-// Manual search and delete redundant render functions
-document.getElementById('tx-search').oninput = (e) => {
-    const q = e.target.value.toLowerCase();
-    const filtered = allTransactions.filter(t => (t.category_name || '').toLowerCase().includes(q) || (t.notes || '').toLowerCase().includes(q));
-    // renderTransactions(filtered.slice(0, 20)); // Redundant
-};
+function renderTransactionList(list) {
+    const container = document.getElementById('transaction-list');
+    if (!container) return;
+    container.innerHTML = list.map(t => `
+        <div class="transaction-item" style="display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+            <div>
+                <strong>${t.category_name || 'N/A'}</strong><br>
+                <small>${t.metadata?.sector || 'Gen'} | ${t.method || 'Cash'}</small>
+            </div>
+            <div style="text-align:right;">
+                <span style="color:${t.type === 'income' ? 'var(--income)' : 'var(--expense)'}; display:block; margin-bottom:5px;">
+                    ${t.type === 'income' ? '+' : '-'}${currency}${Math.abs(t.amount).toFixed(0)}
+                </span>
+            </div>
+        </div>
+    `).join('') || `<p class="text-muted">No transactions.</p>`;
+}
 
-document.getElementById('csv-btn').onclick = () => {
-    const header = "Date,Category,Type,Sector,Amount,Note\n";
-    const rows = allTransactions.map(t => `${new Date(t.occurred_at).toLocaleDateString()},${t.category_name},${t.type},${t.metadata?.sector || 'General'},${t.amount},${t.notes || ''}`).join("\n");
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([header + rows], { type: 'text/csv' })); a.download = 'backup.csv'; a.click();
-};
+function updateCategoryOptions() {
+    const catSelect = document.getElementById('category');
+    if (!catSelect) return;
+    // Simple static categories for Lite version
+    const categories = ["Food", "Transport", "Rent", "Salary", "Gift", "Other"];
+    catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+if (dashboardMonth) dashboardMonth.onchange = fetchData;
+
+const txSearch = document.getElementById('tx-search');
+if (txSearch) {
+    txSearch.oninput = (e) => {
+        const q = e.target.value.toLowerCase();
+        const filtered = allTransactions.filter(t => (t.category_name || '').toLowerCase().includes(q) || (t.notes || '').toLowerCase().includes(q));
+        renderTransactionList(filtered.slice(0, 20));
+    };
+}
+
+const csvBtn = document.getElementById('csv-btn');
+if (csvBtn) {
+    csvBtn.onclick = () => {
+        const header = "Date,Category,Type,Sector,Amount,Note\n";
+        const rows = allTransactions.map(t => `${new Date(t.occurred_at).toLocaleDateString()},${t.category_name},${t.type},${t.metadata?.sector || 'General'},${t.amount},${t.notes || ''}`).join("\n");
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([header + rows], { type: 'text/csv' })); a.download = 'backup.csv'; a.click();
+    };
+}
 
 // --- Features ---
 function updateAssistant(inc, exp) {
     const healthBadge = document.getElementById('health-score-badge');
+    if (!healthBadge) return;
     const score = Math.max(0, Math.min(100, Math.round((inc > 0 ? (inc - exp) / inc : 0) * 200)));
     healthBadge.innerText = `Score: ${score}`;
     healthBadge.style.background = score > 70 ? '#10b981' : (score > 40 ? '#f59e0b' : '#ef4444');
-    document.getElementById('assistant-advice').innerHTML = exp > inc ? "• 🔴 Alert: Spending higher than income!" : "• Balance is stable. Keep tracking!";
+    const adviceEl = document.getElementById('assistant-advice');
+    if (adviceEl) adviceEl.innerHTML = exp > inc ? "• 🔴 Alert: Spending higher than income!" : "• Balance is stable. Keep tracking!";
 }
 
 // --- Tabs ---
 function switchTab(tabName) {
     document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    if (targetTab) targetTab.classList.remove('hidden');
     document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-    if (tabName === 'accounting') fetchAccountingData();
 }
 document.querySelectorAll('.tab[data-tab]').forEach(tab => tab.onclick = () => switchTab(tab.dataset.tab));
-
-['acc', 'lab'].forEach(p => document.querySelectorAll(`.${p}-subtab`).forEach(t => t.onclick = () => {
-    document.querySelectorAll(`.${p}-subtab`).forEach(st => st.classList.remove('active')); t.classList.add('active');
-    document.querySelectorAll(`.${p}-content`).forEach(c => c.classList.add('hidden')); document.getElementById(`${p}-${t.dataset[p]}`).classList.remove('hidden');
-    if (p === 'acc') fetchAccountingData();
-}));
-
-async function fetchAccountingData() {
-    const { data: assets } = await supabaseClient.from('accounts').select('*').eq('user_id', user.id);
-    const { data: debts } = await supabaseClient.from('debts').select('*').eq('user_id', user.id);
-    const { data: ests } = await supabaseClient.from('financial_targets').select('*').eq('user_id', user.id);
-    const aSum = assets?.reduce((s, a) => s + parseFloat(a.balance || 0), 0) || 0;
-    const lSum = debts?.reduce((s, d) => s + parseFloat(d.balance || 0), 0) || 0;
-    document.getElementById('total-assets').innerText = `${currency}${aSum.toFixed(0)}`;
-    document.getElementById('total-liabilities').innerText = `${currency}${lSum.toFixed(0)}`;
-    document.getElementById('net-worth').innerText = `${currency}${(aSum - lSum).toFixed(0)}`;
-    document.getElementById('asset-list').innerHTML = assets?.map(a => `<div class='transaction-item'><span>${a.name}</span><strong>${currency}${a.balance}</strong></div>`).join('') || '';
-    document.getElementById('liability-list').innerHTML = debts?.map(d => `<div class='transaction-item'><span>${d.name}</span><strong>${currency}${d.balance}</strong></div>`).join('') || '';
-    document.getElementById('estimate-list').innerHTML = ests?.map(e => `<div class='transaction-item'><span>${e.target_name}</span><strong>${currency}${e.amount}</strong></div>`).join('') || '';
-}
 
 // --- Auth and Data Initialization ---
 async function initApp() {
@@ -144,92 +199,47 @@ async function initApp() {
     setUser(session?.user);
     
     if (getUser()) {
-        document.getElementById('auth-section').classList.add('hidden');
-        document.getElementById('app-section').classList.remove('hidden');
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        if (authSection) authSection.classList.add('hidden');
+        if (appSection) appSection.classList.remove('hidden');
         await fetchData();
     } else {
-        document.getElementById('auth-section').classList.remove('hidden');
-        document.getElementById('app-section').classList.add('hidden');
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        if (authSection) authSection.classList.remove('hidden');
+        if (appSection) appSection.classList.add('hidden');
     }
 }
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
     setUser(session?.user);
     if (getUser()) {
-        document.getElementById('auth-section').classList.add('hidden');
-        document.getElementById('app-section').classList.remove('hidden');
+        document.getElementById('auth-section')?.classList.add('hidden');
+        document.getElementById('app-section')?.classList.remove('hidden');
         fetchData();
     } else {
-        document.getElementById('auth-section').classList.remove('hidden');
-        document.getElementById('app-section').classList.add('hidden');
+        document.getElementById('auth-section')?.classList.remove('hidden');
+        document.getElementById('app-section')?.classList.add('hidden');
     }
 });
 
-initApp(); // Run immediately on load
+initApp();
 
-// Manual Form Submission
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('submit-transaction-btn');
-    if (btn) {
-        btn.onclick = async () => {
-            console.log("Manual submit triggered!");
-            const amount = document.getElementById('amount').value;
-            const type = document.getElementById('type').value;
-            const category = document.getElementById('category').value;
-            const sector = document.getElementById('sector').value;
-            const method = document.getElementById('account').value;
-            const note = document.getElementById('note').value;
+const zakatAssets = document.getElementById('zakat-assets');
+if (zakatAssets) {
+    zakatAssets.oninput = (e) => {
+        const resultEl = document.getElementById('zakat-result');
+        if (resultEl) resultEl.innerText = `${currency}${(parseFloat(e.target.value || 0) * 0.025).toFixed(2)}`;
+    };
+}
 
-            try {
-                const { data, error } = await supabaseClient.from('transactions').insert([{
-                    user_id: user.id, 
-                    amount: parseFloat(amount),
-                    type: type, 
-                    category_name: category,
-                    metadata: { sector: sector }, 
-                    method: method, 
-                    notes: note, 
-                    occurred_at: new Date().toISOString()
-                }]);
-
-                if (error) {
-                    alert("Submission error: " + error.message);
-                } else {
-                    document.getElementById('transaction-form').reset(); 
-                    switchTab('dashboard'); 
-                    fetchData();
-                }
-            } catch (err) {
-                alert("Unexpected error: " + err.message);
-            }
-        };
-    }
-});
-
-document.getElementById('asset-form').onsubmit = async (e) => {
-    e.preventDefault();
-    await supabaseClient.from('accounts').insert([{ user_id: user.id, name: document.getElementById('asset-name').value, balance: parseFloat(document.getElementById('asset-balance').value) }]);
-    document.getElementById('asset-form').reset(); fetchAccountingData();
-};
-
-document.getElementById('liability-form').onsubmit = async (e) => {
-    e.preventDefault();
-    await supabaseClient.from('debts').insert([{ user_id: user.id, name: document.getElementById('liability-name').value, balance: parseFloat(document.getElementById('liability-balance').value) }]);
-    document.getElementById('liability-form').reset(); fetchAccountingData();
-};
-
-document.getElementById('estimate-form').onsubmit = async (e) => {
-    e.preventDefault();
-    await supabaseClient.from('financial_targets').insert([{ user_id: user.id, target_name: document.getElementById('est-name').value, amount: parseFloat(document.getElementById('est-amount').value), target_type: 'estimate' }]);
-    document.getElementById('estimate-form').reset(); fetchAccountingData();
-};
-
-document.getElementById('zakat-assets').oninput = (e) => document.getElementById('zakat-result').innerText = `${currency}${(parseFloat(e.target.value || 0) * 0.025).toFixed(2)}`;
-document.getElementById('print-btn').onclick = () => window.print();
-document.getElementById('pdf-btn').onclick = () => window.print(); // Simple PDF fallback
-document.getElementById('export-btn').onclick = async () => {
-    const user = getUser();
-    const transactions = await fetchTransactions(user.id);
-    const categories = await fetchCategories(user.id);
-    exportData(transactions, categories);
-};
+const exportBtn = document.getElementById('export-btn');
+if (exportBtn) {
+    exportBtn.onclick = async () => {
+        const user = getUser();
+        const transactions = await fetchTransactions(user.id);
+        const categories = await fetchCategories(user.id);
+        exportData(transactions, categories);
+    };
+}
