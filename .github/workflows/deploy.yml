@@ -24,14 +24,14 @@ jobs:
 
       - name: Run Tests
         run: cd Foot_Print_of_Money && npx playwright install --with-deps && npm test
-- name: Deploy to Firebase
-  uses: FirebaseExtended/action-hosting-deploy@v0
-  with:
-    repoToken: ${{ secrets.GITHUB_TOKEN }}
-    firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-    channelId: live
-    projectId: ahmeed-steel-industry
-    entryPoint: Foot_Print_of_Money
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          channelId: live
+          projectId: ahmeed-steel-industry
+          entryPoint: Foot_Print_of_Money
 
   deploy-vercel:
     runs-on: ubuntu-latest
