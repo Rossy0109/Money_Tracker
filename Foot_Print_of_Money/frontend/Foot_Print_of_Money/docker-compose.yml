@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  client:
+    build: ./Foot_Print_of_Money/client
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REACT_APP_SUPABASE_URL=${SUPABASE_URL}
+      - REACT_APP_SUPABASE_ANON_KEY=${SUPABASE_KEY}

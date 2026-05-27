@@ -1,0 +1,30 @@
+name: Apply Migrations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  migrate:
+    name: Apply SQL migrations
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Make migration script executable
+        run: chmod +x Foot_Print_of_Money/backend/apply_migrations.sh
+      - name: Apply migrations (psql)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL secret is not set. Aborting."; exit 1;
+          fi
+          cd Foot_Print_of_Money/backend && ./apply_migrations.sh

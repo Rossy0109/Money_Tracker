@@ -1,9 +1,0 @@
-[submodule "Foot_Print_of_Money/frontend"]
-	path = Foot_Print_of_Money/frontend
-	url = https://github.com/Rossy0109/Money_Tracker.git
-[submodule "Foot_Print_of_Money/backend"]
-	path = Foot_Print_of_Money/backend
-	url = https://github.com/Rossy0109/Money_traker_api.git
-[submodule "Foot_Print_of_Money/Gcloud-SDK"]
-	path = Foot_Print_of_Money/Gcloud-SDK
-	url = https://github.com/isuruwa/Gcloud-SDK.git
