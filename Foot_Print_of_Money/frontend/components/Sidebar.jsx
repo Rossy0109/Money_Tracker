@@ -30,6 +30,7 @@ const navItems = [
     { name: 'লেনদেন', href: '/dashboard/transactions', icon: CirclePlus, section: 'transactions' },
     { name: 'অ্যাকাউন্টস', href: '/dashboard/accounts', icon: Wallet, section: 'accounts' },
     { name: 'বাজেট', href: '/dashboard/budget', icon: PieChart, section: 'budget' },
+    { name: 'ক্যাটাগরি', href: '/dashboard/categories', icon: Tags, section: 'categories' },
     { name: 'নিয়মিত খরচ', href: '/dashboard/recurring', icon: RefreshCw, section: 'recurring' },
     { name: 'প্রজেক্টস', href: '/dashboard/projects', icon: Landmark, section: 'projects' },
     { name: 'আর্থিক লক্ষ্য', href: '/dashboard/goals', icon: Target, section: 'goals' },
