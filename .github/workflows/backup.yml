@@ -8,7 +8,7 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Fetch Data from Supabase
         run: |
           curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/transactions?select=*" \
