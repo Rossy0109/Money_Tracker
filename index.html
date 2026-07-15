@@ -2,38 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Money Footprint Lite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Money Footprint - A free, private, and beautiful money tracking PWA. Track income, expenses, budgets and more.">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Money Footprint – Personal Finance Tracker</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase CDN (UMD build for browser use) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
+    <!-- Toast notification -->
+    <div id="toast"></div>
+
     <div class="app-container">
         <!-- Global Header -->
-        <div style="text-align: center; margin: 1.5rem 0;">
-            <img src="https://raw.githubusercontent.com/Rossy0109/Money_Tracker/main/logo.png" alt="Money Footprint Logo" style="width: 120px; height: 120px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;">
-            <h2 style="margin-top: 0.5rem; color: var(--primary); font-family: 'Hind Siliguri', sans-serif;">Money Footprint</h2>
+        <div style="text-align: center; margin: 1.2rem 0 0.5rem;">
+            <img
+                src="https://raw.githubusercontent.com/Rossy0109/Money_Tracker/main/logo.png"
+                alt="Money Footprint Logo"
+                style="width: 80px; height: 80px; border-radius: 16px; box-shadow: 0 4px 16px rgba(37,99,235,0.25); object-fit: cover;"
+                onerror="this.style.display='none'"
+            >
+            <h1 style="margin-top: 0.4rem; color: var(--primary); font-family: 'Inter', sans-serif; font-size: 1.4rem; font-weight: 700;">Money Footprint</h1>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.1rem;">Your personal finance tracker</p>
         </div>
 
         <!-- Auth Section -->
         <div id="auth-section" class="card auth-card">
             <h2 id="auth-title" data-i18n="auth.login">Login</h2>
-            <div id="github-login-container" style="margin-bottom: 1.5rem;">
+
+            <!-- GitHub OAuth -->
+            <div id="github-login-container" style="margin-bottom: 1.2rem;">
                 <button id="github-login-btn" style="background: #24292e; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
                     <svg height="20" width="20" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
                     <span data-i18n="auth.github">Login with GitHub</span>
                 </button>
             </div>
+
             <div style="display: flex; align-items: center; margin-bottom: 1rem; color: var(--text-muted);">
-                <hr style="flex: 1; border: 0.5px solid var(--border);">
-                <span style="margin: 0 10px; font-size: 0.8rem;" data-i18n="auth.or">OR EMAIL</span>
-                <hr style="flex: 1; border: 0.5px solid var(--border);">
+                <hr style="flex: 1; border: none; border-top: 1px solid var(--border);">
+                <span style="margin: 0 12px; font-size: 0.78rem; font-weight: 500;" data-i18n="auth.or">OR EMAIL</span>
+                <hr style="flex: 1; border: none; border-top: 1px solid var(--border);">
             </div>
+
             <form id="auth-form">
                 <input type="email" id="email" data-i18n-placeholder="auth.email" placeholder="Email" required>
                 <input type="password" id="password" data-i18n-placeholder="auth.password" placeholder="Password" required>
@@ -46,51 +65,480 @@
 
         <!-- Main App Section -->
         <div id="app-section" class="hidden">
-            <div class="nav-tabs" style="overflow-x: auto; white-space: nowrap;">
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
                 <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
                 <div class="tab" data-tab="add" data-i18n="nav.add">Add</div>
                 <div class="tab" data-tab="accounting" data-i18n="nav.accounting">Accounting</div>
                 <div class="tab" data-tab="reports" data-i18n="nav.reports">Reports</div>
                 <div class="tab" data-tab="lab" data-i18n="nav.lab">Lab</div>
                 <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
-                <div id="logout-btn" class="tab" style="color: var(--expense)" data-i18n="nav.logout">Logout</div>
+                <div id="logout-btn" class="tab" style="color: var(--expense); min-width: fit-content;" data-i18n="nav.logout">Logout</div>
             </div>
 
-            <!-- Dashboard Tab -->
+            <!-- ==================== DASHBOARD TAB ==================== -->
             <div id="tab-dashboard">
-                <div style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="font-size: 0.8rem; font-weight: 600;" data-i18n="dash.view_period">View Period:</label>
-                        <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.5rem; font-size: 0.8rem;">
+                <div style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);" data-i18n="dash.view_period">View Period:</label>
+                        <input type="month" id="dashboard-month" style="width: auto; margin: 0; padding: 0.45rem 0.7rem; font-size: 0.82rem;">
                     </div>
-                    <button id="lang-toggle-btn" style="padding: 4px 12px; font-size: 0.75rem; background: #e2e8f0; border-radius: 5px;">EN / বাংলা</button>
+                    <button id="lang-toggle-btn" class="btn-ghost btn-sm" style="width: auto;">🌐 EN / বাংলা</button>
                 </div>
-                
+
+                <!-- Summary Cards -->
                 <div class="summary-grid">
                     <div class="card summary-card balance-card">
                         <small data-i18n="dash.balance">Total Balance</small>
-                        <h1 id="total-balance">৳0.00</h1>
+                        <h1 id="total-balance">৳0</h1>
+                    </div>
+                    <div class="card summary-card income-card" style="margin-bottom: 0;">
+                        <small style="color: #065f46; font-weight: 600;" data-i18n="dash.income">Income</small>
+                        <div class="income-val" id="total-income">৳0</div>
+                    </div>
+                    <div class="card summary-card expense-card" style="margin-bottom: 0;">
+                        <small style="color: #991b1b; font-weight: 600;" data-i18n="dash.expense">Expense</small>
+                        <div class="expense-val" id="total-expense">৳0</div>
+                    </div>
+                </div>
+
+                <!-- AI Assistant -->
+                <div class="card" id="assistant-card">
+                    <h3 style="margin-bottom: 0.75rem;" data-i18n="dash.assistant_title">🤖 Financial Assistant</h3>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <span id="health-score-badge" class="badge badge-blue">Score: –</span>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Financial Health</span>
+                    </div>
+                    <div class="health-bar-wrap">
+                        <div class="health-bar" id="health-bar" style="width: 0%; background: var(--primary);"></div>
+                    </div>
+                    <div id="assistant-advice" style="margin-top: 0.75rem; font-size: 0.88rem; color: var(--text-muted);"></div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card" id="visual-card">
+                    <h3 style="margin-bottom: 1rem;" data-i18n="dash.visuals">📊 Visual Analytics</h3>
+                    <canvas id="main-chart"></canvas>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <h3 data-i18n="dash.recent">Recent Transactions</h3>
+                        <input type="text" id="tx-search" data-i18n-placeholder="dash.search" placeholder="Search..." style="width: 110px; padding: 0.4rem 0.6rem; font-size: 0.82rem; margin: 0;">
+                    </div>
+                    <div id="transaction-list">
+                        <p style="text-align:center; color: var(--text-muted); padding: 1rem 0;" data-i18n="dash.loading">Loading your financial pulse...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== ADD TRANSACTION TAB ==================== -->
+            <div id="tab-add" class="hidden">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="add.title">New Transaction</h2>
+                    <form id="tx-form">
+                        <div class="form-group">
+                            <label data-i18n="add.type">Type</label>
+                            <div class="type-toggle">
+                                <button type="button" class="type-btn active-expense" id="btn-expense" onclick="setType('expense')" data-i18n="add.expense">Expense</button>
+                                <button type="button" class="type-btn" id="btn-income" onclick="setType('income')" data-i18n="add.income">Income</button>
+                            </div>
+                            <input type="hidden" id="tx-type" value="expense">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="add.amount">Amount</label>
+                            <input type="number" id="tx-amount" placeholder="0.00" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="add.category">Category</label>
+                            <select id="tx-category">
+                                <option value="Food">🍔 Food</option>
+                                <option value="Transport">🚗 Transport</option>
+                                <option value="Rent">🏠 Rent</option>
+                                <option value="Utilities">💡 Utilities</option>
+                                <option value="Health">💊 Health</option>
+                                <option value="Education">📚 Education</option>
+                                <option value="Salary">💼 Salary</option>
+                                <option value="Business">🏪 Business</option>
+                                <option value="Gift">🎁 Gift</option>
+                                <option value="Investment">📈 Investment</option>
+                                <option value="Other">📦 Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="add.sector">Sector (Project)</label>
+                            <select id="tx-sector">
+                                <option value="General" data-i18n="sectors.general">General</option>
+                                <option value="Personal" data-i18n="sectors.personal">Personal</option>
+                                <option value="Business" data-i18n="sectors.business">Business</option>
+                                <option value="Social" data-i18n="sectors.social">Social</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="add.method">Account (Method)</label>
+                            <select id="tx-method">
+                                <option value="Cash" data-i18n="methods.cash">Cash</option>
+                                <option value="Bank" data-i18n="methods.bank">Bank</option>
+                                <option value="bKash">bKash</option>
+                                <option value="Nagad">Nagad</option>
+                                <option value="Card">Card</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="tx-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="add.note">Note (optional)</label>
+                            <input type="text" id="tx-note" data-i18n-placeholder="add.note" placeholder="Note (optional)">
+                        </div>
+                        <button type="submit" id="tx-save-btn" data-i18n="add.save">💾 Save Transaction</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ==================== ACCOUNTING TAB ==================== -->
+            <div id="tab-accounting" class="hidden">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="acc.title">Financial Accounting</h2>
+                    <div class="acc-tabs">
+                        <span class="acc-tab active" data-acc="pnl" data-i18n="acc.pnl">P&L</span>
+                        <span class="acc-tab" data-acc="balance" data-i18n="acc.balance">Balance</span>
+                        <span class="acc-tab" data-acc="budget" data-i18n="acc.budget">Budgets</span>
+                        <span class="acc-tab" data-acc="recurring" data-i18n="acc.recurring">Recurring</span>
+                        <span class="acc-tab" data-acc="networth" data-i18n="acc.networth">Net Worth</span>
+                    </div>
+
+                    <!-- P&L View -->
+                    <div id="acc-pnl">
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;">Profit & Loss for selected month:</p>
+                        <div style="display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border);">
+                            <span>Total Income</span> <strong class="income-val" id="pnl-income">৳0</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border);">
+                            <span>Total Expense</span> <strong class="expense-val" id="pnl-expense">৳0</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; font-weight: 700; font-size: 1.1rem;">
+                            <span>Net Profit</span> <strong id="pnl-net" style="color: var(--primary);">৳0</strong>
+                        </div>
+                        <canvas id="pnl-chart" style="margin-top: 1rem;"></canvas>
+                    </div>
+
+                    <!-- Balance Sheet -->
+                    <div id="acc-balance" class="hidden">
+                        <div style="margin-bottom: 1rem;">
+                            <h4 data-i18n="acc.assets" style="margin-bottom: 0.5rem;">Assets</h4>
+                            <div id="assets-list"></div>
+                            <form id="asset-form" style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                                <input type="text" id="asset-name" data-i18n-placeholder="acc.asset_name" placeholder="Account Name" style="flex: 1; margin: 0;">
+                                <input type="number" id="asset-balance" data-i18n-placeholder="acc.balance_placeholder" placeholder="Balance" style="width: 100px; margin: 0;">
+                                <button type="submit" class="btn-sm" style="margin: 0; width: auto;" data-i18n="acc.save">Save</button>
+                            </form>
+                        </div>
+                        <hr style="border: none; border-top: 1px solid var(--border); margin: 1rem 0;">
+                        <div>
+                            <h4 data-i18n="acc.liabilities" style="margin-bottom: 0.5rem;">Liabilities</h4>
+                            <div id="debts-list"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; font-weight: 700; font-size: 1.1rem; border-top: 2px solid var(--border); margin-top: 0.75rem;">
+                            <span data-i18n="acc.networth">Net Worth</span> <strong id="acc-networth" style="color: var(--primary);">৳0</strong>
+                        </div>
+                    </div>
+
+                    <!-- Budgets -->
+                    <div id="acc-budget" class="hidden">
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;" data-i18n="acc.set_budget">Set Monthly Budget per Category</p>
+                        <div id="budget-list"></div>
+                        <form id="budget-form" style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                            <select id="budget-category" style="flex: 1; margin: 0;">
+                                <option value="Food">Food</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Rent">Rent</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Health">Health</option>
+                                <option value="Education">Education</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <input type="number" id="budget-limit" data-i18n-placeholder="acc.limit_placeholder" placeholder="Limit" style="width: 100px; margin: 0;">
+                            <button type="submit" class="btn-sm" style="margin: 0; width: auto;" data-i18n="acc.save">Save</button>
+                        </form>
+                    </div>
+
+                    <!-- Recurring -->
+                    <div id="acc-recurring" class="hidden">
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;">Manage recurring auto-transactions</p>
+                        <div id="recurring-list"></div>
+                        <form id="recurring-form" style="margin-top: 0.75rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="rec-name" data-i18n-placeholder="acc.name_placeholder" placeholder="Name" style="flex: 1; margin: 0;">
+                                <input type="number" id="rec-amount" placeholder="Amount" style="width: 100px; margin: 0;">
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem; align-items: center;">
+                                <select id="rec-type" style="flex:1; margin:0;">
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                                <input type="number" id="rec-day" placeholder="Day of month" min="1" max="31" style="width: 120px; margin: 0;">
+                            </div>
+                            <button type="submit" style="margin-top: 0.5rem;" data-i18n="acc.new_recurring">+ Add Recurring</button>
+                        </form>
+                    </div>
+
+                    <!-- Net Worth -->
+                    <div id="acc-networth" class="hidden">
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">Net Worth = Total Assets − Total Liabilities</p>
+                        <div style="display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border);">
+                            <span>Total Assets</span><strong class="income-val" id="nw-assets">৳0</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border);">
+                            <span>Total Liabilities</span><strong class="expense-val" id="nw-liabilities">৳0</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; font-weight: 700; font-size: 1.2rem;">
+                            <span>Net Worth</span><strong id="nw-total" style="color: var(--primary);">৳0</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== REPORTS TAB ==================== -->
+            <div id="tab-reports" class="hidden">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="reports.title">Generate Reports</h2>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                        <input type="month" id="report-month" style="flex: 1; margin: 0; min-width: 150px;">
+                        <select id="report-sector" style="flex: 1; margin: 0; min-width: 120px;">
+                            <option value="" data-i18n="reports.all_sectors">All Sectors</option>
+                            <option value="General">General</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Business">Business</option>
+                            <option value="Social">Social</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                        <button id="pdf-btn" class="btn-sm btn-danger" style="flex:1;" data-i18n="reports.download_pdf">📥 Download PDF</button>
+                        <button id="csv-btn" class="btn-sm btn-success" style="flex:1;" data-i18n="reports.download_csv">📊 Export CSV</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="reports.date">Date</th>
+                                    <th data-i18n="reports.category">Category</th>
+                                    <th data-i18n="reports.sector">Sector</th>
+                                    <th data-i18n="reports.amount">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-tbody"></tbody>
+                        </table>
+                        <div id="report-summary" style="margin-top: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 0.5rem; font-size: 0.88rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== LAB TAB ==================== -->
+            <div id="tab-lab" class="hidden">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="lab.title">Financial Lab</h2>
+
+                    <!-- Zakat Calculator -->
+                    <div style="margin-bottom: 2rem;">
+                        <h3 data-i18n="lab.zakat" style="margin-bottom: 0.75rem;">☪️ Zakat Calculator</h3>
+                        <div class="form-group">
+                            <label>Total Assets (৳)</label>
+                            <input type="number" id="zakat-assets" data-i18n-placeholder="lab.assets_placeholder" placeholder="Assets" min="0">
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                            <span data-i18n="lab.payable">Payable Zakat (2.5%)</span>
+                            <span class="lab-result" id="zakat-result">৳0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- EMI Calculator -->
+                    <div>
+                        <h3 data-i18n="lab.emi" style="margin-bottom: 0.75rem;">🏦 EMI Calculator</h3>
+                        <div class="form-group">
+                            <label>Loan Amount (৳)</label>
+                            <input type="number" id="emi-principal" placeholder="e.g. 500000" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Annual Interest Rate (%)</label>
+                            <input type="number" id="emi-rate" placeholder="e.g. 9.5" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Loan Term (months)</label>
+                            <input type="number" id="emi-months" placeholder="e.g. 60" min="1">
+                        </div>
+                        <button type="button" onclick="calcEMI()" class="btn-success">Calculate EMI</button>
+                        <div id="emi-result" style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 0.6rem; display: none;">
+                            <div style="display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                                <span>Monthly EMI</span><strong class="lab-result" id="emi-monthly" style="font-size: 1.1rem;"></strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                                <span>Total Payment</span><span id="emi-total"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.4rem 0;">
+                                <span>Total Interest</span><span class="expense-val" id="emi-interest"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== SETTINGS TAB ==================== -->
+            <div id="tab-settings" class="hidden">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="settings.global">🌍 Global Preferences</h2>
+                    <div class="settings-row">
+                        <span data-i18n="settings.currency">Base Currency</span>
+                        <select id="currency-select" style="width: 120px; margin: 0; padding: 0.4rem;">
+                            <option value="৳">৳ BDT</option>
+                            <option value="$">$ USD</option>
+                            <option value="€">€ EUR</option>
+                            <option value="£">£ GBP</option>
+                            <option value="₹">₹ INR</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <span>Language</span>
+                        <button class="btn-ghost btn-sm" id="lang-toggle-btn2" style="width: auto;">🌐 EN / বাংলা</button>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3 data-i18n="dash.recent">Recent Transactions</h3>
-                        <input type="text" id="tx-search" data-i18n-placeholder="dash.search" placeholder="Search..." style="width: 100px; padding: 4px; font-size: 0.8rem;">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="settings.security">🔒 Security (PIN)</h2>
+                    <div class="form-group">
+                        <label data-i18n="settings.pin_placeholder">Enter PIN (4–6 digits)</label>
+                        <input type="password" id="pin-input" data-i18n-placeholder="settings.pin_placeholder" placeholder="Enter PIN" maxlength="6" pattern="[0-9]*" inputmode="numeric">
                     </div>
-                    <div id="transaction-list"></div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn-sm" onclick="savePin()" style="flex:1;" data-i18n="settings.save_pin">Save PIN</button>
+                        <button class="btn-sm btn-danger" onclick="clearPin()" style="flex:1;" data-i18n="settings.clear_pin">Clear PIN</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;" data-i18n="settings.data">📥 Data Sovereignty</h2>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button id="export-btn" class="btn-sm btn-success" style="flex:1;" data-i18n="settings.export">⬇ Export JSON</button>
+                        <button id="import-btn" class="btn-sm btn-ghost" style="flex:1;" data-i18n="settings.import">⬆ Import JSON</button>
+                    </div>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <p style="color: var(--text-muted); font-size: 0.82rem;">Your data is stored in your own Supabase instance. You own your data.</p>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Supabase URL</label>
+                        <input type="url" id="sb-url-input" placeholder="https://xxx.supabase.co" style="margin-bottom: 0.4rem;">
+                        <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Supabase Anon Key</label>
+                        <input type="text" id="sb-key-input" placeholder="eyJ...">
+                        <button onclick="updateSupabaseConfig()" style="margin-top: 0.5rem;">Update & Reload</button>
+                    </div>
+                </div>
+
+                <div class="card" style="text-align: center; background: linear-gradient(135deg, var(--primary-light), var(--card));">
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Money Footprint v2.0</p>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Built with ❤️ by <strong>Kamrul Ahmed</strong></p>
+                    <button id="logout-btn-settings" class="btn-danger btn-sm" style="width: auto; margin-top: 0.75rem;" data-i18n="nav.logout">Logout</button>
                 </div>
             </div>
-            <!-- ... other sections same ... -->
-        </div>
-        <!-- Footer -->
-        <footer style="text-align: center; margin: 2rem 0; color: var(--text-muted); font-size: 0.8rem;">
-            &copy; <span id="current-year"></span> | <strong>Kamrul Ahmed</strong>
+
+        </div><!-- end app-section -->
+
+        <footer>
+            &copy; <span id="current-year"></span> | <strong>Kamrul Ahmed</strong> | Money Footprint
         </footer>
-    </div>
+    </div><!-- end app-container -->
+
     <script>
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(console.warn);
+        }
         document.getElementById('current-year').innerText = new Date().getFullYear();
+
+        // Set today as default date for tx form
+        const txDateInput = document.getElementById('tx-date');
+        if (txDateInput) txDateInput.value = new Date().toISOString().split('T')[0];
+
+        // Set current month for reports
+        const reportMonth = document.getElementById('report-month');
+        if (reportMonth) reportMonth.value = new Date().toISOString().substring(0, 7);
+
+        // EMI Calculator
+        function calcEMI() {
+            const P = parseFloat(document.getElementById('emi-principal').value || 0);
+            const annualRate = parseFloat(document.getElementById('emi-rate').value || 0);
+            const n = parseInt(document.getElementById('emi-months').value || 0);
+            const r = annualRate / 12 / 100;
+            if (!P || !n) return;
+            const emi = r === 0 ? P / n : (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+            const total = emi * n;
+            const interest = total - P;
+            const curr = localStorage.getItem('base_currency') || '৳';
+            document.getElementById('emi-monthly').innerText = curr + emi.toFixed(2);
+            document.getElementById('emi-total').innerText = curr + total.toFixed(2);
+            document.getElementById('emi-interest').innerText = curr + interest.toFixed(2);
+            document.getElementById('emi-result').style.display = 'block';
+        }
+
+        // PIN
+        function savePin() {
+            const pin = document.getElementById('pin-input').value;
+            if (pin.length < 4) { showToast('PIN must be at least 4 digits'); return; }
+            localStorage.setItem('app_pin', pin);
+            showToast('PIN saved successfully ✓');
+        }
+        function clearPin() {
+            localStorage.removeItem('app_pin');
+            document.getElementById('pin-input').value = '';
+            showToast('PIN cleared');
+        }
+
+        // Supabase config update
+        function updateSupabaseConfig() {
+            const url = document.getElementById('sb-url-input').value.trim();
+            const key = document.getElementById('sb-key-input').value.trim();
+            if (url) localStorage.setItem('SUPABASE_URL', url);
+            if (key) localStorage.setItem('SUPABASE_KEY', key);
+            location.reload();
+        }
+
+        // Toast helper
+        function showToast(msg, duration = 2800) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), duration);
+        }
+
+        // Type toggle helper (for Add form)
+        function setType(type) {
+            document.getElementById('tx-type').value = type;
+            document.getElementById('btn-expense').className = 'type-btn' + (type === 'expense' ? ' active-expense' : '');
+            document.getElementById('btn-income').className = 'type-btn' + (type === 'income' ? ' active-income' : '');
+        }
+
+        // Acc sub-tabs
+        document.querySelectorAll('.acc-tab').forEach(t => {
+            t.onclick = () => {
+                document.querySelectorAll('.acc-tab').forEach(x => x.classList.remove('active'));
+                t.classList.add('active');
+                const target = t.dataset.acc;
+                ['pnl', 'balance', 'budget', 'recurring', 'networth'].forEach(id => {
+                    const el = document.getElementById('acc-' + id);
+                    if (el) el.classList.toggle('hidden', id !== target);
+                });
+                // networth section has dual id, use innerText for acc-networth div
+                const networthDiv = document.getElementById('acc-networth');
+                if (networthDiv) networthDiv.classList.toggle('hidden', target !== 'networth');
+            };
+        });
+
+        // Populate Supabase inputs from localStorage
+        const savedUrl = localStorage.getItem('SUPABASE_URL');
+        const savedKey = localStorage.getItem('SUPABASE_KEY');
+        if (savedUrl) document.getElementById('sb-url-input').value = savedUrl;
+        if (savedKey) document.getElementById('sb-key-input').value = savedKey;
     </script>
     <script type="module" src="app.js"></script>
 </body>
