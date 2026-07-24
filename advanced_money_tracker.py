@@ -96,7 +96,7 @@ class AdvancedMoneyTracker:
 
         # GUI
         self.create_modern_gui()
-        self.load_dashboard()
+        self.show_dashboard()
 
     def setup_logging(self):
         self.logger = logging.getLogger('MoneyTrackerApp')
@@ -444,7 +444,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date = ? AND a.account_type = 'আয়' AND t.is_deleted = 0
-        ''')
+        ''', (today,))
         today_income = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -452,7 +452,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date = ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
-        ''')
+        ''', (today,))
         today_expense = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -460,7 +460,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'আয়' AND t.is_deleted = 0
-        ''')
+        ''', (month_start, today))
         month_income = self.cursor.fetchone()[0]
 
         self.cursor.execute('''
@@ -468,7 +468,7 @@ class AdvancedMoneyTracker:
             FROM transactions t
             JOIN accounts a ON t.account_id = a.account_id
             WHERE t.transaction_date BETWEEN ? AND ? AND a.account_type = 'খরচ' AND t.is_deleted = 0
-        ''')
+        ''', (month_start, today))
         month_expense = self.cursor.fetchone()[0]
 
         self.cursor.execute('SELECT COALESCE(SUM(balance), 0) FROM payment_methods WHERE is_active = 1')

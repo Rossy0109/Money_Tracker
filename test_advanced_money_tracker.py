@@ -60,22 +60,20 @@ class MockIntVar:
     def get(self): return self._value
     def set(self, value): self._value = value
 
-# Replace tkinter and its modules with mocks
-tk = MockTk()
-ttk = MockTtk()
-messagebox = MockMessagebox()
-DateEntry = MockDateEntry # Mock the DateEntry class
-tk.StringVar = MockStringVar
-tk.IntVar = MockIntVar
-tk.Label = lambda master, **kwargs: MockTk()
-tk.Frame = lambda master, **kwargs: MockTk()
-tk.Button = lambda master, **kwargs: MockTk()
-tk.Entry = lambda master, **kwargs: MockTk()
-tk.Text = lambda master, **kwargs: MockTk()
-tk.Radiobutton = lambda master, **kwargs: MockTk()
-tk.LabelFrame = lambda master, **kwargs: MockTk()
-tk.Checkbutton = lambda master, **kwargs: MockTk()
+from unittest.mock import MagicMock
+mock_tk = MagicMock()
+mock_tk.StringVar = MockStringVar
+mock_tk.IntVar = MockIntVar
 
+sys.modules['tkinter'] = mock_tk
+sys.modules['tkinter.ttk'] = MagicMock()
+sys.modules['tkinter.messagebox'] = MagicMock()
+sys.modules['tkinter.filedialog'] = MagicMock()
+sys.modules['tkcalendar'] = MagicMock()
+sys.modules['matplotlib'] = MagicMock()
+sys.modules['matplotlib.pyplot'] = MagicMock()
+sys.modules['matplotlib.backends.backend_tkagg'] = MagicMock()
+sys.modules['drive_sync'] = MagicMock()
 
 # Import the class after mocking its dependencies
 from advanced_money_tracker import AdvancedMoneyTracker
