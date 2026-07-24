@@ -1,7 +1,7 @@
 const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
-  testDir: './frontend/pwa_tests',
+  testDir: './tests',
   use: {
     baseURL: 'http://localhost:8000',
     screenshot: 'only-on-failure',

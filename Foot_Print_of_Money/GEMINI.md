@@ -3,10 +3,9 @@
 This document establishes the software engineering standards and architectural patterns for the Foot Print of Money project.
 
 ## 🏗️ Architecture
-- **Root (Lite Version)**: Lightweight PWA using HTML/Vanilla JS/Supabase for both Data and Auth. Deployed to GitHub Pages.
-- **Ultimate Version (`/Foot_Print_of_Money/frontend`)**: Modern Next.js/React version with enhanced analytics and PWA support.
-- **Backend (`/Foot_Print_of_Money/backend`)**: Legacy Flask version using SQLite.
-- **Data Layer**: Powered by **Supabase** for Auth, real-time updates, and persistence across Lite and Ultimate versions.
+- ** (Root)**: Primary PWA using HTML/Vanilla JS/Supabase. Deployed to GitHub Pages.
+- **Standard Version (`/Foot_Print_of_Money`)**: Legacy/Reference version using React/Flask/Supabase.
+- **Data Layer**: Powered by **Supabase** for real-time updates and persistence. Firebase is utilized for **Authentication** and **Event Logging**.
 
 ## 🛠️ Standards
 - **Automation First**: All deployments must be automated via GitHub Actions (`.github/workflows/deploy.yml`).
