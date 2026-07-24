@@ -267,6 +267,7 @@ window.deleteTx = async (id) => {
         showToast('Transaction deleted');
         fetchData();
     } catch (err) {
+        console.error(err);
         showToast('❌ Failed to delete');
     }
 };
@@ -657,6 +658,7 @@ document.getElementById('export-btn')?.addEventListener('click', async () => {
         exportData(transactions, categories);
         showToast('✅ Data exported!');
     } catch (err) {
+        console.error(err);
         showToast('❌ Export failed');
     }
 });

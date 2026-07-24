@@ -11,7 +11,7 @@ export async function handleAuth(e) {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     
-    const { data, error } = isSignup 
+    const { error } = isSignup 
         ? await supabaseClient.auth.signUp({ email, password }) 
         : await supabaseClient.auth.signInWithPassword({ email, password });
     
