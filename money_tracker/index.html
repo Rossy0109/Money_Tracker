@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <title>অর্থ ট্র্যাকার - Money Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #64748b;
+      --income: #10b981;
+      --expense: #ef4444;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'Hind Siliguri', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 90px;
+    }
+
+    .container { max-width: 500px; margin: 0 auto; padding: 16px; }
+
+    /* Tabs Navigation */
+    .tab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card);
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+
+    .tab-item {
+      display: flex; flex-direction: column; align-items: center;
+      font-size: 11px; color: var(--secondary); cursor: pointer; flex: 1;
+    }
+
+    .tab-item.active { color: var(--primary); font-weight: 600; }
+    .tab-icon { font-size: 22px; margin-bottom: 2px; }
+
+    /* Content Area */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: slideUp 0.3s ease; }
+
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Cards */
+    .card { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .balance-card { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; text-align: center; }
+    .balance-card p { opacity: 0.9; font-size: 14px; }
+    .balance-card h1 { font-size: 32px; margin: 8px 0; }
+
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-card { padding: 16px; border-radius: 16px; text-align: center; }
+    .income-stat { background: #d1fae5; color: #065f46; }
+    .expense-stat { background: #fee2e2; color: #991b1b; }
+
+    /* Forms */
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; font-family: inherit; font-size: 16px; outline: none; }
+    input:focus { border-color: var(--primary); }
+
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; transition: 0.2s; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-secondary { background: #e2e8f0; color: var(--text); }
+    .btn-danger { background: var(--expense); color: white; }
+
+    /* Toggle Switch */
+    .type-toggle { display: flex; background: #e2e8f0; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+    .toggle-btn { flex: 1; text-align: center; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+    .toggle-btn.active.expense { background: var(--expense); color: white; }
+    .toggle-btn.active.income { background: var(--income); color: white; }
+
+    /* Transaction Items */
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f5f9; }
+    .list-item:last-child { border-bottom: none; }
+    .item-info h4 { font-weight: 600; font-size: 15px; }
+    .item-info p { color: var(--secondary); font-size: 12px; }
+    .item-amount { font-weight: 700; font-size: 15px; }
+    .amount-income { color: var(--income); }
+    .amount-expense { color: var(--expense); }
+
+    /* Progress Bar */
+    .progress-container { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+    .progress-bar { height: 100%; transition: width 0.5s; }
+
+    /* Loading Overlay */
+    #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: none; justify-content: center; align-items: center; z-index: 2000; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    .badge-income { background: #d1fae5; color: #065f46; }
+    .badge-expense { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<div class="container">
+  
+  <!-- TAB 1: DASHBOARD -->
+  <div id="tab1" class="tab-content active">
+    <div class="card balance-card">
+      <p>মোট ব্যালেন্স</p>
+      <h1 id="total-balance">৳ ০</h1>
+    </div>
+    
+    <div class="summary-grid">
+      <div class="stat-card income-stat">
+        <p>আয় (এই মাস)</p>
+        <h3 id="month-income">৳ ০</h3>
+      </div>
+      <div class="stat-card expense-stat">
+        <p>ব্যয় (এই মাস)</p>
+        <h3 id="month-expense">৳ ০</h3>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3>সাম্প্রতিক লেনদেন</h3>
+        <span onclick="switchTab(3)" style="color: var(--primary); font-size: 14px; cursor: pointer;">সব দেখুন</span>
+      </div>
+      <div id="recent-list"></div>
+    </div>
+
+    <div class="card">
+      <h3>ব্যয় বিশ্লেষণ (Donut)</h3>
+      <div style="position: relative; height:250px;">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: ADD TRANSACTION -->
+  <div id="tab2" class="tab-content">
+    <div class="card">
+      <h2 style="margin-bottom: 20px; text-align:center;">নতুন লেনদেন</h2>
+      
+      <div class="type-toggle">
+        <div class="toggle-btn active expense" onclick="setType('expense')">ব্যয়</div>
+        <div class="toggle-btn income" onclick="setType('income')">আয়</div>
+      </div>
+
+      <form id="transaction-form">
+        <div class="form-group">
+          <label>পরিমাণ (৳)</label>
+          <input type="number" id="amount" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>ক্যাটেগরি</label>
+          <select id="category" required></select>
+        </div>
+        <div class="form-group">
+          <label>সদস্য</label>
+          <select id="member" required></select>
+        </div>
+        <div class="form-group">
+          <label>তারিখ</label>
+          <input type="date" id="date" required>
+        </div>
+        <div class="form-group">
+          <label>নোট (ঐচ্ছিক)</label>
+          <textarea id="notes" rows="2" placeholder="কিছু লিখুন..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">সংরক্ষণ করুন</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB 3: LIST -->
+  <div id="tab3" class="tab-content">
+    <div class="card" style="padding: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+        <h2>লেনদেনের তালিকা</h2>
+        <input type="text" id="search" placeholder="ক্যাটেগরি বা সদস্য লিখে খুঁজুন..." oninput="filterList()">
+      </div>
+      <div id="full-list"></div>
+    </div>
+  </div>
+
+  <!-- TAB 4: REPORT -->
+  <div id="tab4" class="tab-content">
+    <div class="card">
+      <div class="form-group">
+        <label>মাস নির্বাচন করুন</label>
+        <input type="month" id="report-month" onchange="updateReport()">
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>আয় বনাম ব্যয় (মাসিক)</h3>
+      <canvas id="barChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>ক্যাটেগরি অনুযায়ী ব্যয়</h3>
+      <canvas id="pieChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>বিস্তারিত সারাংশ</h3>
+      <div id="category-report-table" style="margin-top: 10px;"></div>
+    </div>
+  </div>
+
+  <!-- TAB 5: BUDGET & SETTINGS -->
+  <div id="tab5" class="tab-content">
+    <div class="card">
+      <h3>বাজেট ট্র্যাকার</h3>
+      <div id="budget-list" style="margin-top: 12px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>সদস্য ব্যবস্থাপনা</h3>
+      <div class="form-group" style="display: flex; gap: 8px;">
+        <input type="text" id="new-member" placeholder="নতুন সদস্যের নাম">
+        <button class="btn btn-primary" style="width: 80px;" onclick="handleAddMember()">যোগ</button>
+      </div>
+      <div id="members-display-list" style="font-size: 14px; color: var(--secondary);"></div>
+    </div>
+
+    <div class="card">
+      <h3>অ্যাপ সেটিংস</h3>
+      <button class="btn btn-secondary" onclick="exportData()" style="margin-bottom: 12px;">ডেটা এক্সপোর্ট (CSV)</button>
+      <button class="btn btn-danger" onclick="confirmReset()">সব ডেটা মুছে ফেলুন</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation Bar -->
+<div class="tab-bar">
+  <div class="tab-item active" onclick="switchTab(1)">
+    <i class="icon tab-icon">🏠</i>
+    <span>ড্যাশবোর্ড</span>
+  </div>
+  <div class="tab-item" onclick="switchTab(2)">
+    <i class="icon tab-icon">➕</i>
+    <span>যোগ</span>
+  </div>
+  <div class="tab-item" onclick="switchTab(3)">
+    <i class="icon tab-icon">📋</i>
+    <span>তালিকা</span>
+  </div>
+  <div class="tab-item" onclick="switchTab(4)">
+    <i class="icon tab-icon">📊</i>
+    <span>রিপোর্ট</span>
+  </div>
+  <div class="tab-item" onclick="switchTab(5)">
+    <i class="icon tab-icon">⚙️</i>
+    <span>সেটিংস</span>
+  </div>
+</div>
+
+<script>
+  let state = {
+    transactions: [],
+    budgets: {},
+    members: [],
+    settings: {},
+    categories: { income: [], expense: [] },
+    currentType: 'expense'
+  };
+
+  const TRANSLATIONS = {
+    'Salary': 'বেতন', 'Business': 'ব্যবসা', 'Investment': 'বিনিয়োগ', 'Gift': 'উপহার', 'Other': 'অন্যান্য',
+    'Housing': 'বাসা ভাড়া', 'Personal Running Costs': 'ব্যক্তিগত খরচ', 'Transport': 'যাতায়াত',
+    'Groceries': 'বাজার/সদাই', 'Restaurants': 'বাইরে খাওয়া', 'Utilities': 'বিল (বিদ্যুৎ/গ্যাস)',
+    'Medical': 'চিকিৎসা', 'Entertainment': 'বিনোদন', 'income': 'আয়', 'expense': 'ব্যয়'
+  };
+
+  window.onload = () => {
+    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('report-month').value = new Date().toISOString().slice(0, 7);
+    refreshData();
+  };
+
+  function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
+
+  function refreshData() {
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(data => {
+        if (data.error) {
+          alert(data.error);
+        } else {
+          state = { ...state, ...data };
+          renderAll();
+        }
+        showLoading(false);
+      })
+      .getInitialData();
+  }
+
+  function switchTab(n) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab' + n).classList.add('active');
+    document.querySelectorAll('.tab-item')[n-1].classList.add('active');
+    if (n === 1 || n === 4) renderCharts();
+  }
+
+  function setType(type) {
+    state.currentType = type;
+    document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.toggle-btn.' + type).classList.add('active');
+    updateCategoryDropdown();
+  }
+
+  function updateCategoryDropdown() {
+    const select = document.getElementById('category');
+    select.innerHTML = '';
+    state.categories[state.currentType].forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = TRANSLATIONS[cat] || cat;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderAll() {
+    // Totals
+    const income = state.transactions.filter(t => t.Type === 'income').reduce((s, t) => s + t.Amount, 0);
+    const expense = state.transactions.filter(t => t.Type === 'expense').reduce((s, t) => s + t.Amount, 0);
+    document.getElementById('total-balance').textContent = '৳ ' + (income - expense).toLocaleString();
+
+    const month = new Date().toISOString().slice(0, 7);
+    const mIncome = state.transactions.filter(t => t.Type === 'income' && t.Date.slice(0, 7) === month).reduce((s, t) => s + t.Amount, 0);
+    const mExpense = state.transactions.filter(t => t.Type === 'expense' && t.Date.slice(0, 7) === month).reduce((s, t) => s + t.Amount, 0);
+    document.getElementById('month-income').textContent = '৳ ' + mIncome.toLocaleString();
+    document.getElementById('month-expense').textContent = '৳ ' + mExpense.toLocaleString();
+
+    renderList(state.transactions.slice(0, 10), 'recent-list', false);
+    renderList(state.transactions, 'full-list', true);
+    updateCategoryDropdown();
+    
+    // Members
+    const mSelect = document.getElementById('member');
+    mSelect.innerHTML = '';
+    state.members.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      mSelect.appendChild(opt);
+    });
+    document.getElementById('members-display-list').textContent = 'সদস্যবৃন্দ: ' + state.members.join(', ');
+
+    // Budgets
+    const bContainer = document.getElementById('budget-list');
+    bContainer.innerHTML = '';
+    state.categories.expense.forEach(cat => {
+      const spent = state.transactions.filter(t => t.Category === cat && t.Date.slice(0, 7) === month).reduce((s, t) => s + t.Amount, 0);
+      const budget = state.budgets[cat] || 0;
+      const percent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+      const color = percent > 90 ? 'var(--expense)' : 'var(--primary)';
+      
+      const div = document.createElement('div');
+      div.className = 'form-group';
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+          <span>${TRANSLATIONS[cat] || cat} (ব্যয়: ৳${spent})</span>
+          <span>বাজেট: ৳${budget}</span>
+        </div>
+        <div class="progress-container"><div class="progress-bar" style="width:${percent}%; background:${color};"></div></div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <input type="number" id="inp-budget-${cat}" value="${budget}" style="padding:6px; font-size:12px;">
+          <button onclick="handleUpdateBudget('${cat}')" class="btn btn-primary" style="width:60px; padding:6px; font-size:12px;">Update</button>
+        </div>
+      `;
+      bContainer.appendChild(div);
+    });
+
+    renderCharts();
+  }
+
+  function renderList(data, containerId, allowDelete) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if (data.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:20px;">কোন তথ্য পাওয়া যায়নি</p>';
+      return;
+    }
+    data.forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <div class="item-info">
+          <h4>${TRANSLATIONS[t.Category] || t.Category} <span class="badge ${t.Type === 'income' ? 'badge-income' : 'badge-expense'}">${TRANSLATIONS[t.Type]}</span></h4>
+          <p>${new Date(t.Date).toLocaleDateString('bn-BD')} | ${t.Member}</p>
+          <small style="color:#64748b">${t.Notes || ''}</small>
+        </div>
+        <div style="text-align: right">
+          <div class="item-amount ${t.Type === 'income' ? 'amount-income' : 'amount-expense'}">
+            ${t.Type === 'income' ? '+' : '-'} ৳ ${t.Amount.toLocaleString()}
+          </div>
+          ${allowDelete ? `<button onclick="handleDelete('${t.ID}')" style="color:var(--expense); background:none; border:none; font-size:11px; margin-top:4px; cursor:pointer;">মুছুন</button>` : ''}
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  function filterList() {
+    const query = document.getElementById('search').value.toLowerCase();
+    const filtered = state.transactions.filter(t => 
+      t.Category.toLowerCase().includes(query) || 
+      t.Member.toLowerCase().includes(query) ||
+      (t.Notes && t.Notes.toLowerCase().includes(query))
+    );
+    renderList(filtered, 'full-list', true);
+  }
+
+  document.getElementById('transaction-form').onsubmit = (e) => {
+    e.preventDefault();
+    const data = {
+      amount: document.getElementById('amount').value,
+      category: document.getElementById('category').value,
+      member: document.getElementById('member').value,
+      date: document.getElementById('date').value,
+      notes: document.getElementById('notes').value,
+      type: state.currentType
+    };
+    showLoading(true);
+    google.script.run.withSuccessHandler(() => {
+      document.getElementById('transaction-form').reset();
+      document.getElementById('date').valueAsDate = new Date();
+      refreshData();
+      switchTab(1);
+    }).addTransaction(data);
+  };
+
+  function handleDelete(id) {
+    if (confirm('আপনি কি এই লেনদেনটি মুছতে চান?')) {
+      showLoading(true);
+      google.script.run.withSuccessHandler(refreshData).deleteTransaction(id);
+    }
+  }
+
+  function handleAddMember() {
+    const name = document.getElementById('new-member').value;
+    if (!name) return;
+    showLoading(true);
+    google.script.run.withSuccessHandler(() => {
+      document.getElementById('new-member').value = '';
+      refreshData();
+    }).addMember(name);
+  }
+
+  function handleUpdateBudget(cat) {
+    const amount = document.getElementById('inp-budget-' + cat).value;
+    showLoading(true);
+    google.script.run.withSuccessHandler(refreshData).updateBudget(cat, amount);
+  }
+
+  let charts = {};
+  function renderCharts() {
+    const expenses = state.transactions.filter(t => t.Type === 'expense');
+    const cats = [...new Set(expenses.map(t => t.Category))];
+    const data = cats.map(c => expenses.filter(t => t.Category === c).reduce((s, t) => s + t.Amount, 0));
+
+    if (charts.donut) charts.donut.destroy();
+    charts.donut = new Chart(document.getElementById('donutChart'), {
+      type: 'doughnut',
+      data: { labels: cats.map(c => TRANSLATIONS[c] || c), datasets: [{ data: data, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#1e293b'] }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+    updateReport();
+  }
+
+  function updateReport() {
+    const month = document.getElementById('report-month').value;
+    const mData = state.transactions.filter(t => t.Date.slice(0, 7) === month);
+    const inc = mData.filter(t => t.Type === 'income').reduce((s, t) => s + t.Amount, 0);
+    const exp = mData.filter(t => t.Type === 'expense').reduce((s, t) => s + t.Amount, 0);
+
+    if (charts.bar) charts.bar.destroy();
+    charts.bar = new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: { labels: ['আয়', 'ব্যয়'], datasets: [{ label: '৳', data: [inc, exp], backgroundColor: ['#10b981', '#ef4444'] }] }
+    });
+
+    const expData = mData.filter(t => t.Type === 'expense');
+    const expCats = [...new Set(expData.map(t => t.Category))];
+    const expSums = expCats.map(c => expData.filter(t => t.Category === c).reduce((s, t) => s + t.Amount, 0));
+
+    if (charts.pie) charts.pie.destroy();
+    charts.pie = new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: { labels: expCats.map(c => TRANSLATIONS[c] || c), datasets: [{ data: expSums, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'] }] }
+    });
+
+    let html = '<table style="width:100%; font-size:14px; border-collapse:collapse;">';
+    expCats.forEach((c, i) => {
+      html += `<tr style="border-bottom:1px solid #eee"><td style="padding:8px">${TRANSLATIONS[c] || c}</td><td style="padding:8px; text-align:right; font-weight:bold;">৳ ${expSums[i].toLocaleString()}</td></tr>`;
+    });
+    html += '</table>';
+    document.getElementById('category-report-table').innerHTML = html;
+  }
+
+  function exportData() {
+    const csv = 'Date,Amount,Type,Category,Member,Notes\n' + state.transactions.map(t => `${t.Date},${t.Amount},${t.Type},${t.Category},${t.Member},"${t.Notes || ''}"`).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `money_tracker_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+</script>
+
+</body>
+</html>
