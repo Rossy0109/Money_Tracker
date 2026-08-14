@@ -1,15 +1,23 @@
 const SUPABASE_URL = window.__ENV?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
 const SUPABASE_KEY = window.__ENV?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY');
 
-if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_KEY === 'your_project_url') {
-    const url = prompt("Enter Supabase URL:");
-    const key = prompt("Enter Supabase Anon Key:");
-    if (url && key) {
-        localStorage.setItem('SUPABASE_URL', url);
-        localStorage.setItem('SUPABASE_KEY', key);
-        location.reload();
+export const isSupabaseConfigured = Boolean(
+    SUPABASE_URL && 
+    SUPABASE_KEY && 
+    SUPABASE_URL !== 'your_project_url' && 
+    SUPABASE_KEY !== 'your_anon_key' &&
+    SUPABASE_URL.startsWith('http')
+);
+
+let client = null;
+if (isSupabaseConfigured && window.supabase) {
+    try {
+        const { createClient } = window.supabase;
+        client = createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch (err) {
+        console.warn("Supabase client creation failed, operating in local mode:", err);
     }
 }
 
-const { createClient } = window.supabase;
-export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabaseClient = client;
+

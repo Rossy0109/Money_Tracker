@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#6c63ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>AR Trace Studio — Drawing & Tracing Assistant</title>
+  <meta name="description" content="Professional AR Tracing and Drawing Assistant for artists. Overlay your camera feed with a transparent canvas and trace anything in real-time." />
+  <meta name="keywords" content="AR drawing, tracing app, camera overlay, art assistant, digital drawing" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-512.jpg" />
+  <link rel="apple-touch-icon" href="icons/icon-512.jpg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     SPLASH SCREEN
+══════════════════════════════════════════════════ -->
+<div id="splash" role="progressbar" aria-label="Loading AR Trace Studio">
+  <img src="icons/icon-512.jpg" alt="AR Trace Studio Logo" class="splash-logo" />
+  <h1 class="splash-title">AR Trace Studio</h1>
+  <p class="splash-sub">Professional AR Tracing & Drawing Assistant</p>
+  <div class="splash-loader">
+    <div class="splash-loader-bar"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════════════════ -->
+<div id="toast-container" role="status" aria-live="polite"></div>
+
+<!-- ══════════════════════════════════════════════════
+     BRUSH CURSOR PREVIEW
+══════════════════════════════════════════════════ -->
+<div id="brush-preview" aria-hidden="true"></div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── Header ────────────────────────────────────── -->
+  <header id="header" role="banner">
+    <div class="header-brand">
+      <img src="icons/icon-512.jpg" alt="Logo" class="header-brand-icon" />
+      <span class="header-brand-name">AR Trace Studio</span>
+    </div>
+    <div class="header-actions">
+      <div class="status-dot" id="cam-status-dot" title="Camera active"></div>
+      <button class="btn icon-only sm" id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo">
+        <!-- Undo SVG -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <path d="M3 7v6h6"/><path d="M3 13C4.6 8.4 9 5 14 5c5.5 0 10 4.5 10 10s-4.5 10-10 10c-4 0-7.4-2.2-9.2-5.5"/>
+        </svg>
+      </button>
+      <button class="btn icon-only sm" id="btn-redo" title="Redo (Ctrl+Y)" aria-label="Redo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <path d="M21 7v6h-6"/><path d="M21 13c-1.6-4.6-6-8-11-8C4.5 5 0 9.5 0 15s4.5 10 10 10c4 0 7.4-2.2 9.2-5.5"/>
+        </svg>
+      </button>
+      <button class="btn icon-only sm" id="btn-settings" title="Settings" aria-label="Open settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Canvas Area ───────────────────────────────── -->
+  <main id="canvas-area" role="main">
+
+    <!-- Camera feed -->
+    <video id="camera-video" autoplay playsinline muted aria-label="Camera feed"></video>
+
+    <!-- Edge detection layer -->
+    <canvas id="edge-canvas" aria-hidden="true"></canvas>
+
+    <!-- Reference image layer -->
+    <canvas id="reference-canvas" aria-hidden="true"></canvas>
+
+    <!-- Main drawing canvas -->
+    <canvas id="draw-canvas" role="img" aria-label="Drawing canvas — use finger or stylus to draw"></canvas>
+
+    <!-- Grid overlay -->
+    <div id="grid-overlay" aria-hidden="true"></div>
+
+    <!-- Camera permission prompt -->
+    <div id="cam-permission" role="dialog" aria-labelledby="cam-prompt-title">
+      <div class="cam-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
+      <h2 id="cam-prompt-title">Camera Access Needed</h2>
+      <p>AR Trace Studio needs camera access to overlay your drawing canvas on a live camera feed for tracing.</p>
+      <button class="btn btn-primary" id="btn-request-cam" style="margin-top:8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Enable Camera
+      </button>
+    </div>
+
+    <!-- Layer badge -->
+    <div id="layer-badge" aria-label="Current layer">
+      <div class="layer-dot"></div>
+      <span id="layer-name-badge">Drawing Layer</span>
+    </div>
+
+    <!-- Reference image controls (floating) -->
+    <div id="ref-controls" role="group" aria-label="Reference image controls">
+      <span class="ref-control-label">Reference Opacity</span>
+      <input type="range" id="ref-opacity" min="0" max="100" value="50" aria-label="Reference image opacity" />
+      <span class="ref-control-label">Position</span>
+      <div style="display:flex;gap:4px;">
+        <button class="btn icon-only sm" id="ref-move-mode" title="Move reference image" aria-label="Move reference image">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+        </button>
+        <button class="btn icon-only sm btn-danger" id="ref-remove" title="Remove reference" aria-label="Remove reference image">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Side Panel (floating) ─────────────────────── -->
+  <div id="side-panel" role="group" aria-label="Quick actions">
+    <button class="btn icon-only" id="btn-camera-toggle" title="Toggle camera" aria-label="Toggle camera">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+    </button>
+    <button class="btn icon-only" id="btn-flip-camera" title="Flip camera" aria-label="Switch camera">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+        <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
+      </svg>
+    </button>
+    <button class="btn icon-only" id="btn-grid" title="Toggle grid" aria-label="Toggle grid overlay">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+    </button>
+    <button class="btn icon-only" id="btn-fullscreen" title="Fullscreen" aria-label="Toggle fullscreen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+      </svg>
+    </button>
+    <button class="btn icon-only" id="btn-save" title="Save drawing" aria-label="Save drawing as PNG">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── Bottom Toolbar ────────────────────────────── -->
+  <nav id="toolbar" role="toolbar" aria-label="Drawing tools">
+
+    <!-- Row 1: Tool selection -->
+    <div class="tool-row" role="group" aria-label="Select tool">
+
+      <button class="tool-btn active" id="tool-pen" data-tool="pen" aria-pressed="true" aria-label="Pen tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+        </svg>
+        <span>Pen</span>
+      </button>
+
+      <button class="tool-btn" id="tool-brush" data-tool="brush" aria-pressed="false" aria-label="Brush tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 3a3 3 0 00-6 0l-1.5 9L2 22l12.5-1.5L18 9a3 3 0 000-6z"/>
+        </svg>
+        <span>Brush</span>
+      </button>
+
+      <button class="tool-btn" id="tool-marker" data-tool="marker" aria-pressed="false" aria-label="Marker tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        <span>Marker</span>
+      </button>
+
+      <button class="tool-btn" id="tool-eraser" data-tool="eraser" aria-pressed="false" aria-label="Eraser tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 20H7L3 16l9.5-9.5 7.5 7.5-3 3"/><path d="M6.5 17.5l4-4"/>
+        </svg>
+        <span>Eraser</span>
+      </button>
+
+      <button class="tool-btn" id="tool-line" data-tool="line" aria-pressed="false" aria-label="Straight line tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="19" x2="19" y2="5"/>
+        </svg>
+        <span>Line</span>
+      </button>
+
+      <button class="tool-btn" id="tool-rect" data-tool="rect" aria-pressed="false" aria-label="Rectangle tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+        <span>Rect</span>
+      </button>
+
+      <button class="tool-btn" id="tool-circle" data-tool="circle" aria-pressed="false" aria-label="Circle tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+        </svg>
+        <span>Circle</span>
+      </button>
+
+      <button class="tool-btn" id="tool-eyedropper" data-tool="eyedropper" aria-pressed="false" aria-label="Color picker / eyedropper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 13.5V19a2 2 0 002 2h.5"/><path d="M22 12l-7.07-7.07-1.42 1.42 1.42 1.42-5.41 5.41A2 2 0 009 14.83V17h2.17a2 2 0 001.41-.59l5.42-5.41 1.41 1.41L22 12z"/>
+        </svg>
+        <span>Pick</span>
+      </button>
+
+      <div style="flex: 1;"></div>
+
+      <button class="tool-btn" id="btn-clear" aria-label="Clear canvas" title="Clear all drawings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+        <span style="color:#ff6363;">Clear</span>
+      </button>
+    </div>
+
+    <!-- Row 2: Options -->
+    <div class="options-row" role="group" aria-label="Tool options">
+
+      <!-- Color palette -->
+      <div class="color-row" role="group" aria-label="Color palette">
+        <div class="color-swatch selected" style="background:#ffffff" data-color="#ffffff" role="button" tabindex="0" aria-label="White"></div>
+        <div class="color-swatch" style="background:#000000" data-color="#000000" role="button" tabindex="0" aria-label="Black"></div>
+        <div class="color-swatch" style="background:#6c63ff" data-color="#6c63ff" role="button" tabindex="0" aria-label="Purple"></div>
+        <div class="color-swatch" style="background:#00d4ff" data-color="#00d4ff" role="button" tabindex="0" aria-label="Cyan"></div>
+        <div class="color-swatch" style="background:#ff63a5" data-color="#ff63a5" role="button" tabindex="0" aria-label="Pink"></div>
+        <div class="color-swatch" style="background:#39ff84" data-color="#39ff84" role="button" tabindex="0" aria-label="Green"></div>
+        <div class="color-swatch" style="background:#ff8c42" data-color="#ff8c42" role="button" tabindex="0" aria-label="Orange"></div>
+        <div class="color-swatch" style="background:#ffe135" data-color="#ffe135" role="button" tabindex="0" aria-label="Yellow"></div>
+        <input type="color" id="color-picker-input" value="#ffffff" title="Custom color" aria-label="Pick custom color" />
+      </div>
+
+      <!-- Separator -->
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.1);flex-shrink:0;"></div>
+
+      <!-- Stroke size -->
+      <div class="slider-group">
+        <div class="slider-label">
+          Size
+          <span id="stroke-size-val">4px</span>
+        </div>
+        <input type="range" id="stroke-size" min="1" max="60" value="4" aria-label="Stroke size" />
+      </div>
+
+      <!-- Opacity -->
+      <div class="slider-group">
+        <div class="slider-label">
+          Opacity
+          <span id="opacity-val">100%</span>
+        </div>
+        <input type="range" id="opacity-slider" min="5" max="100" value="100" aria-label="Drawing opacity" />
+      </div>
+
+      <!-- Separator -->
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.1);flex-shrink:0;"></div>
+
+      <!-- Camera opacity -->
+      <div class="slider-group">
+        <div class="slider-label">
+          Camera
+          <span id="cam-opacity-val">100%</span>
+        </div>
+        <input type="range" id="cam-opacity" min="0" max="100" value="100" aria-label="Camera opacity" />
+      </div>
+
+      <!-- Edge detection toggle -->
+      <div class="slider-group">
+        <div class="slider-label" style="margin-bottom:6px;">
+          Edges
+          <span id="edge-val">Off</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn icon-only sm" id="btn-edge-toggle" aria-label="Toggle edge detection" title="Toggle edge detection">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>
+          </button>
+          <button class="btn icon-only sm" id="btn-load-ref" aria-label="Load reference image" title="Load reference image">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </nav>
+
+</div><!-- /#app -->
+
+<!-- ══════════════════════════════════════════════════
+     SETTINGS MODAL
+══════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal-sheet">
+    <div class="modal-handle" aria-hidden="true"></div>
+    <h2 class="modal-title" id="settings-title">Settings</h2>
+
+    <div class="modal-section">
+      <p class="modal-section-label">Camera</p>
+      <div class="modal-row">
+        <span class="modal-row-label">Camera facing</span>
+        <button class="btn" id="settings-cam-facing" style="font-size:12px;">Back</button>
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">Camera brightness</span>
+        <input type="range" id="settings-brightness" min="-100" max="100" value="0" style="width:120px;" aria-label="Camera brightness" />
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">Camera contrast</span>
+        <input type="range" id="settings-contrast" min="50" max="200" value="100" style="width:120px;" aria-label="Camera contrast" />
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <p class="modal-section-label">Canvas</p>
+      <div class="modal-row">
+        <span class="modal-row-label">Show pressure sensitivity info</span>
+        <label class="toggle" aria-label="Pressure info">
+          <input type="checkbox" id="toggle-pressure" />
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">Smooth strokes</span>
+        <label class="toggle" aria-label="Smooth strokes">
+          <input type="checkbox" id="toggle-smooth" checked />
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">Show brush cursor</span>
+        <label class="toggle" aria-label="Show brush cursor">
+          <input type="checkbox" id="toggle-brush-cursor" checked />
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <p class="modal-section-label">Export</p>
+      <div class="modal-row">
+        <span class="modal-row-label">Save with camera background</span>
+        <label class="toggle" aria-label="Save with camera">
+          <input type="checkbox" id="toggle-save-cam" />
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">Export format</span>
+        <select id="export-format" style="background:rgba(255,255,255,0.08);border:1px solid rgba(108,99,255,0.3);border-radius:8px;padding:6px 10px;color:#f0f0ff;font-size:13px;" aria-label="Export format">
+          <option value="png">PNG</option>
+          <option value="jpg">JPEG</option>
+          <option value="webp">WebP</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <p class="modal-section-label">About</p>
+      <div class="modal-row">
+        <span class="modal-row-label">Version</span>
+        <span style="font-size:13px;color:var(--text-muted);">1.0.0</span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-row-label">AR Trace Studio</span>
+        <span style="font-size:13px;color:var(--text-muted);">PWA</span>
+      </div>
+    </div>
+
+    <button class="btn btn-danger" id="btn-clear-all-confirm" style="width:100%;margin-top:8px;">
+      Clear All & Reset
+    </button>
+  </div>
+</div>
+
+<!-- Hidden reference file input -->
+<input type="file" id="ref-file-input" accept="image/*" style="display:none;" aria-hidden="true" />
+
+<script src="app.js"></script>
+</body>
+</html>
