@@ -11,6 +11,7 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 const amount = z.number().finite().positive().max(999999999999.99);
 const projectId = z.number().int().positive();
 const monthKey = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM format");
+const auditFilters = z.object({ from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional(), actorRole: z.enum(["admin", "user"]).optional(), search: z.string().trim().min(1).max(120).optional() });
 
 function hasValidAdminPassword(candidate: string) {
   const expected = Buffer.from(ENV.adminAccessPassword);
@@ -52,13 +53,17 @@ export const appRouter = router({
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
       return financeDb.listProjectsForAdmin();
     }),
-    auditLogs: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional(), search: z.string().trim().min(1).max(120).optional(), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
+    auditLogs: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, search: input.search, page: input.page, pageSize: input.pageSize });
+      return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search, page: input.page, pageSize: input.pageSize });
     }),
-    auditLogExport: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional(), search: z.string().trim().min(1).max(120).optional() })).query(({ input }) => {
+    auditLogExport: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128) })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId, search: input.search });
+      return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
+    }),
+    auditActivity: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128) })).query(({ input }) => {
+      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+      return financeDb.getAuditLogActivity({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
     }),
   }),
   projects: router({

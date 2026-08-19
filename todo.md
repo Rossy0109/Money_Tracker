@@ -59,4 +59,10 @@
 - [x] Add a responsive application footer with the requested © Kamrul Ahmed copyright mention.
 - [x] Test and visually verify the audit search, date-range, and footer enhancement.
 - [x] Synchronize the verified audit search, date-range, and footer enhancement to the private GitHub repository.
-- [ ] Save a release checkpoint for the audit search, date-range, and footer enhancement.
+- [x] Save a release checkpoint for the audit search, date-range, and footer enhancement.
+- [x] Add administrator-only activity analytics showing the most frequent audit actions within the active filter range.
+- [x] Add a secure user-or-role audit filter shared by pagination, analytics, and CSV/PDF exports.
+- [x] Replace the dashboard’s current finance headline with a profile-focused heading and move project selection into that profile area.
+- [x] Test and visually verify the audit analytics, role filter, and profile layout update.
+- [x] Confirm the authenticated Admin audit dialog displays the activity chart and user-or-role filters.
+- [ ] Save a checkpoint and synchronize the verified audit analytics, role filter, and profile layout update to GitHub.

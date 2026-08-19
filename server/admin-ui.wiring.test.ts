@@ -9,6 +9,7 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("trpc.admin.verifyAccess.useMutation");
     expect(homeSource).toContain("trpc.admin.auditLogs.useQuery");
     expect(homeSource).toContain("trpc.admin.auditLogExport.useQuery");
+    expect(homeSource).toContain("trpc.admin.auditActivity.useQuery");
     expect(homeSource).toContain("trpc.admin.projects.useQuery");
     expect(homeSource).toContain("const canViewAdminData = canLoadAdminData");
     expect(homeSource).toContain("enabled: canViewAdminData");
@@ -20,6 +21,10 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("সব ব্যবহারকারী");
     expect(homeSource).toContain("কাজ বা কিওয়ার্ড খুঁজুন");
     expect(homeSource).toContain("Calendar mode=\"range\"");
+    expect(homeSource).toContain("ব্যবহারকারী বা ভূমিকা");
+    expect(homeSource).toContain("কোন কাজ বেশি হয়েছে");
+    expect(homeSource).toContain("auditActorRole");
+    expect(homeSource).toContain("প্রোফাইলের প্রজেক্ট");
     expect(homeSource).toContain("const [auditPage, setAuditPage] = useState(1)");
     expect(homeSource).toContain("CSV ডাউনলোড");
     expect(homeSource).toContain("PDF ডাউনলোড");

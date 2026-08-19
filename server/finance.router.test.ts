@@ -7,7 +7,7 @@ const { financeDb } = vi.hoisted(() => ({
     getOverview: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(),
-    listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(),
+    listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
   },
 }));
 
@@ -105,7 +105,7 @@ describe("finance router", () => {
 
     await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toEqual({ verified: true });
     await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
-    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, search: undefined, page: 1, pageSize: 25 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, actorRole: undefined, search: undefined, page: 1, pageSize: 25 });
   });
 
   it("passes validated date-range, actor, and keyword filters to the audit-log query", async () => {
@@ -114,17 +114,26 @@ describe("finance router", () => {
     const from = new Date("2026-08-01T00:00:00.000Z");
     const to = new Date("2026-08-19T23:59:59.999Z");
 
-    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, search: "delete", page: 2 });
+    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, actorRole: "user", search: "delete", page: 2 });
 
-    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, search: "delete", page: 2, pageSize: 25 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, actorRole: "user", search: "delete", page: 2, pageSize: 25 });
   });
 
   it("permits a verified administrator to retrieve only the selected audit-log export set", async () => {
     financeDb.listAuditLogsForExport.mockResolvedValue([{ id: 2, summary: "Transaction deleted" }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17, search: "deleted" })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
-    expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17, search: "deleted" });
+    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17, actorRole: "user", search: "deleted" })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
+    expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17, actorRole: "user", search: "deleted" });
+  });
+
+  it("returns filtered audit activity analytics only after administrator verification", async () => {
+    financeDb.getAuditLogActivity.mockResolvedValue([{ action: "update", count: 8 }]);
+    const caller = appRouter.createCaller(administratorContext);
+
+    await expect(caller.admin.auditActivity({ password: ENV.adminAccessPassword, actorRole: "admin" })).resolves.toEqual([{ action: "update", count: 8 }]);
+    expect(financeDb.getAuditLogActivity).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, actorRole: "admin", search: undefined });
+    await expect(appRouter.createCaller(authenticatedContext).admin.auditActivity({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {
