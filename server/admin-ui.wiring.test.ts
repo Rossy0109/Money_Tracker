@@ -13,11 +13,13 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("const canViewAdminData = canLoadAdminData");
     expect(homeSource).toContain("enabled: canViewAdminData");
     expect(homeSource).toContain("সাম্প্রতিক Audit log");
-    expect(homeSource).toContain("const [auditFrom, setAuditFrom] = useState(\"\")");
-    expect(homeSource).toContain("const [auditTo, setAuditTo] = useState(\"\")");
+    expect(homeSource).toContain("const [auditDateRange, setAuditDateRange] = useState<DateRange | undefined>(undefined)");
+    expect(homeSource).toContain("const [auditSearch, setAuditSearch] = useState(\"\")");
     expect(homeSource).toContain("const [auditActorUserId, setAuditActorUserId] = useState(\"all\")");
     expect(homeSource).toContain("ফিল্টার পরিষ্কার করুন");
     expect(homeSource).toContain("সব ব্যবহারকারী");
+    expect(homeSource).toContain("কাজ বা কিওয়ার্ড খুঁজুন");
+    expect(homeSource).toContain("Calendar mode=\"range\"");
     expect(homeSource).toContain("const [auditPage, setAuditPage] = useState(1)");
     expect(homeSource).toContain("CSV ডাউনলোড");
     expect(homeSource).toContain("PDF ডাউনলোড");

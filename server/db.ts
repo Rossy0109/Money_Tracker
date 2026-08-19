@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   auditLogs,
@@ -301,13 +301,16 @@ export async function exportUserData(userId: number) {
   return { projects, accounts, categories, transactions, budgets, bills };
 }
 
-export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number };
+export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number; search?: string };
 
 function auditLogPredicates(filters: AuditLogFilters) {
+  const keyword = filters.search?.trim();
+  const searchPattern = keyword ? `%${keyword.replace(/[\\%_]/g, "\\$&")}%` : undefined;
   return [
     filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
     filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
     filters.actorUserId ? eq(auditLogs.actorUserId, filters.actorUserId) : undefined,
+    searchPattern ? or(like(auditLogs.summary, searchPattern), like(auditLogs.entityType, searchPattern), like(auditLogs.action, searchPattern)) : undefined,
   ].filter((predicate): predicate is NonNullable<typeof predicate> => Boolean(predicate));
 }
 

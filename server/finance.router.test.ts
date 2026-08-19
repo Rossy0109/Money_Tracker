@@ -105,26 +105,26 @@ describe("finance router", () => {
 
     await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toEqual({ verified: true });
     await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
-    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, page: 1, pageSize: 25 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, search: undefined, page: 1, pageSize: 25 });
   });
 
-  it("passes validated date-range and actor filters to the audit-log query", async () => {
+  it("passes validated date-range, actor, and keyword filters to the audit-log query", async () => {
     financeDb.listAuditLogsPage.mockResolvedValue({ logs: [], page: 2, pageSize: 25, total: 26, totalPages: 2 });
     const caller = appRouter.createCaller(administratorContext);
     const from = new Date("2026-08-01T00:00:00.000Z");
     const to = new Date("2026-08-19T23:59:59.999Z");
 
-    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, page: 2 });
+    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, search: "delete", page: 2 });
 
-    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, page: 2, pageSize: 25 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, search: "delete", page: 2, pageSize: 25 });
   });
 
   it("permits a verified administrator to retrieve only the selected audit-log export set", async () => {
     financeDb.listAuditLogsForExport.mockResolvedValue([{ id: 2, summary: "Transaction deleted" }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17 })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
-    expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17 });
+    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17, search: "deleted" })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
+    expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17, search: "deleted" });
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {

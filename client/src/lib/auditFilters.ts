@@ -1,12 +1,16 @@
-export type AuditFilterState = { from: string; to: string; actorUserId: string };
+export type AuditFilterState = { from?: Date; to?: Date; actorUserId: string; search: string };
 
-export const EMPTY_AUDIT_FILTERS: AuditFilterState = { from: "", to: "", actorUserId: "all" };
+export const EMPTY_AUDIT_FILTERS: AuditFilterState = { from: undefined, to: undefined, actorUserId: "all", search: "" };
+
+function startOfUtcDay(value: Date) { return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0)); }
+function endOfUtcDay(value: Date) { return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), 23, 59, 59, 999)); }
 
 export function buildAdminAuditFilterInput(password: string, filters: AuditFilterState) {
   return {
     password: password || "pending",
-    from: filters.from ? new Date(`${filters.from}T00:00:00.000Z`) : undefined,
-    to: filters.to ? new Date(`${filters.to}T23:59:59.999Z`) : undefined,
+    from: filters.from ? startOfUtcDay(filters.from) : undefined,
+    to: filters.to ? endOfUtcDay(filters.to) : undefined,
     actorUserId: filters.actorUserId === "all" ? undefined : Number(filters.actorUserId),
+    search: filters.search.trim() || undefined,
   };
 }

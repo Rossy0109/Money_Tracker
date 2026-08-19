@@ -57,9 +57,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-[#f7f8f4]">
+      <SidebarInset className="flex min-h-svh flex-col bg-[#f7f8f4]">
         <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-4 backdrop-blur lg:hidden"><SidebarTrigger className="rounded-xl text-[#173f36]" /><span className="ml-3 text-sm font-bold text-[#173f36]">আমার হিসাব</span></div>
-        <main className="mx-auto min-h-screen w-full max-w-[1600px] p-4 sm:p-6 lg:p-9">{children}</main>
+        <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9">{children}</main>
+        <footer className="border-t border-[#dde7df] px-4 py-4 text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
       </SidebarInset>
     </SidebarProvider>
   );
