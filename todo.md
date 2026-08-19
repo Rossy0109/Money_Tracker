@@ -16,4 +16,4 @@
 - [x] Add server-side Vitest coverage for access isolation, default categories, balances, budgets, and bill updates.
 - [x] Run type checks, tests, production build, and visual checks at desktop and mobile viewport sizes.
 - [x] Push the completed source code to the user’s GitHub repository.
-- [ ] Save a release checkpoint and provide practical, honest free-hosting guidance for long-term use.
+- [x] Save a release checkpoint and provide practical, honest free-hosting guidance for long-term use.
