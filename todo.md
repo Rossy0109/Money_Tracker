@@ -26,3 +26,15 @@
 - [x] Replace the default expense category set with the user-provided Bengali categories and preserve existing transaction history safely.
 - [x] Update Bengali category displays, tests, and documentation to match the user-provided expense category set exactly.
 - [x] Save an updated checkpoint for the completed security, category, and backup enhancements.
+- [x] Review the existing Manus OAuth role flow and define a secure administrator bootstrap approach without exposing credentials in source code.
+- [x] Add role-aware authorization helpers for Admin and User access boundaries.
+- [x] Add user-isolated project workspaces, with a default workspace named Face Two Button.
+- [x] Associate finance accounts, categories, transactions, budgets, and bill reminders with a project workspace while preserving existing data.
+- [x] Add administrator-only audit-log storage for create, update, and delete activity across protected finance and project actions.
+- [x] Add safe edit and delete workflows for user-owned finance records.
+- [x] Verify and document the administrator-only project management and audit-log views end-to-end.
+- [x] Add an Admin/User sign-in explanation compatible with Manus OAuth, without adding an insecure standalone password login.
+- [x] Add role, project-isolation, edit/delete, and audit-log test coverage; complete type, build, and visual verification.
+- [x] Document the Admin/User OAuth flow, server-side second-factor verification, and administrator-only views.
+- [x] Recheck the development server after the administrator authorization import repair and record the result.
+- [x] Save a checkpoint and synchronize the completed role and workspace changes to GitHub.
