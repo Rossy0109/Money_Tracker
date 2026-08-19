@@ -42,7 +42,20 @@ describe("finance router", () => {
   it("defines exactly the required default categories", () => {
     expect(DEFAULT_CATEGORIES).toEqual({
       income: ["Salary", "Business", "Investment"],
-      expense: ["Food", "Transport", "Housing", "Utilities", "Education", "Health", "Shopping", "Family"],
+      expense: [
+        "মেয়র স্যার",
+        "রছি ভাই",
+        "মুক্তার বাড়ির বাজার",
+        "ইউটিলিটি বিল",
+        "বেতন",
+        "বাজারের বাসা খরচ",
+        "যাতায়াত খরচ",
+        "ঠিকাদারী ব্যবসা",
+        "ঠিকাদার লাইসেন্স রেনুয়াল",
+        "দেনা পাওনা",
+        "রাজনৈতিক খরচ",
+        "অনুদান",
+      ],
     });
   });
 
@@ -56,6 +69,15 @@ describe("finance router", () => {
     financeDb.getOverview.mockResolvedValue({ totals: {} });
     const caller = appRouter.createCaller(authenticatedContext);
     await caller.finance.overview();
+    expect(financeDb.getOverview).toHaveBeenCalledWith(42);
+  });
+
+  it("exports only the authenticated user's finance data", async () => {
+    financeDb.getOverview.mockResolvedValue({ transactions: [] });
+    const caller = appRouter.createCaller(authenticatedContext);
+
+    await caller.finance.exportData();
+
     expect(financeDb.getOverview).toHaveBeenCalledWith(42);
   });
 

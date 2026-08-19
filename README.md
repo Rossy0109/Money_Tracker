@@ -11,7 +11,7 @@
 | Accounts | Cash, bank, and mobile banking accounts with opening and auto-updated running balances |
 | Budgets | Per-expense-category monthly budgets with actual-spend progress |
 | Bills | Upcoming bill tracking with a paid/unpaid state |
-| Categories | Fixed defaults only: income — Salary, Business, Investment; expense — Food, Transport, Housing, Utilities, Education, Health, Shopping, Family |
+| Categories | Fixed defaults only: income — Salary, Business, Investment; expense — মেয়র স্যার, রছি ভাই, মুক্তার বাড়ির বাজার, ইউটিলিটি বিল, বেতন, বাজারের বাসা খরচ, যাতায়াত খরচ, ঠিকাদারী ব্যবসা, ঠিকাদার লাইসেন্স রেনুয়াল, দেনা পাওনা, রাজনৈতিক খরচ, অনুদান |
 | Privacy | All finance requests use the authenticated user's server-side identifier; records are scoped by `userId` |
 
 ## Running locally

@@ -17,3 +17,12 @@
 - [x] Run type checks, tests, production build, and visual checks at desktop and mobile viewport sizes.
 - [x] Push the completed source code to the user’s GitHub repository.
 - [x] Save a release checkpoint and provide practical, honest free-hosting guidance for long-term use.
+- [x] Inspect the available Google connection and Drive permissions without accessing or modifying user files.
+- [x] Define whether Google Drive will store source-code backups, user-initiated encrypted finance exports, or both; do not place the live application database on Drive.
+- [x] Review and document the existing user-isolation, authentication, validation, and access-control safeguards.
+- [x] Create the approved private Google Drive folder and upload the first source-code backup without changing the live database.
+- [x] Add a user-facing, protected export flow for a user to download only their own finance data for manual upload to Drive.
+- [x] Add tests and verify security boundaries for the Drive-related change.
+- [x] Replace the default expense category set with the user-provided Bengali categories and preserve existing transaction history safely.
+- [x] Update Bengali category displays, tests, and documentation to match the user-provided expense category set exactly.
+- [x] Save an updated checkpoint for the completed security, category, and backup enhancements.

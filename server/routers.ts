@@ -20,6 +20,7 @@ export const appRouter = router({
   }),
   finance: router({
     overview: protectedProcedure.query(({ ctx }) => financeDb.getOverview(ctx.user.id)),
+    exportData: protectedProcedure.query(({ ctx }) => financeDb.getOverview(ctx.user.id)),
     transactions: protectedProcedure
       .input(z.object({ type: z.enum(["income", "expense"]).optional() }).optional())
       .query(({ ctx, input }) => financeDb.listTransactions(ctx.user.id, input?.type)),
