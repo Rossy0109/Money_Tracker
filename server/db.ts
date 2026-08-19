@@ -303,14 +303,42 @@ export async function exportUserData(userId: number) {
 
 export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number };
 
-export async function listAuditLogs(filters: AuditLogFilters = {}) {
+function auditLogPredicates(filters: AuditLogFilters) {
+  return [
+    filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
+    filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
+    filters.actorUserId ? eq(auditLogs.actorUserId, filters.actorUserId) : undefined,
+  ].filter((predicate): predicate is NonNullable<typeof predicate> => Boolean(predicate));
+}
+
+export type AuditLogPageInput = AuditLogFilters & { page: number; pageSize: number };
+
+export async function listAuditLogsPage({ page, pageSize, ...filters }: AuditLogPageInput) {
   const db = databaseRequired(await getDb());
+  const predicates = auditLogPredicates(filters);
+  const where = predicates.length ? and(...predicates) : undefined;
+  const [logs, totalRows] = await Promise.all([
+    db.select({ id: auditLogs.id, action: auditLogs.action, entityType: auditLogs.entityType, entityId: auditLogs.entityId, summary: auditLogs.summary, createdAt: auditLogs.createdAt, actorUserId: auditLogs.actorUserId, actorName: users.name, projectId: auditLogs.projectId, projectName: financeProjects.name }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id)).leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id)).where(where).orderBy(desc(auditLogs.createdAt)).limit(pageSize).offset((page - 1) * pageSize),
+    db.select({ total: sql<number>`count(*)` }).from(auditLogs).where(where),
+  ]);
+  const total = Number(totalRows[0]?.total ?? 0);
+  return { logs, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function listAuditLogsForExport(filters: AuditLogFilters = {}) {
+  const db = databaseRequired(await getDb());
+  const predicates = auditLogPredicates(filters);
+  const where = predicates.length ? and(...predicates) : undefined;
+  return db.select({ id: auditLogs.id, action: auditLogs.action, entityType: auditLogs.entityType, entityId: auditLogs.entityId, summary: auditLogs.summary, createdAt: auditLogs.createdAt, actorUserId: auditLogs.actorUserId, actorName: users.name, projectId: auditLogs.projectId, projectName: financeProjects.name }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id)).leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id)).where(where).orderBy(desc(auditLogs.createdAt));
+}
+
+export async function listAuditLogs(filters: AuditLogFilters = {}) {
   const predicates = [
     filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
     filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
     filters.actorUserId ? eq(auditLogs.actorUserId, filters.actorUserId) : undefined,
   ].filter((predicate): predicate is NonNullable<typeof predicate> => Boolean(predicate));
-  return db.select({ id: auditLogs.id, action: auditLogs.action, entityType: auditLogs.entityType, entityId: auditLogs.entityId, summary: auditLogs.summary, createdAt: auditLogs.createdAt, actorUserId: auditLogs.actorUserId, actorName: users.name, projectId: auditLogs.projectId, projectName: financeProjects.name }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id)).leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id)).where(predicates.length ? and(...predicates) : undefined).orderBy(desc(auditLogs.createdAt)).limit(250);
+  return listAuditLogsPage({ ...filters, page: 1, pageSize: 250 }).then(result => result.logs);
 }
 
 export async function listUsersForAdmin() {

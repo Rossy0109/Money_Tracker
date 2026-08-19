@@ -7,7 +7,7 @@ const { financeDb } = vi.hoisted(() => ({
     getOverview: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(),
-    listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(),
+    listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(),
   },
 }));
 
@@ -94,28 +94,37 @@ describe("finance router", () => {
 
   it("does not permit a standard user to inspect administrator audit logs", async () => {
     await expect(appRouter.createCaller(authenticatedContext).admin.auditLogs({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(financeDb.listAuditLogs).not.toHaveBeenCalled();
+    await expect(appRouter.createCaller(authenticatedContext).admin.auditLogExport({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(financeDb.listAuditLogsPage).not.toHaveBeenCalled();
+    expect(financeDb.listAuditLogsForExport).not.toHaveBeenCalled();
   });
 
   it("permits a verified administrator to inspect the audit log", async () => {
-    financeDb.listAuditLogs.mockResolvedValue([{ id: 1, summary: "Transaction created" }]);
+    financeDb.listAuditLogsPage.mockResolvedValue({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25, total: 1, totalPages: 1 });
     const caller = appRouter.createCaller(administratorContext);
 
     await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toEqual({ verified: true });
-    await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toEqual([{ id: 1, summary: "Transaction created" }]);
-    expect(financeDb.listAuditLogs).toHaveBeenCalledOnce();
-    expect(financeDb.listAuditLogs).toHaveBeenCalledWith();
+    await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, page: 1, pageSize: 25 });
   });
 
   it("passes validated date-range and actor filters to the audit-log query", async () => {
-    financeDb.listAuditLogs.mockResolvedValue([]);
+    financeDb.listAuditLogsPage.mockResolvedValue({ logs: [], page: 2, pageSize: 25, total: 26, totalPages: 2 });
     const caller = appRouter.createCaller(administratorContext);
     const from = new Date("2026-08-01T00:00:00.000Z");
     const to = new Date("2026-08-19T23:59:59.999Z");
 
-    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17 });
+    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, page: 2 });
 
-    expect(financeDb.listAuditLogs).toHaveBeenCalledWith({ from, to, actorUserId: 17 });
+    expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, page: 2, pageSize: 25 });
+  });
+
+  it("permits a verified administrator to retrieve only the selected audit-log export set", async () => {
+    financeDb.listAuditLogsForExport.mockResolvedValue([{ id: 2, summary: "Transaction deleted" }]);
+    const caller = appRouter.createCaller(administratorContext);
+
+    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17 })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
+    expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17 });
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {

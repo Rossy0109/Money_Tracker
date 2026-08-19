@@ -52,9 +52,13 @@ export const appRouter = router({
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
       return financeDb.listProjectsForAdmin();
     }),
-    auditLogs: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional() })).query(({ input }) => {
+    auditLogs: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional(), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      return input.from || input.to || input.actorUserId ? financeDb.listAuditLogs({ from: input.from, to: input.to, actorUserId: input.actorUserId }) : financeDb.listAuditLogs();
+      return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, page: input.page, pageSize: input.pageSize });
+    }),
+    auditLogExport: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional() })).query(({ input }) => {
+      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+      return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId });
     }),
   }),
   projects: router({
