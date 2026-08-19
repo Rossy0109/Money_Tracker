@@ -103,7 +103,19 @@ describe("finance router", () => {
 
     await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toEqual({ verified: true });
     await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toEqual([{ id: 1, summary: "Transaction created" }]);
-    expect(financeDb.listAuditLogs).toHaveBeenCalledTimes(1);
+    expect(financeDb.listAuditLogs).toHaveBeenCalledOnce();
+    expect(financeDb.listAuditLogs).toHaveBeenCalledWith();
+  });
+
+  it("passes validated date-range and actor filters to the audit-log query", async () => {
+    financeDb.listAuditLogs.mockResolvedValue([]);
+    const caller = appRouter.createCaller(administratorContext);
+    const from = new Date("2026-08-01T00:00:00.000Z");
+    const to = new Date("2026-08-19T23:59:59.999Z");
+
+    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17 });
+
+    expect(financeDb.listAuditLogs).toHaveBeenCalledWith({ from, to, actorUserId: 17 });
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {

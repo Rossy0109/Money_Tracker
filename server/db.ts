@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   auditLogs,
@@ -301,9 +301,16 @@ export async function exportUserData(userId: number) {
   return { projects, accounts, categories, transactions, budgets, bills };
 }
 
-export async function listAuditLogs() {
+export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number };
+
+export async function listAuditLogs(filters: AuditLogFilters = {}) {
   const db = databaseRequired(await getDb());
-  return db.select({ id: auditLogs.id, action: auditLogs.action, entityType: auditLogs.entityType, entityId: auditLogs.entityId, summary: auditLogs.summary, createdAt: auditLogs.createdAt, actorUserId: auditLogs.actorUserId, actorName: users.name, projectId: auditLogs.projectId, projectName: financeProjects.name }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id)).leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id)).orderBy(desc(auditLogs.createdAt)).limit(250);
+  const predicates = [
+    filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
+    filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
+    filters.actorUserId ? eq(auditLogs.actorUserId, filters.actorUserId) : undefined,
+  ].filter((predicate): predicate is NonNullable<typeof predicate> => Boolean(predicate));
+  return db.select({ id: auditLogs.id, action: auditLogs.action, entityType: auditLogs.entityType, entityId: auditLogs.entityId, summary: auditLogs.summary, createdAt: auditLogs.createdAt, actorUserId: auditLogs.actorUserId, actorName: users.name, projectId: auditLogs.projectId, projectName: financeProjects.name }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id)).leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id)).where(predicates.length ? and(...predicates) : undefined).orderBy(desc(auditLogs.createdAt)).limit(250);
 }
 
 export async function listUsersForAdmin() {

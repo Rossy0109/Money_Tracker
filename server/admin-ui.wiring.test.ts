@@ -12,6 +12,11 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("const canViewAdminData = canLoadAdminData");
     expect(homeSource).toContain("enabled: canViewAdminData");
     expect(homeSource).toContain("সাম্প্রতিক Audit log");
+    expect(homeSource).toContain("const [auditFrom, setAuditFrom] = useState(\"\")");
+    expect(homeSource).toContain("const [auditTo, setAuditTo] = useState(\"\")");
+    expect(homeSource).toContain("const [auditActorUserId, setAuditActorUserId] = useState(\"all\")");
+    expect(homeSource).toContain("ফিল্টার পরিষ্কার করুন");
+    expect(homeSource).toContain("সব ব্যবহারকারী");
     expect(homeSource).toContain("সব প্রজেক্ট");
     expect(homeSource).toContain("নিবন্ধিত ব্যবহারকারী");
   });

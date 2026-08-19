@@ -52,9 +52,9 @@ export const appRouter = router({
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
       return financeDb.listProjectsForAdmin();
     }),
-    auditLogs: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).query(({ input }) => {
+    auditLogs: adminProcedure.input(z.object({ password: z.string().min(1).max(128), from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional() })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      return financeDb.listAuditLogs();
+      return input.from || input.to || input.actorUserId ? financeDb.listAuditLogs({ from: input.from, to: input.to, actorUserId: input.actorUserId }) : financeDb.listAuditLogs();
     }),
   }),
   projects: router({
