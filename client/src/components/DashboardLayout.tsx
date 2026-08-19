@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Banknote, ChartNoAxesCombined, LayoutDashboard, LogOut, ReceiptText, Tags, WalletCards } from "lucide-react";
+import { Banknote, ChartNoAxesCombined, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "#overview" },
@@ -40,6 +40,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </SidebarHeader>
         <SidebarContent className="px-2 py-3">
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="নতুন লেনদেন যোগ করুন" className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]">
+                <a href="#transactions"><Plus className="h-4.5 w-4.5" /><span>লেনদেন যোগ করুন</span></a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             {menuItems.map(item => <SidebarMenuItem key={item.href}>
               <SidebarMenuButton asChild tooltip={item.label} className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-[#d8f2dd] data-[active=true]:text-[#113a30]">
                 <a href={item.href}><item.icon className="h-4.5 w-4.5" /><span>{item.label}</span></a>

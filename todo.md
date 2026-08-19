@@ -66,4 +66,8 @@
 - [x] Test and visually verify the audit analytics, role filter, and profile layout update.
 - [x] Confirm the authenticated Admin audit dialog displays the activity chart and user-or-role filters.
 - [x] Synchronize the verified audit analytics, role filter, and profile layout update to the private GitHub repository.
-- [ ] Save a release checkpoint for the audit analytics, role filter, and profile layout update.
+- [x] Save a release checkpoint for the audit analytics, role filter, and profile layout update.
+- [x] Add an immediately visible Bengali transaction data-entry button in the profile area and persistent navigation.
+- [x] Add concise Bengali guidance explaining how to record income, expenses, accounts, and bills.
+- [x] Test and visually verify the data-entry discoverability improvement, including the authenticated profile button, quick-entry guide, and sidebar control on desktop and mobile.
+- [ ] Save a checkpoint and synchronize the verified data-entry discoverability improvement to GitHub.
