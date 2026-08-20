@@ -101,4 +101,15 @@
 - [x] Add sidebar navigation interaction tests and responsive visual verification.
 - [x] Move category management out of the dashboard and into a dedicated Bengali category page.
 - [x] Route the sidebar category button to the dedicated page and retain a clear route back to the dashboard.
-- [ ] Add category-page navigation coverage and complete desktop/mobile verification, checkpoint, and GitHub synchronization.
+- [x] Add category-page navigation coverage and complete desktop/mobile verification, checkpoint, and GitHub synchronization.
+- [x] Conduct an expert end-to-end review of authentication, authorization, data isolation, finance accounting, navigation, and Bengali user flows.
+- [x] Remediate every verified review finding and add focused regression coverage where needed.
+- [ ] Re-run full tests, type checks, production build, and desktop/mobile visual verification; checkpoint and synchronize the expert-reviewed release.
+- [x] Review every sidebar destination and all functional options for complete Bengali workflow coverage, authorization, data integrity, and error handling.
+- [x] Remediate and test any verified gaps across profile, transactions, accounts, budgets, bills, categories, dues, vouchers, administration, audit logs, exports, and backup.
+- [ ] Complete full responsive verification for sidebar destinations and functional dialogs, then checkpoint and synchronize the comprehensive review release.
+- [x] Verify and document each sidebar destination and functional workflow individually, including administrator-only screens, exports, and backup-related flows.
+- [x] Add or reference focused regression evidence for every reviewed area, especially administration and backup.
+- [x] Record a review matrix mapping profile, transactions, accounts, budgets, bills, categories, dues, vouchers, administration, audit logs, exports, and backup to review evidence and tests.
+- [x] Document every sidebar destination one by one with its exact target, expected behavior, and reviewed code/test evidence.
+- [x] Document every functional workflow one by one with its authorization, data-integrity, error-handling, and review evidence.

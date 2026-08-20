@@ -2,6 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
+import { persistPreferredProjectId, preferredProjectId } from "@/lib/activeProject";
 import { ArrowLeft, CircleDollarSign, Tags, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
@@ -30,7 +31,7 @@ function LoadingState() {
 }
 
 export default function Categories() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [, params] = useRoute("/categories/:type");
   const selectedType = params?.type === "income" || params?.type === "expense" ? params.type : null;
   const projects = trpc.projects.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -41,8 +42,16 @@ export default function Categories() {
   );
 
   useEffect(() => {
-    if (!activeProjectId && projects.data?.[0]) setActiveProjectId(projects.data[0].id);
-  }, [activeProjectId, projects.data]);
+    if (!activeProjectId && projects.data?.length) {
+      const projectId = preferredProjectId(user?.id, projects.data);
+      if (projectId) setActiveProjectId(projectId);
+    }
+  }, [activeProjectId, projects.data, user?.id]);
+
+  function selectActiveProject(projectId: number) {
+    setActiveProjectId(projectId);
+    persistPreferredProjectId(user?.id, projectId);
+  }
 
   const categories = overview.data?.categories ?? [];
   const incomeCategories = categories.filter(category => category.type === "income");
@@ -54,7 +63,7 @@ export default function Categories() {
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
-        onChange={event => setActiveProjectId(Number(event.target.value))}
+        onChange={event => selectActiveProject(Number(event.target.value))}
         className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
       >
         {projects.data.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}

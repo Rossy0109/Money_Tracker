@@ -20,6 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { persistPreferredProjectId, preferredProjectId } from "@/lib/activeProject";
 import { canLoadAdminData } from "@/lib/adminAccess";
 import { buildAdminAuditFilterInput } from "@/lib/auditFilters";
 import { downloadAuditCsv, downloadAuditPdf } from "@/lib/auditLogExports";
@@ -209,9 +210,15 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (!activeProjectId && projects.data?.[0])
-      setActiveProjectId(projects.data[0].id);
-  }, [activeProjectId, projects.data]);
+    if (!activeProjectId && projects.data?.length) {
+      const projectId = preferredProjectId(user?.id, projects.data);
+      if (projectId) setActiveProjectId(projectId);
+    }
+  }, [activeProjectId, projects.data, user?.id]);
+  function selectActiveProject(projectId: number) {
+    setActiveProjectId(projectId);
+    persistPreferredProjectId(user?.id, projectId);
+  }
   useEffect(() => {
     setAuditPage(1);
   }, [
@@ -274,7 +281,7 @@ export default function Home() {
   const createProject = trpc.projects.create.useMutation({
     onSuccess: async project => {
       await refresh();
-      setActiveProjectId(project.id);
+      selectActiveProject(project.id);
       setProjectOpen(false);
       setProjectName("");
       toast.success("নতুন প্রজেক্ট তৈরি হয়েছে");
@@ -726,7 +733,7 @@ export default function Home() {
                 className="finance-input h-11 min-w-44 bg-white"
                 value={activeProjectId ?? ""}
                 onChange={event =>
-                  setActiveProjectId(Number(event.target.value))
+                  selectActiveProject(Number(event.target.value))
                 }
               >
                 {projects.data?.map(project => (
