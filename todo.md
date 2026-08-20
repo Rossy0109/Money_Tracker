@@ -79,4 +79,5 @@
 - [x] Create the requested দৈনিক লেনদেনের খাতা replacement workspace for the current user.
 - [x] Prevent the deleted Face Two Button workspace from being automatically recreated on future sign-in.
 - [x] Verify that Face Two Button was deleted and দৈনিক লেনদেনের খাতা is the active replacement workspace with its 15 default categories.
-- [ ] Save a checkpoint and synchronize the confirmed workspace data change and default-name update to GitHub.
+- [x] Synchronize the confirmed workspace data change and default-name update to the private GitHub repository.
+- [ ] Save a release checkpoint for the confirmed Daily Transaction Ledger replacement.
