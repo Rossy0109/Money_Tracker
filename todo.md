@@ -71,4 +71,12 @@
 - [x] Add concise Bengali guidance explaining how to record income, expenses, accounts, and bills.
 - [x] Test and visually verify the data-entry discoverability improvement, including the authenticated profile button, quick-entry guide, and sidebar control on desktop and mobile.
 - [x] Synchronize the verified data-entry discoverability improvement to the private GitHub repository.
-- [ ] Save a release checkpoint for the data-entry discoverability improvement.
+- [x] Save a release checkpoint for the data-entry discoverability improvement.
+- [x] Diagnose and resolve the reported Manus OAuth sign-in connection/reload failure by restoring the development service after a transient connection interruption.
+- [ ] Verify restored sign-in behavior and provide concise Bengali retry guidance.
+- [x] Diagnose and mitigate the reported mobile-specific Manus OAuth connection/reload behavior with storage resilience and browser guidance.
+- [x] Permanently delete the confirmed Face Two Button workspace and all finance records scoped to it.
+- [x] Create the requested দৈনিক লেনদেনের খাতা replacement workspace for the current user.
+- [x] Prevent the deleted Face Two Button workspace from being automatically recreated on future sign-in.
+- [x] Verify that Face Two Button was deleted and দৈনিক লেনদেনের খাতা is the active replacement workspace with its 15 default categories.
+- [ ] Save a checkpoint and synchronize the confirmed workspace data change and default-name update to GitHub.

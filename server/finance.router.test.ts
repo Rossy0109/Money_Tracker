@@ -137,10 +137,10 @@ describe("finance router", () => {
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {
-    financeDb.listProjectsForAdmin.mockResolvedValue([{ id: 88, name: "Face Two Button" }]);
+    financeDb.listProjectsForAdmin.mockResolvedValue([{ id: 88, name: "দৈনিক লেনদেনের খাতা" }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.projects({ password: ENV.adminAccessPassword })).resolves.toEqual([{ id: 88, name: "Face Two Button" }]);
+    await expect(caller.admin.projects({ password: ENV.adminAccessPassword })).resolves.toEqual([{ id: 88, name: "দৈনিক লেনদেনের খাতা" }]);
     expect(financeDb.listProjectsForAdmin).toHaveBeenCalledTimes(1);
   });
 });

@@ -14,7 +14,7 @@ import {
 import { ENV } from "./_core/env";
 import { DEFAULT_CATEGORIES } from "./finance.constants";
 
-const DEFAULT_PROJECT_NAME = "Face Two Button";
+const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 

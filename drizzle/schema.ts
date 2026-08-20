@@ -24,7 +24,7 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-/** Each user owns isolated workspaces; Face Two Button is seeded on first use. */
+/** Each user owns isolated workspaces; দৈনিক লেনদেনের খাতা is seeded on first use. */
 export const financeProjects = mysqlTable(
   "finance_projects",
   {
