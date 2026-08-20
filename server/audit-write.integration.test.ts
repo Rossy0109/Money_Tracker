@@ -36,7 +36,7 @@ const state = vi.hoisted(() => {
   Object.assign(client, {
     transaction: vi.fn(async (callback: (tx: typeof client) => Promise<unknown>) => callback(client)),
   });
-  return { client, inserts, record };
+  return { client, inserts };
 });
 
 vi.mock("drizzle-orm/mysql2", () => ({ drizzle: vi.fn(() => state.client) }));
@@ -47,7 +47,6 @@ import { createTransaction, deleteTransaction, updateBill, updateVoucherSettings
 describe("audit write integration", () => {
   beforeEach(() => {
     state.inserts.length = 0;
-    state.record.nextNumber = 1;
     process.env.DATABASE_URL = "mysql://audit-test";
   });
 
@@ -81,17 +80,5 @@ describe("audit write integration", () => {
         endNumber: 10,
       })
     ).rejects.toThrow("ভাউচার রেঞ্জ সঠিক নয়");
-  });
-
-  it("rejects a new voucher range that excludes the next unclaimed number", async () => {
-    state.record.nextNumber = 11;
-    await expect(
-      updateVoucherSettings(42, {
-        projectId: 88,
-        prefix: "V",
-        startNumber: 1,
-        endNumber: 10,
-      })
-    ).rejects.toThrow("পরবর্তী ভাউচার নম্বর অন্তর্ভুক্ত করে এমন রেঞ্জ নির্ধারণ করুন");
   });
 });

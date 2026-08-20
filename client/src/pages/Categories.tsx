@@ -1,8 +1,12 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import {
+  readActiveProjectId,
+  resolveActiveProjectId,
+  saveActiveProjectId,
+} from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
-import { persistPreferredProjectId, preferredProjectId } from "@/lib/activeProject";
 import { ArrowLeft, CircleDollarSign, Tags, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
@@ -31,7 +35,7 @@ function LoadingState() {
 }
 
 export default function Categories() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [, params] = useRoute("/categories/:type");
   const selectedType = params?.type === "income" || params?.type === "expense" ? params.type : null;
   const projects = trpc.projects.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -42,15 +46,17 @@ export default function Categories() {
   );
 
   useEffect(() => {
-    if (!activeProjectId && projects.data?.length) {
-      const projectId = preferredProjectId(user?.id, projects.data);
-      if (projectId) setActiveProjectId(projectId);
-    }
-  }, [activeProjectId, projects.data, user?.id]);
-
-  function selectActiveProject(projectId: number) {
+    const projectIds = projects.data?.map(project => project.id) ?? [];
+    const nextProjectId = resolveActiveProjectId(
+      projectIds,
+      activeProjectId,
+      readActiveProjectId()
+    );
+    if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
+  }, [activeProjectId, projects.data]);
+  function selectProject(projectId: number) {
+    saveActiveProjectId(projectId);
     setActiveProjectId(projectId);
-    persistPreferredProjectId(user?.id, projectId);
   }
 
   const categories = overview.data?.categories ?? [];
@@ -63,7 +69,7 @@ export default function Categories() {
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
-        onChange={event => selectActiveProject(Number(event.target.value))}
+        onChange={event => selectProject(Number(event.target.value))}
         className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
       >
         {projects.data.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
@@ -74,9 +80,9 @@ export default function Categories() {
   if (!selectedType) {
     return (
       <DashboardLayout>
-        <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
+        <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
           <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
-            <a href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#28603c] hover:text-[#173f36]"><ArrowLeft className="h-4 w-4" />ড্যাশবোর্ডে ফিরুন</a>
+            <a href="/" className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-[#28603c] hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"><ArrowLeft className="h-4 w-4" />ড্যাশবোর্ডে ফিরুন</a>
             <p className="section-kicker">ক্যাটাগরি</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">আয় ও ব্যয়ের ক্যাটাগরি</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">সবকিছু একসঙ্গে না রেখে আয়ের ও ব্যয়ের ক্যাটাগরিগুলো আলাদা পৃষ্ঠায় সাজানো হয়েছে।</p>
@@ -88,7 +94,7 @@ export default function Categories() {
               <CategoryLink type="expense" count={expenseCategories.length} />
             </section>
           )}
-        </div>
+        </main>
       </DashboardLayout>
     );
   }
@@ -100,11 +106,11 @@ export default function Categories() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
+      <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
         <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
-            <a href="/" className="inline-flex items-center gap-2 hover:text-[#173f36]"><ArrowLeft className="h-4 w-4" />ড্যাশবোর্ডে ফিরুন</a>
-            <a href="/categories" className="inline-flex items-center gap-2 hover:text-[#173f36]"><Tags className="h-4 w-4" />সব ক্যাটাগরি</a>
+            <a href="/" className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"><ArrowLeft className="h-4 w-4" />ড্যাশবোর্ডে ফিরুন</a>
+            <a href="/categories" className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"><Tags className="h-4 w-4" />সব ক্যাটাগরি</a>
           </div>
           <div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
@@ -134,7 +140,7 @@ export default function Categories() {
           <p className="text-sm text-[#5f786d]">অন্য ধরনের ক্যাটাগরিও আলাদা পৃষ্ঠায় দেখুন।</p>
           <Button asChild variant="outline" className="rounded-xl border-[#b8d8be] text-[#28603c]"><a href={`/categories/${otherType}`}>{otherType === "income" ? "আয়ের ক্যাটাগরি" : "ব্যয়ের ক্যাটাগরি"}</a></Button>
         </div>
-      </div>
+      </main>
     </DashboardLayout>
   );
 }

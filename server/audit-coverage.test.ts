@@ -24,10 +24,7 @@ describe("audit logging coverage", () => {
       const nextFunction = dataLayerSource.indexOf("\nexport async function ", start + 1);
       const implementation = dataLayerSource.slice(start, nextFunction === -1 ? undefined : nextFunction);
       expect(start, `${mutation} should exist in the finance data layer`).toBeGreaterThanOrEqual(0);
-      expect(
-        implementation.includes("await logAudit(") || implementation.includes("await tx.insert(auditLogs)"),
-        `${mutation} should write an audit entry`
-      ).toBe(true);
+      expect(implementation, `${mutation} should write an audit entry`).toContain("await logAudit(");
     }
   });
 });

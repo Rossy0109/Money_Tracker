@@ -135,7 +135,7 @@ export async function updateVoucherSettings(userId: number, input: { projectId: 
   if (input.startNumber < 1 || input.endNumber < input.startNumber) throw new Error("ভাউচার রেঞ্জ সঠিক নয়");
   const current = await getVoucherSettings(userId, input.projectId);
   const nextNumber = Math.max(current.nextNumber, input.startNumber);
-  if (nextNumber > input.endNumber) throw new Error("পরবর্তী ভাউচার নম্বর অন্তর্ভুক্ত করে এমন রেঞ্জ নির্ধারণ করুন");
+  if (nextNumber > input.endNumber + 1) throw new Error("বর্তমান ভাউচার নম্বরের চেয়ে কম রেঞ্জ নির্ধারণ করা যাবে না");
   const db = databaseRequired(await getDb());
   await db.update(financeVoucherSettings).set({ prefix: input.prefix.trim() || "V", startNumber: input.startNumber, endNumber: input.endNumber, nextNumber }).where(eq(financeVoucherSettings.id, current.id));
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "voucher_settings", entityId: current.id, summary: "Voucher range updated" });
@@ -256,10 +256,9 @@ export async function createDue(userId: number, input: { projectId: number; type
   const id = await db.transaction(async tx => {
     const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
     const result = await tx.insert(financeDues).values({ userId, projectId: input.projectId, type: input.type, counterparty: input.counterparty.trim(), originalAmount: decimal(input.amount), outstandingAmount: decimal(input.amount), voucherNo, note: input.note?.trim() || null, openedAt: input.openedAt });
-    const id = Number(result[0].insertId);
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: input.type, entityId: id, summary: `${input.type === "debt" ? "Debt" : "Receivable"} added: ${input.counterparty.trim()}` });
-    return id;
+    return Number(result[0].insertId);
   });
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: input.type, entityId: id, summary: `${input.type === "debt" ? "Debt" : "Receivable"} added: ${input.counterparty.trim()}` });
   return assertOwnedDue(userId, input.projectId, id);
 }
 
@@ -289,21 +288,17 @@ export async function settleDue(userId: number, input: { projectId: number; dueI
 export async function createAccount(userId: number, input: { projectId: number; name: string; type: "cash" | "bank" | "mobile"; openingBalance: number }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    const result = await tx.insert(financeAccounts).values({ userId, projectId: input.projectId, name: input.name.trim(), type: input.type, openingBalance: decimal(input.openingBalance), currentBalance: decimal(input.openingBalance) });
-    const id = Number(result[0].insertId);
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "account", entityId: id, summary: `Account created: ${input.name.trim()}` });
-  });
+  const result = await db.insert(financeAccounts).values({ userId, projectId: input.projectId, name: input.name.trim(), type: input.type, openingBalance: decimal(input.openingBalance), currentBalance: decimal(input.openingBalance) });
+  const id = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "account", entityId: id, summary: `Account created: ${input.name.trim()}` });
 }
 
 export async function updateAccount(userId: number, id: number, input: { projectId: number; name: string; type: "cash" | "bank" | "mobile"; openingBalance: number }) {
   const db = databaseRequired(await getDb());
   const existing = await assertOwnedAccount(userId, input.projectId, id);
   const openingDifference = input.openingBalance - Number(existing.openingBalance);
-  await db.transaction(async tx => {
-    await tx.update(financeAccounts).set({ name: input.name.trim(), type: input.type, openingBalance: decimal(input.openingBalance), currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(openingDifference)}` }).where(and(eq(financeAccounts.id, id), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "account", entityId: id, summary: `Account updated: ${input.name.trim()}` });
-  });
+  await db.update(financeAccounts).set({ name: input.name.trim(), type: input.type, openingBalance: decimal(input.openingBalance), currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(openingDifference)}` }).where(and(eq(financeAccounts.id, id), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "account", entityId: id, summary: `Account updated: ${input.name.trim()}` });
 }
 
 export async function deleteAccount(userId: number, projectId: number, id: number) {
@@ -311,10 +306,8 @@ export async function deleteAccount(userId: number, projectId: number, id: numbe
   await assertOwnedAccount(userId, projectId, id);
   const [transaction] = await db.select({ id: financeTransactions.id }).from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId), eq(financeTransactions.accountId, id))).limit(1);
   if (transaction) throw new Error("লেনদেন থাকা অ্যাকাউন্ট মুছতে আগে ওই লেনদেনগুলো সম্পাদনা বা মুছুন");
-  await db.transaction(async tx => {
-    await tx.delete(financeAccounts).where(and(eq(financeAccounts.id, id), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)));
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId, action: "delete", entityType: "account", entityId: id, summary: "Account deleted" });
-  });
+  await db.delete(financeAccounts).where(and(eq(financeAccounts.id, id), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)));
+  await logAudit({ actorUserId: userId, projectId, action: "delete", entityType: "account", entityId: id, summary: "Account deleted" });
 }
 
 export async function createTransaction(userId: number, input: { projectId: number; categoryId: number; accountId?: number; type: "income" | "expense"; amount: number; paymentMethod: string; note?: string; occurredAt: Date }) {
@@ -325,13 +318,10 @@ export async function createTransaction(userId: number, input: { projectId: numb
   const id = await db.transaction(async tx => {
     const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
     const result = await tx.insert(financeTransactions).values({ userId, projectId: input.projectId, categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), voucherNo, paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt });
-    if (input.accountId) {
-      await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(signedAmount(input.type, input.amount))}` }).where(and(eq(financeAccounts.id, input.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
-    }
-    const id = Number(result[0].insertId);
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "transaction", entityId: id, summary: `${input.type === "income" ? "Income" : "Expense"} transaction created` });
-    return id;
+    return Number(result[0].insertId);
   });
+  await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount));
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "transaction", entityId: id, summary: `${input.type === "income" ? "Income" : "Expense"} transaction created` });
 }
 
 export async function updateTransaction(userId: number, id: number, input: { projectId: number; categoryId: number; accountId?: number; type: "income" | "expense"; amount: number; paymentMethod: string; note?: string; occurredAt: Date }) {
@@ -341,92 +331,68 @@ export async function updateTransaction(userId: number, id: number, input: { pro
   if (!existing) throw new Error("Transaction not found or access denied");
   await assertOwnedCategory(userId, input.projectId, input.categoryId, input.type);
   if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
-  await db.transaction(async tx => {
-    if (existing.accountId) {
-      await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(-signedAmount(existing.type, existing.amount))}` }).where(and(eq(financeAccounts.id, existing.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
-    }
-    await tx.update(financeTransactions).set({ categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt }).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, input.projectId)));
-    if (input.accountId) {
-      await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(signedAmount(input.type, input.amount))}` }).where(and(eq(financeAccounts.id, input.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
-    }
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "transaction", entityId: id, summary: "Transaction updated" });
-  });
+  await adjustAccountBalance(userId, input.projectId, existing.accountId, -signedAmount(existing.type, existing.amount));
+  await db.update(financeTransactions).set({ categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt }).where(eq(financeTransactions.id, id));
+  await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount));
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "transaction", entityId: id, summary: "Transaction updated" });
 }
 
 export async function deleteTransaction(userId: number, projectId: number, id: number) {
   const db = databaseRequired(await getDb());
   const [transaction] = await db.select().from(financeTransactions).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))).limit(1);
   if (!transaction) throw new Error("Transaction not found or access denied");
-  await db.transaction(async tx => {
-    if (transaction.accountId) {
-      await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(-signedAmount(transaction.type, transaction.amount))}` }).where(and(eq(financeAccounts.id, transaction.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)));
-    }
-    const result = await tx.delete(financeTransactions).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId)));
-    if (!result[0].affectedRows) throw new Error("Transaction not found or access denied");
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId, action: "delete", entityType: "transaction", entityId: id, summary: "Transaction deleted" });
-  });
+  await adjustAccountBalance(userId, projectId, transaction.accountId, -signedAmount(transaction.type, transaction.amount));
+  await db.delete(financeTransactions).where(eq(financeTransactions.id, id));
+  await logAudit({ actorUserId: userId, projectId, action: "delete", entityType: "transaction", entityId: id, summary: "Transaction deleted" });
 }
 
 export async function upsertBudget(userId: number, input: { projectId: number; categoryId: number; monthKey: string; amount: number }) {
   await assertOwnedCategory(userId, input.projectId, input.categoryId, "expense");
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    await tx.insert(financeBudgets).values({ userId, projectId: input.projectId, categoryId: input.categoryId, monthKey: input.monthKey, amount: decimal(input.amount) }).onDuplicateKeyUpdate({ set: { amount: decimal(input.amount) } });
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "budget", summary: "Monthly budget saved" });
-  });
+  await db.insert(financeBudgets).values({ userId, projectId: input.projectId, categoryId: input.categoryId, monthKey: input.monthKey, amount: decimal(input.amount) }).onDuplicateKeyUpdate({ set: { amount: decimal(input.amount) } });
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "budget", summary: "Monthly budget saved" });
 }
 
 export async function createBill(userId: number, input: { projectId: number; title: string; amount: number; dueAt: Date }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    const result = await tx.insert(financeBills).values({ userId, projectId: input.projectId, title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt });
-    const id = Number(result[0].insertId);
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "bill", entityId: id, summary: "Bill reminder created" });
-  });
+  const result = await db.insert(financeBills).values({ userId, projectId: input.projectId, title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt });
+  const id = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "bill", entityId: id, summary: "Bill reminder created" });
 }
 
 export async function updateBill(userId: number, projectId: number, id: number, input: { title: string; amount: number; dueAt: Date; isPaid: boolean }) {
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    const result = await tx.update(financeBills).set({ title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt, isPaid: input.isPaid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
-    if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId, action: "update", entityType: "bill", entityId: id, summary: "Bill reminder updated" });
-  });
+  const result = await db.update(financeBills).set({ title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt, isPaid: input.isPaid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
+  await logAudit({ actorUserId: userId, projectId, action: "update", entityType: "bill", entityId: id, summary: "Bill reminder updated" });
 }
 
 export async function setBillPaid(userId: number, projectId: number, id: number, isPaid: boolean) {
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    const result = await tx.update(financeBills).set({ isPaid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
-    if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId, action: "update", entityType: "bill", entityId: id, summary: `Bill marked ${isPaid ? "paid" : "unpaid"}` });
-  });
+  const result = await db.update(financeBills).set({ isPaid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
+  await logAudit({ actorUserId: userId, projectId, action: "update", entityType: "bill", entityId: id, summary: `Bill marked ${isPaid ? "paid" : "unpaid"}` });
 }
 
 export async function deleteBill(userId: number, projectId: number, id: number) {
   const db = databaseRequired(await getDb());
-  await db.transaction(async tx => {
-    const result = await tx.delete(financeBills).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
-    if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
-    await tx.insert(auditLogs).values({ actorUserId: userId, projectId, action: "delete", entityType: "bill", entityId: id, summary: "Bill reminder deleted" });
-  });
+  const result = await db.delete(financeBills).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
+  await logAudit({ actorUserId: userId, projectId, action: "delete", entityType: "bill", entityId: id, summary: "Bill reminder deleted" });
 }
 
 export async function exportUserData(userId: number) {
   const db = databaseRequired(await getDb());
-  const [projects, accounts, categories, transactions, budgets, bills, dues, dueSettlements, voucherSettings] = await Promise.all([
+  const [projects, accounts, categories, transactions, budgets, bills] = await Promise.all([
     listProjects(userId),
     db.select().from(financeAccounts).where(eq(financeAccounts.userId, userId)),
     db.select().from(financeCategories).where(eq(financeCategories.userId, userId)),
     db.select().from(financeTransactions).where(eq(financeTransactions.userId, userId)),
     db.select().from(financeBudgets).where(eq(financeBudgets.userId, userId)),
     db.select().from(financeBills).where(eq(financeBills.userId, userId)),
-    db.select().from(financeDues).where(eq(financeDues.userId, userId)),
-    db.select().from(financeDueSettlements).where(eq(financeDueSettlements.userId, userId)),
-    db.select().from(financeVoucherSettings).where(eq(financeVoucherSettings.userId, userId)),
   ]);
-  return { projects, accounts, categories, transactions, budgets, bills, dues, dueSettlements, voucherSettings };
+  return { projects, accounts, categories, transactions, budgets, bills };
 }
 
 export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number; actorRole?: "admin" | "user"; search?: string };

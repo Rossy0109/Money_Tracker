@@ -1,18 +1,32 @@
-export type ProjectOption = { id: number };
+export const ACTIVE_PROJECT_STORAGE_KEY = "my-hisab.active-project-id";
 
-export function activeProjectStorageKey(userId: number | undefined) {
-  return `my-hisab-active-project-${userId ?? "anonymous"}`;
+export function resolveActiveProjectId(
+  projectIds: number[],
+  currentProjectId: number | null,
+  storedProjectId: number | null
+) {
+  if (!projectIds.length) return null;
+  if (currentProjectId !== null && projectIds.includes(currentProjectId))
+    return currentProjectId;
+  if (storedProjectId !== null && projectIds.includes(storedProjectId))
+    return storedProjectId;
+  return projectIds[0];
 }
 
-export function preferredProjectId(userId: number | undefined, projects: ProjectOption[]) {
-  if (!projects.length) return null;
-  if (typeof window !== "undefined") {
-    const savedProjectId = Number(window.sessionStorage.getItem(activeProjectStorageKey(userId)));
-    if (projects.some(project => project.id === savedProjectId)) return savedProjectId;
+export function readActiveProjectId() {
+  try {
+    const value = window.sessionStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY);
+    const projectId = Number(value);
+    return Number.isInteger(projectId) && projectId > 0 ? projectId : null;
+  } catch {
+    return null;
   }
-  return projects[0].id;
 }
 
-export function persistPreferredProjectId(userId: number | undefined, projectId: number) {
-  if (typeof window !== "undefined") window.sessionStorage.setItem(activeProjectStorageKey(userId), String(projectId));
+export function saveActiveProjectId(projectId: number) {
+  try {
+    window.sessionStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, String(projectId));
+  } catch {
+    // Storage can be unavailable in privacy-restricted mobile browsers.
+  }
 }

@@ -1,22 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
-import { activeProjectStorageKey, persistPreferredProjectId, preferredProjectId } from "./activeProject";
+import { describe, expect, it } from "vitest";
+import { resolveActiveProjectId } from "./activeProject";
 
-describe("active project continuity", () => {
-  it("uses a valid saved project for the signed-in user and falls back to the first owned project", () => {
-    const getItem = vi.fn().mockReturnValue("22");
-    vi.stubGlobal("window", { sessionStorage: { getItem, setItem: vi.fn() } });
-    const projects = [{ id: 11 }, { id: 22 }];
-    expect(preferredProjectId(7, projects)).toBe(22);
-    getItem.mockReturnValue("99");
-    expect(preferredProjectId(7, projects)).toBe(11);
-    expect(preferredProjectId(7, [])).toBeNull();
+describe("resolveActiveProjectId", () => {
+  it("keeps the currently selected project when it belongs to the signed-in user", () => {
+    expect(resolveActiveProjectId([4, 9], 9, 4)).toBe(9);
   });
 
-  it("stores the selected project under a user-specific session key", () => {
-    const setItem = vi.fn();
-    vi.stubGlobal("window", { sessionStorage: { getItem: vi.fn(), setItem } });
-    persistPreferredProjectId(7, 22);
-    expect(activeProjectStorageKey(7)).toBe("my-hisab-active-project-7");
-    expect(setItem).toHaveBeenCalledWith("my-hisab-active-project-7", "22");
+  it("restores a saved project only when it belongs to the signed-in user", () => {
+    expect(resolveActiveProjectId([4, 9], null, 9)).toBe(9);
+    expect(resolveActiveProjectId([4, 9], null, 77)).toBe(4);
+  });
+
+  it("returns null when the signed-in user has no projects", () => {
+    expect(resolveActiveProjectId([], 9, 9)).toBeNull();
   });
 });

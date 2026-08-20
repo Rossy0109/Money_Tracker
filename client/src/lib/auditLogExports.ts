@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import type { jsPDF } from "jspdf";
 
 export type AuditLogExportRecord = {
   id: number;
@@ -47,6 +47,7 @@ async function addBengaliFont(doc: jsPDF) {
 }
 
 export async function downloadAuditPdf(rows: AuditLogExportRecord[]) {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   await addBengaliFont(doc);
   const columns = [40, 155, 300, 530, 685];

@@ -16,4 +16,9 @@ describe("dedicated category pages", () => {
     expect(categoriesSource).toContain('selectedType === "income"');
     expect(homeSource).not.toContain('id="categories"');
   });
+
+  it("uses one page landmark and focus-visible return routes", () => {
+    expect(categoriesSource).toContain('main className="mx-auto w-full max-w-6xl space-y-7 pb-12"');
+    expect(categoriesSource).toContain("focus-visible:ring-2 focus-visible:ring-[#54b86a]");
+  });
 });

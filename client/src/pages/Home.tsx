@@ -20,8 +20,12 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { persistPreferredProjectId, preferredProjectId } from "@/lib/activeProject";
 import { canLoadAdminData } from "@/lib/adminAccess";
+import {
+  readActiveProjectId,
+  resolveActiveProjectId,
+  saveActiveProjectId,
+} from "@/lib/activeProject";
 import { buildAdminAuditFilterInput } from "@/lib/auditFilters";
 import { downloadAuditCsv, downloadAuditPdf } from "@/lib/auditLogExports";
 import {
@@ -55,9 +59,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  cloneElement,
   FormEvent,
+  isValidElement,
   useDeferredValue,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from "react";
@@ -210,14 +217,17 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (!activeProjectId && projects.data?.length) {
-      const projectId = preferredProjectId(user?.id, projects.data);
-      if (projectId) setActiveProjectId(projectId);
-    }
-  }, [activeProjectId, projects.data, user?.id]);
-  function selectActiveProject(projectId: number) {
+    const projectIds = projects.data?.map(project => project.id) ?? [];
+    const nextProjectId = resolveActiveProjectId(
+      projectIds,
+      activeProjectId,
+      readActiveProjectId()
+    );
+    if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
+  }, [activeProjectId, projects.data]);
+  function selectProject(projectId: number) {
+    saveActiveProjectId(projectId);
     setActiveProjectId(projectId);
-    persistPreferredProjectId(user?.id, projectId);
   }
   useEffect(() => {
     setAuditPage(1);
@@ -281,7 +291,7 @@ export default function Home() {
   const createProject = trpc.projects.create.useMutation({
     onSuccess: async project => {
       await refresh();
-      selectActiveProject(project.id);
+      setActiveProjectId(project.id);
       setProjectOpen(false);
       setProjectName("");
       toast.success("নতুন প্রজেক্ট তৈরি হয়েছে");
@@ -732,9 +742,7 @@ export default function Home() {
                 aria-label="প্রোফাইলের প্রজেক্ট নির্বাচন"
                 className="finance-input h-11 min-w-44 bg-white"
                 value={activeProjectId ?? ""}
-                onChange={event =>
-                  selectActiveProject(Number(event.target.value))
-                }
+                onChange={event => selectProject(Number(event.target.value))}
               >
                 {projects.data?.map(project => (
                   <option key={project.id} value={project.id}>
@@ -886,7 +894,13 @@ export default function Home() {
                         axisLine={false}
                       />
                       <Tooltip
-                        formatter={(value: number) => bdt(value)}
+                        formatter={value =>
+                          bdt(
+                            Array.isArray(value)
+                              ? (value[0] ?? 0)
+                              : (value ?? 0)
+                          )
+                        }
                         labelFormatter={label =>
                           `${monthText(String(label))} মাস`
                         }
@@ -1258,8 +1272,8 @@ export default function Home() {
                     })
                   }
                 >
-                  <option>Cash</option>
-                  <option>Bank Transfer</option>
+                  <option value="Cash">নগদ</option>
+                  <option value="Bank Transfer">ব্যাংক ট্রান্সফার</option>
                   <option>bKash</option>
                   <option>Nagad</option>
                   <option>Card</option>
@@ -1644,7 +1658,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LockKeyhole className="h-5 w-5 text-[#76601d]" />
-              Admin control
+              অ্যাডমিন নিয়ন্ত্রণ
             </DialogTitle>
           </DialogHeader>
           {!adminVerified ? (
@@ -1659,7 +1673,7 @@ export default function Home() {
                 Manus OAuth identity ও server-only password—দুই ধাপে Admin
                 নিয়ন্ত্রণ সুরক্ষিত।
               </p>
-              <Field label="Admin password">
+              <Field label="অ্যাডমিন পাসওয়ার্ড">
                 <Input
                   required
                   type="password"
@@ -1816,9 +1830,17 @@ export default function Home() {
                             width={28}
                           />
                           <Tooltip
-                            labelFormatter={auditActionText}
-                            formatter={(value: number) => [
-                              String(value) + "টি কাজ",
+                            labelFormatter={label =>
+                              auditActionText(
+                                typeof label === "string" ? label : ""
+                              )
+                            }
+                            formatter={value => [
+                              String(
+                                Array.isArray(value)
+                                  ? (value[0] ?? 0)
+                                  : (value ?? 0)
+                              ) + "টি কাজ",
                               "সংখ্যা",
                             ]}
                           />
@@ -2306,11 +2328,21 @@ function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  const generatedId = useId();
+  const isNativeControl =
+    isValidElement<{ id?: string }>(children) &&
+    typeof children.type === "string";
+  const controlId = isNativeControl
+    ? children.props.id ?? generatedId
+    : undefined;
+  const control = isNativeControl
+    ? cloneElement(children, { id: controlId })
+    : children;
   return (
-    <label className="grid gap-1.5">
-      <Label>{label}</Label>
-      {children}
-    </label>
+    <div className="grid gap-1.5">
+      <Label htmlFor={controlId}>{label}</Label>
+      {control}
+    </div>
   );
 }
 function Empty({ text }: { text: string }) {

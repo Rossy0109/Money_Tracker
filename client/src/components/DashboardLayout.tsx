@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarHeader className="h-20 justify-center px-3">
           <a href="/" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#d8f2dd] text-[#113a30]"><Banknote className="h-5 w-5" /></span>
-            <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">আমার হিসাব</span><span className="block text-[11px] text-[#b9d2c2]">Personal finance</span></span>
+            <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">আমার হিসাব</span><span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span></span>
           </a>
         </SidebarHeader>
         <SidebarContent className="px-2 py-3">
@@ -58,14 +58,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-2.5">
               <Avatar className="h-8 w-8 border border-white/20"><AvatarFallback className="bg-[#285d4e] text-xs text-white">{(user.name || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar>
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden"><p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p><p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p></div>
-              <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
+              <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
             </div>
           </div>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex min-h-svh flex-col bg-[#f7f8f4]">
         <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-4 backdrop-blur lg:hidden"><SidebarTrigger className="rounded-xl text-[#173f36]" /><span className="ml-3 text-sm font-bold text-[#173f36]">আমার হিসাব</span></div>
-        <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9">{children}</main>
+        <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9">{children}</div>
         <footer className="border-t border-[#dde7df] px-4 py-4 text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
       </SidebarInset>
     </SidebarProvider>
