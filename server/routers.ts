@@ -72,6 +72,8 @@ export const appRouter = router({
   }),
   finance: router({
     overview: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getOverview(ctx.user.id, input.projectId)),
+    voucherSettings: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getVoucherSettings(ctx.user.id, input.projectId)),
+    saveVoucherSettings: protectedProcedure.input(z.object({ projectId, prefix: z.string().trim().max(20), startNumber: z.number().int().positive(), endNumber: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.updateVoucherSettings(ctx.user.id, input)),
     exportData: protectedProcedure.query(({ ctx }) => financeDb.exportUserData(ctx.user.id)),
     addTransaction: protectedProcedure.input(transactionInput).mutation(({ ctx, input }) => financeDb.createTransaction(ctx.user.id, input)),
     updateTransaction: protectedProcedure.input(transactionInput.extend({ id: z.number().int().positive() })).mutation(({ ctx, input }) => {
@@ -79,6 +81,8 @@ export const appRouter = router({
       return financeDb.updateTransaction(ctx.user.id, id, values);
     }),
     deleteTransaction: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.deleteTransaction(ctx.user.id, input.projectId, input.id)),
+    addDue: protectedProcedure.input(z.object({ projectId, type: z.enum(["debt", "receivable"]), counterparty: z.string().trim().min(1).max(180), amount, note: z.string().trim().max(500).optional(), openedAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.createDue(ctx.user.id, input)),
+    settleDue: protectedProcedure.input(z.object({ projectId, dueId: z.number().int().positive(), accountId: z.number().int().positive().optional(), amount, note: z.string().trim().max(500).optional(), occurredAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.settleDue(ctx.user.id, input)),
     addAccount: protectedProcedure.input(z.object({ projectId, name: z.string().trim().min(1).max(120), type: z.enum(["cash", "bank", "mobile"]), openingBalance: z.number().finite().min(-999999999999.99).max(999999999999.99) })).mutation(({ ctx, input }) => financeDb.createAccount(ctx.user.id, input)),
     updateAccount: protectedProcedure.input(z.object({ id: z.number().int().positive(), projectId, name: z.string().trim().min(1).max(120), type: z.enum(["cash", "bank", "mobile"]), openingBalance: z.number().finite().min(-999999999999.99).max(999999999999.99) })).mutation(({ ctx, input }) => {
       const { id, ...values } = input;

@@ -6,12 +6,16 @@ import {
   financeBills,
   financeBudgets,
   financeCategories,
+  financeDues,
+  financeDueSettlements,
   financeProjects,
   financeTransactions,
+  financeVoucherSettings,
   InsertUser,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { calculateDueSettlement } from "./dueAccounting";
 import { DEFAULT_CATEGORIES } from "./finance.constants";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
@@ -99,6 +103,45 @@ async function ensureDefaultCategories(userId: number, projectId: number) {
   if (missing.length) await db.insert(financeCategories).values(missing);
 }
 
+async function ensureVoucherSettings(userId: number, projectId: number) {
+  const db = databaseRequired(await getDb());
+  await db.insert(financeVoucherSettings).values({ userId, projectId }).onDuplicateKeyUpdate({ set: { projectId } });
+}
+
+function formatVoucherNumber(prefix: string, number: number) {
+  return `${prefix.trim() || "V"}-${String(number).padStart(6, "0")}`;
+}
+
+async function claimNextVoucher(tx: any, userId: number, projectId: number) {
+  await tx.insert(financeVoucherSettings).values({ userId, projectId }).onDuplicateKeyUpdate({ set: { projectId } });
+  const [settings] = await tx.select().from(financeVoucherSettings).where(and(eq(financeVoucherSettings.userId, userId), eq(financeVoucherSettings.projectId, projectId))).limit(1);
+  if (!settings) throw new Error("ভাউচার সেটিংস পাওয়া যায়নি");
+  if (settings.nextNumber > settings.endNumber) throw new Error("ভাউচার নম্বরের নির্ধারিত রেঞ্জ শেষ হয়েছে; সেটিংস থেকে রেঞ্জ বাড়ান");
+  const result = await tx.update(financeVoucherSettings).set({ nextNumber: settings.nextNumber + 1 }).where(and(eq(financeVoucherSettings.id, settings.id), eq(financeVoucherSettings.nextNumber, settings.nextNumber)));
+  if (!result[0].affectedRows) throw new Error("ভাউচার নম্বর এখন ব্যবহৃত হচ্ছে; আবার চেষ্টা করুন");
+  return formatVoucherNumber(settings.prefix, settings.nextNumber);
+}
+
+export async function getVoucherSettings(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  await ensureVoucherSettings(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [settings] = await db.select().from(financeVoucherSettings).where(and(eq(financeVoucherSettings.userId, userId), eq(financeVoucherSettings.projectId, projectId))).limit(1);
+  if (!settings) throw new Error("ভাউচার সেটিংস পাওয়া যায়নি");
+  return settings;
+}
+
+export async function updateVoucherSettings(userId: number, input: { projectId: number; prefix: string; startNumber: number; endNumber: number }) {
+  if (input.startNumber < 1 || input.endNumber < input.startNumber) throw new Error("ভাউচার রেঞ্জ সঠিক নয়");
+  const current = await getVoucherSettings(userId, input.projectId);
+  const nextNumber = Math.max(current.nextNumber, input.startNumber);
+  if (nextNumber > input.endNumber + 1) throw new Error("বর্তমান ভাউচার নম্বরের চেয়ে কম রেঞ্জ নির্ধারণ করা যাবে না");
+  const db = databaseRequired(await getDb());
+  await db.update(financeVoucherSettings).set({ prefix: input.prefix.trim() || "V", startNumber: input.startNumber, endNumber: input.endNumber, nextNumber }).where(eq(financeVoucherSettings.id, current.id));
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "voucher_settings", entityId: current.id, summary: "Voucher range updated" });
+  return getVoucherSettings(userId, input.projectId);
+}
+
 export async function listProjects(userId: number) {
   await ensureDefaultProject(userId);
   const db = databaseRequired(await getDb());
@@ -138,6 +181,13 @@ async function assertOwnedAccount(userId: number, projectId: number, accountId: 
   return account;
 }
 
+async function assertOwnedDue(userId: number, projectId: number, dueId: number) {
+  const db = databaseRequired(await getDb());
+  const [due] = await db.select().from(financeDues).where(and(eq(financeDues.id, dueId), eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))).limit(1);
+  if (!due) throw new Error("দেনা বা পাওনার হিসাবটি পাওয়া যায়নি");
+  return due;
+}
+
 async function adjustAccountBalance(userId: number, projectId: number, accountId: number | null, delta: number) {
   if (!accountId || delta === 0) return;
   const db = databaseRequired(await getDb());
@@ -162,12 +212,15 @@ export async function getOverview(userId: number, projectId: number) {
   await ensureDefaultCategories(userId, projectId);
   const db = databaseRequired(await getDb());
   const scope = and(eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId));
-  const [accounts, categories, transactions, budgets, bills] = await Promise.all([
+  const [accounts, categories, transactions, budgets, bills, dues, dueSettlements, voucherSettings] = await Promise.all([
     db.select().from(financeAccounts).where(scope).orderBy(asc(financeAccounts.createdAt)),
     db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId))).orderBy(asc(financeCategories.type), asc(financeCategories.name)),
     db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))).orderBy(desc(financeTransactions.occurredAt), desc(financeTransactions.id)),
     db.select().from(financeBudgets).where(and(eq(financeBudgets.userId, userId), eq(financeBudgets.projectId, projectId), eq(financeBudgets.monthKey, monthKey()))),
     db.select().from(financeBills).where(and(eq(financeBills.userId, userId), eq(financeBills.projectId, projectId))).orderBy(asc(financeBills.isPaid), asc(financeBills.dueAt)),
+    db.select().from(financeDues).where(and(eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))).orderBy(desc(financeDues.openedAt), desc(financeDues.id)),
+    db.select().from(financeDueSettlements).where(and(eq(financeDueSettlements.userId, userId), eq(financeDueSettlements.projectId, projectId))).orderBy(desc(financeDueSettlements.occurredAt), desc(financeDueSettlements.id)),
+    getVoucherSettings(userId, projectId),
   ]);
   const totalBalance = accounts.reduce((sum, account) => sum + Number(account.currentBalance), 0);
   const totalIncome = transactions.filter(row => row.type === "income").reduce((sum, row) => sum + Number(row.amount), 0);
@@ -191,7 +244,45 @@ export async function getOverview(userId: number, projectId: number) {
     categoryName: categories.find(category => category.id === transaction.categoryId)?.name ?? "Unknown",
     accountName: transaction.accountId ? accounts.find(account => account.id === transaction.accountId)?.name ?? null : null,
   }));
-  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, bills, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, netAmount: totalIncome - totalExpense } };
+  const displayDues = dues.map(due => ({ ...due, settlements: dueSettlements.filter(settlement => settlement.dueId === due.id).map(settlement => ({ ...settlement, accountName: settlement.accountId ? accounts.find(account => account.id === settlement.accountId)?.name ?? null : null })) }));
+  const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
+}
+
+export async function createDue(userId: number, input: { projectId: number; type: "debt" | "receivable"; counterparty: string; amount: number; note?: string; openedAt: Date }) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+  const id = await db.transaction(async tx => {
+    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+    const result = await tx.insert(financeDues).values({ userId, projectId: input.projectId, type: input.type, counterparty: input.counterparty.trim(), originalAmount: decimal(input.amount), outstandingAmount: decimal(input.amount), voucherNo, note: input.note?.trim() || null, openedAt: input.openedAt });
+    return Number(result[0].insertId);
+  });
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: input.type, entityId: id, summary: `${input.type === "debt" ? "Debt" : "Receivable"} added: ${input.counterparty.trim()}` });
+  return assertOwnedDue(userId, input.projectId, id);
+}
+
+export async function settleDue(userId: number, input: { projectId: number; dueId: number; accountId?: number; amount: number; note?: string; occurredAt: Date }) {
+  const due = await assertOwnedDue(userId, input.projectId, input.dueId);
+  let effect: ReturnType<typeof calculateDueSettlement>;
+  try {
+    effect = calculateDueSettlement(due.type, Number(due.outstandingAmount), input.amount);
+  } catch {
+    throw new Error("পরিশোধ বা আদায়ের পরিমাণ বকেয়া টাকার চেয়ে বেশি হতে পারে না");
+  }
+  if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
+  const db = databaseRequired(await getDb());
+  await db.transaction(async tx => {
+    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+    const updateResult = await tx.update(financeDues).set({ outstandingAmount: sql`${financeDues.outstandingAmount} - ${decimal(input.amount)}` }).where(and(eq(financeDues.id, input.dueId), eq(financeDues.userId, userId), eq(financeDues.projectId, input.projectId), gte(financeDues.outstandingAmount, decimal(input.amount))));
+    if (!updateResult[0].affectedRows) throw new Error("বকেয়া পরিমাণ পরিবর্তিত হয়েছে; আবার চেষ্টা করুন");
+    const settlementResult = await tx.insert(financeDueSettlements).values({ userId, projectId: input.projectId, dueId: input.dueId, accountId: input.accountId ?? null, amount: decimal(input.amount), voucherNo, note: input.note?.trim() || null, occurredAt: input.occurredAt });
+    if (input.accountId) {
+      await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(effect.accountBalanceDelta)}` }).where(and(eq(financeAccounts.id, input.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId)));
+    }
+    const settlementId = Number(settlementResult[0].insertId);
+    await tx.insert(auditLogs).values({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: due.type === "debt" ? "debt_settlement" : "receivable_collection", entityId: settlementId, summary: `${due.type === "debt" ? "Debt payment" : "Receivable collection"}: ${due.counterparty}` });
+  });
 }
 
 export async function createAccount(userId: number, input: { projectId: number; name: string; type: "cash" | "bank" | "mobile"; openingBalance: number }) {
@@ -224,8 +315,11 @@ export async function createTransaction(userId: number, input: { projectId: numb
   await assertOwnedCategory(userId, input.projectId, input.categoryId, input.type);
   if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
   const db = databaseRequired(await getDb());
-  const result = await db.insert(financeTransactions).values({ userId, projectId: input.projectId, categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt });
-  const id = Number(result[0].insertId);
+  const id = await db.transaction(async tx => {
+    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+    const result = await tx.insert(financeTransactions).values({ userId, projectId: input.projectId, categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), voucherNo, paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt });
+    return Number(result[0].insertId);
+  });
   await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount));
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "transaction", entityId: id, summary: `${input.type === "income" ? "Income" : "Expense"} transaction created` });
 }

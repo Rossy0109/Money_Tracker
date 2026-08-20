@@ -40,6 +40,23 @@ export const financeProjects = mysqlTable(
   ],
 );
 
+/** A project-owned voucher range; numbers are assigned sequentially by the server. */
+export const financeVoucherSettings = mysqlTable(
+  "finance_voucher_settings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    prefix: varchar("prefix", { length: 24 }).notNull().default("V"),
+    startNumber: int("startNumber").notNull().default(1),
+    endNumber: int("endNumber").notNull().default(999999),
+    nextNumber: int("nextNumber").notNull().default(1),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [uniqueIndex("finance_voucher_settings_user_project_unique").on(table.userId, table.projectId)],
+);
+
 /** Every finance record belongs to exactly one authenticated user and workspace. */
 export const financeAccounts = mysqlTable(
   "finance_accounts",
@@ -84,6 +101,8 @@ export const financeTransactions = mysqlTable(
     categoryId: int("categoryId").notNull().references(() => financeCategories.id, { onDelete: "restrict" }),
     type: mysqlEnum("type", ["income", "expense"]).notNull(),
     amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    voucherNo: varchar("voucherNo", { length: 80 }),
+    reason: varchar("reason", { length: 180 }),
     paymentMethod: varchar("paymentMethod", { length: 100 }).notNull(),
     note: varchar("note", { length: 500 }),
     occurredAt: timestamp("occurredAt").notNull(),
@@ -93,6 +112,51 @@ export const financeTransactions = mysqlTable(
     index("finance_transactions_user_project_date_idx").on(table.userId, table.projectId, table.occurredAt),
     index("finance_transactions_user_project_type_idx").on(table.userId, table.projectId, table.type),
     index("finance_transactions_account_idx").on(table.accountId),
+  ],
+);
+
+/** Separate running balances for money owed by or owed to the project. */
+export const financeDues = mysqlTable(
+  "finance_dues",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    type: mysqlEnum("type", ["debt", "receivable"]).notNull(),
+    counterparty: varchar("counterparty", { length: 180 }).notNull(),
+    originalAmount: decimal("originalAmount", { precision: 15, scale: 2 }).notNull(),
+    outstandingAmount: decimal("outstandingAmount", { precision: 15, scale: 2 }).notNull(),
+    voucherNo: varchar("voucherNo", { length: 80 }),
+    reason: varchar("reason", { length: 180 }),
+    note: varchar("note", { length: 500 }),
+    openedAt: timestamp("openedAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("finance_dues_user_project_type_idx").on(table.userId, table.projectId, table.type),
+    index("finance_dues_user_project_opened_idx").on(table.userId, table.projectId, table.openedAt),
+  ],
+);
+
+/** Every debt payment or receivable collection is retained as a settlement record. */
+export const financeDueSettlements = mysqlTable(
+  "finance_due_settlements",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    dueId: int("dueId").notNull().references(() => financeDues.id, { onDelete: "cascade" }),
+    accountId: int("accountId").references(() => financeAccounts.id, { onDelete: "set null" }),
+    amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    voucherNo: varchar("voucherNo", { length: 80 }),
+    note: varchar("note", { length: 500 }),
+    occurredAt: timestamp("occurredAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("finance_due_settlements_user_project_date_idx").on(table.userId, table.projectId, table.occurredAt),
+    index("finance_due_settlements_due_idx").on(table.dueId),
+    index("finance_due_settlements_account_idx").on(table.accountId),
   ],
 );
 
@@ -153,6 +217,7 @@ export const auditLogs = mysqlTable(
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
+export type FinanceVoucherSettings = typeof financeVoucherSettings.$inferSelect;
 export type FinanceAccount = typeof financeAccounts.$inferSelect;
 export type FinanceCategory = typeof financeCategories.$inferSelect;
 export type FinanceTransaction = typeof financeTransactions.$inferSelect;

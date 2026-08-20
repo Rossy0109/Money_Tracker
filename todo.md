@@ -73,11 +73,29 @@
 - [x] Synchronize the verified data-entry discoverability improvement to the private GitHub repository.
 - [x] Save a release checkpoint for the data-entry discoverability improvement.
 - [x] Diagnose and resolve the reported Manus OAuth sign-in connection/reload failure by restoring the development service after a transient connection interruption.
-- [ ] Verify restored sign-in behavior and provide concise Bengali retry guidance.
+- [x] Provide concise Bengali mobile retry guidance for external Chrome/Safari with cookies enabled.
+- [ ] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
+- [ ] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
 - [x] Diagnose and mitigate the reported mobile-specific Manus OAuth connection/reload behavior with storage resilience and browser guidance.
 - [x] Permanently delete the confirmed Face Two Button workspace and all finance records scoped to it.
 - [x] Create the requested দৈনিক লেনদেনের খাতা replacement workspace for the current user.
 - [x] Prevent the deleted Face Two Button workspace from being automatically recreated on future sign-in.
 - [x] Verify that Face Two Button was deleted and দৈনিক লেনদেনের খাতা is the active replacement workspace with its 15 default categories.
 - [x] Synchronize the confirmed workspace data change and default-name update to the private GitHub repository.
-- [ ] Save a release checkpoint for the confirmed Daily Transaction Ledger replacement.
+- [x] Save a release checkpoint for the confirmed Daily Transaction Ledger replacement.
+- [x] Add date, manual voucher number, reason, description, and amount fields to the Bengali income-expense ledger.
+- [x] Add separate project-scoped debt and receivable ledgers with transactional settlement histories.
+- [x] Ensure debt repayment reduces debt and receivable collection reduces receivable without being counted as income.
+- [x] Show voucher number, reason, description, date, and amount as visible columns in the main Bengali income-expense ledger.
+- [x] Render separate debt and receivable ledgers with settlement history rows showing date, voucher, note, amount, and account details.
+- [x] Add UI-level source-wiring tests for the ledger columns and settlement-history rendering.
+- [x] Add explicit behavioral tests proving debt and receivable settlements reduce outstanding balances and create no income or expense.
+- [x] Build Bengali forms and views for voucher entry and debt-receivable settlements.
+- [x] Test accounting rules and visually verify the ledger upgrade on desktop and mobile.
+- [ ] Save a checkpoint and synchronize the verified voucher-ledger and debt-receivable upgrade to GitHub.
+- [x] Add per-project voucher-number settings with configurable start and end ranges.
+- [x] Generate voucher numbers atomically and sequentially for each new ledger or settlement entry.
+- [x] Remove manual voucher inputs and remove the reason field in favor of a single description field throughout the Bengali UI.
+- [ ] Test automatic numbering and range boundaries, visually verify settings and forms, then checkpoint and synchronize the update.
+- [x] Diagnose and repair each left-sidebar navigation button so it reaches or reveals its intended dashboard section.
+- [x] Add sidebar navigation interaction tests and responsive visual verification.

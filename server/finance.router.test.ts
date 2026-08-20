@@ -4,8 +4,8 @@ import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
-    getOverview: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
-    createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
+    getOverview: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
+    createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createDue: vi.fn(), settleDue: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(),
     listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
   },
@@ -62,6 +62,38 @@ describe("finance router", () => {
     await caller.finance.updateTransaction({ id: 501, ...expenseInput, amount: 1650 });
     expect(financeDb.createTransaction).toHaveBeenCalledWith(42, expenseInput);
     expect(financeDb.updateTransaction).toHaveBeenCalledWith(42, 501, { ...expenseInput, amount: 1650 });
+  });
+
+  it("uses the description-only transaction contract while voucher numbering remains server-side", async () => {
+    await appRouter.createCaller(authenticatedContext).finance.addTransaction(expenseInput);
+
+    expect(financeDb.createTransaction).toHaveBeenCalledWith(42, expenseInput);
+  });
+
+  it("gets and saves voucher settings only within the authenticated user's project", async () => {
+    const settings = { id: 1, projectId: 88, prefix: "V", startNumber: 1, endNumber: 999999, nextNumber: 23 };
+    financeDb.getVoucherSettings.mockResolvedValue(settings);
+    financeDb.updateVoucherSettings.mockResolvedValue({ ...settings, prefix: "EXP", startNumber: 10, endNumber: 999 });
+    const caller = appRouter.createCaller(authenticatedContext);
+    const input = { projectId: 88, prefix: "EXP", startNumber: 10, endNumber: 999 };
+
+    await expect(caller.finance.voucherSettings({ projectId: 88 })).resolves.toEqual(settings);
+    await expect(caller.finance.saveVoucherSettings(input)).resolves.toMatchObject({ prefix: "EXP", startNumber: 10, endNumber: 999 });
+    expect(financeDb.getVoucherSettings).toHaveBeenCalledWith(42, 88);
+    expect(financeDb.updateVoucherSettings).toHaveBeenCalledWith(42, input);
+  });
+
+  it("keeps debt settlement and receivable collection as separate scoped operations", async () => {
+    const caller = appRouter.createCaller(authenticatedContext);
+    const dueInput = { projectId: 88, type: "debt" as const, counterparty: "রহিম", amount: 5000, note: "মাসিক বকেয়া", openedAt: new Date("2026-08-19T00:00:00.000Z") };
+    const settlementInput = { projectId: 88, dueId: 31, accountId: 3, amount: 1200, note: "আংশিক পরিশোধ", occurredAt: new Date("2026-08-20T00:00:00.000Z") };
+
+    await caller.finance.addDue(dueInput);
+    await caller.finance.settleDue(settlementInput);
+
+    expect(financeDb.createDue).toHaveBeenCalledWith(42, dueInput);
+    expect(financeDb.settleDue).toHaveBeenCalledWith(42, settlementInput);
+    expect(financeDb.createTransaction).not.toHaveBeenCalled();
   });
 
   it("passes both user and project ownership boundaries to delete and bill actions", async () => {
