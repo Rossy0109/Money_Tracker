@@ -107,4 +107,7 @@
 - [ ] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
 - [ ] Open and visually verify the main authenticated functional dialogs on desktop and mobile, then record dialog-level evidence in the review checklist.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
-- [ ] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
+- [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
+- [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
+- [x] Apply and regression-test a secure fix for the verified authorization failure cause.
+- [ ] Verify mobile sign-in end to end after the fix, checkpoint, and synchronize the authorization repair.
