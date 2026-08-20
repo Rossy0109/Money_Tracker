@@ -92,10 +92,10 @@
 - [x] Add explicit behavioral tests proving debt and receivable settlements reduce outstanding balances and create no income or expense.
 - [x] Build Bengali forms and views for voucher entry and debt-receivable settlements.
 - [x] Test accounting rules and visually verify the ledger upgrade on desktop and mobile.
-- [ ] Save a checkpoint and synchronize the verified voucher-ledger and debt-receivable upgrade to GitHub.
+- [x] Save a checkpoint and synchronize the verified voucher-ledger and debt-receivable upgrade to GitHub.
 - [x] Add per-project voucher-number settings with configurable start and end ranges.
 - [x] Generate voucher numbers atomically and sequentially for each new ledger or settlement entry.
 - [x] Remove manual voucher inputs and remove the reason field in favor of a single description field throughout the Bengali UI.
-- [ ] Test automatic numbering and range boundaries, visually verify settings and forms, then checkpoint and synchronize the update.
+- [x] Test automatic numbering and range boundaries, visually verify settings and forms, then checkpoint and synchronize the update.
 - [x] Diagnose and repair each left-sidebar navigation button so it reaches or reveals its intended dashboard section.
 - [x] Add sidebar navigation interaction tests and responsive visual verification.
