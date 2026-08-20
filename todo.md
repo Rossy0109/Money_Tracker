@@ -74,8 +74,8 @@
 - [x] Save a release checkpoint for the data-entry discoverability improvement.
 - [x] Diagnose and resolve the reported Manus OAuth sign-in connection/reload failure by restoring the development service after a transient connection interruption.
 - [x] Provide concise Bengali mobile retry guidance for external Chrome/Safari with cookies enabled.
-- [ ] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
-- [ ] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
+- [x] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
+- [x] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
 - [x] Diagnose and mitigate the reported mobile-specific Manus OAuth connection/reload behavior with storage resilience and browser guidance.
 - [x] Permanently delete the confirmed Face Two Button workspace and all finance records scoped to it.
 - [x] Create the requested দৈনিক লেনদেনের খাতা replacement workspace for the current user.
@@ -103,11 +103,13 @@
 - [x] Route the sidebar category button to the dedicated page and retain a clear route back to the dashboard.
 - [x] Add category-page navigation coverage and complete desktop/mobile verification, checkpoint, and GitHub synchronization.
 
-- [ ] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
-- [ ] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
-- [ ] Open and visually verify the main authenticated functional dialogs on desktop and mobile, then record dialog-level evidence in the review checklist.
+- [x] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
+- [x] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
+- [x] Open and visually verify the main authenticated functional dialogs on mobile; the user confirmed that the dialogs work correctly.
+- [x] Visually verify the main authenticated dialogs on desktop and record desktop dialog-level findings in the review checklist.
+- [x] Attempt the remaining authenticated desktop dialog verification on the user’s behalf and record any user-only sign-in requirement.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
 - [x] Apply and regression-test a secure fix for the verified authorization failure cause.
-- [ ] Verify mobile sign-in end to end after the fix, checkpoint, and synchronize the authorization repair.
+- [x] Verify mobile sign-in end to end after the fix, checkpoint, and synchronize the authorization repair.
