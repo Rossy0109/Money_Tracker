@@ -99,3 +99,6 @@
 - [x] Test automatic numbering and range boundaries, visually verify settings and forms, then checkpoint and synchronize the update.
 - [x] Diagnose and repair each left-sidebar navigation button so it reaches or reveals its intended dashboard section.
 - [x] Add sidebar navigation interaction tests and responsive visual verification.
+- [x] Move category management out of the dashboard and into a dedicated Bengali category page.
+- [x] Route the sidebar category button to the dedicated page and retain a clear route back to the dashboard.
+- [ ] Add category-page navigation coverage and complete desktop/mobile verification, checkpoint, and GitHub synchronization.

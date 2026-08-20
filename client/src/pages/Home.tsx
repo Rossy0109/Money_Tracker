@@ -1055,15 +1055,6 @@ export default function Home() {
                     )}
                   </div>
                 </article>
-                <article id="categories" className="scroll-mt-20 finance-card p-5">
-                  <p className="section-kicker">ক্যাটাগরি</p>
-                  <h2 className="section-title">আয় ও ব্যয়ের ধরন</h2>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {data.categories.map(category => (
-                      <span key={category.id} className="rounded-full bg-[#edf6ed] px-3 py-1.5 text-xs font-medium text-[#28603c]">{category.name}</span>
-                    ))}
-                  </div>
-                </article>
               </aside>
             </section>
             <section className="grid gap-6 lg:grid-cols-2">

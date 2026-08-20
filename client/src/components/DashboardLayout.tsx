@@ -6,11 +6,11 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Banknote, ChartNoAxesCombined, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, WalletCards } from "lucide-react";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "#overview" },
-  { icon: ReceiptText, label: "লেনদেন", href: "#transactions" },
-  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "#accounts" },
-  { icon: ChartNoAxesCombined, label: "বাজেট", href: "#budgets" },
-  { icon: Tags, label: "ক্যাটাগরি", href: "#categories" },
+  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
+  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
+  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
+  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
+  { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -34,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider defaultOpen>
       <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
         <SidebarHeader className="h-20 justify-center px-3">
-          <a href="#overview" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
+          <a href="/" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#d8f2dd] text-[#113a30]"><Banknote className="h-5 w-5" /></span>
             <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">আমার হিসাব</span><span className="block text-[11px] text-[#b9d2c2]">Personal finance</span></span>
           </a>
@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="নতুন লেনদেন যোগ করুন" className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]">
-                <a href="#transactions"><Plus className="h-4.5 w-4.5" /><span>লেনদেন যোগ করুন</span></a>
+                <a href="/#transactions"><Plus className="h-4.5 w-4.5" /><span>লেনদেন যোগ করুন</span></a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             {menuItems.map(item => <SidebarMenuItem key={item.href}>

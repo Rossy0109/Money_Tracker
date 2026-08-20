@@ -18,6 +18,6 @@ describe("Bengali data-entry discoverability", () => {
     expect(homeSource).toContain("দ্রুত ডেটা এন্ট্রি");
     expect(homeSource).toContain("অ্যাকাউন্ট, বাজেট ও বিল যোগ করার বাটন");
     expect(layoutSource).toContain("নতুন লেনদেন যোগ করুন");
-    expect(layoutSource).toContain('href="#transactions"');
+    expect(layoutSource).toContain('href="/#transactions"');
   });
 });
