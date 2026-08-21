@@ -126,8 +126,7 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
     doc.setTextColor(76, 98, 88);
     doc.text("তারিখ", margin + 5, y);
     doc.text("ভাউচার", margin + 64, y);
-    doc.text("ক্যাটাগরি", margin + 126, y);
-    doc.text("বিবরণ", margin + 292, y);
+    doc.text("বিবরণ", margin + 126, y);
     doc.text("পরিমাণ", pageWidth - margin - 5, y, { align: "right" });
     doc.setTextColor(20, 36, 30);
     y += 21;
@@ -148,27 +147,52 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
       y += 28;
       return;
     }
+    const categoryGroups = new Map<string, typeof transactions>();
     for (const transaction of transactions) {
-      const categoryLines = doc.splitTextToSize(transaction.categoryName, 145);
-      const descriptionLines = doc.splitTextToSize(transaction.description, 160);
-      const rowHeight = Math.max(30, categoryLines.length * 10 + 12, descriptionLines.length * 10 + 12);
-      if (y + rowHeight > 748) {
+      const group = categoryGroups.get(transaction.categoryName) ?? [];
+      group.push(transaction);
+      categoryGroups.set(transaction.categoryName, group);
+    }
+    const getRowHeight = (transaction: typeof transactions[number]) => Math.max(30, doc.splitTextToSize(transaction.description, 320).length * 10 + 12);
+    const addCategorySubheading = (categoryName: string, transactionCount: number, isContinuation = false) => {
+      doc.setFillColor(type === "income" ? 232 : 252, type === "income" ? 246 : 237, type === "income" ? 237 : 237);
+      doc.rect(margin, y - 14, contentWidth, 21, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(...amountTone);
+      doc.text(`ক্যাটাগরি: ${categoryName}${isContinuation ? " (চলমান)" : ""}`, margin + 8, y);
+      doc.setTextColor(76, 98, 88);
+      doc.text(`${new Intl.NumberFormat("bn-BD").format(transactionCount)} টি লেনদেন`, pageWidth - margin - 8, y, { align: "right" });
+      doc.setTextColor(20, 36, 30);
+      y += 22;
+    };
+    for (const [categoryName, categoryTransactions] of Array.from(categoryGroups.entries())) {
+      if (y + 22 + getRowHeight(categoryTransactions[0]) > 748) {
         doc.addPage();
         y = 52;
         addTransactionHeading(`${heading} (চলমান)`);
       }
-      doc.setFontSize(7.5);
-      doc.setTextColor(52, 76, 66);
-      doc.text(dateFormatter.format(new Date(transaction.occurredAt)), margin + 5, y);
-      doc.text(transaction.voucherNo, margin + 64, y);
-      doc.text(categoryLines, margin + 126, y);
-      doc.text(descriptionLines, margin + 292, y);
-      doc.setTextColor(...amountTone);
-      doc.text(bdt(transaction.amount), pageWidth - margin - 5, y, { align: "right" });
-      doc.setDrawColor(222, 232, 224);
-      doc.line(margin, y + rowHeight - 8, pageWidth - margin, y + rowHeight - 8);
-      doc.setTextColor(20, 36, 30);
-      y += rowHeight;
+      addCategorySubheading(categoryName, categoryTransactions.length);
+      for (const transaction of categoryTransactions) {
+        const descriptionLines = doc.splitTextToSize(transaction.description, 320);
+        const rowHeight = Math.max(30, descriptionLines.length * 10 + 12);
+        if (y + rowHeight > 748) {
+          doc.addPage();
+          y = 52;
+          addTransactionHeading(`${heading} (চলমান)`);
+          addCategorySubheading(categoryName, categoryTransactions.length, true);
+        }
+        doc.setFontSize(7.5);
+        doc.setTextColor(52, 76, 66);
+        doc.text(dateFormatter.format(new Date(transaction.occurredAt)), margin + 5, y);
+        doc.text(transaction.voucherNo, margin + 64, y);
+        doc.text(descriptionLines, margin + 126, y);
+        doc.setTextColor(...amountTone);
+        doc.text(bdt(transaction.amount), pageWidth - margin - 5, y, { align: "right" });
+        doc.setDrawColor(222, 232, 224);
+        doc.line(margin, y + rowHeight - 8, pageWidth - margin, y + rowHeight - 8);
+        doc.setTextColor(20, 36, 30);
+        y += rowHeight;
+      }
     }
   };
   renderTransactionSection("income", "আয়ের বিস্তারিত লেনদেন", "নির্বাচিত মাসে কোনো আয়ের লেনদেন নেই।", [34, 110, 73]);

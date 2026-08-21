@@ -115,6 +115,8 @@
 - [x] Test the detailed report pagination and output, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Separate detailed income and expense transactions into distinct Bengali tables in the monthly PDF report.
 - [x] Test the separated report sections and pagination, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Group detailed monthly PDF income and expense transactions under category-based Bengali subheadings.
+- [x] Test category grouping and page continuation, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
