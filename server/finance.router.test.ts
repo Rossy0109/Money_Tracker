@@ -51,7 +51,7 @@ describe("finance router", () => {
   });
 
   it("scopes a monthly financial report to the authenticated user, project, and validated month", async () => {
-    const report = { projectName: "দৈনিক লেনদেনের খাতা", monthKey: "2026-08", totalIncome: 12000, totalExpense: 3500, netAmount: 8500, categoryTotals: [], totalDebt: 0, totalReceivable: 0, transactionCount: 2 };
+    const report = { projectName: "দৈনিক লেনদেনের খাতা", monthKey: "2026-08", totalIncome: 12000, totalExpense: 3500, netAmount: 8500, categoryTotals: [], totalDebt: 0, totalReceivable: 0, transactionCount: 2, transactionDetails: [{ occurredAt: new Date("2026-08-19T00:00:00.000Z"), voucherNo: "V-12", type: "expense", categoryName: "বেতন", description: "মাসিক বেতন", amount: 3500 }] };
     financeDb.getMonthlyReport.mockResolvedValue(report);
 
     await expect(appRouter.createCaller(authenticatedContext).finance.monthlyReport({ projectId: 88, monthKey: "2026-08" })).resolves.toEqual(report);

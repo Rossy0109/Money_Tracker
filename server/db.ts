@@ -270,6 +270,14 @@ export async function getMonthlyReport(userId: number, projectId: number, target
   })).filter(category => category.total > 0);
   const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
   const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  const transactionDetails = monthTransactions.map(transaction => ({
+    occurredAt: transaction.occurredAt,
+    voucherNo: transaction.voucherNo ?? "—",
+    type: transaction.type,
+    categoryName: categories.find(category => category.id === transaction.categoryId)?.name ?? "অনির্ধারিত",
+    description: transaction.note ?? "—",
+    amount: Number(transaction.amount),
+  }));
   return {
     projectName: project.name,
     monthKey: targetMonthKey,
@@ -280,6 +288,7 @@ export async function getMonthlyReport(userId: number, projectId: number, target
     totalDebt,
     totalReceivable,
     transactionCount: monthTransactions.length,
+    transactionDetails,
   };
 }
 

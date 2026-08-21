@@ -111,6 +111,8 @@
 - [x] Add a protected per-project monthly financial-report query with validated month selection, income, expense, net balance, category totals, and due/receivable summaries.
 - [x] Generate a Bengali monthly financial PDF with BDT formatting and a client-side download action.
 - [x] Add a responsive monthly report control, regression tests, PDF download verification, checkpoint, and GitHub synchronization.
+- [x] Include selected-month transaction details, dates, vouchers, categories, descriptions, and amounts in the Bengali monthly PDF report.
+- [x] Test the detailed report pagination and output, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.

@@ -10,6 +10,14 @@ type MonthlyReport = {
   totalDebt: number;
   totalReceivable: number;
   transactionCount: number;
+  transactionDetails: Array<{
+    occurredAt: Date;
+    voucherNo: string;
+    type: "income" | "expense";
+    categoryName: string;
+    description: string;
+    amount: number;
+  }>;
 };
 
 const BENGALI_FONT_URL = "/manus-storage/NotoSansBengali-Regular_ca0a97c7.ttf";
@@ -104,6 +112,61 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
   addValueRow("মোট বকেয়া দেনা", bdt(report.totalDebt), y, [157, 51, 51]);
   y += 29;
   addValueRow("মোট বকেয়া পাওনা", bdt(report.totalReceivable), y, [34, 110, 73]);
+  y += 48;
+  if (y > 650) {
+    doc.addPage();
+    y = 52;
+  }
+  const addTransactionHeading = (heading: string) => {
+    addSectionHeading(heading, y);
+    y += 30;
+    doc.setFillColor(244, 248, 245);
+    doc.rect(margin, y - 14, contentWidth, 21, "F");
+    doc.setFontSize(7);
+    doc.setTextColor(76, 98, 88);
+    doc.text("তারিখ", margin + 5, y);
+    doc.text("ভাউচার", margin + 64, y);
+    doc.text("ক্যাটাগরি / ধরন", margin + 126, y);
+    doc.text("বিবরণ", margin + 292, y);
+    doc.text("পরিমাণ", pageWidth - margin - 5, y, { align: "right" });
+    doc.setTextColor(20, 36, 30);
+    y += 21;
+  };
+  addTransactionHeading("মাসের বিস্তারিত লেনদেন");
+  if (!report.transactionDetails.length) {
+    doc.setFontSize(10);
+    doc.setTextColor(83, 110, 98);
+    doc.text("নির্বাচিত মাসে কোনো লেনদেন নেই।", margin + 12, y);
+    y += 28;
+  } else {
+    const dateFormatter = new Intl.DateTimeFormat("bn-BD", { year: "numeric", month: "2-digit", day: "2-digit" });
+    for (const transaction of report.transactionDetails) {
+      const categoryLines = doc.splitTextToSize(`${transaction.categoryName} (${transaction.type === "income" ? "আয়" : "ব্যয়"})`, 145);
+      const descriptionLines = doc.splitTextToSize(transaction.description, 160);
+      const rowHeight = Math.max(30, categoryLines.length * 10 + 12, descriptionLines.length * 10 + 12);
+      if (y + rowHeight > 748) {
+        doc.addPage();
+        y = 52;
+        addTransactionHeading("মাসের বিস্তারিত লেনদেন (চলমান)");
+      }
+      doc.setFontSize(7.5);
+      doc.setTextColor(52, 76, 66);
+      doc.text(dateFormatter.format(new Date(transaction.occurredAt)), margin + 5, y);
+      doc.text(transaction.voucherNo, margin + 64, y);
+      doc.text(categoryLines, margin + 126, y);
+      doc.text(descriptionLines, margin + 292, y);
+      if (transaction.type === "income") {
+        doc.setTextColor(34, 110, 73);
+      } else {
+        doc.setTextColor(157, 51, 51);
+      }
+      doc.text(bdt(transaction.amount), pageWidth - margin - 5, y, { align: "right" });
+      doc.setDrawColor(222, 232, 224);
+      doc.line(margin, y + rowHeight - 8, pageWidth - margin, y + rowHeight - 8);
+      doc.setTextColor(20, 36, 30);
+      y += rowHeight;
+    }
+  }
   doc.setFontSize(8);
   doc.setTextColor(94, 116, 105);
   doc.text("দ্রষ্টব্য: দেনা বা পাওনা নিষ্পত্তি আয় বা ব্যয়ের সঙ্গে যুক্ত করা হয়নি।", margin, 790);
