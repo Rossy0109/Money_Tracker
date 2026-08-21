@@ -154,24 +154,25 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
       categoryGroups.set(transaction.categoryName, group);
     }
     const getRowHeight = (transaction: typeof transactions[number]) => Math.max(30, doc.splitTextToSize(transaction.description, 320).length * 10 + 12);
-    const addCategorySubheading = (categoryName: string, transactionCount: number, isContinuation = false) => {
+    const addCategorySubheading = (categoryName: string, transactionCount: number, subtotal: number, isContinuation = false) => {
       doc.setFillColor(type === "income" ? 232 : 252, type === "income" ? 246 : 237, type === "income" ? 237 : 237);
       doc.rect(margin, y - 14, contentWidth, 21, "F");
       doc.setFontSize(8);
       doc.setTextColor(...amountTone);
       doc.text(`ক্যাটাগরি: ${categoryName}${isContinuation ? " (চলমান)" : ""}`, margin + 8, y);
       doc.setTextColor(76, 98, 88);
-      doc.text(`${new Intl.NumberFormat("bn-BD").format(transactionCount)} টি লেনদেন`, pageWidth - margin - 8, y, { align: "right" });
+      doc.text(`${new Intl.NumberFormat("bn-BD").format(transactionCount)} টি লেনদেন | উপমোট: ${bdt(subtotal)}`, pageWidth - margin - 8, y, { align: "right" });
       doc.setTextColor(20, 36, 30);
       y += 22;
     };
     for (const [categoryName, categoryTransactions] of Array.from(categoryGroups.entries())) {
+      const subtotal = categoryTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
       if (y + 22 + getRowHeight(categoryTransactions[0]) > 748) {
         doc.addPage();
         y = 52;
         addTransactionHeading(`${heading} (চলমান)`);
       }
-      addCategorySubheading(categoryName, categoryTransactions.length);
+      addCategorySubheading(categoryName, categoryTransactions.length, subtotal);
       for (const transaction of categoryTransactions) {
         const descriptionLines = doc.splitTextToSize(transaction.description, 320);
         const rowHeight = Math.max(30, descriptionLines.length * 10 + 12);
@@ -179,7 +180,7 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
           doc.addPage();
           y = 52;
           addTransactionHeading(`${heading} (চলমান)`);
-          addCategorySubheading(categoryName, categoryTransactions.length, true);
+          addCategorySubheading(categoryName, categoryTransactions.length, subtotal, true);
         }
         doc.setFontSize(7.5);
         doc.setTextColor(52, 76, 66);
