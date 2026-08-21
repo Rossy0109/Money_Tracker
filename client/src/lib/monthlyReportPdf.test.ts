@@ -51,7 +51,9 @@ describe("monthly report PDF", () => {
     expect(documentApi.addFileToVFS).toHaveBeenCalledWith("NotoSansBengali-Regular.ttf", expect.any(String));
     expect(documentApi.text).toHaveBeenCalledWith("মাসিক আর্থিক রিপোর্ট", 42, 50);
     expect(documentApi.text).toHaveBeenCalledWith("মোট আয়", 54, expect.any(Number));
-    expect(documentApi.text).toHaveBeenCalledWith("মাসের বিস্তারিত লেনদেন", 52, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("আয়ের বিস্তারিত লেনদেন", 52, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("নির্বাচিত মাসে কোনো আয়ের লেনদেন নেই।", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("ব্যয়ের বিস্তারিত লেনদেন", 52, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("V-012", 106, expect.any(Number));
     expect(documentApi.splitTextToSize).toHaveBeenCalledWith("আগস্ট মাসের বেতন পরিশোধ", 160);
     expect(documentApi.save).toHaveBeenCalledWith("monthly-report-2026-08.pdf");
@@ -79,6 +81,33 @@ describe("monthly report PDF", () => {
     });
 
     expect(documentApi.addPage).toHaveBeenCalled();
-    expect(documentApi.text).toHaveBeenCalledWith("মাসের বিস্তারিত লেনদেন (চলমান)", 52, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("ব্যয়ের বিস্তারিত লেনদেন (চলমান)", 52, expect.any(Number));
+  });
+
+  it("renders income rows before a separate expense transaction table", async () => {
+    await downloadMonthlyReportPdf({
+      projectName: "দৈনিক লেনদেনের খাতা",
+      monthKey: "2026-08",
+      totalIncome: 8000,
+      totalExpense: 3500,
+      netAmount: 4500,
+      categoryTotals: [],
+      totalDebt: 0,
+      totalReceivable: 0,
+      transactionCount: 2,
+      transactionDetails: [
+        { occurredAt: new Date("2026-08-18T12:00:00.000Z"), voucherNo: "V-011", type: "income", categoryName: "Business", description: "প্রকল্পের আয়", amount: 8000 },
+        { occurredAt: new Date("2026-08-19T12:00:00.000Z"), voucherNo: "V-012", type: "expense", categoryName: "বেতন", description: "আগস্ট মাসের বেতন", amount: 3500 },
+      ],
+    });
+
+    const incomeHeadingIndex = documentApi.text.mock.calls.findIndex(call => call[0] === "আয়ের বিস্তারিত লেনদেন");
+    const expenseHeadingIndex = documentApi.text.mock.calls.findIndex(call => call[0] === "ব্যয়ের বিস্তারিত লেনদেন");
+    const incomeVoucherIndex = documentApi.text.mock.calls.findIndex(call => call[0] === "V-011");
+    const expenseVoucherIndex = documentApi.text.mock.calls.findIndex(call => call[0] === "V-012");
+    expect(incomeHeadingIndex).toBeGreaterThanOrEqual(0);
+    expect(expenseHeadingIndex).toBeGreaterThan(incomeHeadingIndex);
+    expect(incomeVoucherIndex).toBeGreaterThan(incomeHeadingIndex);
+    expect(expenseVoucherIndex).toBeGreaterThan(expenseHeadingIndex);
   });
 });
