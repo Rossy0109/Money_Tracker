@@ -250,6 +250,39 @@ export async function getOverview(userId: number, projectId: number) {
   return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
 }
 
+export async function getMonthlyReport(userId: number, projectId: number, targetMonthKey: string) {
+  const project = await assertOwnedProject(userId, projectId);
+  await ensureDefaultCategories(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [categories, transactions, dues] = await Promise.all([
+    db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId))).orderBy(asc(financeCategories.type), asc(financeCategories.name)),
+    db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))).orderBy(asc(financeTransactions.occurredAt), asc(financeTransactions.id)),
+    db.select().from(financeDues).where(and(eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))).orderBy(asc(financeDues.openedAt), asc(financeDues.id)),
+  ]);
+  const isInSelectedMonth = (value: Date | string) => new Date(value).toISOString().slice(0, 7) === targetMonthKey;
+  const monthTransactions = transactions.filter(transaction => isInSelectedMonth(transaction.occurredAt));
+  const totalIncome = monthTransactions.filter(transaction => transaction.type === "income").reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  const totalExpense = monthTransactions.filter(transaction => transaction.type === "expense").reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  const categoryTotals = categories.map(category => ({
+    name: category.name,
+    type: category.type,
+    total: monthTransactions.filter(transaction => transaction.categoryId === category.id).reduce((sum, transaction) => sum + Number(transaction.amount), 0),
+  })).filter(category => category.total > 0);
+  const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  return {
+    projectName: project.name,
+    monthKey: targetMonthKey,
+    totalIncome,
+    totalExpense,
+    netAmount: totalIncome - totalExpense,
+    categoryTotals,
+    totalDebt,
+    totalReceivable,
+    transactionCount: monthTransactions.length,
+  };
+}
+
 export async function createDue(userId: number, input: { projectId: number; type: "debt" | "receivable"; counterparty: string; amount: number; note?: string; openedAt: Date }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());

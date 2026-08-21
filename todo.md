@@ -108,6 +108,9 @@
 - [x] Open and visually verify the main authenticated functional dialogs on mobile; the user confirmed that the dialogs work correctly.
 - [x] Visually verify the main authenticated dialogs on desktop and record desktop dialog-level findings in the review checklist.
 - [x] Attempt the remaining authenticated desktop dialog verification on the user’s behalf and record any user-only sign-in requirement.
+- [x] Add a protected per-project monthly financial-report query with validated month selection, income, expense, net balance, category totals, and due/receivable summaries.
+- [x] Generate a Bengali monthly financial PDF with BDT formatting and a client-side download action.
+- [x] Add a responsive monthly report control, regression tests, PDF download verification, checkpoint, and GitHub synchronization.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.

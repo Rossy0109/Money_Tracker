@@ -28,6 +28,7 @@ import {
 } from "@/lib/activeProject";
 import { buildAdminAuditFilterInput } from "@/lib/auditFilters";
 import { downloadAuditCsv, downloadAuditPdf } from "@/lib/auditLogExports";
+import { downloadMonthlyReportPdf } from "@/lib/monthlyReportPdf";
 import {
   Bar,
   BarChart,
@@ -149,6 +150,15 @@ export default function Home() {
     enabled: false,
     retry: false,
   });
+  const [monthlyReportOpen, setMonthlyReportOpen] = useState(false);
+  const [reportMonthKey, setReportMonthKey] = useState(() =>
+    new Date().toISOString().slice(0, 7)
+  );
+  const [isReportDownloading, setIsReportDownloading] = useState(false);
+  const monthlyReport = trpc.finance.monthlyReport.useQuery(
+    { projectId: activeProjectId ?? 0, monthKey: reportMonthKey },
+    { enabled: false, retry: false }
+  );
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     "expense"
   );
@@ -697,6 +707,25 @@ export default function Home() {
       );
     }
   }
+  async function downloadMonthlyReport() {
+    if (!requireProject()) return;
+    try {
+      setIsReportDownloading(true);
+      const result = await monthlyReport.refetch();
+      if (!result.data) throw new Error("মাসিক রিপোর্টের ডেটা পাওয়া যায়নি");
+      await downloadMonthlyReportPdf(result.data);
+      setMonthlyReportOpen(false);
+      toast.success("মাসিক আর্থিক রিপোর্ট PDF ডাউনলোড হয়েছে");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "মাসিক রিপোর্ট তৈরি করা যায়নি"
+      );
+    } finally {
+      setIsReportDownloading(false);
+    }
+  }
 
   if (!isAuthenticated)
     return (
@@ -815,6 +844,50 @@ export default function Home() {
               <Download className="mr-1.5 h-4 w-4" />
               নিজের ডেটা
             </Button>
+            <Dialog open={monthlyReportOpen} onOpenChange={setMonthlyReportOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  মাসিক রিপোর্ট PDF
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>মাসিক আর্থিক রিপোর্ট</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4">
+                  <p className="text-sm text-[#5d776b]">
+                    নির্বাচিত মাসের আয়, ব্যয়, নিট পরিমাণ, ক্যাটাগরিভিত্তিক
+                    হিসাব এবং বর্তমান দেনা-পাওনা PDF-এ ডাউনলোড হবে।
+                  </p>
+                  <Field label="রিপোর্টের মাস">
+                    <Input
+                      type="month"
+                      value={reportMonthKey}
+                      onChange={event => setReportMonthKey(event.target.value)}
+                      className="finance-input"
+                    />
+                  </Field>
+                  <Button
+                    onClick={downloadMonthlyReport}
+                    disabled={isReportDownloading || !activeProjectId}
+                    className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+                  >
+                    {isReportDownloading ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-1.5 h-4 w-4" />
+                    )}
+                    {isReportDownloading
+                      ? "PDF তৈরি হচ্ছে..."
+                      : "PDF ডাউনলোড করুন"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             {user?.role === "admin" && (
               <Button
                 onClick={() => setAdminOpen(true)}

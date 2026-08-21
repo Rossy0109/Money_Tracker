@@ -4,7 +4,7 @@ import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
-    getOverview: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
+    getOverview: vi.fn(), getMonthlyReport: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createDue: vi.fn(), settleDue: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(),
     listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
@@ -48,6 +48,15 @@ describe("finance router", () => {
     financeDb.getOverview.mockResolvedValue({ totals: {} });
     await appRouter.createCaller(authenticatedContext).finance.overview({ projectId: 88 });
     expect(financeDb.getOverview).toHaveBeenCalledWith(42, 88);
+  });
+
+  it("scopes a monthly financial report to the authenticated user, project, and validated month", async () => {
+    const report = { projectName: "দৈনিক লেনদেনের খাতা", monthKey: "2026-08", totalIncome: 12000, totalExpense: 3500, netAmount: 8500, categoryTotals: [], totalDebt: 0, totalReceivable: 0, transactionCount: 2 };
+    financeDb.getMonthlyReport.mockResolvedValue(report);
+
+    await expect(appRouter.createCaller(authenticatedContext).finance.monthlyReport({ projectId: 88, monthKey: "2026-08" })).resolves.toEqual(report);
+    expect(financeDb.getMonthlyReport).toHaveBeenCalledWith(42, 88, "2026-08");
+    await expect(appRouter.createCaller(authenticatedContext).finance.monthlyReport({ projectId: 88, monthKey: "2026-13" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("exports only the authenticated user's finance data", async () => {

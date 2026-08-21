@@ -72,6 +72,7 @@ export const appRouter = router({
   }),
   finance: router({
     overview: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getOverview(ctx.user.id, input.projectId)),
+    monthlyReport: protectedProcedure.input(z.object({ projectId, monthKey })).query(({ ctx, input }) => financeDb.getMonthlyReport(ctx.user.id, input.projectId, input.monthKey)),
     voucherSettings: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getVoucherSettings(ctx.user.id, input.projectId)),
     saveVoucherSettings: protectedProcedure.input(z.object({ projectId, prefix: z.string().trim().max(20), startNumber: z.number().int().positive(), endNumber: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.updateVoucherSettings(ctx.user.id, input)),
     exportData: protectedProcedure.query(({ ctx }) => financeDb.exportUserData(ctx.user.id)),
