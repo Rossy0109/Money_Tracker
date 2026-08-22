@@ -135,7 +135,9 @@
 - [x] Test individual report exports, share capability fallback, and privacy-safe user confirmation behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Add secure project-scoped alert calculations for categories whose current-month spending exceeds a configured budget.
 - [x] Show Bengali overspending alerts in the dashboard and immediately after a transaction causes a category budget to be exceeded.
-- [ ] Test alert thresholds, budget edits, project isolation, responsive presentation, checkpoint, and GitHub synchronization.
+- [x] Test alert thresholds, budget edits, project isolation, responsive presentation, checkpoint, and GitHub synchronization.
+- [x] Test that changing an existing category budget recalculates its current-month overspending alert state.
+- [x] Test the real project-scoped budget save and refetched overview flow for updated overspending alerts.
 - [x] Refresh the current project overview before evaluating an immediate post-transaction budget warning.
 - [x] Show an explicit Bengali budget-verification warning if the immediate alert refresh cannot be completed.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.

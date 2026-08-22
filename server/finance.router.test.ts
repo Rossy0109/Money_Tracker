@@ -55,6 +55,47 @@ describe("finance router", () => {
     ]);
   });
 
+  it("recalculates a category's current-month alert after its budget is edited", () => {
+    const currentMonthSpending = 5600;
+    const existingBudget = { categoryId: 7, categoryName: "বেতন", budgetAmount: 5000, spent: currentMonthSpending };
+    const editedBudget = { ...existingBudget, budgetAmount: 6000 };
+
+    expect(calculateBudgetAlerts([existingBudget])).toMatchObject([
+      { categoryId: 7, exceededAmount: 600 },
+    ]);
+    expect(calculateBudgetAlerts([editedBudget])).toEqual([]);
+  });
+
+  it("saves an edited project budget and returns the recalculated alert state on overview refetch", async () => {
+    let savedBudgetAmount = 5000;
+    financeDb.upsertBudget.mockImplementation(async (_userId: number, input: { amount: number }) => {
+      savedBudgetAmount = input.amount;
+      return { id: 11, ...input };
+    });
+    financeDb.getOverview.mockImplementation(async (_userId: number, projectId: number) => ({
+      projectId,
+      budgetAlerts: calculateBudgetAlerts([
+        { categoryId: 7, categoryName: "বেতন", budgetAmount: savedBudgetAmount, spent: 5600 },
+      ]),
+    }));
+    const caller = appRouter.createCaller(authenticatedContext);
+    const originalBudget = { projectId: 88, categoryId: 7, monthKey: "2026-08", amount: 5000 };
+    const editedBudget = { ...originalBudget, amount: 6000 };
+
+    await caller.finance.saveBudget(originalBudget);
+    await expect(caller.finance.overview({ projectId: 88 })).resolves.toMatchObject({
+      projectId: 88,
+      budgetAlerts: [{ categoryId: 7, exceededAmount: 600 }],
+    });
+    await caller.finance.saveBudget(editedBudget);
+    await expect(caller.finance.overview({ projectId: 88 })).resolves.toMatchObject({
+      projectId: 88,
+      budgetAlerts: [],
+    });
+    expect(financeDb.upsertBudget).toHaveBeenCalledWith(42, editedBudget);
+    expect(financeDb.getOverview).toHaveBeenLastCalledWith(42, 88);
+  });
+
   it("scopes overview data to the authenticated user and selected project", async () => {
     const overview = {
       totals: {},
