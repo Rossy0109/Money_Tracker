@@ -45,4 +45,14 @@ describe("household authorization and accounting boundaries", () => {
     expect(source).toContain('"সাবেক সদস্য"');
     expect(source).toContain("contributorSpend,");
   });
+
+  it("returns a six-month contributor comparison only from matching household budgets while preserving the same identity masking", () => {
+    const source = functionSource("getHouseholdOverview");
+    expect(source).toContain("const comparisonMonthKeys = Array.from({ length: 6 }");
+    expect(source).toContain("gte(financeSharedBudgets.monthKey, comparisonMonthKeys[0])");
+    expect(source).toContain("lte(financeSharedBudgets.monthKey, currentMonth)");
+    expect(source).toContain("budgetMonthById.get(expense.budgetId) === monthKey(expense.occurredAt)");
+    expect(source).toContain("summarizeHouseholdContributorMonthlySpend");
+    expect(source).toContain("monthlyContributorSpend,");
+  });
 });

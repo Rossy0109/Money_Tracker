@@ -8,13 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CheckCircle2, ChartColumnIncreasing, Clock3, House, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const taka = (value: number) => `৳ ${new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 0 }).format(value)}`;
 const thisMonth = () => new Date().toISOString().slice(0, 7);
+const comparisonColors = ["#2d8554", "#2d6ea1", "#b4672d", "#8257a6", "#bd4d69", "#337c82"];
+const monthText = (monthKey: string) => new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(new Date(`${monthKey}-01T12:00:00.000Z`));
 
 function roleLabel(role: "owner" | "editor" | "viewer") {
   return role === "owner" ? "পরিচালক" : role === "editor" ? "সম্পাদক" : "দর্শক";
@@ -44,6 +46,13 @@ export default function FamilyHousehold() {
   const currentMonth = useMemo(thisMonth, []);
   const contributorSpend = overview?.contributorSpend ?? [];
   const contributorTotal = contributorSpend.reduce((total, item) => total + item.amount, 0);
+  const monthlyContributorSpend = overview?.monthlyContributorSpend;
+  const monthlyContributors = monthlyContributorSpend?.contributors ?? [];
+  const monthlyChartData = useMemo(() => monthlyContributorSpend?.months.map(month => ({
+    monthKey: month.monthKey,
+    ...Object.fromEntries(month.contributors.map(item => [`member-${item.contributorUserId}`, item.amount])),
+  })) ?? [], [monthlyContributorSpend]);
+  const monthlyComparisonTotal = monthlyContributorSpend?.months.reduce((total, month) => total + month.totalAmount, 0) ?? 0;
   const refresh = async () => {
     await Promise.all([
       utils.finance.households.invalidate(),
@@ -190,6 +199,41 @@ export default function FamilyHousehold() {
                     </div>)}
                   </div>
                 </div> : <div className="rounded-xl border border-dashed border-[#cbded0] bg-[#f7fbf8] p-6 text-center"><ChartColumnIncreasing className="mx-auto h-8 w-8 text-[#5f9873]" /><p className="mt-3 font-semibold text-[#244f3e]">এ মাসে সদস্যভিত্তিক খরচের তথ্য নেই</p><p className="mt-1 text-sm leading-6 text-[#668075]">পরিচালক বা সম্পাদক শেয়ার করা বাজেটে খরচ যোগ করলে এখানে সদস্য অনুযায়ী বিশ্লেষণ দেখা যাবে।</p></div>}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section>
+            <Card className="border-[#dce9df] shadow-sm">
+              <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-[#173f36]"><ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" /> সদস্যদের মাসিক খরচের তুলনা</CardTitle>
+                  <CardDescription>গত ৬ মাসে শেয়ার করা বাজেটে প্রত্যেক সদস্য কত খরচ যোগ করেছেন তার মাসভিত্তিক তুলনা।</CardDescription>
+                </div>
+                {monthlyContributors.length > 0 && <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">৬ মাসে {taka(monthlyComparisonTotal)}</Badge>}
+              </CardHeader>
+              <CardContent>
+                {monthlyContributors.length > 0 ? <div className="space-y-5">
+                  <div className="h-72 min-w-0 sm:h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyChartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }} barGap={4}>
+                        <CartesianGrid vertical={false} stroke="#e5eee7" />
+                        <XAxis dataKey="monthKey" tickFormatter={monthText} tick={{ fill: "#668075", fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={value => `৳${new Intl.NumberFormat("bn-BD", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value))}`} tick={{ fill: "#668075", fontSize: 12 }} axisLine={false} tickLine={false} width={54} />
+                        <Tooltip cursor={{ fill: "#f2f8f3" }} formatter={(value, name) => [taka(Number(value)), name]} labelFormatter={label => `${monthText(String(label))} মাস`} contentStyle={{ borderRadius: 12, borderColor: "#cfe2d3", color: "#173f36" }} />
+                        <Legend wrapperStyle={{ paddingTop: 12, fontSize: 12 }} />
+                        {monthlyContributors.map((member, index) => <Bar key={member.contributorUserId} dataKey={`member-${member.contributorUserId}`} name={member.contributorName} fill={comparisonColors[index % comparisonColors.length]} radius={[6, 6, 0, 0]} maxBarSize={34} />)}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {monthlyContributors.map((member, index) => <div key={member.contributorUserId} className="rounded-xl border border-[#e0ebe2] bg-[#fbfdfb] p-3">
+                      <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: comparisonColors[index % comparisonColors.length] }} /><p className="break-words font-semibold text-[#193d34]">{member.contributorName}</p></div>
+                      <p className="mt-2 text-lg font-bold text-[#173f36]">{taka(member.amount)}</p>
+                      <p className="mt-0.5 text-xs text-[#668075]">৬ মাসে {new Intl.NumberFormat("bn-BD").format(member.entryCount)}টি খরচ</p>
+                    </div>)}
+                  </div>
+                </div> : <div className="rounded-xl border border-dashed border-[#cbded0] bg-[#f7fbf8] p-6 text-center"><ChartColumnIncreasing className="mx-auto h-8 w-8 text-[#5f9873]" /><p className="mt-3 font-semibold text-[#244f3e]">গত ৬ মাসে তুলনা করার মতো তথ্য নেই</p><p className="mt-1 text-sm leading-6 text-[#668075]">শেয়ার করা বাজেটে খরচ যোগ হলে এখানে সদস্যদের মাসভিত্তিক তুলনা দেখা যাবে।</p></div>}
               </CardContent>
             </Card>
           </section>

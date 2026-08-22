@@ -38,4 +38,15 @@ describe("family household workspace wiring", () => {
     expect(householdSource).toContain("item.entryCount");
     expect(householdSource).toContain("এ মাসে সদস্যভিত্তিক খরচের তথ্য নেই");
   });
+
+  it("renders a six-month member comparison chart with localized labels, legend, and compact detail cards", () => {
+    expect(householdSource).toContain("monthlyContributorSpend = overview?.monthlyContributorSpend");
+    expect(householdSource).toContain("monthlyChartData");
+    expect(householdSource).toContain("member-${item.contributorUserId}");
+    expect(householdSource).toContain("<Legend");
+    expect(householdSource).toContain("সদস্যদের মাসিক খরচের তুলনা");
+    expect(householdSource).toContain("গত ৬ মাসে");
+    expect(householdSource).toContain("৬ মাসে {new Intl.NumberFormat");
+    expect(householdSource).toContain("h-72 min-w-0 sm:h-80");
+  });
 });

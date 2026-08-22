@@ -27,7 +27,7 @@ import {
   DEFAULT_CATEGORIES,
 } from "./finance.constants";
 import { calculateSharedBudgetProgress } from "./householdAccounting";
-import { summarizeHouseholdContributorSpend } from "./householdContributorAnalysis";
+import { summarizeHouseholdContributorMonthlySpend, summarizeHouseholdContributorSpend } from "./householdContributorAnalysis";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
@@ -315,6 +315,35 @@ export async function getHouseholdOverview(userId: number, householdId: number) 
     contributorName: access.role === "owner" || visibleContributorIds.has(expense.contributorUserId) ? (expense.contributorName || expense.contributorEmail || "সদস্য") : "সাবেক সদস্য",
     amount: Number(expense.amount),
   })));
+  const comparisonMonthKeys = Array.from({ length: 6 }, (_, index) => offsetMonthKey(currentMonth, index - 5));
+  const comparisonStart = new Date(`${comparisonMonthKeys[0]}-01T00:00:00.000Z`);
+  const comparisonEnd = new Date(`${offsetMonthKey(currentMonth, 1)}-01T00:00:00.000Z`);
+  const comparisonBudgets = await db
+    .select({ id: financeSharedBudgets.id, monthKey: financeSharedBudgets.monthKey })
+    .from(financeSharedBudgets)
+    .where(and(eq(financeSharedBudgets.householdId, householdId), gte(financeSharedBudgets.monthKey, comparisonMonthKeys[0]), lte(financeSharedBudgets.monthKey, currentMonth)));
+  const budgetMonthById = new Map(comparisonBudgets.map(budget => [budget.id, budget.monthKey]));
+  const comparisonExpenses = comparisonBudgets.length
+    ? (await db
+        .select({
+          budgetId: financeSharedExpenses.budgetId,
+          contributorUserId: financeSharedExpenses.contributorUserId,
+          amount: financeSharedExpenses.amount,
+          occurredAt: financeSharedExpenses.occurredAt,
+          contributorName: users.name,
+          contributorEmail: users.email,
+        })
+        .from(financeSharedExpenses)
+        .innerJoin(users, eq(financeSharedExpenses.contributorUserId, users.id))
+        .where(and(eq(financeSharedExpenses.householdId, householdId), gte(financeSharedExpenses.occurredAt, comparisonStart), lt(financeSharedExpenses.occurredAt, comparisonEnd))))
+        .filter(expense => budgetMonthById.get(expense.budgetId) === monthKey(expense.occurredAt))
+    : [];
+  const monthlyContributorSpend = summarizeHouseholdContributorMonthlySpend(comparisonExpenses.map(expense => ({
+    monthKey: monthKey(expense.occurredAt),
+    contributorUserId: access.role === "owner" || visibleContributorIds.has(expense.contributorUserId) ? expense.contributorUserId : 0,
+    contributorName: access.role === "owner" || visibleContributorIds.has(expense.contributorUserId) ? (expense.contributorName || expense.contributorEmail || "সদস্য") : "সাবেক সদস্য",
+    amount: Number(expense.amount),
+  })), comparisonMonthKeys);
   return {
     household: access.household,
     currentRole: access.role,
@@ -322,6 +351,7 @@ export async function getHouseholdOverview(userId: number, householdId: number) 
     members: visibleMembers,
     sharedBudgets,
     contributorSpend,
+    monthlyContributorSpend,
     recentExpenses: expenses.slice(0, 20),
   };
 }

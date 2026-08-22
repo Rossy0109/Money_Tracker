@@ -174,3 +174,5 @@
 - [x] Test household member isolation, role enforcement, shared-budget thresholds, and responsive workflows; then checkpoint and synchronize GitHub.
 - [x] Add a role-safe dashboard chart and detailed Bengali breakdown of current-month shared household expenses by contributing member.
 - [x] Test contributor totals, member visibility boundaries, Bengali chart rendering, responsive layout, then checkpoint and synchronize GitHub.
+- [x] Add a role-safe Bengali member-by-month shared-expense comparison chart and detailed dashboard breakdown.
+- [x] Test monthly aggregation, member visibility boundaries, Bengali chart rendering, responsive layout, then checkpoint and synchronize GitHub.
