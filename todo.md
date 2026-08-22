@@ -125,14 +125,14 @@
 - [x] Test top-expense ranking, ties, no-expense months, and layout behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Add project-scoped prior-month totals for the current top-three expense categories to the monthly report data contract.
 - [x] Show each highlighted expense category's previous-month BDT amount and increase, decrease, or unchanged comparison in the Bengali PDF.
-- [ ] Test month-boundary calculations, access isolation, comparison rendering, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Test month-boundary calculations, access isolation, comparison rendering, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Add a project-scoped monthly profit-and-loss calculation with income, expense, and net profit or loss totals.
 - [x] Add a project-scoped financial-position summary covering account balances, receivables, debts, and net financial position.
 - [x] Present Bengali financial-accounting summaries in the dashboard and monthly PDF report.
-- [ ] Test accounting calculations, report output, and project isolation, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Test accounting calculations, report output, and project isolation, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Provide separate project-scoped exports for profit-and-loss, financial position, income, expense, debt, and receivable report views.
 - [x] Add user-initiated browser sharing for exported reports, supporting the device share sheet for email or WhatsApp when available and safe download fallback otherwise.
-- [ ] Test individual report exports, share capability fallback, and privacy-safe user confirmation behavior, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Test individual report exports, share capability fallback, and privacy-safe user confirmation behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
