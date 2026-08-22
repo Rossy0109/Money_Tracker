@@ -155,6 +155,11 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
     }
     const sectionTotal = type === "income" ? report.totalIncome : report.totalExpense;
     const percentageFormatter = new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 1 });
+    const categoryEntries = Array.from(categoryGroups.entries()).map(([categoryName, categoryTransactions]) => ({
+      categoryName,
+      categoryTransactions,
+      subtotal: categoryTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
+    }));
     const getRowHeight = (transaction: typeof transactions[number]) => Math.max(30, doc.splitTextToSize(transaction.description, 320).length * 10 + 12);
     const addCategorySubheading = (categoryName: string, transactionCount: number, subtotal: number, isContinuation = false) => {
       doc.setFillColor(type === "income" ? 232 : 252, type === "income" ? 246 : 237, type === "income" ? 237 : 237);
@@ -168,8 +173,37 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
       doc.setTextColor(20, 36, 30);
       y += 22;
     };
-    for (const [categoryName, categoryTransactions] of Array.from(categoryGroups.entries())) {
-      const subtotal = categoryTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    if (type === "expense") {
+      const topExpenses = [...categoryEntries]
+        .sort((left, right) => right.subtotal - left.subtotal || left.categoryName.localeCompare(right.categoryName, "bn"))
+        .slice(0, 3);
+      if (topExpenses.length) {
+        const summaryHeight = 25 + topExpenses.length * 21;
+        if (y + summaryHeight > 748) {
+          doc.addPage();
+          y = 52;
+          addTransactionHeading(`${heading} (চলমান)`);
+        }
+        doc.setFillColor(254, 242, 242);
+        doc.rect(margin, y - 14, contentWidth, summaryHeight, "F");
+        doc.setFontSize(9);
+        doc.setTextColor(157, 51, 51);
+        doc.text("শীর্ষ ব্যয়", margin + 8, y);
+        y += 19;
+        for (const [index, expense] of Array.from(topExpenses.entries())) {
+          const percentage = sectionTotal > 0 ? (expense.subtotal / sectionTotal) * 100 : 0;
+          doc.setFontSize(8);
+          doc.setTextColor(97, 45, 45);
+          doc.text(`${index + 1}. ${expense.categoryName}`, margin + 12, y);
+          doc.setTextColor(157, 51, 51);
+          doc.text(`${bdt(expense.subtotal)} | ${percentageFormatter.format(percentage)}%`, pageWidth - margin - 8, y, { align: "right" });
+          y += 21;
+        }
+        doc.setTextColor(20, 36, 30);
+        y += 6;
+      }
+    }
+    for (const { categoryName, categoryTransactions, subtotal } of categoryEntries) {
       if (y + 22 + getRowHeight(categoryTransactions[0]) > 748) {
         doc.addPage();
         y = 52;

@@ -121,6 +121,8 @@
 - [x] Test category subtotal formatting and continuation behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Show each category subtotal's Bengali percentage share of the selected month's total income or total expense in the PDF report.
 - [x] Test category percentage formatting, zero totals, and continuation behavior, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Highlight the three highest-spend expense categories as a Bengali “শীর্ষ ব্যয়” summary in the monthly PDF report.
+- [x] Test top-expense ranking, ties, no-expense months, and layout behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.

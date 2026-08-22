@@ -88,6 +88,33 @@ describe("monthly report PDF", () => {
     expect(documentApi.text).toHaveBeenCalledWith("২৮ টি লেনদেন | উপমোট: ৳ ৪২,০০০ | অংশ: ১০০%", expect.any(Number), expect.any(Number), { align: "right" });
   });
 
+  it("highlights the three highest expense categories in ranked order, including a tie", async () => {
+    await downloadMonthlyReportPdf({
+      projectName: "দৈনিক লেনদেনের খাতা",
+      monthKey: "2026-08",
+      totalIncome: 0,
+      totalExpense: 15000,
+      netAmount: -15000,
+      categoryTotals: [],
+      totalDebt: 0,
+      totalReceivable: 0,
+      transactionCount: 4,
+      transactionDetails: [
+        { occurredAt: new Date("2026-08-16T12:00:00.000Z"), voucherNo: "V-010", type: "expense", categoryName: "A", description: "চতুর্থ ব্যয়", amount: 2000 },
+        { occurredAt: new Date("2026-08-17T12:00:00.000Z"), voucherNo: "V-011", type: "expense", categoryName: "B", description: "প্রথম শীর্ষ ব্যয়", amount: 5000 },
+        { occurredAt: new Date("2026-08-18T12:00:00.000Z"), voucherNo: "V-012", type: "expense", categoryName: "C", description: "দ্বিতীয় শীর্ষ ব্যয়", amount: 5000 },
+        { occurredAt: new Date("2026-08-19T12:00:00.000Z"), voucherNo: "V-013", type: "expense", categoryName: "D", description: "তৃতীয় শীর্ষ ব্যয়", amount: 3000 },
+      ],
+    });
+
+    expect(documentApi.text).toHaveBeenCalledWith("শীর্ষ ব্যয়", 50, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("1. B", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("2. C", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("3. D", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("৳ ৫,০০০ | ৩৩.৩%", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).not.toHaveBeenCalledWith("4. A", 54, expect.any(Number));
+  });
+
   it("renders income rows before a separate expense transaction table", async () => {
     await downloadMonthlyReportPdf({
       projectName: "দৈনিক লেনদেনের খাতা",
@@ -165,5 +192,6 @@ describe("monthly report PDF", () => {
     });
 
     expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ০ | অংশ: ০%", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).not.toHaveBeenCalledWith("শীর্ষ ব্যয়", 50, expect.any(Number));
   });
 });
