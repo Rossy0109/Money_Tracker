@@ -50,6 +50,13 @@
       "when": 1787403498067,
       "tag": "0006_tan_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787430333616,
+      "tag": "0007_worthless_thunderball",
+      "breakpoints": true
     }
   ]
 }

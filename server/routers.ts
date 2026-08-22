@@ -131,6 +131,15 @@ export const appRouter = router({
     exportProjectBackup: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.exportProjectBackup(ctx.user.id, input.projectId)),
     previewProjectBackup: protectedProcedure.input(z.object({ backup: projectBackupInput })).mutation(({ input }) => financeDb.previewProjectBackup(input.backup)),
     restoreProjectBackup: protectedProcedure.input(z.object({ projectName: z.string().trim().min(1).max(120), confirmation: z.literal("RESTORE_NEW_PROJECT"), backup: projectBackupInput })).mutation(({ ctx, input }) => financeDb.restoreProjectBackup(ctx.user.id, { projectName: input.projectName, backup: input.backup })),
+    households: protectedProcedure.query(({ ctx }) => financeDb.listHouseholds(ctx.user.id)),
+    householdInvitations: protectedProcedure.query(({ ctx }) => financeDb.listHouseholdInvitations(ctx.user.id)),
+    createHousehold: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(120) })).mutation(({ ctx, input }) => financeDb.createHousehold(ctx.user.id, input.name)),
+    householdOverview: protectedProcedure.input(z.object({ householdId: z.number().int().positive() })).query(({ ctx, input }) => financeDb.getHouseholdOverview(ctx.user.id, input.householdId)),
+    inviteHouseholdMember: protectedProcedure.input(z.object({ householdId: z.number().int().positive(), email: z.string().trim().email().max(320), displayName: z.string().trim().max(120).optional(), role: z.enum(["editor", "viewer"]) })).mutation(({ ctx, input }) => financeDb.inviteHouseholdMember(ctx.user.id, input)),
+    acceptHouseholdInvitation: protectedProcedure.input(z.object({ membershipId: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.acceptHouseholdInvitation(ctx.user.id, input.membershipId)),
+    updateHouseholdMember: protectedProcedure.input(z.object({ householdId: z.number().int().positive(), membershipId: z.number().int().positive(), role: z.enum(["editor", "viewer"]).optional(), status: z.literal("revoked").optional() }).refine(input => input.role !== undefined || input.status !== undefined, "পরিবর্তনের তথ্য দিন")).mutation(({ ctx, input }) => financeDb.updateHouseholdMember(ctx.user.id, input)),
+    saveSharedHouseholdBudget: protectedProcedure.input(z.object({ householdId: z.number().int().positive(), label: z.string().trim().min(1).max(120), monthKey, amount })).mutation(({ ctx, input }) => financeDb.saveSharedBudget(ctx.user.id, input)),
+    addSharedHouseholdExpense: protectedProcedure.input(z.object({ householdId: z.number().int().positive(), budgetId: z.number().int().positive(), amount, note: z.string().trim().max(500).optional(), occurredAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.addSharedExpense(ctx.user.id, input)),
     addTransaction: protectedProcedure.input(transactionInput).mutation(({ ctx, input }) => financeDb.createTransaction(ctx.user.id, input)),
     updateTransaction: protectedProcedure.input(transactionInput.extend({ id: z.number().int().positive() })).mutation(({ ctx, input }) => {
       const { id, ...values } = input;

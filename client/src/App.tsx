@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Categories from "./pages/Categories";
 import FinanceAutomation from "./pages/FinanceAutomation";
 import FinanceBackup from "./pages/FinanceBackup";
+import FamilyHousehold from "./pages/FamilyHousehold";
 import FinanceInsights from "./pages/FinanceInsights";
 import Home from "./pages/Home";
 
@@ -18,6 +19,7 @@ function Router() {
       <Route path={"/insights"} component={FinanceInsights} />
       <Route path={"/automation"} component={FinanceAutomation} />
       <Route path={"/backup"} component={FinanceBackup} />
+      <Route path={"/family"} component={FamilyHousehold} />
       <Route path={"/categories"} component={Categories} />
       <Route path={"/categories/:type"} component={Categories} />
       <Route path={"/404"} component={NotFound} />

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, like, lt, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   auditLogs,
@@ -8,8 +8,12 @@ import {
   financeCategories,
   financeDues,
   financeDueSettlements,
+  financeHouseholdMembers,
+  financeHouseholds,
   financeProjects,
   financeRecurringTransactions,
+  financeSharedBudgets,
+  financeSharedExpenses,
   financeTransactions,
   financeVoucherSettings,
   InsertUser,
@@ -22,6 +26,7 @@ import {
   calculateBudgetEarlyWarnings,
   DEFAULT_CATEGORIES,
 } from "./finance.constants";
+import { calculateSharedBudgetProgress } from "./householdAccounting";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
@@ -173,6 +178,206 @@ export async function createProject(userId: number, name: string) {
   await ensureDefaultCategories(userId, projectId);
   await logAudit({ actorUserId: userId, projectId, action: "create", entityType: "project", entityId: projectId, summary: `Project created: ${cleanName}` });
   return assertOwnedProject(userId, projectId);
+}
+
+type HouseholdRole = "owner" | "editor" | "viewer";
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+async function getHouseholdAccess(userId: number, householdId: number): Promise<{ role: HouseholdRole; household: typeof financeHouseholds.$inferSelect }> {
+  const db = databaseRequired(await getDb());
+  const [household] = await db.select().from(financeHouseholds).where(eq(financeHouseholds.id, householdId)).limit(1);
+  if (!household) throw new Error("পারিবারিক প্রোফাইল পাওয়া যায়নি");
+  if (household.ownerUserId === userId) return { role: "owner", household };
+
+  const [membership] = await db
+    .select()
+    .from(financeHouseholdMembers)
+    .where(and(eq(financeHouseholdMembers.householdId, householdId), eq(financeHouseholdMembers.userId, userId), eq(financeHouseholdMembers.status, "active")))
+    .limit(1);
+  if (!membership) throw new Error("এই পারিবারিক প্রোফাইলে আপনার অনুমতি নেই");
+  return { role: membership.role, household };
+}
+
+function requireHouseholdRole(role: HouseholdRole, allowed: HouseholdRole[]) {
+  if (!allowed.includes(role)) throw new Error("এই কাজটি করার অনুমতি আপনার নেই");
+}
+
+export async function listHouseholds(userId: number) {
+  const db = databaseRequired(await getDb());
+  const [owned, memberships] = await Promise.all([
+    db.select().from(financeHouseholds).where(eq(financeHouseholds.ownerUserId, userId)).orderBy(asc(financeHouseholds.name)),
+    db
+      .select({ household: financeHouseholds, role: financeHouseholdMembers.role })
+      .from(financeHouseholdMembers)
+      .innerJoin(financeHouseholds, eq(financeHouseholdMembers.householdId, financeHouseholds.id))
+      .where(and(eq(financeHouseholdMembers.userId, userId), eq(financeHouseholdMembers.status, "active")))
+      .orderBy(asc(financeHouseholds.name)),
+  ]);
+  return [
+    ...owned.map(household => ({ ...household, role: "owner" as const })),
+    ...memberships.map(({ household, role }) => ({ ...household, role })),
+  ];
+}
+
+export async function listHouseholdInvitations(userId: number) {
+  const db = databaseRequired(await getDb());
+  const [currentUser] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!currentUser?.email) return [];
+  const email = normalizeEmail(currentUser.email);
+  return db
+    .select({
+      membershipId: financeHouseholdMembers.id,
+      householdId: financeHouseholds.id,
+      householdName: financeHouseholds.name,
+      role: financeHouseholdMembers.role,
+      displayName: financeHouseholdMembers.displayName,
+      invitedAt: financeHouseholdMembers.createdAt,
+    })
+    .from(financeHouseholdMembers)
+    .innerJoin(financeHouseholds, eq(financeHouseholdMembers.householdId, financeHouseholds.id))
+    .where(and(eq(financeHouseholdMembers.inviteeEmail, email), eq(financeHouseholdMembers.status, "pending")))
+    .orderBy(desc(financeHouseholdMembers.createdAt));
+}
+
+export async function createHousehold(userId: number, name: string) {
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("পারিবারিক প্রোফাইলের নাম দিন");
+  const db = databaseRequired(await getDb());
+  const result = await db.insert(financeHouseholds).values({ ownerUserId: userId, name: cleanName });
+  const householdId = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, action: "create", entityType: "household", entityId: householdId, summary: `Household profile created: ${cleanName}` });
+  return getHouseholdAccess(userId, householdId);
+}
+
+export async function getHouseholdOverview(userId: number, householdId: number) {
+  const db = databaseRequired(await getDb());
+  const access = await getHouseholdAccess(userId, householdId);
+  const [owner] = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, access.household.ownerUserId)).limit(1);
+  const memberRows = await db
+    .select({
+      id: financeHouseholdMembers.id,
+      userId: financeHouseholdMembers.userId,
+      inviteeEmail: financeHouseholdMembers.inviteeEmail,
+      displayName: financeHouseholdMembers.displayName,
+      role: financeHouseholdMembers.role,
+      status: financeHouseholdMembers.status,
+      acceptedAt: financeHouseholdMembers.acceptedAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+    .from(financeHouseholdMembers)
+    .leftJoin(users, eq(financeHouseholdMembers.userId, users.id))
+    .where(eq(financeHouseholdMembers.householdId, householdId))
+    .orderBy(asc(financeHouseholdMembers.createdAt));
+  const visibleMembers = access.role === "owner" ? memberRows : memberRows.filter(member => member.status === "active" || member.userId === userId);
+  const currentMonth = monthKey();
+  const budgets = await db.select().from(financeSharedBudgets).where(and(eq(financeSharedBudgets.householdId, householdId), eq(financeSharedBudgets.monthKey, currentMonth))).orderBy(asc(financeSharedBudgets.label));
+  const monthStart = new Date(`${currentMonth}-01T00:00:00.000Z`);
+  const nextMonthStart = new Date(`${offsetMonthKey(currentMonth, 1)}-01T00:00:00.000Z`);
+  const activeBudgetIds = new Set(budgets.map(budget => budget.id));
+  const expenses = budgets.length
+    ? (await db
+        .select()
+        .from(financeSharedExpenses)
+        .where(and(eq(financeSharedExpenses.householdId, householdId), gte(financeSharedExpenses.occurredAt, monthStart), lt(financeSharedExpenses.occurredAt, nextMonthStart)))
+        .orderBy(desc(financeSharedExpenses.occurredAt)))
+        .filter(expense => activeBudgetIds.has(expense.budgetId))
+    : [];
+  const spentByBudget = new Map<number, number>();
+  for (const expense of expenses) spentByBudget.set(expense.budgetId, (spentByBudget.get(expense.budgetId) ?? 0) + Number(expense.amount));
+  const sharedBudgets = budgets.map(budget => {
+    const spent = spentByBudget.get(budget.id) ?? 0;
+    const amount = Number(budget.amount);
+    return { ...budget, ...calculateSharedBudgetProgress(amount, spent) };
+  });
+  return {
+    household: access.household,
+    currentRole: access.role,
+    owner: owner ? { ...owner, role: "owner" as const, status: "active" as const } : null,
+    members: visibleMembers,
+    sharedBudgets,
+    recentExpenses: expenses.slice(0, 20),
+  };
+}
+
+export async function inviteHouseholdMember(userId: number, input: { householdId: number; email: string; displayName?: string; role: "editor" | "viewer" }) {
+  const access = await getHouseholdAccess(userId, input.householdId);
+  requireHouseholdRole(access.role, ["owner"]);
+  const email = normalizeEmail(input.email);
+  if (!email) throw new Error("সদস্যের ইমেইল দিন");
+  const db = databaseRequired(await getDb());
+  const [owner] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+  if (owner?.email && normalizeEmail(owner.email) === email) throw new Error("নিজেকে সদস্য হিসেবে আমন্ত্রণ দেওয়া যাবে না");
+  const [existing] = await db.select().from(financeHouseholdMembers).where(and(eq(financeHouseholdMembers.householdId, input.householdId), eq(financeHouseholdMembers.inviteeEmail, email))).limit(1);
+  if (existing?.status === "active") throw new Error("এই সদস্য ইতিমধ্যে যুক্ত আছেন");
+  const [registeredUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const values = { householdId: input.householdId, inviteeEmail: email, displayName: input.displayName?.trim() || null, role: input.role, status: "pending" as const, invitedByUserId: userId, userId: registeredUser?.id ?? null, acceptedAt: null };
+  if (existing) {
+    await db.update(financeHouseholdMembers).set(values).where(eq(financeHouseholdMembers.id, existing.id));
+    await logAudit({ actorUserId: userId, action: "update", entityType: "household_member", entityId: existing.id, summary: "Household invitation renewed" });
+    return existing.id;
+  }
+  const result = await db.insert(financeHouseholdMembers).values(values);
+  const membershipId = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, action: "create", entityType: "household_member", entityId: membershipId, summary: "Household invitation created" });
+  return membershipId;
+}
+
+export async function acceptHouseholdInvitation(userId: number, membershipId: number) {
+  const db = databaseRequired(await getDb());
+  const [currentUser] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+  const [membership] = await db.select().from(financeHouseholdMembers).where(eq(financeHouseholdMembers.id, membershipId)).limit(1);
+  if (!membership || membership.status !== "pending" || !currentUser?.email || normalizeEmail(currentUser.email) !== normalizeEmail(membership.inviteeEmail)) {
+    throw new Error("এই আমন্ত্রণ গ্রহণের অনুমতি আপনার নেই");
+  }
+  await db.update(financeHouseholdMembers).set({ userId, status: "active", acceptedAt: new Date() }).where(eq(financeHouseholdMembers.id, membershipId));
+  await logAudit({ actorUserId: userId, action: "update", entityType: "household_member", entityId: membershipId, summary: "Household invitation accepted" });
+  return getHouseholdOverview(userId, membership.householdId);
+}
+
+export async function updateHouseholdMember(userId: number, input: { householdId: number; membershipId: number; role?: "editor" | "viewer"; status?: "revoked" }) {
+  const access = await getHouseholdAccess(userId, input.householdId);
+  requireHouseholdRole(access.role, ["owner"]);
+  const db = databaseRequired(await getDb());
+  const [membership] = await db.select().from(financeHouseholdMembers).where(and(eq(financeHouseholdMembers.id, input.membershipId), eq(financeHouseholdMembers.householdId, input.householdId))).limit(1);
+  if (!membership) throw new Error("সদস্য পাওয়া যায়নি");
+  await db.update(financeHouseholdMembers).set({ ...(input.role ? { role: input.role } : {}), ...(input.status ? { status: input.status } : {}) }).where(eq(financeHouseholdMembers.id, membership.id));
+  await logAudit({ actorUserId: userId, action: "update", entityType: "household_member", entityId: membership.id, summary: input.status === "revoked" ? "Household member revoked" : "Household member role updated" });
+  return getHouseholdOverview(userId, input.householdId);
+}
+
+export async function saveSharedBudget(userId: number, input: { householdId: number; label: string; monthKey: string; amount: number }) {
+  const access = await getHouseholdAccess(userId, input.householdId);
+  requireHouseholdRole(access.role, ["owner"]);
+  const label = input.label.trim();
+  if (!label || !/^\d{4}-\d{2}$/.test(input.monthKey) || input.amount <= 0) throw new Error("শেয়ার করা বাজেটের তথ্য সঠিক নয়");
+  const db = databaseRequired(await getDb());
+  const [existing] = await db.select().from(financeSharedBudgets).where(and(eq(financeSharedBudgets.householdId, input.householdId), eq(financeSharedBudgets.label, label), eq(financeSharedBudgets.monthKey, input.monthKey))).limit(1);
+  if (existing) {
+    await db.update(financeSharedBudgets).set({ amount: decimal(input.amount), createdByUserId: userId }).where(eq(financeSharedBudgets.id, existing.id));
+    await logAudit({ actorUserId: userId, action: "update", entityType: "shared_budget", entityId: existing.id, summary: `Shared budget updated: ${label}` });
+    return existing.id;
+  }
+  const result = await db.insert(financeSharedBudgets).values({ householdId: input.householdId, label, monthKey: input.monthKey, amount: decimal(input.amount), createdByUserId: userId });
+  const budgetId = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, action: "create", entityType: "shared_budget", entityId: budgetId, summary: `Shared budget created: ${label}` });
+  return budgetId;
+}
+
+export async function addSharedExpense(userId: number, input: { householdId: number; budgetId: number; amount: number; note?: string; occurredAt: Date }) {
+  const access = await getHouseholdAccess(userId, input.householdId);
+  requireHouseholdRole(access.role, ["owner", "editor"]);
+  if (input.amount <= 0) throw new Error("খরচের পরিমাণ শূন্যের বেশি হতে হবে");
+  const db = databaseRequired(await getDb());
+  const [budget] = await db.select().from(financeSharedBudgets).where(and(eq(financeSharedBudgets.id, input.budgetId), eq(financeSharedBudgets.householdId, input.householdId))).limit(1);
+  if (!budget) throw new Error("শেয়ার করা বাজেট পাওয়া যায়নি");
+  const result = await db.insert(financeSharedExpenses).values({ householdId: input.householdId, budgetId: input.budgetId, contributorUserId: userId, amount: decimal(input.amount), note: input.note?.trim() || null, occurredAt: input.occurredAt });
+  const expenseId = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, action: "create", entityType: "shared_expense", entityId: expenseId, summary: "Shared household expense added" });
+  return expenseId;
 }
 
 async function assertOwnedCategory(userId: number, projectId: number, categoryId: number, type?: "income" | "expense") {

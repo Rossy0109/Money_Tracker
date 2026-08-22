@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, Si
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
-import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, HardDriveDownload, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, WalletCards } from "lucide-react";
+import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, HardDriveDownload, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, UsersRound, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
@@ -13,6 +13,7 @@ const menuItems = [
   { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
   { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
   { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
+  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
   { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup" },
   { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
 ];

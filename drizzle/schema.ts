@@ -40,6 +40,85 @@ export const financeProjects = mysqlTable(
   ],
 );
 
+/** A household is separate from private projects and is owned by exactly one authenticated user. */
+export const financeHouseholds = mysqlTable(
+  "finance_households",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_households_owner_name_unique").on(table.ownerUserId, table.name),
+    index("finance_households_owner_idx").on(table.ownerUserId),
+  ],
+);
+
+/** Invited users obtain household access only after accepting an email-matched invitation. */
+export const financeHouseholdMembers = mysqlTable(
+  "finance_household_members",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    userId: int("userId").references(() => users.id, { onDelete: "cascade" }),
+    inviteeEmail: varchar("inviteeEmail", { length: 320 }).notNull(),
+    displayName: varchar("displayName", { length: 120 }),
+    role: mysqlEnum("role", ["editor", "viewer"]).notNull().default("viewer"),
+    status: mysqlEnum("status", ["pending", "active", "declined", "revoked"]).notNull().default("pending"),
+    invitedByUserId: int("invitedByUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    acceptedAt: timestamp("acceptedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_household_member_email_unique").on(table.householdId, table.inviteeEmail),
+    uniqueIndex("finance_household_member_user_unique").on(table.householdId, table.userId),
+    index("finance_household_members_user_status_idx").on(table.userId, table.status),
+    index("finance_household_members_household_status_idx").on(table.householdId, table.status),
+  ],
+);
+
+/** A shared household budget is category-labelled and independently scoped from personal project budgets. */
+export const financeSharedBudgets = mysqlTable(
+  "finance_shared_budgets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 120 }).notNull(),
+    monthKey: varchar("monthKey", { length: 7 }).notNull(),
+    amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    createdByUserId: int("createdByUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_shared_budgets_household_label_month_unique").on(table.householdId, table.label, table.monthKey),
+    index("finance_shared_budgets_household_month_idx").on(table.householdId, table.monthKey),
+  ],
+);
+
+/** Every shared household expense retains the contributing member for transparent family totals. */
+export const financeSharedExpenses = mysqlTable(
+  "finance_shared_expenses",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    budgetId: int("budgetId").notNull().references(() => financeSharedBudgets.id, { onDelete: "cascade" }),
+    contributorUserId: int("contributorUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    note: varchar("note", { length: 500 }),
+    occurredAt: timestamp("occurredAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("finance_shared_expenses_household_date_idx").on(table.householdId, table.occurredAt),
+    index("finance_shared_expenses_budget_idx").on(table.budgetId),
+    index("finance_shared_expenses_contributor_idx").on(table.contributorUserId),
+  ],
+);
+
 /** A project-owned voucher range; numbers are assigned sequentially by the server. */
 export const financeVoucherSettings = mysqlTable(
   "finance_voucher_settings",
@@ -256,6 +335,10 @@ export const auditLogs = mysqlTable(
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
+export type FinanceHousehold = typeof financeHouseholds.$inferSelect;
+export type FinanceHouseholdMember = typeof financeHouseholdMembers.$inferSelect;
+export type FinanceSharedBudget = typeof financeSharedBudgets.$inferSelect;
+export type FinanceSharedExpense = typeof financeSharedExpenses.$inferSelect;
 export type FinanceVoucherSettings = typeof financeVoucherSettings.$inferSelect;
 export type FinanceAccount = typeof financeAccounts.$inferSelect;
 export type FinanceCategory = typeof financeCategories.$inferSelect;

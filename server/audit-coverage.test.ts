@@ -15,6 +15,12 @@ const auditedMutations = [
   "updateBill",
   "setBillPaid",
   "deleteBill",
+  "createHousehold",
+  "inviteHouseholdMember",
+  "acceptHouseholdInvitation",
+  "updateHouseholdMember",
+  "saveSharedBudget",
+  "addSharedExpense",
 ];
 
 describe("audit logging coverage", () => {

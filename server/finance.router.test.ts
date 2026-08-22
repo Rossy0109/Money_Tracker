@@ -13,6 +13,7 @@ const { financeDb } = vi.hoisted(() => ({
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createDue: vi.fn(), settleDue: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(), getAutomationOverview: vi.fn(), createRecurringTemplate: vi.fn(), updateRecurringTemplate: vi.fn(), generateRecurringNow: vi.fn(), setRecurringScheduleTask: vi.fn(), setBillReminderSettings: vi.fn(), setBillScheduleTask: vi.fn(),
     listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
+    listHouseholds: vi.fn(), listHouseholdInvitations: vi.fn(), createHousehold: vi.fn(), getHouseholdOverview: vi.fn(), inviteHouseholdMember: vi.fn(), acceptHouseholdInvitation: vi.fn(), updateHouseholdMember: vi.fn(), saveSharedBudget: vi.fn(), addSharedExpense: vi.fn(),
   },
 }));
 
@@ -151,6 +152,40 @@ describe("finance router", () => {
     await expect(caller.finance.restoreProjectBackup({ projectName: "পুনরুদ্ধারকৃত হিসাব", confirmation: "restore", backup } as any)).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(financeDb.exportProjectBackup).toHaveBeenCalledWith(42, 88);
     expect(financeDb.restoreProjectBackup).toHaveBeenCalledWith(42, { projectName: "পুনরুদ্ধারকৃত হিসাব", backup });
+  });
+
+  it("keeps household profiles, invitation inboxes, roles, and shared budgets scoped to the signed-in member", async () => {
+    const caller = appRouter.createCaller(authenticatedContext);
+    const household = { id: 17, name: "আমাদের পরিবার", role: "owner" };
+    financeDb.listHouseholds.mockResolvedValue([household]);
+    financeDb.listHouseholdInvitations.mockResolvedValue([{ membershipId: 41, householdId: 19, householdName: "আপন পরিবার", role: "viewer" }]);
+    financeDb.getHouseholdOverview.mockResolvedValue({ household, members: [], budgets: [], expenses: [] });
+    financeDb.createHousehold.mockResolvedValue(household);
+    financeDb.inviteHouseholdMember.mockResolvedValue({ membershipId: 42 });
+    financeDb.acceptHouseholdInvitation.mockResolvedValue({ householdId: 19 });
+    financeDb.updateHouseholdMember.mockResolvedValue({ membershipId: 42, role: "viewer" });
+    financeDb.saveSharedBudget.mockResolvedValue({ id: 31, amount: 10000 });
+    financeDb.addSharedExpense.mockResolvedValue({ id: 33, amount: 1200 });
+
+    await expect(caller.finance.households()).resolves.toEqual([household]);
+    await expect(caller.finance.householdInvitations()).resolves.toHaveLength(1);
+    await expect(caller.finance.createHousehold({ name: "আমাদের পরিবার" })).resolves.toEqual(household);
+    await expect(caller.finance.householdOverview({ householdId: 17 })).resolves.toMatchObject({ household });
+    await caller.finance.inviteHouseholdMember({ householdId: 17, email: "member@example.com", role: "editor", displayName: "সদস্য" });
+    await caller.finance.acceptHouseholdInvitation({ membershipId: 41 });
+    await caller.finance.updateHouseholdMember({ householdId: 17, membershipId: 42, role: "viewer" });
+    await caller.finance.saveSharedHouseholdBudget({ householdId: 17, label: "খাবার", monthKey: "2026-08", amount: 10000 });
+    await caller.finance.addSharedHouseholdExpense({ householdId: 17, budgetId: 31, amount: 1200, note: "সাপ্তাহিক বাজার", occurredAt: new Date("2026-08-22T00:00:00.000Z") });
+
+    expect(financeDb.listHouseholds).toHaveBeenCalledWith(42);
+    expect(financeDb.listHouseholdInvitations).toHaveBeenCalledWith(42);
+    expect(financeDb.getHouseholdOverview).toHaveBeenCalledWith(42, 17);
+    expect(financeDb.inviteHouseholdMember).toHaveBeenCalledWith(42, expect.objectContaining({ householdId: 17, role: "editor" }));
+    expect(financeDb.acceptHouseholdInvitation).toHaveBeenCalledWith(42, 41);
+    expect(financeDb.updateHouseholdMember).toHaveBeenCalledWith(42, expect.objectContaining({ householdId: 17, membershipId: 42, role: "viewer" }));
+    expect(financeDb.saveSharedBudget).toHaveBeenCalledWith(42, expect.objectContaining({ householdId: 17, monthKey: "2026-08" }));
+    expect(financeDb.addSharedExpense).toHaveBeenCalledWith(42, expect.objectContaining({ householdId: 17, budgetId: 31 }));
+    await expect(caller.finance.inviteHouseholdMember({ householdId: 17, email: "member@example.com", role: "owner" } as any)).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("keeps automation, due dates, and recurring template actions scoped to the selected project", async () => {
