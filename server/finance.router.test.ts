@@ -51,11 +51,13 @@ describe("finance router", () => {
   });
 
   it("scopes a monthly financial report to the authenticated user, project, and validated month", async () => {
-    const report = { projectName: "দৈনিক লেনদেনের খাতা", monthKey: "2026-08", totalIncome: 12000, totalExpense: 3500, netAmount: 8500, categoryTotals: [], totalDebt: 0, totalReceivable: 0, transactionCount: 2, transactionDetails: [{ occurredAt: new Date("2026-08-19T00:00:00.000Z"), voucherNo: "V-12", type: "expense", categoryName: "বেতন", description: "মাসিক বেতন", amount: 3500 }] };
+    const report = { projectName: "দৈনিক লেনদেনের খাতা", monthKey: "2026-08", totalIncome: 12000, totalExpense: 3500, netAmount: 8500, categoryTotals: [], totalDebt: 0, totalReceivable: 0, transactionCount: 2, previousMonthKey: "2026-07", previousExpenseCategoryTotals: [{ name: "বেতন", total: 3000 }], profitAndLoss: { income: 12000, expense: 3500, profitOrLoss: 8500 }, financialPosition: { accountBalance: 6000, receivables: 0, assets: 6000, debts: 0, netFinancialPosition: 6000 }, accountDetails: [{ name: "নগদ", type: "cash", currentBalance: 6000 }], dueDetails: [], transactionDetails: [{ occurredAt: new Date("2026-08-19T00:00:00.000Z"), voucherNo: "V-12", type: "expense", categoryName: "বেতন", description: "মাসিক বেতন", amount: 3500 }] };
     financeDb.getMonthlyReport.mockResolvedValue(report);
 
     await expect(appRouter.createCaller(authenticatedContext).finance.monthlyReport({ projectId: 88, monthKey: "2026-08" })).resolves.toEqual(report);
     expect(financeDb.getMonthlyReport).toHaveBeenCalledWith(42, 88, "2026-08");
+    expect(report.financialPosition.netFinancialPosition).toBe(6000);
+    expect(report.previousExpenseCategoryTotals).toEqual([{ name: "বেতন", total: 3000 }]);
     await expect(appRouter.createCaller(authenticatedContext).finance.monthlyReport({ projectId: 88, monthKey: "2026-13" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 

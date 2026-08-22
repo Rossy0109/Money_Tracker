@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { downloadMonthlyReportPdf } from "./monthlyReportPdf";
+import { downloadMonthlyReportPdf, shareMonthlyReportPdf } from "./monthlyReportPdf";
 
 const documentApi = {
   addFileToVFS: vi.fn(),
@@ -15,6 +15,7 @@ const documentApi = {
   splitTextToSize: vi.fn((text: string) => [text]),
   addPage: vi.fn(),
   save: vi.fn(),
+  output: vi.fn(() => new Blob(["pdf"])),
 };
 
 vi.mock("jspdf", () => ({ jsPDF: vi.fn(() => documentApi) }));
@@ -25,6 +26,7 @@ describe("monthly report PDF", () => {
     vi.stubGlobal("window", {
       fetch: vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }),
     });
+    vi.stubGlobal("navigator", {});
   });
 
   it("embeds the Bengali font and downloads a month-specific BDT report", async () => {
@@ -99,6 +101,11 @@ describe("monthly report PDF", () => {
       totalDebt: 0,
       totalReceivable: 0,
       transactionCount: 4,
+      previousMonthKey: "2026-07",
+      previousExpenseCategoryTotals: [
+        { name: "B", total: 3000 },
+        { name: "C", total: 7000 },
+      ],
       transactionDetails: [
         { occurredAt: new Date("2026-08-16T12:00:00.000Z"), voucherNo: "V-010", type: "expense", categoryName: "A", description: "চতুর্থ ব্যয়", amount: 2000 },
         { occurredAt: new Date("2026-08-17T12:00:00.000Z"), voucherNo: "V-011", type: "expense", categoryName: "B", description: "প্রথম শীর্ষ ব্যয়", amount: 5000 },
@@ -112,7 +119,66 @@ describe("monthly report PDF", () => {
     expect(documentApi.text).toHaveBeenCalledWith("2. C", 54, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("3. D", 54, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("৳ ৫,০০০ | ৩৩.৩%", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).toHaveBeenCalledWith("গত মাস (জুলাই ২০২৬): ৳ ৩,০০০ | বেড়েছে ৳ ২,০০০", 58, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("গত মাস (জুলাই ২০২৬): ৳ ৭,০০০ | কমেছে ৳ ২,০০০", 58, expect.any(Number));
     expect(documentApi.text).not.toHaveBeenCalledWith("4. A", 54, expect.any(Number));
+  });
+
+  it("exports dedicated profit-and-loss and financial-position reports", async () => {
+    const report = {
+      projectName: "দৈনিক লেনদেনের খাতা",
+      monthKey: "2026-08",
+      totalIncome: 12000,
+      totalExpense: 3500,
+      netAmount: 8500,
+      categoryTotals: [{ name: "Business", type: "income" as const, total: 12000 }],
+      totalDebt: 900,
+      totalReceivable: 1400,
+      transactionCount: 1,
+      transactionDetails: [],
+      profitAndLoss: { income: 12000, expense: 3500, profitOrLoss: 8500 },
+      financialPosition: { accountBalance: 5000, receivables: 1400, assets: 6400, debts: 900, netFinancialPosition: 5500 },
+      accountDetails: [{ name: "নগদ", type: "cash", currentBalance: 5000 }],
+      dueDetails: [],
+    };
+
+    await downloadMonthlyReportPdf(report, "profit-loss");
+    expect(documentApi.text).toHaveBeenCalledWith("লাভ ও ক্ষতির রিপোর্ট", 42, 50);
+    expect(documentApi.text).toHaveBeenCalledWith("নিট লাভ", 54, expect.any(Number));
+    expect(documentApi.save).toHaveBeenCalledWith("profit-loss-report-2026-08.pdf");
+
+    vi.clearAllMocks();
+    await downloadMonthlyReportPdf(report, "financial-position");
+    expect(documentApi.text).toHaveBeenCalledWith("আর্থিক অবস্থানের রিপোর্ট", 42, 50);
+    expect(documentApi.text).toHaveBeenCalledWith("মোট সম্পদ", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("নিট আর্থিক অবস্থান", 54, expect.any(Number));
+    expect(documentApi.text).toHaveBeenCalledWith("অ্যাকাউন্টভিত্তিক ব্যালেন্স", 52, expect.any(Number));
+    expect(documentApi.save).toHaveBeenCalledWith("financial-position-report-2026-08.pdf");
+  });
+
+  it("uses the device share sheet only when the browser supports PDF file sharing", async () => {
+    const report = {
+      projectName: "দৈনিক লেনদেনের খাতা",
+      monthKey: "2026-08",
+      totalIncome: 5000,
+      totalExpense: 0,
+      netAmount: 5000,
+      categoryTotals: [],
+      totalDebt: 0,
+      totalReceivable: 0,
+      transactionCount: 0,
+      transactionDetails: [],
+    };
+    const share = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { share, canShare: vi.fn(() => true) });
+
+    await expect(shareMonthlyReportPdf(report, "income")).resolves.toBe("shared");
+    expect(documentApi.output).toHaveBeenCalledWith("blob");
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: "আয়ের রিপোর্ট" }));
+    expect(share.mock.calls[0][0].files[0].name).toBe("income-report-2026-08.pdf");
+
+    vi.stubGlobal("navigator", {});
+    await expect(shareMonthlyReportPdf(report, "income")).resolves.toBe("unavailable");
   });
 
   it("renders income rows before a separate expense transaction table", async () => {

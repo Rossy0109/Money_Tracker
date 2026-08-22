@@ -254,12 +254,16 @@ export async function getMonthlyReport(userId: number, projectId: number, target
   const project = await assertOwnedProject(userId, projectId);
   await ensureDefaultCategories(userId, projectId);
   const db = databaseRequired(await getDb());
-  const [categories, transactions, dues] = await Promise.all([
+  const [accounts, categories, transactions, dues] = await Promise.all([
+    db.select().from(financeAccounts).where(and(eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId))).orderBy(asc(financeAccounts.createdAt)),
     db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId))).orderBy(asc(financeCategories.type), asc(financeCategories.name)),
     db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))).orderBy(asc(financeTransactions.occurredAt), asc(financeTransactions.id)),
     db.select().from(financeDues).where(and(eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))).orderBy(asc(financeDues.openedAt), asc(financeDues.id)),
   ]);
   const isInSelectedMonth = (value: Date | string) => new Date(value).toISOString().slice(0, 7) === targetMonthKey;
+  const targetMonth = new Date(`${targetMonthKey}-01T12:00:00Z`);
+  const previousMonthKey = new Date(Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
+  const isInPreviousMonth = (value: Date | string) => new Date(value).toISOString().slice(0, 7) === previousMonthKey;
   const monthTransactions = transactions.filter(transaction => isInSelectedMonth(transaction.occurredAt));
   const totalIncome = monthTransactions.filter(transaction => transaction.type === "income").reduce((sum, transaction) => sum + Number(transaction.amount), 0);
   const totalExpense = monthTransactions.filter(transaction => transaction.type === "expense").reduce((sum, transaction) => sum + Number(transaction.amount), 0);
@@ -270,6 +274,15 @@ export async function getMonthlyReport(userId: number, projectId: number, target
   })).filter(category => category.total > 0);
   const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
   const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  const totalAccountBalance = accounts.reduce((sum, account) => sum + Number(account.currentBalance), 0);
+  const previousExpenseCategoryTotals = categories
+    .filter(category => category.type === "expense")
+    .map(category => ({
+      name: category.name,
+      total: transactions
+        .filter(transaction => transaction.type === "expense" && transaction.categoryId === category.id && isInPreviousMonth(transaction.occurredAt))
+        .reduce((sum, transaction) => sum + Number(transaction.amount), 0),
+    }));
   const transactionDetails = monthTransactions.map(transaction => ({
     occurredAt: transaction.occurredAt,
     voucherNo: transaction.voucherNo ?? "—",
@@ -277,6 +290,15 @@ export async function getMonthlyReport(userId: number, projectId: number, target
     categoryName: categories.find(category => category.id === transaction.categoryId)?.name ?? "অনির্ধারিত",
     description: transaction.note ?? "—",
     amount: Number(transaction.amount),
+  }));
+  const dueDetails = dues.map(due => ({
+    type: due.type,
+    counterparty: due.counterparty,
+    voucherNo: due.voucherNo ?? "—",
+    openedAt: due.openedAt,
+    description: due.note ?? "—",
+    originalAmount: Number(due.originalAmount),
+    outstandingAmount: Number(due.outstandingAmount),
   }));
   return {
     projectName: project.name,
@@ -289,6 +311,26 @@ export async function getMonthlyReport(userId: number, projectId: number, target
     totalReceivable,
     transactionCount: monthTransactions.length,
     transactionDetails,
+    previousMonthKey,
+    previousExpenseCategoryTotals,
+    profitAndLoss: {
+      income: totalIncome,
+      expense: totalExpense,
+      profitOrLoss: totalIncome - totalExpense,
+    },
+    financialPosition: {
+      accountBalance: totalAccountBalance,
+      receivables: totalReceivable,
+      assets: totalAccountBalance + totalReceivable,
+      debts: totalDebt,
+      netFinancialPosition: totalAccountBalance + totalReceivable - totalDebt,
+    },
+    accountDetails: accounts.map(account => ({
+      name: account.name,
+      type: account.type,
+      currentBalance: Number(account.currentBalance),
+    })),
+    dueDetails,
   };
 }
 

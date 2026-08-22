@@ -28,7 +28,12 @@ import {
 } from "@/lib/activeProject";
 import { buildAdminAuditFilterInput } from "@/lib/auditFilters";
 import { downloadAuditCsv, downloadAuditPdf } from "@/lib/auditLogExports";
-import { downloadMonthlyReportPdf } from "@/lib/monthlyReportPdf";
+import {
+  accountingReportOptions,
+  downloadMonthlyReportPdf,
+  shareMonthlyReportPdf,
+  type AccountingReportType,
+} from "@/lib/monthlyReportPdf";
 import {
   Bar,
   BarChart,
@@ -52,6 +57,7 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  Share2,
   ShieldCheck,
   Trash2,
   TrendingDown,
@@ -155,9 +161,18 @@ export default function Home() {
     new Date().toISOString().slice(0, 7)
   );
   const [isReportDownloading, setIsReportDownloading] = useState(false);
+  const [isReportSharing, setIsReportSharing] = useState(false);
+  const [reportType, setReportType] = useState<AccountingReportType>("full");
   const monthlyReport = trpc.finance.monthlyReport.useQuery(
     { projectId: activeProjectId ?? 0, monthKey: reportMonthKey },
     { enabled: false, retry: false }
+  );
+  const accountingSummary = trpc.finance.monthlyReport.useQuery(
+    { projectId: activeProjectId ?? 0, monthKey: reportMonthKey },
+    {
+      enabled: isAuthenticated && activeProjectId !== null,
+      retry: false,
+    }
   );
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     "expense"
@@ -707,15 +722,21 @@ export default function Home() {
       );
     }
   }
-  async function downloadMonthlyReport() {
+  async function getMonthlyReportForExport() {
     if (!requireProject()) return;
+    const result = await monthlyReport.refetch();
+    if (!result.data) throw new Error("মাসিক রিপোর্টের ডেটা পাওয়া যায়নি");
+    return result.data;
+  }
+
+  async function downloadMonthlyReport() {
     try {
       setIsReportDownloading(true);
-      const result = await monthlyReport.refetch();
-      if (!result.data) throw new Error("মাসিক রিপোর্টের ডেটা পাওয়া যায়নি");
-      await downloadMonthlyReportPdf(result.data);
-      setMonthlyReportOpen(false);
-      toast.success("মাসিক আর্থিক রিপোর্ট PDF ডাউনলোড হয়েছে");
+      const report = await getMonthlyReportForExport();
+      if (!report) return;
+      await downloadMonthlyReportPdf(report, reportType);
+      const selectedReport = accountingReportOptions.find(option => option.value === reportType);
+      toast.success(`${selectedReport?.label ?? "রিপোর্ট"} PDF ডাউনলোড হয়েছে`);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -724,6 +745,31 @@ export default function Home() {
       );
     } finally {
       setIsReportDownloading(false);
+    }
+  }
+
+  async function shareMonthlyReport() {
+    try {
+      setIsReportSharing(true);
+      const report = await getMonthlyReportForExport();
+      if (!report) return;
+      const shareResult = await shareMonthlyReportPdf(report, reportType);
+      if (shareResult === "unavailable") {
+        await downloadMonthlyReportPdf(report, reportType);
+        toast.message(
+          "এই ব্রাউজারে সরাসরি শেয়ার সমর্থিত নয়। PDF ডাউনলোড হয়েছে—ইমেইল বা WhatsApp-এ ফাইলটি সংযুক্ত করুন।",
+          { duration: 7000 }
+        );
+        return;
+      }
+      toast.success("ডিভাইসের শেয়ার স্ক্রিন খোলা হয়েছে—ইমেইল বা WhatsApp বেছে নিন।", { duration: 6000 });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error(
+        error instanceof Error ? error.message : "রিপোর্ট শেয়ার করা যায়নি"
+      );
+    } finally {
+      setIsReportSharing(false);
     }
   }
 
@@ -854,14 +900,15 @@ export default function Home() {
                   মাসিক রিপোর্ট PDF
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-2xl sm:max-w-md">
+              <DialogContent className="rounded-2xl sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>মাসিক আর্থিক রিপোর্ট</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4">
                   <p className="text-sm text-[#5d776b]">
-                    নির্বাচিত মাসের আয়, ব্যয়, নিট পরিমাণ, ক্যাটাগরিভিত্তিক
-                    হিসাব এবং বর্তমান দেনা-পাওনা PDF-এ ডাউনলোড হবে।
+                    আলাদা লাভ-ক্ষতি, আয়, ব্যয়, দেনা, পাওনা ও আর্থিক অবস্থানের
+                    রিপোর্ট PDF হিসেবে ডাউনলোড বা ডিভাইসের শেয়ার স্ক্রিন থেকে
+                    ইমেইল বা WhatsApp-এ পাঠানো যাবে।
                   </p>
                   <Field label="রিপোর্টের মাস">
                     <Input
@@ -871,20 +918,48 @@ export default function Home() {
                       className="finance-input"
                     />
                   </Field>
-                  <Button
-                    onClick={downloadMonthlyReport}
-                    disabled={isReportDownloading || !activeProjectId}
-                    className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-                  >
-                    {isReportDownloading ? (
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-1.5 h-4 w-4" />
-                    )}
-                    {isReportDownloading
-                      ? "PDF তৈরি হচ্ছে..."
-                      : "PDF ডাউনলোড করুন"}
-                  </Button>
+                  <Field label="রিপোর্টের ধরন">
+                    <select
+                      value={reportType}
+                      onChange={event =>
+                        setReportType(event.target.value as AccountingReportType)
+                      }
+                      className="finance-input h-10 w-full"
+                    >
+                      {accountingReportOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button
+                      onClick={downloadMonthlyReport}
+                      disabled={isReportDownloading || isReportSharing || !activeProjectId}
+                      className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+                    >
+                      {isReportDownloading ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-4 w-4" />
+                      )}
+                      {isReportDownloading ? "PDF তৈরি হচ্ছে..." : "PDF ডাউনলোড"}
+                    </Button>
+                    <Button
+                      onClick={shareMonthlyReport}
+                      disabled={isReportDownloading || isReportSharing || !activeProjectId}
+                      variant="outline"
+                      className="rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+                    >
+                      {isReportSharing ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Share2 className="mr-1.5 h-4 w-4" />
+                      )}
+                      {isReportSharing ? "শেয়ার প্রস্তুত হচ্ছে..." : "ইমেইল / WhatsApp-এ শেয়ার"}
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -947,6 +1022,83 @@ export default function Home() {
                 value={bdt(data.totals.netAmount)}
               />
             </section>
+            {accountingSummary.data && (
+              <section className="finance-card p-5 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="section-kicker">ফিনান্সিয়াল অ্যাকাউন্টিং</p>
+                    <h2 className="section-title">
+                      {monthText(accountingSummary.data.monthKey)} মাসের লাভ-ক্ষতি ও আর্থিক অবস্থান
+                    </h2>
+                    <p className="mt-1 text-sm text-[#668076]">
+                      লাভ-ক্ষতি শুধু নির্বাচিত মাসের আয় ও ব্যয়ের হিসাব। আর্থিক অবস্থানে
+                      অ্যাকাউন্ট ব্যালেন্স, পাওনা ও দেনা অন্তর্ভুক্ত আছে।
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setMonthlyReportOpen(true)}
+                    variant="outline"
+                    className="w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] sm:w-auto"
+                  >
+                    <Download className="mr-1.5 h-4 w-4" />
+                    আলাদা রিপোর্ট
+                  </Button>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <AccountingMetric
+                    label="মোট আয়"
+                    value={bdt(accountingSummary.data.profitAndLoss.income)}
+                    tone="green"
+                  />
+                  <AccountingMetric
+                    label="মোট ব্যয়"
+                    value={bdt(accountingSummary.data.profitAndLoss.expense)}
+                    tone="rose"
+                  />
+                  <AccountingMetric
+                    label={
+                      accountingSummary.data.profitAndLoss.profitOrLoss >= 0
+                        ? "নিট লাভ"
+                        : "নিট ক্ষতি"
+                    }
+                    value={bdt(
+                      Math.abs(accountingSummary.data.profitAndLoss.profitOrLoss)
+                    )}
+                    tone={
+                      accountingSummary.data.profitAndLoss.profitOrLoss >= 0
+                        ? "mint"
+                        : "rose"
+                    }
+                  />
+                  <AccountingMetric
+                    label="অ্যাকাউন্ট ব্যালেন্স"
+                    value={bdt(accountingSummary.data.financialPosition.accountBalance)}
+                    tone="sand"
+                  />
+                  <AccountingMetric
+                    label="মোট পাওনা"
+                    value={bdt(accountingSummary.data.financialPosition.receivables)}
+                    tone="mint"
+                  />
+                  <AccountingMetric
+                    label="নিট আর্থিক অবস্থান"
+                    value={bdt(
+                      accountingSummary.data.financialPosition.netFinancialPosition
+                    )}
+                    tone={
+                      accountingSummary.data.financialPosition.netFinancialPosition >= 0
+                        ? "green"
+                        : "rose"
+                    }
+                  />
+                </div>
+                <p className="mt-4 text-sm text-[#668076]">
+                  মোট সম্পদ: {bdt(accountingSummary.data.financialPosition.assets)}
+                  <span aria-hidden="true"> · </span>
+                  মোট দেনা: {bdt(accountingSummary.data.financialPosition.debts)}
+                </p>
+              </section>
+            )}
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,.85fr)]">
               <article className="finance-card p-5 sm:p-6">
                 <p className="section-kicker">মাসিক প্রবণতা</p>
@@ -2394,6 +2546,31 @@ function Metric({
     </article>
   );
 }
+
+function AccountingMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "green" | "mint" | "rose" | "sand";
+}) {
+  const tones = {
+    green: "border-[#cfe7d4] bg-[#f4fbf5] text-[#1f7a4c]",
+    mint: "border-[#cdebdc] bg-[#f0faf4] text-[#298658]",
+    rose: "border-[#f0d4cf] bg-[#fff6f4] text-[#b85d52]",
+    sand: "border-[#edddbd] bg-[#fffaf0] text-[#9b671c]",
+  };
+
+  return (
+    <article className={`rounded-xl border p-4 ${tones[tone]}`}>
+      <p className="text-sm font-medium opacity-80">{label}</p>
+      <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
+    </article>
+  );
+}
+
 function Field({
   label,
   children,
