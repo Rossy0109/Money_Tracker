@@ -154,3 +154,14 @@
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
 - [x] Apply and regression-test a secure fix for the verified authorization failure cause.
 - [x] Verify mobile sign-in end to end after the fix, checkpoint, and synchronize the authorization repair.
+- [x] Add a monthly budget-planning workflow that suggests category budgets from prior project-scoped spending without changing budgets automatically.
+- [x] Add project-scoped monthly trends for income, expense, savings, and budget usage with readable Bengali charts.
+- [x] Add secure transaction search and filtering by description, voucher number, date range, amount, and category.
+- [x] Add project-scoped recurring transaction templates with user-controlled schedules, previews, and safe creation of due entries.
+- [x] Add configurable bill reminders with deterministic scheduled checks and clear in-app reminder status.
+- [x] Add a user-controlled financial-data export, validation, preview, and safe restoration flow that never overwrites data without explicit confirmation.
+- [x] Add an actionable project-scoped debt and receivable ageing report with due dates and settlement status.
+- [x] Add an installable progressive web application experience for mobile home-screen use and resilient offline shell behavior.
+- [x] Complete database migrations, access-isolation tests, business-rule tests, responsive browser verification, and production validation for all eight enhancements.
+- [x] Save the complete eight-enhancement release checkpoint after reviewing the checklist.
+- [x] Synchronize the final eight-enhancement checkpoint to the private GitHub main branch and confirm it matches local state.

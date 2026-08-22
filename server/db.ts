@@ -9,6 +9,7 @@ import {
   financeDues,
   financeDueSettlements,
   financeProjects,
+  financeRecurringTransactions,
   financeTransactions,
   financeVoucherSettings,
   InsertUser,
@@ -49,6 +50,11 @@ function decimal(value: number) {
 
 function monthKey(date = new Date()) {
   return date.toISOString().slice(0, 7);
+}
+
+function offsetMonthKey(targetMonthKey: string, offset: number) {
+  const target = new Date(`${targetMonthKey}-01T12:00:00Z`);
+  return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + offset, 1)).toISOString().slice(0, 7);
 }
 
 function signedAmount(type: "income" | "expense", amount: string | number) {
@@ -262,6 +268,97 @@ export async function getOverview(userId: number, projectId: number) {
   return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, budgetAlerts, budgetEarlyWarnings, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
 }
 
+export async function getBudgetPlan(userId: number, projectId: number, targetMonthKey: string) {
+  await assertOwnedProject(userId, projectId);
+  await ensureDefaultCategories(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const previousMonthKey = offsetMonthKey(targetMonthKey, -1);
+  const [categories, budgets, transactions] = await Promise.all([
+    db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId), eq(financeCategories.type, "expense"))).orderBy(asc(financeCategories.name)),
+    db.select().from(financeBudgets).where(and(eq(financeBudgets.userId, userId), eq(financeBudgets.projectId, projectId), or(eq(financeBudgets.monthKey, targetMonthKey), eq(financeBudgets.monthKey, previousMonthKey)))),
+    db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId), eq(financeTransactions.type, "expense"))),
+  ]);
+  const plans = categories.map(category => {
+    const currentBudget = budgets.find(budget => budget.categoryId === category.id && budget.monthKey === targetMonthKey);
+    const previousBudget = budgets.find(budget => budget.categoryId === category.id && budget.monthKey === previousMonthKey);
+    const previousSpent = transactions
+      .filter(transaction => transaction.categoryId === category.id && monthKey(transaction.occurredAt) === previousMonthKey)
+      .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    const suggestedAmount = Number(previousBudget?.amount ?? previousSpent);
+    return {
+      categoryId: category.id,
+      categoryName: category.name,
+      currentBudget: currentBudget ? Number(currentBudget.amount) : null,
+      previousBudget: previousBudget ? Number(previousBudget.amount) : null,
+      previousSpent,
+      suggestedAmount,
+    };
+  });
+  return { targetMonthKey, previousMonthKey, plans };
+}
+
+export async function getFinanceAnalytics(userId: number, projectId: number, months = 6) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [transactions, budgets] = await Promise.all([
+    db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))),
+    db.select().from(financeBudgets).where(and(eq(financeBudgets.userId, userId), eq(financeBudgets.projectId, projectId))),
+  ]);
+  const currentMonthKey = monthKey();
+  const data = Array.from({ length: months }, (_, offset) => {
+    const key = offsetMonthKey(currentMonthKey, -(months - 1 - offset));
+    const income = transactions.filter(transaction => transaction.type === "income" && monthKey(transaction.occurredAt) === key).reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    const expense = transactions.filter(transaction => transaction.type === "expense" && monthKey(transaction.occurredAt) === key).reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    const budgeted = budgets.filter(budget => budget.monthKey === key).reduce((sum, budget) => sum + Number(budget.amount), 0);
+    return {
+      monthKey: key,
+      income,
+      expense,
+      savings: income - expense,
+      budgeted,
+      budgetUsagePercentage: budgeted > 0 ? Math.round((expense / budgeted) * 100) : null,
+    };
+  });
+  return { data };
+}
+
+export async function searchTransactions(userId: number, input: {
+  projectId: number;
+  query?: string;
+  categoryId?: number;
+  type?: "income" | "expense";
+  from?: Date;
+  to?: Date;
+  minAmount?: number;
+  maxAmount?: number;
+  limit: number;
+}) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+  const conditions = [eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, input.projectId)];
+  if (input.categoryId) conditions.push(eq(financeTransactions.categoryId, input.categoryId));
+  if (input.type) conditions.push(eq(financeTransactions.type, input.type));
+  if (input.from) conditions.push(gte(financeTransactions.occurredAt, input.from));
+  if (input.to) conditions.push(lte(financeTransactions.occurredAt, input.to));
+  if (input.minAmount !== undefined) conditions.push(gte(financeTransactions.amount, decimal(input.minAmount)));
+  if (input.maxAmount !== undefined) conditions.push(lte(financeTransactions.amount, decimal(input.maxAmount)));
+  const query = input.query?.trim();
+  if (query) {
+    const term = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+    conditions.push(or(like(financeTransactions.note, term), like(financeTransactions.voucherNo, term))!);
+  }
+  const [transactions, categories, accounts] = await Promise.all([
+    db.select().from(financeTransactions).where(and(...conditions)).orderBy(desc(financeTransactions.occurredAt), desc(financeTransactions.id)).limit(input.limit),
+    db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, input.projectId))),
+    db.select().from(financeAccounts).where(and(eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, input.projectId))),
+  ]);
+  return transactions.map(transaction => ({
+    ...transaction,
+    categoryName: categories.find(category => category.id === transaction.categoryId)?.name ?? "অনির্ধারিত",
+    accountName: transaction.accountId ? accounts.find(account => account.id === transaction.accountId)?.name ?? null : null,
+  }));
+}
+
 export async function getMonthlyReport(userId: number, projectId: number, targetMonthKey: string) {
   const project = await assertOwnedProject(userId, projectId);
   await ensureDefaultCategories(userId, projectId);
@@ -346,12 +443,12 @@ export async function getMonthlyReport(userId: number, projectId: number, target
   };
 }
 
-export async function createDue(userId: number, input: { projectId: number; type: "debt" | "receivable"; counterparty: string; amount: number; note?: string; openedAt: Date }) {
+export async function createDue(userId: number, input: { projectId: number; type: "debt" | "receivable"; counterparty: string; amount: number; note?: string; openedAt: Date; dueAt?: Date }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
   const id = await db.transaction(async tx => {
     const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
-    const result = await tx.insert(financeDues).values({ userId, projectId: input.projectId, type: input.type, counterparty: input.counterparty.trim(), originalAmount: decimal(input.amount), outstandingAmount: decimal(input.amount), voucherNo, note: input.note?.trim() || null, openedAt: input.openedAt });
+    const result = await tx.insert(financeDues).values({ userId, projectId: input.projectId, type: input.type, counterparty: input.counterparty.trim(), originalAmount: decimal(input.amount), outstandingAmount: decimal(input.amount), voucherNo, note: input.note?.trim() || null, openedAt: input.openedAt, dueAt: input.dueAt ?? null });
     return Number(result[0].insertId);
   });
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: input.type, entityId: id, summary: `${input.type === "debt" ? "Debt" : "Receivable"} added: ${input.counterparty.trim()}` });
@@ -449,17 +546,17 @@ export async function upsertBudget(userId: number, input: { projectId: number; c
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "budget", summary: "Monthly budget saved" });
 }
 
-export async function createBill(userId: number, input: { projectId: number; title: string; amount: number; dueAt: Date }) {
+export async function createBill(userId: number, input: { projectId: number; title: string; amount: number; dueAt: Date; reminderDaysBefore?: number }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  const result = await db.insert(financeBills).values({ userId, projectId: input.projectId, title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt });
+  const result = await db.insert(financeBills).values({ userId, projectId: input.projectId, title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt, reminderDaysBefore: input.reminderDaysBefore ?? 3 });
   const id = Number(result[0].insertId);
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "bill", entityId: id, summary: "Bill reminder created" });
 }
 
-export async function updateBill(userId: number, projectId: number, id: number, input: { title: string; amount: number; dueAt: Date; isPaid: boolean }) {
+export async function updateBill(userId: number, projectId: number, id: number, input: { title: string; amount: number; dueAt: Date; isPaid: boolean; reminderDaysBefore?: number }) {
   const db = databaseRequired(await getDb());
-  const result = await db.update(financeBills).set({ title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt, isPaid: input.isPaid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  const result = await db.update(financeBills).set({ title: input.title.trim(), amount: decimal(input.amount), dueAt: input.dueAt, isPaid: input.isPaid, ...(input.reminderDaysBefore !== undefined ? { reminderDaysBefore: input.reminderDaysBefore } : {}) }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
   if (result[0].affectedRows === 0) throw new Error("Bill not found or access denied");
   await logAudit({ actorUserId: userId, projectId, action: "update", entityType: "bill", entityId: id, summary: "Bill reminder updated" });
 }
@@ -478,6 +575,120 @@ export async function deleteBill(userId: number, projectId: number, id: number) 
   await logAudit({ actorUserId: userId, projectId, action: "delete", entityType: "bill", entityId: id, summary: "Bill reminder deleted" });
 }
 
+export async function getAutomationOverview(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [recurring, bills, dues, accounts, categories] = await Promise.all([
+    db.select().from(financeRecurringTransactions).where(and(eq(financeRecurringTransactions.userId, userId), eq(financeRecurringTransactions.projectId, projectId))).orderBy(asc(financeRecurringTransactions.nextRunAt)),
+    db.select().from(financeBills).where(and(eq(financeBills.userId, userId), eq(financeBills.projectId, projectId))).orderBy(asc(financeBills.isPaid), asc(financeBills.dueAt)),
+    db.select().from(financeDues).where(and(eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))).orderBy(asc(financeDues.dueAt), asc(financeDues.openedAt)),
+    db.select().from(financeAccounts).where(and(eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId))),
+    db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId))),
+  ]);
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  return {
+    recurring: recurring.map(row => ({ ...row, amount: Number(row.amount), accountName: row.accountId ? accounts.find(account => account.id === row.accountId)?.name ?? null : null, categoryName: categories.find(category => category.id === row.categoryId)?.name ?? "অজানা ক্যাটাগরি" })),
+    bills: bills.map(row => ({ ...row, amount: Number(row.amount), reminderDueAt: new Date(row.dueAt.getTime() - row.reminderDaysBefore * 86_400_000) })),
+    ageing: dues.filter(due => Number(due.outstandingAmount) > 0).map(due => {
+      const dueAt = due.dueAt ? new Date(due.dueAt) : null;
+      const daysOverdue = dueAt ? Math.max(0, Math.floor((startToday.getTime() - dueAt.getTime()) / 86_400_000)) : null;
+      const overdueDays = daysOverdue ?? 0;
+      const status = !dueAt ? "undated" : overdueDays > 30 ? "overdue_31_plus" : overdueDays > 0 ? "overdue_1_30" : dueAt.getTime() < startToday.getTime() + 86_400_000 ? "due_today" : "upcoming";
+      return { ...due, originalAmount: Number(due.originalAmount), outstandingAmount: Number(due.outstandingAmount), daysOverdue, status };
+    }),
+  };
+}
+
+export async function createRecurringTemplate(userId: number, input: { projectId: number; accountId?: number; categoryId: number; type: "income" | "expense"; amount: number; paymentMethod: string; note?: string; frequency: "weekly" | "monthly"; scheduleDay: number; nextRunAt: Date }) {
+  await assertOwnedProject(userId, input.projectId);
+  await assertOwnedCategory(userId, input.projectId, input.categoryId, input.type);
+  if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
+  const db = databaseRequired(await getDb());
+  const result = await db.insert(financeRecurringTransactions).values({ userId, projectId: input.projectId, accountId: input.accountId ?? null, categoryId: input.categoryId, type: input.type, amount: decimal(input.amount), paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, frequency: input.frequency, scheduleDay: input.scheduleDay, nextRunAt: input.nextRunAt });
+  const id = Number(result[0].insertId);
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "recurring_transaction", entityId: id, summary: "Recurring transaction template created" });
+  return id;
+}
+
+export async function setRecurringScheduleTask(userId: number, projectId: number, id: number, scheduleCronTaskUid: string | null) {
+  const db = databaseRequired(await getDb());
+  const result = await db.update(financeRecurringTransactions).set({ scheduleCronTaskUid }).where(and(eq(financeRecurringTransactions.id, id), eq(financeRecurringTransactions.userId, userId), eq(financeRecurringTransactions.projectId, projectId)));
+  if (!result[0].affectedRows) throw new Error("পুনরাবৃত্ত টেমপ্লেটটি পাওয়া যায়নি");
+}
+
+export async function updateRecurringTemplate(userId: number, input: { id: number; projectId: number; isActive: boolean }) {
+  const db = databaseRequired(await getDb());
+  const result = await db.update(financeRecurringTransactions).set({ isActive: input.isActive }).where(and(eq(financeRecurringTransactions.id, input.id), eq(financeRecurringTransactions.userId, userId), eq(financeRecurringTransactions.projectId, input.projectId)));
+  if (!result[0].affectedRows) throw new Error("পুনরাবৃত্ত টেমপ্লেটটি পাওয়া যায়নি");
+  await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "recurring_transaction", entityId: input.id, summary: input.isActive ? "Recurring transaction activated" : "Recurring transaction paused" });
+}
+
+export async function setBillReminderSettings(userId: number, projectId: number, id: number, reminderDaysBefore: number) {
+  const db = databaseRequired(await getDb());
+  const result = await db.update(financeBills).set({ reminderDaysBefore }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  if (!result[0].affectedRows) throw new Error("বিলটি পাওয়া যায়নি");
+}
+
+export async function setBillScheduleTask(userId: number, projectId: number, id: number, scheduleCronTaskUid: string | null) {
+  const db = databaseRequired(await getDb());
+  const result = await db.update(financeBills).set({ scheduleCronTaskUid }).where(and(eq(financeBills.id, id), eq(financeBills.userId, userId), eq(financeBills.projectId, projectId)));
+  if (!result[0].affectedRows) throw new Error("বিলটি পাওয়া যায়নি");
+}
+
+function advanceRecurringRun(current: Date, frequency: "weekly" | "monthly", scheduleDay: number) {
+  if (frequency === "weekly") return new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 7, 12));
+  const monthStart = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + 1, 1, 12));
+  const lastDay = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), Math.min(scheduleDay, lastDay), 12));
+}
+
+async function generateRecurringRuns(template: typeof financeRecurringTransactions.$inferSelect, now: Date) {
+  const db = databaseRequired(await getDb());
+  let created = 0;
+  let nextRunAt = new Date(template.nextRunAt);
+  for (let safety = 0; nextRunAt <= now && safety < 24; safety += 1) {
+    const runKey = nextRunAt.toISOString().slice(0, 10);
+    await db.transaction(async tx => {
+      const [existing] = await tx.select({ id: financeTransactions.id }).from(financeTransactions).where(and(eq(financeTransactions.recurringTemplateId, template.id), eq(financeTransactions.recurringRunKey, runKey))).limit(1);
+      if (existing) return;
+      const voucherNo = await claimNextVoucher(tx, template.userId, template.projectId);
+      const result = await tx.insert(financeTransactions).values({ userId: template.userId, projectId: template.projectId, accountId: template.accountId, categoryId: template.categoryId, type: template.type, amount: template.amount, voucherNo, paymentMethod: template.paymentMethod, note: template.note, recurringTemplateId: template.id, recurringRunKey: runKey, occurredAt: nextRunAt });
+      if (template.accountId) await tx.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(signedAmount(template.type, template.amount))}` }).where(and(eq(financeAccounts.id, template.accountId), eq(financeAccounts.userId, template.userId), eq(financeAccounts.projectId, template.projectId)));
+      await tx.insert(auditLogs).values({ actorUserId: template.userId, projectId: template.projectId, action: "create", entityType: "recurring_transaction_run", entityId: Number(result[0].insertId), summary: `Recurring transaction generated for ${runKey}` });
+      created += 1;
+    });
+    nextRunAt = advanceRecurringRun(nextRunAt, template.frequency, template.scheduleDay);
+  }
+  await db.update(financeRecurringTransactions).set({ nextRunAt, lastGeneratedAt: created ? now : template.lastGeneratedAt }).where(eq(financeRecurringTransactions.id, template.id));
+  return { created, nextRunAt };
+}
+
+export async function generateRecurringNow(userId: number, projectId: number, id: number, now = new Date()) {
+  const db = databaseRequired(await getDb());
+  const [template] = await db.select().from(financeRecurringTransactions).where(and(eq(financeRecurringTransactions.id, id), eq(financeRecurringTransactions.userId, userId), eq(financeRecurringTransactions.projectId, projectId), eq(financeRecurringTransactions.isActive, true))).limit(1);
+  if (!template) throw new Error("চালু পুনরাবৃত্ত টেমপ্লেটটি পাওয়া যায়নি");
+  return generateRecurringRuns(template, now);
+}
+
+export async function processScheduledRecurring(taskUid: string, now = new Date()) {
+  const db = databaseRequired(await getDb());
+  const [template] = await db.select().from(financeRecurringTransactions).where(and(eq(financeRecurringTransactions.scheduleCronTaskUid, taskUid), eq(financeRecurringTransactions.isActive, true))).limit(1);
+  if (!template) return { created: 0, skipped: true };
+  const result = await generateRecurringRuns(template, now);
+  return { ...result, skipped: false };
+}
+
+export async function processScheduledBillReminder(taskUid: string, now = new Date()) {
+  const db = databaseRequired(await getDb());
+  const [bill] = await db.select().from(financeBills).where(eq(financeBills.scheduleCronTaskUid, taskUid)).limit(1);
+  if (!bill || bill.isPaid) return { reminded: false, skipped: true };
+  const reminderDueAt = new Date(bill.dueAt.getTime() - bill.reminderDaysBefore * 86_400_000);
+  if (now < reminderDueAt) return { reminded: false, skipped: true };
+  await db.update(financeBills).set({ lastReminderAt: now }).where(eq(financeBills.id, bill.id));
+  return { reminded: true, skipped: false };
+}
+
 export async function exportUserData(userId: number) {
   const db = databaseRequired(await getDb());
   const [projects, accounts, categories, transactions, budgets, bills] = await Promise.all([
@@ -489,6 +700,129 @@ export async function exportUserData(userId: number) {
     db.select().from(financeBills).where(eq(financeBills.userId, userId)),
   ]);
   return { projects, accounts, categories, transactions, budgets, bills };
+}
+
+export async function exportProjectBackup(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [project] = await db.select().from(financeProjects).where(and(eq(financeProjects.id, projectId), eq(financeProjects.userId, userId))).limit(1);
+  if (!project) throw new Error("নির্বাচিত প্রজেক্টটি পাওয়া যায়নি");
+  const [accounts, categories, transactions, budgets, bills, dues, settlements, recurring, voucherSettings] = await Promise.all([
+    db.select().from(financeAccounts).where(and(eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId))),
+    db.select().from(financeCategories).where(and(eq(financeCategories.userId, userId), eq(financeCategories.projectId, projectId))),
+    db.select().from(financeTransactions).where(and(eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))),
+    db.select().from(financeBudgets).where(and(eq(financeBudgets.userId, userId), eq(financeBudgets.projectId, projectId))),
+    db.select().from(financeBills).where(and(eq(financeBills.userId, userId), eq(financeBills.projectId, projectId))),
+    db.select().from(financeDues).where(and(eq(financeDues.userId, userId), eq(financeDues.projectId, projectId))),
+    db.select().from(financeDueSettlements).where(and(eq(financeDueSettlements.userId, userId), eq(financeDueSettlements.projectId, projectId))),
+    db.select().from(financeRecurringTransactions).where(and(eq(financeRecurringTransactions.userId, userId), eq(financeRecurringTransactions.projectId, projectId))),
+    db.select().from(financeVoucherSettings).where(and(eq(financeVoucherSettings.userId, userId), eq(financeVoucherSettings.projectId, projectId))).limit(1),
+  ]);
+  return {
+    formatVersion: "finance-project-backup-v1" as const,
+    exportedAt: new Date(),
+    project: { id: project.id, name: project.name },
+    accounts,
+    categories,
+    transactions,
+    budgets,
+    bills,
+    dues,
+    settlements,
+    recurring,
+    voucherSettings: voucherSettings[0] ?? null,
+  };
+}
+
+function assertUniqueBackupIds(rows: Array<{ id: number }>, label: string) {
+  if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error(`${label} ব্যাকআপে একই আইডি একাধিকবার আছে`);
+}
+
+function assertBackupReferences(backup: any) {
+  for (const [rows, label] of [[backup.accounts, "অ্যাকাউন্ট"], [backup.categories, "ক্যাটাগরি"], [backup.dues, "দেনা/পাওনা"], [backup.recurring, "পুনরাবৃত্ত লেনদেন"]] as const) {
+    assertUniqueBackupIds(rows, label);
+  }
+  const accountIds = new Set(backup.accounts.map((row: any) => row.id));
+  const categoryIds = new Set(backup.categories.map((row: any) => row.id));
+  const dueIds = new Set(backup.dues.map((row: any) => row.id));
+  const ensureAccount = (id: number | null | undefined) => { if (id !== null && id !== undefined && !accountIds.has(id)) throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট রেফারেন্স সঠিক নয়"); };
+  const ensureCategory = (id: number) => { if (!categoryIds.has(id)) throw new Error("ব্যাকআপের একটি ক্যাটাগরি রেফারেন্স সঠিক নয়"); };
+  backup.transactions.forEach((row: any) => { ensureCategory(row.categoryId); ensureAccount(row.accountId); });
+  backup.budgets.forEach((row: any) => ensureCategory(row.categoryId));
+  backup.settlements.forEach((row: any) => { if (!dueIds.has(row.dueId)) throw new Error("ব্যাকআপের একটি দেনা/পাওনা সমন্বয় রেফারেন্স সঠিক নয়"); ensureAccount(row.accountId); });
+  backup.recurring.forEach((row: any) => { ensureCategory(row.categoryId); ensureAccount(row.accountId); });
+}
+
+export function previewProjectBackup(backup: any) {
+  assertBackupReferences(backup);
+  const transactionDates = backup.transactions.map((row: any) => new Date(row.occurredAt).getTime()).filter(Number.isFinite);
+  return {
+    sourceProjectName: backup.project.name,
+    exportedAt: backup.exportedAt,
+    counts: {
+      accounts: backup.accounts.length,
+      categories: backup.categories.length,
+      transactions: backup.transactions.length,
+      budgets: backup.budgets.length,
+      bills: backup.bills.length,
+      dues: backup.dues.length,
+      settlements: backup.settlements.length,
+      recurring: backup.recurring.length,
+    },
+    transactionDateRange: transactionDates.length ? { from: new Date(Math.min(...transactionDates)), to: new Date(Math.max(...transactionDates)) } : null,
+    restorationPolicy: "নতুন প্রজেক্টে পুনরুদ্ধার হবে; বিদ্যমান কোনো হিসাব মুছে বা প্রতিস্থাপন হবে না।",
+  };
+}
+
+export async function restoreProjectBackup(userId: number, input: { projectName: string; backup: any }) {
+  const db = databaseRequired(await getDb());
+  assertBackupReferences(input.backup);
+  const [existing] = await db.select({ id: financeProjects.id }).from(financeProjects).where(and(eq(financeProjects.userId, userId), eq(financeProjects.name, input.projectName))).limit(1);
+  if (existing) throw new Error("এই নামে একটি প্রজেক্ট ইতিমধ্যে আছে; পুনরুদ্ধারের জন্য আলাদা নাম দিন");
+  const projectId = await db.transaction(async tx => {
+    const projectResult = await tx.insert(financeProjects).values({ userId, name: input.projectName }).execute();
+    const restoredProjectId = Number(projectResult[0].insertId);
+    const accountMap = new Map<number, number>();
+    const categoryMap = new Map<number, number>();
+    const dueMap = new Map<number, number>();
+
+    for (const row of input.backup.accounts) {
+      const result = await tx.insert(financeAccounts).values({ userId, projectId: restoredProjectId, name: row.name, type: row.type, openingBalance: String(row.openingBalance), currentBalance: String(row.currentBalance) }).execute();
+      accountMap.set(row.id, Number(result[0].insertId));
+    }
+    for (const row of input.backup.categories) {
+      const result = await tx.insert(financeCategories).values({ userId, projectId: restoredProjectId, name: row.name, type: row.type, isDefault: Boolean(row.isDefault) }).execute();
+      categoryMap.set(row.id, Number(result[0].insertId));
+    }
+    if (input.backup.voucherSettings) {
+      const row = input.backup.voucherSettings;
+      await tx.insert(financeVoucherSettings).values({ userId, projectId: restoredProjectId, prefix: row.prefix, startNumber: row.startNumber, endNumber: row.endNumber, nextNumber: row.nextNumber }).execute();
+    } else {
+      await tx.insert(financeVoucherSettings).values({ userId, projectId: restoredProjectId }).execute();
+    }
+    for (const row of input.backup.recurring) {
+      await tx.insert(financeRecurringTransactions).values({ userId, projectId: restoredProjectId, accountId: row.accountId == null ? null : accountMap.get(row.accountId)!, categoryId: categoryMap.get(row.categoryId)!, type: row.type, amount: String(row.amount), paymentMethod: row.paymentMethod, note: row.note ?? null, frequency: row.frequency, scheduleDay: row.scheduleDay, nextRunAt: row.nextRunAt, lastGeneratedAt: row.lastGeneratedAt ?? null, isActive: false, scheduleCronTaskUid: null }).execute();
+    }
+    for (const row of input.backup.transactions) {
+      await tx.insert(financeTransactions).values({ userId, projectId: restoredProjectId, accountId: row.accountId == null ? null : accountMap.get(row.accountId)!, categoryId: categoryMap.get(row.categoryId)!, type: row.type, amount: String(row.amount), voucherNo: row.voucherNo ?? null, reason: row.reason ?? null, paymentMethod: row.paymentMethod, note: row.note ?? null, occurredAt: row.occurredAt }).execute();
+    }
+    for (const row of input.backup.budgets) {
+      await tx.insert(financeBudgets).values({ userId, projectId: restoredProjectId, categoryId: categoryMap.get(row.categoryId)!, monthKey: row.monthKey, amount: String(row.amount) }).execute();
+    }
+    for (const row of input.backup.bills) {
+      await tx.insert(financeBills).values({ userId, projectId: restoredProjectId, title: row.title, amount: String(row.amount), dueAt: row.dueAt, isPaid: Boolean(row.isPaid), reminderDaysBefore: row.reminderDaysBefore, lastReminderAt: row.lastReminderAt ?? null, scheduleCronTaskUid: null }).execute();
+    }
+    for (const row of input.backup.dues) {
+      const result = await tx.insert(financeDues).values({ userId, projectId: restoredProjectId, type: row.type, counterparty: row.counterparty, originalAmount: String(row.originalAmount), outstandingAmount: String(row.outstandingAmount), voucherNo: row.voucherNo ?? null, reason: row.reason ?? null, note: row.note ?? null, openedAt: row.openedAt, dueAt: row.dueAt ?? null }).execute();
+      dueMap.set(row.id, Number(result[0].insertId));
+    }
+    for (const row of input.backup.settlements) {
+      await tx.insert(financeDueSettlements).values({ userId, projectId: restoredProjectId, dueId: dueMap.get(row.dueId)!, accountId: row.accountId == null ? null : accountMap.get(row.accountId)!, amount: String(row.amount), voucherNo: row.voucherNo ?? null, note: row.note ?? null, occurredAt: row.occurredAt }).execute();
+    }
+    return restoredProjectId;
+  });
+  await logAudit({ actorUserId: userId, projectId, action: "create", entityType: "project_restore", entityId: projectId, summary: `Project restored safely from backup: ${input.projectName}` });
+  return { projectId };
 }
 
 export type AuditLogFilters = { from?: Date; to?: Date; actorUserId?: number; actorRole?: "admin" | "user"; search?: string };

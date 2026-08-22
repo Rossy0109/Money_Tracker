@@ -105,6 +105,8 @@ export const financeTransactions = mysqlTable(
     reason: varchar("reason", { length: 180 }),
     paymentMethod: varchar("paymentMethod", { length: 100 }).notNull(),
     note: varchar("note", { length: 500 }),
+    recurringTemplateId: int("recurringTemplateId").references(() => financeRecurringTransactions.id, { onDelete: "set null" }),
+    recurringRunKey: varchar("recurringRunKey", { length: 16 }),
     occurredAt: timestamp("occurredAt").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -112,6 +114,7 @@ export const financeTransactions = mysqlTable(
     index("finance_transactions_user_project_date_idx").on(table.userId, table.projectId, table.occurredAt),
     index("finance_transactions_user_project_type_idx").on(table.userId, table.projectId, table.type),
     index("finance_transactions_account_idx").on(table.accountId),
+    uniqueIndex("finance_transactions_recurring_run_unique").on(table.recurringTemplateId, table.recurringRunKey),
   ],
 );
 
@@ -130,11 +133,13 @@ export const financeDues = mysqlTable(
     reason: varchar("reason", { length: 180 }),
     note: varchar("note", { length: 500 }),
     openedAt: timestamp("openedAt").notNull(),
+    dueAt: timestamp("dueAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
     index("finance_dues_user_project_type_idx").on(table.userId, table.projectId, table.type),
     index("finance_dues_user_project_opened_idx").on(table.userId, table.projectId, table.openedAt),
+    index("finance_dues_user_project_due_idx").on(table.userId, table.projectId, table.dueAt),
   ],
 );
 
@@ -188,10 +193,44 @@ export const financeBills = mysqlTable(
     amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
     dueAt: timestamp("dueAt").notNull(),
     isPaid: boolean("isPaid").notNull().default(false),
+    reminderDaysBefore: int("reminderDaysBefore").notNull().default(3),
+    lastReminderAt: timestamp("lastReminderAt"),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
-  table => [index("finance_bills_user_project_due_idx").on(table.userId, table.projectId, table.dueAt)],
+  table => [
+    index("finance_bills_user_project_due_idx").on(table.userId, table.projectId, table.dueAt),
+    uniqueIndex("finance_bills_schedule_cron_task_unique").on(table.scheduleCronTaskUid),
+  ],
+);
+
+/** User-controlled templates that create a new ordinary transaction when their next date arrives. */
+export const financeRecurringTransactions = mysqlTable(
+  "finance_recurring_transactions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    accountId: int("accountId").references(() => financeAccounts.id, { onDelete: "set null" }),
+    categoryId: int("categoryId").notNull().references(() => financeCategories.id, { onDelete: "restrict" }),
+    type: mysqlEnum("type", ["income", "expense"]).notNull(),
+    amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    paymentMethod: varchar("paymentMethod", { length: 100 }).notNull(),
+    note: varchar("note", { length: 500 }),
+    frequency: mysqlEnum("frequency", ["weekly", "monthly"]).notNull(),
+    scheduleDay: int("scheduleDay").notNull(),
+    nextRunAt: timestamp("nextRunAt").notNull(),
+    lastGeneratedAt: timestamp("lastGeneratedAt"),
+    isActive: boolean("isActive").notNull().default(true),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("finance_recurring_user_project_next_idx").on(table.userId, table.projectId, table.isActive, table.nextRunAt),
+    uniqueIndex("finance_recurring_schedule_cron_task_unique").on(table.scheduleCronTaskUid),
+  ],
 );
 
 /** Immutable record of state-changing actions; only administrators may read it. */
@@ -223,4 +262,5 @@ export type FinanceCategory = typeof financeCategories.$inferSelect;
 export type FinanceTransaction = typeof financeTransactions.$inferSelect;
 export type FinanceBudget = typeof financeBudgets.$inferSelect;
 export type FinanceBill = typeof financeBills.$inferSelect;
+export type FinanceRecurringTransaction = typeof financeRecurringTransactions.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;

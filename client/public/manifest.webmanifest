@@ -1,0 +1,20 @@
+{
+  "name": "আমার হিসাব",
+  "short_name": "আমার হিসাব",
+  "description": "ব্যক্তিগত আয়, ব্যয় ও বাজেটের নিরাপদ হিসাব",
+  "lang": "bn",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f8f4",
+  "theme_color": "#173f36",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -9,9 +9,9 @@ import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
-    getOverview: vi.fn(), getMonthlyReport: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
+    getOverview: vi.fn(), getBudgetPlan: vi.fn(), getFinanceAnalytics: vi.fn(), searchTransactions: vi.fn(), getMonthlyReport: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), exportProjectBackup: vi.fn(), previewProjectBackup: vi.fn(), restoreProjectBackup: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createDue: vi.fn(), settleDue: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
-    upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(),
+    upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(), getAutomationOverview: vi.fn(), createRecurringTemplate: vi.fn(), updateRecurringTemplate: vi.fn(), generateRecurringNow: vi.fn(), setRecurringScheduleTask: vi.fn(), setBillReminderSettings: vi.fn(), setBillScheduleTask: vi.fn(),
     listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
   },
 }));
@@ -130,6 +130,65 @@ describe("finance router", () => {
     financeDb.getOverview.mockResolvedValue(overview);
     await expect(appRouter.createCaller(authenticatedContext).finance.overview({ projectId: 88 })).resolves.toEqual(overview);
     expect(financeDb.getOverview).toHaveBeenCalledWith(42, 88);
+  });
+
+  it("exports, previews, and restores a validated backup only through a new project", async () => {
+    const backup = {
+      formatVersion: "finance-project-backup-v1" as const,
+      exportedAt: new Date("2026-08-22T00:00:00.000Z"),
+      project: { id: 88, name: "মূল হিসাব" },
+      accounts: [], categories: [], transactions: [], budgets: [], bills: [], dues: [], settlements: [], recurring: [], voucherSettings: null,
+    };
+    const preview = { sourceProjectName: "মূল হিসাব", exportedAt: backup.exportedAt, counts: { accounts: 0, categories: 0, transactions: 0, budgets: 0, bills: 0, dues: 0, settlements: 0, recurring: 0 }, transactionDateRange: null, restorePolicy: "new-project-only" };
+    financeDb.exportProjectBackup.mockResolvedValue(backup);
+    financeDb.previewProjectBackup.mockResolvedValue(preview);
+    financeDb.restoreProjectBackup.mockResolvedValue({ projectId: 99, projectName: "পুনরুদ্ধারকৃত হিসাব" });
+    const caller = appRouter.createCaller(authenticatedContext);
+
+    await expect(caller.finance.exportProjectBackup({ projectId: 88 })).resolves.toEqual(backup);
+    await expect(caller.finance.previewProjectBackup({ backup })).resolves.toEqual(preview);
+    await expect(caller.finance.restoreProjectBackup({ projectName: "পুনরুদ্ধারকৃত হিসাব", confirmation: "RESTORE_NEW_PROJECT", backup })).resolves.toEqual({ projectId: 99, projectName: "পুনরুদ্ধারকৃত হিসাব" });
+    await expect(caller.finance.restoreProjectBackup({ projectName: "পুনরুদ্ধারকৃত হিসাব", confirmation: "restore", backup } as any)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(financeDb.exportProjectBackup).toHaveBeenCalledWith(42, 88);
+    expect(financeDb.restoreProjectBackup).toHaveBeenCalledWith(42, { projectName: "পুনরুদ্ধারকৃত হিসাব", backup });
+  });
+
+  it("keeps automation, due dates, and recurring template actions scoped to the selected project", async () => {
+    financeDb.getAutomationOverview.mockResolvedValue({ recurring: [], bills: [], ageing: [] });
+    financeDb.createDue.mockResolvedValue(undefined);
+    financeDb.createRecurringTemplate.mockResolvedValue(91);
+    const caller = appRouter.createCaller(authenticatedContext);
+    await expect(caller.finance.automationOverview({ projectId: 88 })).resolves.toEqual({ recurring: [], bills: [], ageing: [] });
+    await caller.finance.addDue({ projectId: 88, type: "debt", counterparty: "সরবরাহকারী", amount: 1200, openedAt: new Date("2026-08-20T12:00:00Z"), dueAt: new Date("2026-09-01T12:00:00Z") });
+    await caller.finance.addRecurringTemplate({ ...expenseInput, frequency: "monthly", scheduleDay: 15, nextRunAt: new Date("2026-09-15T12:00:00Z") });
+    expect(financeDb.getAutomationOverview).toHaveBeenCalledWith(42, 88);
+    expect(financeDb.createDue).toHaveBeenCalledWith(42, expect.objectContaining({ projectId: 88, dueAt: expect.any(Date) }));
+    expect(financeDb.createRecurringTemplate).toHaveBeenCalledWith(42, expect.objectContaining({ projectId: 88, frequency: "monthly", scheduleDay: 15 }));
+  });
+
+  it("returns planning and analytics only for the authenticated user's selected project", async () => {
+    const plan = { targetMonthKey: "2026-09", previousMonthKey: "2026-08", plans: [{ categoryId: 7, suggestedAmount: 5000 }] };
+    const analytics = { data: [{ monthKey: "2026-08", income: 9000, expense: 3000, savings: 6000, budgeted: 5000, budgetUsagePercentage: 60 }] };
+    financeDb.getBudgetPlan.mockResolvedValue(plan);
+    financeDb.getFinanceAnalytics.mockResolvedValue(analytics);
+    const caller = appRouter.createCaller(authenticatedContext);
+
+    await expect(caller.finance.budgetPlan({ projectId: 88, monthKey: "2026-09" })).resolves.toEqual(plan);
+    await expect(caller.finance.analytics({ projectId: 88, months: 6 })).resolves.toEqual(analytics);
+    expect(financeDb.getBudgetPlan).toHaveBeenCalledWith(42, 88, "2026-09");
+    expect(financeDb.getFinanceAnalytics).toHaveBeenCalledWith(42, 88, 6);
+  });
+
+  it("passes validated transaction search filters through the authenticated user and project boundary", async () => {
+    const results = [{ id: 91, categoryName: "বাজার", amount: 1200 }];
+    financeDb.searchTransactions.mockResolvedValue(results);
+    const from = new Date("2026-08-01T00:00:00.000Z");
+    const to = new Date("2026-08-31T23:59:59.999Z");
+    const input = { projectId: 88, query: "বাজার", categoryId: 7, type: "expense" as const, from, to, minAmount: 100, maxAmount: 2000, limit: 50 };
+
+    await expect(appRouter.createCaller(authenticatedContext).finance.searchTransactions(input)).resolves.toEqual(results);
+    expect(financeDb.searchTransactions).toHaveBeenCalledWith(42, input);
+    await expect(appRouter.createCaller(authenticatedContext).finance.searchTransactions({ ...input, from: to, to: from })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("scopes a monthly financial report to the authenticated user, project, and validated month", async () => {

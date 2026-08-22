@@ -5,6 +5,7 @@ import { COOKIE_NAME } from "../shared/const";
 import * as financeDb from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
+import { createHeartbeatJob } from "./_core/heartbeat";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -29,6 +30,53 @@ const transactionInput = z.object({
   note: z.string().max(500).optional(),
   occurredAt: z.coerce.date(),
 });
+
+const transactionSearchInput = z.object({
+  projectId,
+  query: z.string().trim().min(1).max(180).optional(),
+  categoryId: z.number().int().positive().optional(),
+  type: z.enum(["income", "expense"]).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  minAmount: z.number().finite().nonnegative().max(999999999999.99).optional(),
+  maxAmount: z.number().finite().nonnegative().max(999999999999.99).optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+}).superRefine((input, context) => {
+  if (input.from && input.to && input.from > input.to) context.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না" });
+  if (input.minAmount !== undefined && input.maxAmount !== undefined && input.minAmount > input.maxAmount) context.addIssue({ code: z.ZodIssueCode.custom, path: ["maxAmount"], message: "সর্বোচ্চ পরিমাণ সর্বনিম্ন পরিমাণের চেয়ে কম হতে পারে না" });
+});
+
+const backupAmount = z.union([z.number().finite(), z.string().regex(/^-?\d+(\.\d{1,2})?$/)]);
+const backupDate = z.coerce.date();
+const backupAccount = z.object({ id: z.number().int().positive(), name: z.string().trim().min(1).max(120), type: z.enum(["cash", "bank", "mobile"]), openingBalance: backupAmount, currentBalance: backupAmount });
+const backupCategory = z.object({ id: z.number().int().positive(), name: z.string().trim().min(1).max(120), type: z.enum(["income", "expense"]), isDefault: z.boolean().optional().default(false) });
+const backupTransaction = z.object({ id: z.number().int().positive(), accountId: z.number().int().positive().nullable().optional(), categoryId: z.number().int().positive(), type: z.enum(["income", "expense"]), amount: backupAmount, voucherNo: z.string().max(80).nullable().optional(), reason: z.string().max(180).nullable().optional(), paymentMethod: z.string().trim().min(1).max(100), note: z.string().max(500).nullable().optional(), occurredAt: backupDate });
+const backupBudget = z.object({ id: z.number().int().positive(), categoryId: z.number().int().positive(), monthKey, amount: backupAmount });
+const backupBill = z.object({ id: z.number().int().positive(), title: z.string().trim().min(1).max(180), amount: backupAmount, dueAt: backupDate, isPaid: z.boolean(), reminderDaysBefore: z.number().int().min(0).max(90).default(3), lastReminderAt: backupDate.nullable().optional() });
+const backupDue = z.object({ id: z.number().int().positive(), type: z.enum(["debt", "receivable"]), counterparty: z.string().trim().min(1).max(180), originalAmount: backupAmount, outstandingAmount: backupAmount, voucherNo: z.string().max(80).nullable().optional(), reason: z.string().max(180).nullable().optional(), note: z.string().max(500).nullable().optional(), openedAt: backupDate, dueAt: backupDate.nullable().optional() });
+const backupSettlement = z.object({ id: z.number().int().positive(), dueId: z.number().int().positive(), accountId: z.number().int().positive().nullable().optional(), amount: backupAmount, voucherNo: z.string().max(80).nullable().optional(), note: z.string().max(500).nullable().optional(), occurredAt: backupDate });
+const backupRecurring = z.object({ id: z.number().int().positive(), accountId: z.number().int().positive().nullable().optional(), categoryId: z.number().int().positive(), type: z.enum(["income", "expense"]), amount: backupAmount, paymentMethod: z.string().trim().min(1).max(100), note: z.string().max(500).nullable().optional(), frequency: z.enum(["weekly", "monthly"]), scheduleDay: z.number().int().min(1).max(31), nextRunAt: backupDate, lastGeneratedAt: backupDate.nullable().optional() });
+const projectBackupInput = z.object({
+  formatVersion: z.literal("finance-project-backup-v1"),
+  exportedAt: backupDate,
+  project: z.object({ id: z.number().int().positive().optional(), name: z.string().trim().min(1).max(120) }),
+  accounts: z.array(backupAccount).max(10000),
+  categories: z.array(backupCategory).max(10000),
+  transactions: z.array(backupTransaction).max(10000),
+  budgets: z.array(backupBudget).max(10000),
+  bills: z.array(backupBill).max(10000),
+  dues: z.array(backupDue).max(10000),
+  settlements: z.array(backupSettlement).max(10000),
+  recurring: z.array(backupRecurring).max(10000),
+  voucherSettings: z.object({ prefix: z.string().max(24), startNumber: z.number().int().positive(), endNumber: z.number().int().positive(), nextNumber: z.number().int().positive() }).nullable().optional(),
+}).superRefine((backup, context) => {
+  if (backup.voucherSettings && backup.voucherSettings.startNumber > backup.voucherSettings.endNumber) context.addIssue({ code: z.ZodIssueCode.custom, path: ["voucherSettings", "endNumber"], message: "ভাউচার রেঞ্জ সঠিক নয়" });
+});
+
+function userSessionFromRequest(request: { headers: { cookie?: string } }) {
+  const entry = request.headers.cookie?.split(";").map(value => value.trim()).find(value => value.startsWith(`${COOKIE_NAME}=`));
+  return entry ? decodeURIComponent(entry.slice(COOKIE_NAME.length + 1)) : "";
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -72,17 +120,24 @@ export const appRouter = router({
   }),
   finance: router({
     overview: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getOverview(ctx.user.id, input.projectId)),
+    budgetPlan: protectedProcedure.input(z.object({ projectId, monthKey })).query(({ ctx, input }) => financeDb.getBudgetPlan(ctx.user.id, input.projectId, input.monthKey)),
+    analytics: protectedProcedure.input(z.object({ projectId, months: z.number().int().min(3).max(12).default(6) })).query(({ ctx, input }) => financeDb.getFinanceAnalytics(ctx.user.id, input.projectId, input.months)),
+    searchTransactions: protectedProcedure.input(transactionSearchInput).query(({ ctx, input }) => financeDb.searchTransactions(ctx.user.id, input)),
+    automationOverview: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getAutomationOverview(ctx.user.id, input.projectId)),
     monthlyReport: protectedProcedure.input(z.object({ projectId, monthKey })).query(({ ctx, input }) => financeDb.getMonthlyReport(ctx.user.id, input.projectId, input.monthKey)),
     voucherSettings: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getVoucherSettings(ctx.user.id, input.projectId)),
     saveVoucherSettings: protectedProcedure.input(z.object({ projectId, prefix: z.string().trim().max(20), startNumber: z.number().int().positive(), endNumber: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.updateVoucherSettings(ctx.user.id, input)),
     exportData: protectedProcedure.query(({ ctx }) => financeDb.exportUserData(ctx.user.id)),
+    exportProjectBackup: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.exportProjectBackup(ctx.user.id, input.projectId)),
+    previewProjectBackup: protectedProcedure.input(z.object({ backup: projectBackupInput })).mutation(({ input }) => financeDb.previewProjectBackup(input.backup)),
+    restoreProjectBackup: protectedProcedure.input(z.object({ projectName: z.string().trim().min(1).max(120), confirmation: z.literal("RESTORE_NEW_PROJECT"), backup: projectBackupInput })).mutation(({ ctx, input }) => financeDb.restoreProjectBackup(ctx.user.id, { projectName: input.projectName, backup: input.backup })),
     addTransaction: protectedProcedure.input(transactionInput).mutation(({ ctx, input }) => financeDb.createTransaction(ctx.user.id, input)),
     updateTransaction: protectedProcedure.input(transactionInput.extend({ id: z.number().int().positive() })).mutation(({ ctx, input }) => {
       const { id, ...values } = input;
       return financeDb.updateTransaction(ctx.user.id, id, values);
     }),
     deleteTransaction: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.deleteTransaction(ctx.user.id, input.projectId, input.id)),
-    addDue: protectedProcedure.input(z.object({ projectId, type: z.enum(["debt", "receivable"]), counterparty: z.string().trim().min(1).max(180), amount, note: z.string().trim().max(500).optional(), openedAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.createDue(ctx.user.id, input)),
+    addDue: protectedProcedure.input(z.object({ projectId, type: z.enum(["debt", "receivable"]), counterparty: z.string().trim().min(1).max(180), amount, note: z.string().trim().max(500).optional(), openedAt: z.coerce.date(), dueAt: z.coerce.date().optional() })).mutation(({ ctx, input }) => financeDb.createDue(ctx.user.id, input)),
     settleDue: protectedProcedure.input(z.object({ projectId, dueId: z.number().int().positive(), accountId: z.number().int().positive().optional(), amount, note: z.string().trim().max(500).optional(), occurredAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.settleDue(ctx.user.id, input)),
     addAccount: protectedProcedure.input(z.object({ projectId, name: z.string().trim().min(1).max(120), type: z.enum(["cash", "bank", "mobile"]), openingBalance: z.number().finite().min(-999999999999.99).max(999999999999.99) })).mutation(({ ctx, input }) => financeDb.createAccount(ctx.user.id, input)),
     updateAccount: protectedProcedure.input(z.object({ id: z.number().int().positive(), projectId, name: z.string().trim().min(1).max(120), type: z.enum(["cash", "bank", "mobile"]), openingBalance: z.number().finite().min(-999999999999.99).max(999999999999.99) })).mutation(({ ctx, input }) => {
@@ -91,13 +146,27 @@ export const appRouter = router({
     }),
     deleteAccount: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.deleteAccount(ctx.user.id, input.projectId, input.id)),
     saveBudget: protectedProcedure.input(z.object({ projectId, categoryId: z.number().int().positive(), monthKey, amount })).mutation(({ ctx, input }) => financeDb.upsertBudget(ctx.user.id, input)),
-    addBill: protectedProcedure.input(z.object({ projectId, title: z.string().trim().min(1).max(180), amount, dueAt: z.coerce.date() })).mutation(({ ctx, input }) => financeDb.createBill(ctx.user.id, input)),
-    updateBill: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), title: z.string().trim().min(1).max(180), amount, dueAt: z.coerce.date(), isPaid: z.boolean() })).mutation(({ ctx, input }) => {
+    addBill: protectedProcedure.input(z.object({ projectId, title: z.string().trim().min(1).max(180), amount, dueAt: z.coerce.date(), reminderDaysBefore: z.number().int().min(0).max(90).default(3) })).mutation(({ ctx, input }) => financeDb.createBill(ctx.user.id, input)),
+    updateBill: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), title: z.string().trim().min(1).max(180), amount, dueAt: z.coerce.date(), isPaid: z.boolean(), reminderDaysBefore: z.number().int().min(0).max(90).optional() })).mutation(({ ctx, input }) => {
       const { id, projectId: scopedProjectId, ...values } = input;
       return financeDb.updateBill(ctx.user.id, scopedProjectId, id, values);
     }),
     setBillPaid: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), isPaid: z.boolean() })).mutation(({ ctx, input }) => financeDb.setBillPaid(ctx.user.id, input.projectId, input.id, input.isPaid)),
     deleteBill: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.deleteBill(ctx.user.id, input.projectId, input.id)),
+    addRecurringTemplate: protectedProcedure.input(transactionInput.extend({ frequency: z.enum(["weekly", "monthly"]), scheduleDay: z.number().int().min(1).max(31), nextRunAt: z.coerce.date() }).omit({ occurredAt: true })).mutation(({ ctx, input }) => financeDb.createRecurringTemplate(ctx.user.id, input)),
+    setRecurringActive: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), isActive: z.boolean() })).mutation(({ ctx, input }) => financeDb.updateRecurringTemplate(ctx.user.id, input)),
+    generateRecurringNow: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.generateRecurringNow(ctx.user.id, input.projectId, input.id)),
+    enableRecurringSchedule: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const job = await createHeartbeatJob({ name: `finance-recurring-${ctx.user.id}-${input.id}`, cron: "0 5 0 * * *", path: "/api/scheduled/finance-recurring", description: "Daily check for a user-controlled recurring finance transaction" }, userSessionFromRequest(ctx.req));
+      await financeDb.setRecurringScheduleTask(ctx.user.id, input.projectId, input.id, job.taskUid);
+      return job;
+    }),
+    enableBillReminder: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), reminderDaysBefore: z.number().int().min(0).max(90) })).mutation(async ({ ctx, input }) => {
+      await financeDb.setBillReminderSettings(ctx.user.id, input.projectId, input.id, input.reminderDaysBefore);
+      const job = await createHeartbeatJob({ name: `finance-bill-reminder-${ctx.user.id}-${input.id}`, cron: "0 0 8 * * *", path: "/api/scheduled/finance-bill-reminder", description: "Daily check for a user-controlled finance bill reminder" }, userSessionFromRequest(ctx.req));
+      await financeDb.setBillScheduleTask(ctx.user.id, input.projectId, input.id, job.taskUid);
+      return job;
+    }),
   }),
 });
 

@@ -115,6 +115,7 @@ type DueDraft = {
   amount: string;
   note: string;
   openedAt: string;
+  dueAt: string;
 };
 type SettlementDraft = {
   dueId: number;
@@ -137,6 +138,7 @@ const blankDue = (): DueDraft => ({
   amount: "",
   note: "",
   openedAt: today(),
+  dueAt: "",
 });
 
 export default function Home() {
@@ -655,6 +657,7 @@ export default function Home() {
       amount: Number(dueForm.amount),
       note: dueForm.note || undefined,
       openedAt: new Date(`${dueForm.openedAt}T12:00:00Z`),
+      dueAt: dueForm.dueAt ? new Date(`${dueForm.dueAt}T12:00:00Z`) : undefined,
     });
   }
   function openSettlement(due: NonNullable<typeof data>["dues"][number]) {
@@ -1695,7 +1698,7 @@ export default function Home() {
                 }
               />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Field label="টাকার অঙ্ক">
                 <Input
                   required
@@ -1715,6 +1718,16 @@ export default function Home() {
                   value={dueForm.openedAt}
                   onChange={event =>
                     setDueForm({ ...dueForm, openedAt: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="পরিশোধের শেষ তারিখ (ঐচ্ছিক)">
+                <Input
+                  type="date"
+                  min={dueForm.openedAt}
+                  value={dueForm.dueAt}
+                  onChange={event =>
+                    setDueForm({ ...dueForm, dueAt: event.target.value })
                   }
                 />
               </Field>

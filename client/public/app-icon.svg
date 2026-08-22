@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>আমার হিসাব</title>
+  <rect width="512" height="512" rx="112" fill="#173f36"/>
+  <path d="M134 168c0-22 18-40 40-40h164c22 0 40 18 40 40v188c0 22-18 40-40 40H174c-22 0-40-18-40-40V168Z" fill="#d8f2dd"/>
+  <path d="M178 208h156M178 256h156M178 304h96" stroke="#173f36" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="350" cy="326" r="54" fill="#f5c85d"/>
+  <path d="M350 294v64M328 314h35M328 340h35" stroke="#173f36" stroke-width="14" stroke-linecap="round"/>
+</svg>

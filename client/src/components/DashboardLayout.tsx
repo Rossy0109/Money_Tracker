@@ -3,13 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Banknote, ChartNoAxesCombined, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, WalletCards } from "lucide-react";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
+import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, HardDriveDownload, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
   { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
   { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
+  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
+  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
+  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup" },
   { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
 ];
 
@@ -67,6 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
           <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
           <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">আমার হিসাব</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
+          <div className="ml-auto"><PwaInstallButton /></div>
         </div>
         <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">{children}</div>
         <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>

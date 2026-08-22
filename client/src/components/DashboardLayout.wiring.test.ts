@@ -18,4 +18,9 @@ describe("dashboard shell component wiring", () => {
     expect(source).toContain('aria-label="সাইন আউট"');
     expect(source).toContain("focus-visible:ring-2 focus-visible:ring-[#bcecc6]");
   });
+
+  it("keeps the mobile home-screen install action in the compact header", () => {
+    expect(source).toContain('import { PwaInstallButton } from "@/components/PwaInstallButton";');
+    expect(source).toContain("<PwaInstallButton />");
+  });
 });
