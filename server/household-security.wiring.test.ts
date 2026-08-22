@@ -35,4 +35,14 @@ describe("household authorization and accounting boundaries", () => {
     expect(source).toContain("activeBudgetIds.has(expense.budgetId)");
     expect(source).toContain("recentExpenses: expenses.slice(0, 20)");
   });
+
+  it("builds the contributor analysis only after household access and masks non-visible former contributors for non-owners", () => {
+    const source = functionSource("getHouseholdOverview");
+    expect(source.indexOf("const access = await getHouseholdAccess")).toBeLessThan(source.indexOf("const contributorSpend"));
+    expect(source).toContain("const visibleContributorIds = new Set");
+    expect(source).toContain('access.role === "owner" || visibleContributorIds.has(expense.contributorUserId)');
+    expect(source).toContain('contributorName: access.role === "owner"');
+    expect(source).toContain('"সাবেক সদস্য"');
+    expect(source).toContain("contributorSpend,");
+  });
 });

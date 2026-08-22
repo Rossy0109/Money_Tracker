@@ -27,6 +27,7 @@ import {
   DEFAULT_CATEGORIES,
 } from "./finance.constants";
 import { calculateSharedBudgetProgress } from "./householdAccounting";
+import { summarizeHouseholdContributorSpend } from "./householdContributorAnalysis";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
@@ -280,8 +281,20 @@ export async function getHouseholdOverview(userId: number, householdId: number) 
   const activeBudgetIds = new Set(budgets.map(budget => budget.id));
   const expenses = budgets.length
     ? (await db
-        .select()
+        .select({
+          id: financeSharedExpenses.id,
+          householdId: financeSharedExpenses.householdId,
+          budgetId: financeSharedExpenses.budgetId,
+          contributorUserId: financeSharedExpenses.contributorUserId,
+          amount: financeSharedExpenses.amount,
+          note: financeSharedExpenses.note,
+          occurredAt: financeSharedExpenses.occurredAt,
+          createdAt: financeSharedExpenses.createdAt,
+          contributorName: users.name,
+          contributorEmail: users.email,
+        })
         .from(financeSharedExpenses)
+        .innerJoin(users, eq(financeSharedExpenses.contributorUserId, users.id))
         .where(and(eq(financeSharedExpenses.householdId, householdId), gte(financeSharedExpenses.occurredAt, monthStart), lt(financeSharedExpenses.occurredAt, nextMonthStart)))
         .orderBy(desc(financeSharedExpenses.occurredAt)))
         .filter(expense => activeBudgetIds.has(expense.budgetId))
@@ -293,12 +306,22 @@ export async function getHouseholdOverview(userId: number, householdId: number) 
     const amount = Number(budget.amount);
     return { ...budget, ...calculateSharedBudgetProgress(amount, spent) };
   });
+  const visibleContributorIds = new Set([
+    access.household.ownerUserId,
+    ...visibleMembers.filter(member => member.status === "active" || member.userId === userId).flatMap(member => member.userId === null ? [] : [member.userId]),
+  ]);
+  const contributorSpend = summarizeHouseholdContributorSpend(expenses.map(expense => ({
+    contributorUserId: access.role === "owner" || visibleContributorIds.has(expense.contributorUserId) ? expense.contributorUserId : 0,
+    contributorName: access.role === "owner" || visibleContributorIds.has(expense.contributorUserId) ? (expense.contributorName || expense.contributorEmail || "সদস্য") : "সাবেক সদস্য",
+    amount: Number(expense.amount),
+  })));
   return {
     household: access.household,
     currentRole: access.role,
     owner: owner ? { ...owner, role: "owner" as const, status: "active" as const } : null,
     members: visibleMembers,
     sharedBudgets,
+    contributorSpend,
     recentExpenses: expenses.slice(0, 20),
   };
 }

@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, Clock3, House, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CheckCircle2, ChartColumnIncreasing, Clock3, House, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -41,6 +42,8 @@ export default function FamilyHousehold() {
   const canManage = overview?.currentRole === "owner";
   const canContribute = overview?.currentRole === "owner" || overview?.currentRole === "editor";
   const currentMonth = useMemo(thisMonth, []);
+  const contributorSpend = overview?.contributorSpend ?? [];
+  const contributorTotal = contributorSpend.reduce((total, item) => total + item.amount, 0);
   const refresh = async () => {
     await Promise.all([
       utils.finance.households.invalidate(),
@@ -156,6 +159,39 @@ export default function FamilyHousehold() {
               {canContribute ? <div className="space-y-3"><Select value={expense.budgetId} onValueChange={value => setExpense(current => ({ ...current, budgetId: value }))}><SelectTrigger className="h-11"><SelectValue placeholder="বাজেট নির্বাচন করুন" /></SelectTrigger><SelectContent>{overview.sharedBudgets.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.label}</SelectItem>)}</SelectContent></Select><Input className="h-11" inputMode="decimal" value={expense.amount} onChange={event => setExpense(current => ({ ...current, amount: event.target.value }))} placeholder="খরচের টাকা" /><Input className="h-11" value={expense.note} onChange={event => setExpense(current => ({ ...current, note: event.target.value }))} placeholder="বিবরণ (ঐচ্ছিক)" /><Button className="h-11 w-full bg-[#1d6b42] hover:bg-[#155434]" disabled={!expense.budgetId || !Number(expense.amount) || addExpense.isPending} onClick={() => addExpense.mutate({ householdId: overview.household.id, budgetId: Number(expense.budgetId), amount: Number(expense.amount), note: expense.note.trim() || undefined, occurredAt: new Date() })}>খরচ যোগ করুন</Button></div> : <p className="rounded-xl bg-[#f6faf7] p-4 text-sm leading-6 text-[#5d766b]">এই প্রোফাইলে খরচ যোগ করার অনুমতি আপনার নেই। পরিচালক বা সম্পাদক তা করতে পারবেন।</p>}
               {overview.recentExpenses.length > 0 && <div className="mt-5 border-t border-[#e7eee8] pt-4"><p className="mb-2 text-xs font-bold tracking-wide text-[#557468]">সাম্প্রতিক খরচ</p>{overview.recentExpenses.slice(0, 4).map(item => <div key={item.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"><span className="break-words text-[#3d5b4e]">{item.note || "পরিবারের খরচ"}</span><strong className="shrink-0 text-[#173f36]">{taka(Number(item.amount))}</strong></div>)}</div>}
             </CardContent></Card>
+          </section>
+
+          <section>
+            <Card className="border-[#dce9df] shadow-sm">
+              <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-[#173f36]"><ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" /> সদস্যভিত্তিক ব্যয় বিশ্লেষণ</CardTitle>
+                  <CardDescription>{currentMonth} মাসে শেয়ার করা বাজেট থেকে কে কত খরচ যোগ করেছেন তার সারাংশ।</CardDescription>
+                </div>
+                {contributorSpend.length > 0 && <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">মোট {taka(contributorTotal)}</Badge>}
+              </CardHeader>
+              <CardContent>
+                {contributorSpend.length > 0 ? <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)] xl:items-start">
+                  <div className="min-h-60" style={{ height: `${Math.max(240, contributorSpend.length * 52)}px` }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={contributorSpend} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 4 }}>
+                        <CartesianGrid horizontal={false} stroke="#e5eee7" />
+                        <XAxis type="number" tick={{ fill: "#668075", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={value => `৳${new Intl.NumberFormat("bn-BD", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value))}`} />
+                        <YAxis type="category" dataKey="contributorName" width={92} tick={{ fill: "#315a49", fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <Tooltip cursor={{ fill: "#f2f8f3" }} formatter={value => [taka(Number(value)), "খরচ"]} labelFormatter={label => `${label} এর খরচ`} contentStyle={{ borderRadius: 12, borderColor: "#cfe2d3", color: "#173f36" }} />
+                        <Bar dataKey="amount" name="খরচ" fill="#2d8554" radius={[0, 7, 7, 0]} maxBarSize={30} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="divide-y divide-[#e7eee8] rounded-xl border border-[#e0ebe2]">
+                    {contributorSpend.map(item => <div key={item.contributorUserId} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0"><p className="break-words font-semibold text-[#193d34]">{item.contributorName}</p><p className="mt-0.5 text-xs text-[#668075]">{new Intl.NumberFormat("bn-BD").format(item.entryCount)}টি খরচ · মোটের {new Intl.NumberFormat("bn-BD").format(item.percent)}%</p></div>
+                      <strong className="shrink-0 text-[#173f36]">{taka(item.amount)}</strong>
+                    </div>)}
+                  </div>
+                </div> : <div className="rounded-xl border border-dashed border-[#cbded0] bg-[#f7fbf8] p-6 text-center"><ChartColumnIncreasing className="mx-auto h-8 w-8 text-[#5f9873]" /><p className="mt-3 font-semibold text-[#244f3e]">এ মাসে সদস্যভিত্তিক খরচের তথ্য নেই</p><p className="mt-1 text-sm leading-6 text-[#668075]">পরিচালক বা সম্পাদক শেয়ার করা বাজেটে খরচ যোগ করলে এখানে সদস্য অনুযায়ী বিশ্লেষণ দেখা যাবে।</p></div>}
+              </CardContent>
+            </Card>
           </section>
         </> : <Card className="border-dashed border-[#c8d9cc]"><CardContent className="p-10 text-center"><UsersRound className="mx-auto h-9 w-9 text-[#4d8967]" /><h2 className="mt-3 text-lg font-semibold text-[#173f36]">একটি পারিবারিক প্রোফাইল তৈরি করুন</h2><p className="mt-2 text-sm text-[#688176]">তারপর সদস্যদের আমন্ত্রণ দিন ও একসঙ্গে মাসিক বাজেট পরিচালনা করুন।</p></CardContent></Card>}
       </main>

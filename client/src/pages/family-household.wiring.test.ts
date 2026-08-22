@@ -29,4 +29,13 @@ describe("family household workspace wiring", () => {
     expect(householdSource).toContain("flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between");
     expect(householdSource).toContain("flex flex-col gap-2 rounded-xl bg-[#f8fbf8] p-2.5 sm:flex-row");
   });
+
+  it("renders a responsive Bengali chart and detailed per-member contribution breakdown", () => {
+    expect(householdSource).toContain("contributorSpend = overview?.contributorSpend ?? []");
+    expect(householdSource).toContain("ResponsiveContainer");
+    expect(householdSource).toContain('layout="vertical"');
+    expect(householdSource).toContain("সদস্যভিত্তিক ব্যয় বিশ্লেষণ");
+    expect(householdSource).toContain("item.entryCount");
+    expect(householdSource).toContain("এ মাসে সদস্যভিত্তিক খরচের তথ্য নেই");
+  });
 });
