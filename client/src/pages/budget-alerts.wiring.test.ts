@@ -6,6 +6,10 @@ const homeSource = readFileSync(
   resolve(process.cwd(), "client/src/pages/Home.tsx"),
   "utf8"
 );
+const dashboardLayoutSource = readFileSync(
+  resolve(process.cwd(), "client/src/components/DashboardLayout.tsx"),
+  "utf8"
+);
 
 describe("Bengali category budget alert wiring", () => {
   it("renders accessible project-scoped overspending alerts with the exact overage", () => {
@@ -21,5 +25,23 @@ describe("Bengali category budget alert wiring", () => {
     expect(homeSource).toContain("showBudgetAlertForTransaction");
     expect(homeSource).toContain("ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে");
     expect(homeSource).toContain("বাজেট সতর্কতা যাচাই করা যায়নি");
+  });
+
+  it("renders 80% and 90% Bengali early warnings and uses fresh overview data for them", () => {
+    expect(homeSource).toContain("data.budgetEarlyWarnings.length > 0");
+    expect(homeSource).toContain("বাজেটের কাছাকাছি পৌঁছেছে");
+    expect(homeSource).toContain("বাজেটের {warning.threshold}% খরচ হয়েছে");
+    expect(homeSource).toContain("updatedOverview.budgetEarlyWarnings.find");
+    expect(homeSource).toContain("earlyWarning?.threshold === 90");
+  });
+
+  it("keeps compact-screen navigation touch-friendly and safe-area aware", () => {
+    expect(homeSource).toContain('aria-label="বাজেট যোগ বা সংশোধন করুন"');
+    expect(homeSource).toContain("grid w-full gap-2 rounded-2xl");
+    expect(homeSource).toContain("sm:grid-cols-2 lg:flex lg:w-auto");
+    expect(homeSource).toContain("h-11 w-full rounded-xl");
+    expect(dashboardLayoutSource).toContain('aria-label="নেভিগেশন মেনু খুলুন"');
+    expect(dashboardLayoutSource).toContain("h-11 w-11");
+    expect(dashboardLayoutSource).toContain("safe-area-inset");
   });
 });

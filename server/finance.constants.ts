@@ -28,6 +28,11 @@ export type BudgetAlertCandidate = {
   spent: number;
 };
 
+export type BudgetEarlyWarning = BudgetAlertCandidate & {
+  threshold: 80 | 90;
+  remainingAmount: number;
+};
+
 export function calculateBudgetAlerts(candidates: BudgetAlertCandidate[]) {
   return candidates
     .filter(candidate => candidate.spent > candidate.budgetAmount)
@@ -36,4 +41,29 @@ export function calculateBudgetAlerts(candidates: BudgetAlertCandidate[]) {
       exceededAmount: candidate.spent - candidate.budgetAmount,
     }))
     .sort((left, right) => right.exceededAmount - left.exceededAmount);
+}
+
+export function calculateBudgetEarlyWarnings(
+  candidates: BudgetAlertCandidate[]
+): BudgetEarlyWarning[] {
+  return candidates
+    .filter(
+      candidate =>
+        candidate.budgetAmount > 0 &&
+        candidate.spent >= candidate.budgetAmount * 0.8 &&
+        candidate.spent <= candidate.budgetAmount
+    )
+    .map(candidate => ({
+      ...candidate,
+      threshold:
+        candidate.spent >= candidate.budgetAmount * 0.9
+          ? (90 as const)
+          : (80 as const),
+      remainingAmount: Math.max(0, candidate.budgetAmount - candidate.spent),
+    }))
+    .sort(
+      (left, right) =>
+        right.threshold - left.threshold ||
+        right.spent / right.budgetAmount - left.spent / left.budgetAmount
+    );
 }

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { calculateBudgetAlerts, DEFAULT_CATEGORIES, calculateBudgetProgress } from "./finance.constants";
+import {
+  calculateBudgetAlerts,
+  calculateBudgetEarlyWarnings,
+  DEFAULT_CATEGORIES,
+  calculateBudgetProgress,
+} from "./finance.constants";
 import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
@@ -55,6 +60,20 @@ describe("finance router", () => {
     ]);
   });
 
+  it("shows one 80% or 90% early warning before a category exceeds its budget", () => {
+    expect(calculateBudgetEarlyWarnings([
+      { categoryId: 7, categoryName: "বেতন", budgetAmount: 1000, spent: 799 },
+      { categoryId: 8, categoryName: "বাজার", budgetAmount: 1000, spent: 800 },
+      { categoryId: 9, categoryName: "যাতায়াত", budgetAmount: 1000, spent: 900 },
+      { categoryId: 10, categoryName: "অনুদান", budgetAmount: 1000, spent: 1000 },
+      { categoryId: 11, categoryName: "ইউটিলিটি বিল", budgetAmount: 1000, spent: 1001 },
+    ])).toEqual([
+      { categoryId: 10, categoryName: "অনুদান", budgetAmount: 1000, spent: 1000, threshold: 90, remainingAmount: 0 },
+      { categoryId: 9, categoryName: "যাতায়াত", budgetAmount: 1000, spent: 900, threshold: 90, remainingAmount: 100 },
+      { categoryId: 8, categoryName: "বাজার", budgetAmount: 1000, spent: 800, threshold: 80, remainingAmount: 200 },
+    ]);
+  });
+
   it("recalculates a category's current-month alert after its budget is edited", () => {
     const currentMonthSpending = 5600;
     const existingBudget = { categoryId: 7, categoryName: "বেতন", budgetAmount: 5000, spent: currentMonthSpending };
@@ -64,6 +83,12 @@ describe("finance router", () => {
       { categoryId: 7, exceededAmount: 600 },
     ]);
     expect(calculateBudgetAlerts([editedBudget])).toEqual([]);
+    expect(calculateBudgetEarlyWarnings([
+      { ...existingBudget, spent: 4800 },
+    ])).toMatchObject([{ categoryId: 7, threshold: 90 }]);
+    expect(calculateBudgetEarlyWarnings([
+      { ...editedBudget, spent: 4800 },
+    ])).toMatchObject([{ categoryId: 7, threshold: 80, remainingAmount: 1200 }]);
   });
 
   it("saves an edited project budget and returns the recalculated alert state on overview refetch", async () => {
@@ -100,6 +125,7 @@ describe("finance router", () => {
     const overview = {
       totals: {},
       budgetAlerts: [{ categoryId: 7, categoryName: "বেতন", budgetAmount: 5000, spent: 5600, exceededAmount: 600 }],
+      budgetEarlyWarnings: [{ categoryId: 8, categoryName: "বাজার", budgetAmount: 5000, spent: 4500, threshold: 90, remainingAmount: 500 }],
     };
     financeDb.getOverview.mockResolvedValue(overview);
     await expect(appRouter.createCaller(authenticatedContext).finance.overview({ projectId: 88 })).resolves.toEqual(overview);

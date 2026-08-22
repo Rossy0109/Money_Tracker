@@ -63,10 +63,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="flex min-h-svh flex-col bg-[#f7f8f4]">
-        <div className="sticky top-0 z-30 flex h-14 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-4 backdrop-blur lg:hidden"><SidebarTrigger className="rounded-xl text-[#173f36]" /><span className="ml-3 text-sm font-bold text-[#173f36]">আমার হিসাব</span></div>
-        <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9">{children}</div>
-        <footer className="border-t border-[#dde7df] px-4 py-4 text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
+      <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
+        <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
+          <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
+          <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">আমার হিসাব</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
+        </div>
+        <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">{children}</div>
+        <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
       </SidebarInset>
     </SidebarProvider>
   );

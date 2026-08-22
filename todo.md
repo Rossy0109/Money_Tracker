@@ -140,6 +140,15 @@
 - [x] Test the real project-scoped budget save and refetched overview flow for updated overspending alerts.
 - [x] Refresh the current project overview before evaluating an immediate post-transaction budget warning.
 - [x] Show an explicit Bengali budget-verification warning if the immediate alert refresh cannot be completed.
+- [x] Calculate secure project-scoped 80% and 90% current-month budget early-warning states.
+- [x] Show accessible Bengali dashboard warnings and fresh post-transaction feedback for the 80% and 90% thresholds.
+- [x] Test threshold transitions, budget edits, project isolation, responsiveness, then checkpoint and synchronize GitHub.
+- [x] Improve dashboard touch targets, content hierarchy, and compact-screen navigation for practical mobile use while preserving desktop usability.
+- [x] Verify the updated dashboard at desktop and mobile breakpoints with no data changes, then include the checks in the release validation.
+- [x] Broaden mobile usability improvements across primary dashboard actions, section hierarchy, and compact-screen readability while preserving desktop layout.
+- [x] Add regression and visual evidence for the expanded mobile usability improvements before release.
+- [ ] Save a checkpoint for the verified 80%/90% responsive budget-warning enhancement.
+- [ ] Synchronize the final early-warning checkpoint to the private GitHub main branch and confirm it matches local state.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.

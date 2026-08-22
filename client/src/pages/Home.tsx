@@ -51,6 +51,7 @@ import {
   Building2,
   CalendarClock,
   Check,
+  CircleAlert,
   Download,
   Landmark,
   Loader2,
@@ -317,19 +318,34 @@ export default function Home() {
     projectId: number,
     categoryId: number,
     type: "income" | "expense"
-  ): Promise<"exceeded" | "clear" | "unavailable"> => {
+  ): Promise<"exceeded" | "early-warning" | "clear" | "unavailable"> => {
     if (type !== "expense") return "clear";
     try {
       const updatedOverview = await utils.finance.overview.fetch({ projectId });
       const alert = updatedOverview.budgetAlerts.find(
         item => item.categoryId === categoryId
       );
-      if (!alert) return "clear";
-      toast.warning(`${alert.categoryName} ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে`, {
-        description: `${bdt(alert.spent)} খরচ হয়েছে; নির্ধারিত সীমার চেয়ে ${bdt(alert.exceededAmount)} বেশি।`,
-        duration: 7000,
-      });
-      return "exceeded";
+      if (alert) {
+        toast.warning(`${alert.categoryName} ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে`, {
+          description: `${bdt(alert.spent)} খরচ হয়েছে; নির্ধারিত সীমার চেয়ে ${bdt(alert.exceededAmount)} বেশি।`,
+          duration: 7000,
+        });
+        return "exceeded";
+      }
+      const earlyWarning = updatedOverview.budgetEarlyWarnings.find(
+        item => item.categoryId === categoryId
+      );
+      if (earlyWarning) {
+        toast.warning(
+          `${earlyWarning.categoryName} ক্যাটাগরির বাজেটের ${earlyWarning.threshold}% খরচ হয়েছে`,
+          {
+            description: `${bdt(earlyWarning.spent)} খরচ হয়েছে; বাকি আছে ${bdt(earlyWarning.remainingAmount)}।`,
+            duration: 7000,
+          }
+        );
+        return "early-warning";
+      }
+      return "clear";
     } catch {
       toast.warning("বাজেট সতর্কতা যাচাই করা যায়নি", {
         description: "লেনদেনটি সংরক্ষিত হয়েছে। বর্তমান বাজেটের অবস্থা দেখতে ড্যাশবোর্ড রিফ্রেশ করুন।",
@@ -832,8 +848,8 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <main id="overview" className="space-y-7 pb-12">
-        <section className="flex flex-col justify-between gap-5 rounded-3xl bg-[#edf5ee] p-5 sm:p-7 lg:flex-row lg:items-end">
+      <main id="overview" className="space-y-5 pb-12 sm:space-y-7">
+        <section className="flex flex-col justify-between gap-5 rounded-3xl bg-[#edf5ee] p-4 sm:p-7 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-bold tracking-[.16em] text-[#4f7b67]">
               আমার হিসাব
@@ -846,12 +862,12 @@ export default function Home() {
               পরিচালনা করুন।
             </p>
           </div>
-          <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-[#d9e7da] bg-white/80 p-3">
-            <label className="grid gap-1 text-xs font-semibold text-[#4f6f61]">
+          <div className="grid w-full gap-2 rounded-2xl border border-[#d9e7da] bg-white/80 p-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-end">
+            <label className="grid w-full gap-1 text-xs font-semibold text-[#4f6f61] sm:col-span-2 lg:w-auto">
               <span>প্রোফাইলের প্রজেক্ট</span>
               <select
                 aria-label="প্রোফাইলের প্রজেক্ট নির্বাচন"
-                className="finance-input h-11 min-w-44 bg-white"
+                className="finance-input h-11 w-full min-w-0 bg-white lg:min-w-44"
                 value={activeProjectId ?? ""}
                 onChange={event => selectProject(Number(event.target.value))}
               >
@@ -864,7 +880,7 @@ export default function Home() {
             </label>
             <Button
               onClick={openNewTransaction}
-              className="h-11 rounded-xl bg-[#173f36] font-semibold hover:bg-[#0f3028]"
+              className="h-11 w-full rounded-xl bg-[#173f36] font-semibold hover:bg-[#0f3028] lg:w-auto"
             >
               <Plus className="mr-1.5 h-4 w-4" />
               লেনদেন যোগ করুন
@@ -872,7 +888,7 @@ export default function Home() {
             <Button
               onClick={openVoucherSettings}
               variant="outline"
-              className="h-11 rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+              className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
             >
               <ReceiptText className="mr-1.5 h-4 w-4" />
               ভাউচার সেটিংস
@@ -881,7 +897,7 @@ export default function Home() {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+                  className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
                 >
                   <Plus className="mr-1.5 h-4 w-4" />
                   প্রজেক্ট যোগ করুন
@@ -921,7 +937,7 @@ export default function Home() {
               onClick={downloadExport}
               disabled={exportData.isFetching}
               variant="outline"
-              className="h-11 rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+              className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
             >
               <Download className="mr-1.5 h-4 w-4" />
               নিজের ডেটা
@@ -930,7 +946,7 @@ export default function Home() {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+                  className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
                 >
                   <Download className="mr-1.5 h-4 w-4" />
                   মাসিক রিপোর্ট PDF
@@ -1003,7 +1019,7 @@ export default function Home() {
               <Button
                 onClick={() => setAdminOpen(true)}
                 variant="outline"
-                className="h-11 rounded-xl border-[#d7c48d] bg-[#fffdf3] text-[#765a14]"
+                className="h-11 w-full rounded-xl border-[#d7c48d] bg-[#fffdf3] text-[#765a14] lg:w-auto"
               >
                 <ShieldCheck className="mr-1.5 h-4 w-4" />
                 Admin
@@ -1012,7 +1028,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[#d9e7da] bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-6">
+        <section className="rounded-2xl border border-[#d9e7da] bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-5">
           <div>
             <p className="section-kicker">দ্রুত ডেটা এন্ট্রি</p>
             <h2 className="section-title">হিসাব লেখা শুরু করুন</h2>
@@ -1023,7 +1039,7 @@ export default function Home() {
           </div>
           <Button
             onClick={openNewTransaction}
-            className="mt-3 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028] sm:mt-0 sm:w-auto"
+            className="mt-3 h-11 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028] sm:mt-0 sm:w-auto"
           >
             <Plus className="mr-1.5 h-4 w-4" />
             এখনই লেনদেন যোগ করুন
@@ -1302,7 +1318,8 @@ export default function Home() {
                       size="icon"
                       onClick={() => setBudgetOpen(true)}
                       variant="outline"
-                      className="rounded-xl"
+                      aria-label="বাজেট যোগ বা সংশোধন করুন"
+                      className="h-11 w-11 rounded-xl"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -1325,38 +1342,73 @@ export default function Home() {
                       </AlertDescription>
                     </Alert>
                   )}
+                  {data.budgetEarlyWarnings.length > 0 && (
+                    <Alert
+                      aria-label="বাজেটের ৮০ ও ৯০ শতাংশ খরচের আগাম সতর্কতা"
+                      className="mt-4 rounded-2xl border border-[#e9bb69] bg-[#fff8e7] p-3 text-[#80530d]"
+                    >
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>বাজেটের কাছাকাছি পৌঁছেছে</AlertTitle>
+                      <AlertDescription className="text-[#80530d]">
+                        <ul className="mt-1 space-y-1 text-sm leading-5">
+                          {data.budgetEarlyWarnings.map(warning => (
+                            <li key={warning.categoryId}>
+                              <span className="font-medium">{warning.categoryName}</span>: বাজেটের {warning.threshold}% খরচ হয়েছে; বাকি আছে {bdt(warning.remainingAmount)}।
+                            </li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <div className="mt-4 space-y-4">
                     {data.budgets.length ? (
-                      data.budgets.map(budget => (
-                        <div key={budget.id}>
-                          <div className="flex justify-between gap-2 text-sm">
-                            <span className="font-medium text-[#294c42]">
-                              {budget.categoryName}
-                            </span>
-                            <span className="text-[#71867c]">
-                              {bdt(budget.spent)} / {bdt(budget.amount)}
-                            </span>
+                      data.budgets.map(budget => {
+                        const exceededAlert = data.budgetAlerts.find(
+                          alert => alert.categoryId === budget.categoryId
+                        );
+                        const earlyWarning = data.budgetEarlyWarnings.find(
+                          warning => warning.categoryId === budget.categoryId
+                        );
+                        const progress = Math.min(
+                          100,
+                          Number(budget.amount)
+                            ? (Number(budget.spent) / Number(budget.amount)) * 100
+                            : 0
+                        );
+                        return (
+                          <div key={budget.id}>
+                            <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                              <span className="font-medium text-[#294c42]">
+                                {budget.categoryName}
+                              </span>
+                              <span className="text-[#71867c]">
+                                {bdt(budget.spent)} / {bdt(budget.amount)}
+                              </span>
+                            </div>
+                            {exceededAlert ? (
+                              <p className="mt-1 text-xs font-medium text-[#b46d00]">
+                                সতর্কতা: সীমার চেয়ে {bdt(exceededAlert.exceededAmount)} বেশি খরচ হয়েছে
+                              </p>
+                            ) : earlyWarning ? (
+                              <p className="mt-1 text-xs font-medium text-[#a36400]">
+                                আগাম সতর্কতা: বাজেটের {earlyWarning.threshold}% খরচ হয়েছে
+                              </p>
+                            ) : null}
+                            <Progress
+                              value={progress}
+                              className={`mt-2 h-2 ${
+                                exceededAlert
+                                  ? "[&>div]:bg-[#d86f65]"
+                                  : earlyWarning?.threshold === 90
+                                    ? "[&>div]:bg-[#d89529]"
+                                    : earlyWarning?.threshold === 80
+                                      ? "[&>div]:bg-[#4a9fc5]"
+                                      : ""
+                              }`}
+                            />
                           </div>
-                          {data.budgetAlerts.some(
-                            alert => alert.categoryId === budget.categoryId
-                          ) && (
-                            <p className="mt-1 text-xs font-medium text-[#b46d00]">
-                              সতর্কতা: নির্ধারিত সীমা অতিক্রম করেছে
-                            </p>
-                          )}
-                          <Progress
-                            value={Math.min(
-                              100,
-                              Number(budget.amount)
-                                ? (Number(budget.spent) /
-                                    Number(budget.amount)) *
-                                    100
-                                : 0
-                            )}
-                            className="mt-2 h-2"
-                          />
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <Empty text="এই মাসে কোনো বাজেট নেই" />
                     )}
