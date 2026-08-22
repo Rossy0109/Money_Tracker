@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -312,6 +313,31 @@ export default function Home() {
       utils.projects.list.invalidate(),
     ]);
   };
+  const showBudgetAlertForTransaction = async (
+    projectId: number,
+    categoryId: number,
+    type: "income" | "expense"
+  ): Promise<"exceeded" | "clear" | "unavailable"> => {
+    if (type !== "expense") return "clear";
+    try {
+      const updatedOverview = await utils.finance.overview.fetch({ projectId });
+      const alert = updatedOverview.budgetAlerts.find(
+        item => item.categoryId === categoryId
+      );
+      if (!alert) return "clear";
+      toast.warning(`${alert.categoryName} ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে`, {
+        description: `${bdt(alert.spent)} খরচ হয়েছে; নির্ধারিত সীমার চেয়ে ${bdt(alert.exceededAmount)} বেশি।`,
+        duration: 7000,
+      });
+      return "exceeded";
+    } catch {
+      toast.warning("বাজেট সতর্কতা যাচাই করা যায়নি", {
+        description: "লেনদেনটি সংরক্ষিত হয়েছে। বর্তমান বাজেটের অবস্থা দেখতে ড্যাশবোর্ড রিফ্রেশ করুন।",
+        duration: 7000,
+      });
+      return "unavailable";
+    }
+  };
 
   const createProject = trpc.projects.create.useMutation({
     onSuccess: async project => {
@@ -324,18 +350,28 @@ export default function Home() {
     onError: error => toast.error(error.message),
   });
   const addTransaction = trpc.finance.addTransaction.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_transaction, input) => {
       await refresh();
+      const budgetAlertStatus = await showBudgetAlertForTransaction(
+        input.projectId,
+        input.categoryId,
+        input.type
+      );
       resetTransaction();
-      toast.success("লেনদেন সংরক্ষণ করা হয়েছে");
+      if (budgetAlertStatus === "clear") toast.success("লেনদেন সংরক্ষণ করা হয়েছে");
     },
     onError: error => toast.error(error.message),
   });
   const updateTransaction = trpc.finance.updateTransaction.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_transaction, input) => {
       await refresh();
+      const budgetAlertStatus = await showBudgetAlertForTransaction(
+        input.projectId,
+        input.categoryId,
+        input.type
+      );
       resetTransaction();
-      toast.success("লেনদেন আপডেট করা হয়েছে");
+      if (budgetAlertStatus === "clear") toast.success("লেনদেন আপডেট করা হয়েছে");
     },
     onError: error => toast.error(error.message),
   });
@@ -1271,6 +1307,24 @@ export default function Home() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
+                  {data.budgetAlerts.length > 0 && (
+                    <Alert
+                      aria-label="বাজেট সীমা অতিক্রমের সতর্কতা"
+                      className="mt-4 rounded-2xl border border-[#f2c768] bg-[#fff6dc] p-3 text-[#7a4b00]"
+                    >
+                      <BellRing aria-hidden="true" />
+                      <AlertTitle>বাজেট সীমা অতিক্রম হয়েছে</AlertTitle>
+                      <AlertDescription className="text-[#7a4b00]">
+                        <ul className="mt-1 space-y-1 text-sm leading-5">
+                          {data.budgetAlerts.map(alert => (
+                            <li key={alert.categoryId}>
+                              <span className="font-medium">{alert.categoryName}</span>: {bdt(alert.spent)} খরচ হয়েছে; সীমার চেয়ে {bdt(alert.exceededAmount)} বেশি।
+                            </li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <div className="mt-4 space-y-4">
                     {data.budgets.length ? (
                       data.budgets.map(budget => (
@@ -1283,6 +1337,13 @@ export default function Home() {
                               {bdt(budget.spent)} / {bdt(budget.amount)}
                             </span>
                           </div>
+                          {data.budgetAlerts.some(
+                            alert => alert.categoryId === budget.categoryId
+                          ) && (
+                            <p className="mt-1 text-xs font-medium text-[#b46d00]">
+                              সতর্কতা: নির্ধারিত সীমা অতিক্রম করেছে
+                            </p>
+                          )}
                           <Progress
                             value={Math.min(
                               100,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_CATEGORIES, calculateBudgetProgress } from "./finance.constants";
+import { calculateBudgetAlerts, DEFAULT_CATEGORIES, calculateBudgetProgress } from "./finance.constants";
 import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
@@ -44,9 +44,24 @@ describe("finance router", () => {
     expect(calculateBudgetProgress(6000, 0)).toBe(0);
   });
 
+  it("alerts only after a category strictly exceeds its budget and ranks the largest overage first", () => {
+    expect(calculateBudgetAlerts([
+      { categoryId: 7, categoryName: "বেতন", budgetAmount: 5000, spent: 5000 },
+      { categoryId: 8, categoryName: "বাজার", budgetAmount: 3000, spent: 3400 },
+      { categoryId: 9, categoryName: "যাতায়াত", budgetAmount: 1000, spent: 1800 },
+    ])).toEqual([
+      { categoryId: 9, categoryName: "যাতায়াত", budgetAmount: 1000, spent: 1800, exceededAmount: 800 },
+      { categoryId: 8, categoryName: "বাজার", budgetAmount: 3000, spent: 3400, exceededAmount: 400 },
+    ]);
+  });
+
   it("scopes overview data to the authenticated user and selected project", async () => {
-    financeDb.getOverview.mockResolvedValue({ totals: {} });
-    await appRouter.createCaller(authenticatedContext).finance.overview({ projectId: 88 });
+    const overview = {
+      totals: {},
+      budgetAlerts: [{ categoryId: 7, categoryName: "বেতন", budgetAmount: 5000, spent: 5600, exceededAmount: 600 }],
+    };
+    financeDb.getOverview.mockResolvedValue(overview);
+    await expect(appRouter.createCaller(authenticatedContext).finance.overview({ projectId: 88 })).resolves.toEqual(overview);
     expect(financeDb.getOverview).toHaveBeenCalledWith(42, 88);
   });
 

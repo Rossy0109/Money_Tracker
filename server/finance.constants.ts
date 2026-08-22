@@ -20,3 +20,20 @@ export function calculateBudgetProgress(spent: number, budget: number) {
   if (budget <= 0) return 0;
   return Math.min(100, Math.round((spent / budget) * 100));
 }
+
+export type BudgetAlertCandidate = {
+  categoryId: number;
+  categoryName: string;
+  budgetAmount: number;
+  spent: number;
+};
+
+export function calculateBudgetAlerts(candidates: BudgetAlertCandidate[]) {
+  return candidates
+    .filter(candidate => candidate.spent > candidate.budgetAmount)
+    .map(candidate => ({
+      ...candidate,
+      exceededAmount: candidate.spent - candidate.budgetAmount,
+    }))
+    .sort((left, right) => right.exceededAmount - left.exceededAmount);
+}

@@ -16,7 +16,7 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { calculateDueSettlement } from "./dueAccounting";
-import { DEFAULT_CATEGORIES } from "./finance.constants";
+import { calculateBudgetAlerts, DEFAULT_CATEGORIES } from "./finance.constants";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
@@ -230,6 +230,14 @@ export async function getOverview(userId: number, projectId: number) {
     const spent = transactions.filter(row => row.categoryId === budget.categoryId && row.type === "expense" && row.occurredAt.toISOString().slice(0, 7) === budget.monthKey).reduce((sum, row) => sum + Number(row.amount), 0);
     return { ...budget, categoryName: category?.name ?? "Unknown", spent };
   });
+  const budgetAlerts = calculateBudgetAlerts(
+    budgetProgress.map(budget => ({
+      categoryId: budget.categoryId,
+      categoryName: budget.categoryName,
+      budgetAmount: Number(budget.amount),
+      spent: budget.spent,
+    }))
+  );
   const trend = Array.from({ length: 6 }, (_, offset) => {
     const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - (5 - offset), 1));
     const key = date.toISOString().slice(0, 7);
@@ -247,7 +255,7 @@ export async function getOverview(userId: number, projectId: number) {
   const displayDues = dues.map(due => ({ ...due, settlements: dueSettlements.filter(settlement => settlement.dueId === due.id).map(settlement => ({ ...settlement, accountName: settlement.accountId ? accounts.find(account => account.id === settlement.accountId)?.name ?? null : null })) }));
   const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
   const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
-  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
+  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, budgetAlerts, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
 }
 
 export async function getMonthlyReport(userId: number, projectId: number, targetMonthKey: string) {
