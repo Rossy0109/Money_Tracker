@@ -147,8 +147,8 @@
 - [x] Verify the updated dashboard at desktop and mobile breakpoints with no data changes, then include the checks in the release validation.
 - [x] Broaden mobile usability improvements across primary dashboard actions, section hierarchy, and compact-screen readability while preserving desktop layout.
 - [x] Add regression and visual evidence for the expanded mobile usability improvements before release.
-- [ ] Save a checkpoint for the verified 80%/90% responsive budget-warning enhancement.
-- [ ] Synchronize the final early-warning checkpoint to the private GitHub main branch and confirm it matches local state.
+- [x] Save a checkpoint for the verified 80%/90% responsive budget-warning enhancement.
+- [x] Synchronize the final early-warning checkpoint to the private GitHub main branch and confirm it matches local state.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
