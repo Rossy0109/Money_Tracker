@@ -55,7 +55,7 @@ describe("monthly report PDF", () => {
     expect(documentApi.text).toHaveBeenCalledWith("নির্বাচিত মাসে কোনো আয়ের লেনদেন নেই।", 54, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("ব্যয়ের বিস্তারিত লেনদেন", 52, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("ক্যাটাগরি: বেতন", 50, expect.any(Number));
-    expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ৩,৫০০", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ৩,৫০০ | অংশ: ১০০%", expect.any(Number), expect.any(Number), { align: "right" });
     expect(documentApi.text).toHaveBeenCalledWith("V-012", 106, expect.any(Number));
     expect(documentApi.splitTextToSize).toHaveBeenCalledWith("আগস্ট মাসের বেতন পরিশোধ", 320);
     expect(documentApi.save).toHaveBeenCalledWith("monthly-report-2026-08.pdf");
@@ -85,7 +85,7 @@ describe("monthly report PDF", () => {
     expect(documentApi.addPage).toHaveBeenCalled();
     expect(documentApi.text).toHaveBeenCalledWith("ব্যয়ের বিস্তারিত লেনদেন (চলমান)", 52, expect.any(Number));
     expect(documentApi.text).toHaveBeenCalledWith("ক্যাটাগরি: বেতন (চলমান)", 50, expect.any(Number));
-    expect(documentApi.text).toHaveBeenCalledWith("২৮ টি লেনদেন | উপমোট: ৳ ৪২,০০০", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).toHaveBeenCalledWith("২৮ টি লেনদেন | উপমোট: ৳ ৪২,০০০ | অংশ: ১০০%", expect.any(Number), expect.any(Number), { align: "right" });
   });
 
   it("renders income rows before a separate expense transaction table", async () => {
@@ -144,7 +144,26 @@ describe("monthly report PDF", () => {
     expect(secondBusinessVoucherIndex).toBeGreaterThan(firstBusinessVoucherIndex);
     expect(salaryVoucherIndex).toBeGreaterThan(salaryHeadingIndex);
     expect(salaryVoucherIndex).toBeGreaterThan(secondBusinessVoucherIndex);
-    expect(documentApi.text).toHaveBeenCalledWith("২ টি লেনদেন | উপমোট: ৳ ১০,০০০", expect.any(Number), expect.any(Number), { align: "right" });
-    expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ৩,০০০", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).toHaveBeenCalledWith("২ টি লেনদেন | উপমোট: ৳ ১০,০০০ | অংশ: ৭৬.৯%", expect.any(Number), expect.any(Number), { align: "right" });
+    expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ৩,০০০ | অংশ: ২৩.১%", expect.any(Number), expect.any(Number), { align: "right" });
+  });
+
+  it("shows a safe zero percentage when a section total is zero", async () => {
+    await downloadMonthlyReportPdf({
+      projectName: "দৈনিক লেনদেনের খাতা",
+      monthKey: "2026-08",
+      totalIncome: 0,
+      totalExpense: 0,
+      netAmount: 0,
+      categoryTotals: [],
+      totalDebt: 0,
+      totalReceivable: 0,
+      transactionCount: 1,
+      transactionDetails: [
+        { occurredAt: new Date("2026-08-20T12:00:00.000Z"), voucherNo: "V-013", type: "income", categoryName: "Business", description: "শূন্য মূল্যের সংশোধনী", amount: 0 },
+      ],
+    });
+
+    expect(documentApi.text).toHaveBeenCalledWith("১ টি লেনদেন | উপমোট: ৳ ০ | অংশ: ০%", expect.any(Number), expect.any(Number), { align: "right" });
   });
 });

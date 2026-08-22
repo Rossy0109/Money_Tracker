@@ -153,6 +153,8 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
       group.push(transaction);
       categoryGroups.set(transaction.categoryName, group);
     }
+    const sectionTotal = type === "income" ? report.totalIncome : report.totalExpense;
+    const percentageFormatter = new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 1 });
     const getRowHeight = (transaction: typeof transactions[number]) => Math.max(30, doc.splitTextToSize(transaction.description, 320).length * 10 + 12);
     const addCategorySubheading = (categoryName: string, transactionCount: number, subtotal: number, isContinuation = false) => {
       doc.setFillColor(type === "income" ? 232 : 252, type === "income" ? 246 : 237, type === "income" ? 237 : 237);
@@ -161,7 +163,8 @@ export async function downloadMonthlyReportPdf(report: MonthlyReport) {
       doc.setTextColor(...amountTone);
       doc.text(`ক্যাটাগরি: ${categoryName}${isContinuation ? " (চলমান)" : ""}`, margin + 8, y);
       doc.setTextColor(76, 98, 88);
-      doc.text(`${new Intl.NumberFormat("bn-BD").format(transactionCount)} টি লেনদেন | উপমোট: ${bdt(subtotal)}`, pageWidth - margin - 8, y, { align: "right" });
+      const percentage = sectionTotal > 0 ? (subtotal / sectionTotal) * 100 : 0;
+      doc.text(`${new Intl.NumberFormat("bn-BD").format(transactionCount)} টি লেনদেন | উপমোট: ${bdt(subtotal)} | অংশ: ${percentageFormatter.format(percentage)}%`, pageWidth - margin - 8, y, { align: "right" });
       doc.setTextColor(20, 36, 30);
       y += 22;
     };

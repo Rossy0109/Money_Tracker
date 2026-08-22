@@ -119,6 +119,8 @@
 - [x] Test category grouping and page continuation, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Display each category's BDT subtotal beside its Bengali monthly PDF transaction subheading.
 - [x] Test category subtotal formatting and continuation behavior, then checkpoint and synchronize the enhancement to GitHub.
+- [x] Show each category subtotal's Bengali percentage share of the selected month's total income or total expense in the PDF report.
+- [x] Test category percentage formatting, zero totals, and continuation behavior, then checkpoint and synchronize the enhancement to GitHub.
 - [x] Inventory every application-specific interface component and review its web-development quality, accessibility, responsive behavior, validation, and security boundary.
 - [x] Remediate and regression-test any verified component-level issue, then capture component review evidence and synchronize the update.
 - [x] Diagnose the reported mobile OAuth “authorisation failed” response using authentication configuration and server/browser logs.
