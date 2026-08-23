@@ -15,6 +15,8 @@
 
 ব্যবহারকারীর অনুমোদিত প্রতিস্থাপনের আগে পুরোনো `Money_Tracker/main` revision `b12ba1fd92aff1ebdc8dd7af68fabec1434f470b` একই remote-এ `backup/pre-money-tracker-main-20260824` branch হিসেবে সংরক্ষণ করা হয়েছে। ফলে নতুন `main` অসুবিধাজনক হলে পুরোনো উৎস উদ্ধারযোগ্য থাকবে।
 
+প্রতিস্থাপনের পর GitHub Pages API সক্রিয় `workflow` deployment দেখালেও `https://rossy0109.github.io/Money_Tracker/` এখনও `404 File not found` ফিরিয়েছে। GitHub Pages কেবল static file পরিবেশন করে; এই অ্যাপের Express/tRPC সার্ভার, OAuth session এবং MySQL/TiDB database সেখানে চালানো সম্ভব নয়। তাই GitHub Pages-এ একটি স্পষ্ট Bengali static redirect deploy করা হয়েছে, যা সম্পূর্ণ চালু Manus app `https://moneytrack-2tqvjvuy.manus.space/`-এ পাঠাবে। Redirect workflow সফল হলে Pages URLটি আর 404 দেখাবে না, কিন্তু পূর্ণ-stack runtime GitHub Pages-এ নয়—Manus hosting-এই চলবে।
+
 ## GitHub Pages পর্যবেক্ষণ
 
 ২৪ আগস্ট ২০২৬ (GMT+৬)-এ <https://rossy0109.github.io/Money_Tracker/> পরীক্ষা করা হয়েছে। URL-টি বর্তমানে GitHub Pages-এর **404 File not found** পৃষ্ঠা দেয়; অর্থাৎ এখানে চলমান সাইট নেই। বর্তমান money-tracker একটি Express server, tRPC API, OAuth এবং MySQL/TiDB-নির্ভর full-stack অ্যাপ—সুতরাং কেবল GitHub Pages-এ static file push করে পূর্ণ অ্যাপ চালানো যাবে না। বর্তমান live application endpoint হলো Manus managed deployment: <https://moneytrack-2tqvjvuy.manus.space>।
