@@ -195,3 +195,10 @@
 - [x] Add isolated E2E recovery cases proving failed or rejected restoration leaves the original project intact and a confirmed restore can be safely discarded as a separate project.
 - [x] Perform controlled Android Chrome and iPhone Safari sign-in/PWA/PDF validation when an authenticated blank test profile is available; document any user-device-only limitation.
 - [x] Run complete validation, document the results in Bengali, checkpoint, publish, and synchronize GitHub.
+- [x] Audit all configured Git remotes, target repository ownership, branch ancestry, and local/remote file inventories for unintended multi-project content.
+- [ ] Verify the complete runnable money-tracker application, configuration, tests, documentation, and CI files are present in `Rossy0109/Money_Tracker` without unrelated project files.
+- [ ] Synchronize the verified current application to the correct GitHub repository and confirm the remote revision and runnable build state.
+- [x] Preserve an immutable remote backup reference for the existing `Money_Tracker/main` before the approved replacement.
+- [ ] Replace `Rossy0109/Money_Tracker/main` with only the verified current money-tracker application and its required configuration, tests, documentation, and CI files.
+- [ ] Inspect `https://rossy0109.github.io/Money_Tracker/`, record its actual compatibility state, and configure an appropriate deployment path if GitHub Pages cannot run the full-stack application.
+- [ ] Verify target repository revision/build state, checkpoint the audit documentation, and report the completed replacement in Bengali.
