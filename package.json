@@ -57,6 +57,7 @@
     "embla-carousel-react": "^8.6.0",
     "express": "^4.22.2",
     "framer-motion": "^12.23.22",
+    "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
     "jose": "6.1.0",
     "jspdf": "^4.2.1",

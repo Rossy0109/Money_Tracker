@@ -9,8 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CheckCircle2, ChartColumnIncreasing, Clock3, House, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { downloadHouseholdChartImage, downloadHouseholdChartPdf } from "@/lib/householdChartExport";
+import { CheckCircle2, ChartColumnIncreasing, Clock3, FileDown, House, ImageDown, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const taka = (value: number) => `৳ ${new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 0 }).format(value)}`;
@@ -31,6 +32,8 @@ export default function FamilyHousehold() {
   const [invite, setInvite] = useState({ email: "", displayName: "", role: "editor" as "editor" | "viewer" });
   const [budget, setBudget] = useState({ label: "", amount: "" });
   const [expense, setExpense] = useState({ budgetId: "", amount: "", note: "" });
+  const [chartExporting, setChartExporting] = useState<"image" | "pdf" | null>(null);
+  const monthlyChartExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (householdId === null && households.length) setHouseholdId(households[0].id);
@@ -59,6 +62,20 @@ export default function FamilyHousehold() {
       utils.finance.householdInvitations.invalidate(),
       householdId !== null ? utils.finance.householdOverview.invalidate({ householdId }) : Promise.resolve(),
     ]);
+  };
+  const exportMonthlyComparison = async (kind: "image" | "pdf") => {
+    if (!monthlyChartExportRef.current || monthlyContributors.length === 0) return;
+    setChartExporting(kind);
+    try {
+      if (kind === "image") await downloadHouseholdChartImage(monthlyChartExportRef.current);
+      else await downloadHouseholdChartPdf(monthlyChartExportRef.current);
+      toast.success(kind === "image" ? "চার্টের ছবি ডাউনলোড প্রস্তুত" : "চার্টের PDF ডাউনলোড প্রস্তুত");
+    } catch (error) {
+      console.error("Household chart export failed", error);
+      toast.error("চার্ট ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।");
+    } finally {
+      setChartExporting(null);
+    }
   };
 
   const createHousehold = trpc.finance.createHousehold.useMutation({
@@ -203,14 +220,22 @@ export default function FamilyHousehold() {
             </Card>
           </section>
 
-          <section>
-            <Card className="border-[#dce9df] shadow-sm">
+          <section ref={monthlyChartExportRef}>
+            <Card className="border-[#dce9df] bg-white shadow-sm">
               <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-[#173f36]"><ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" /> সদস্যদের মাসিক খরচের তুলনা</CardTitle>
                   <CardDescription>গত ৬ মাসে শেয়ার করা বাজেটে প্রত্যেক সদস্য কত খরচ যোগ করেছেন তার মাসভিত্তিক তুলনা।</CardDescription>
                 </div>
-                {monthlyContributors.length > 0 && <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">৬ মাসে {taka(monthlyComparisonTotal)}</Badge>}
+                {monthlyContributors.length > 0 && <div className="flex flex-wrap items-center gap-2" data-chart-export-hide>
+                  <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">৬ মাসে {taka(monthlyComparisonTotal)}</Badge>
+                  <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("image")}>
+                    {chartExporting === "image" ? <Clock3 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />} ছবি ডাউনলোড
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("pdf")}>
+                    {chartExporting === "pdf" ? <Clock3 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} PDF ডাউনলোড
+                  </Button>
+                </div>}
               </CardHeader>
               <CardContent>
                 {monthlyContributors.length > 0 ? <div className="space-y-5">

@@ -176,3 +176,5 @@
 - [x] Test contributor totals, member visibility boundaries, Bengali chart rendering, responsive layout, then checkpoint and synchronize GitHub.
 - [x] Add a role-safe Bengali member-by-month shared-expense comparison chart and detailed dashboard breakdown.
 - [x] Test monthly aggregation, member visibility boundaries, Bengali chart rendering, responsive layout, then checkpoint and synchronize GitHub.
+- [x] Add role-safe image and PDF downloads for the Bengali household member monthly comparison chart.
+- [x] Test export scope, download behavior, Bengali output, responsive controls, then checkpoint and synchronize GitHub.

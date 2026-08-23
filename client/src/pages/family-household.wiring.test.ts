@@ -49,4 +49,14 @@ describe("family household workspace wiring", () => {
     expect(householdSource).toContain("৬ মাসে {new Intl.NumberFormat");
     expect(householdSource).toContain("h-72 min-w-0 sm:h-80");
   });
+
+  it("offers image and PDF downloads only beside the authorized monthly comparison chart", () => {
+    expect(householdSource).toContain('data-chart-export-hide');
+    expect(householdSource).toContain('exportMonthlyComparison("image")');
+    expect(householdSource).toContain('exportMonthlyComparison("pdf")');
+    expect(householdSource).toContain("downloadHouseholdChartImage");
+    expect(householdSource).toContain("downloadHouseholdChartPdf");
+    expect(householdSource).toContain("ছবি ডাউনলোড");
+    expect(householdSource).toContain("PDF ডাউনলোড");
+  });
 });
