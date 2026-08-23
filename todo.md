@@ -202,9 +202,15 @@
 - [x] Replace `Rossy0109/Money_Tracker/main` with only the verified current money-tracker application and its required configuration, tests, documentation, and CI files.
 - [x] Inspect `https://rossy0109.github.io/Money_Tracker/`, record its actual compatibility state, and configure an appropriate deployment path if GitHub Pages cannot run the full-stack application.
 - [x] Verify target repository revision/build state, checkpoint the audit documentation, and report the completed replacement in Bengali.
-- [ ] Inspect the current GitHub main-branch rules and define a compatible protection policy that preserves CI and emergency recovery capability.
-- [ ] Repair the invalid GitHub Actions setup-action version and verify a successful CI run before requiring its checks on main.
-- [ ] Apply the approved GitHub branch protection to `Rossy0109/Money_Tracker` main and verify the policy through the GitHub API.
+- [x] Inspect the current GitHub main-branch rules and define a compatible protection policy that preserves CI and emergency recovery capability.
+- [x] Repair the invalid GitHub Actions setup-action version and verify a successful CI run before requiring its checks on main.
+- [x] Apply the approved GitHub branch protection to `Rossy0109/Money_Tracker` main and verify the policy through the GitHub API.
 - [ ] Obtain the selected custom domain and prepare the exact DNS records and redirect topology for GitHub Pages and the live full-stack application.
 - [ ] Bind the verified custom domain to the live hosting and configure the Pages redirect target after DNS ownership is confirmed.
 - [ ] Verify HTTPS, redirect behavior, branch protection, and document the configuration without exposing DNS or account secrets.
+- [x] Inspect the current Express/tRPC, OAuth, database, PWA, and environment contracts for Vercel serverless compatibility without changing running production behavior.
+- [x] Add a Vercel-compatible entrypoint and configuration that preserves the existing backend routes and static client behavior without embedding secrets.
+- [x] Add deployment documentation, environment-variable inventory, health checks, and a clear rollback path from Vercel to the current verified hosting.
+- [ ] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
+- [ ] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
+- [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
