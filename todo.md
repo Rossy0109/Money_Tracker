@@ -202,3 +202,9 @@
 - [x] Replace `Rossy0109/Money_Tracker/main` with only the verified current money-tracker application and its required configuration, tests, documentation, and CI files.
 - [x] Inspect `https://rossy0109.github.io/Money_Tracker/`, record its actual compatibility state, and configure an appropriate deployment path if GitHub Pages cannot run the full-stack application.
 - [x] Verify target repository revision/build state, checkpoint the audit documentation, and report the completed replacement in Bengali.
+- [ ] Inspect the current GitHub main-branch rules and define a compatible protection policy that preserves CI and emergency recovery capability.
+- [ ] Repair the invalid GitHub Actions setup-action version and verify a successful CI run before requiring its checks on main.
+- [ ] Apply the approved GitHub branch protection to `Rossy0109/Money_Tracker` main and verify the policy through the GitHub API.
+- [ ] Obtain the selected custom domain and prepare the exact DNS records and redirect topology for GitHub Pages and the live full-stack application.
+- [ ] Bind the verified custom domain to the live hosting and configure the Pages redirect target after DNS ownership is confirmed.
+- [ ] Verify HTTPS, redirect behavior, branch protection, and document the configuration without exposing DNS or account secrets.
