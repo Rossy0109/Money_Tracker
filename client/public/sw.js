@@ -1,5 +1,6 @@
-const CACHE_NAME = "amar-hisab-shell-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/app-icon.svg"];
+const CACHE_NAME = "amar-hisab-shell-v2";
+const OFFLINE_URL = "/offline.html";
+const APP_SHELL = ["/", OFFLINE_URL, "/manifest.webmanifest", "/app-icon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -19,7 +20,7 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/")));
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
     return;
   }
 

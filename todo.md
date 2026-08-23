@@ -187,3 +187,11 @@
 - [x] Add E2E scenarios for normalized-email household invitation acceptance, rejection, and duplicate/unauthorized handling in the isolated environment.
 - [x] Add E2E scenarios for user-controlled backup preview and confirmation-gated restoration while preserving pre-existing test records until confirmation.
 - [x] Run isolated E2E, full regression, type, build, and whitespace validation; document results and synchronize the completed work to GitHub.
+- [x] Review the existing mobile authentication, PWA, PDF export, bundle, and GitHub Actions setup without touching real finance data.
+- [x] Add a real web-app manifest and service-worker registration with a safe offline navigation fallback, then verify both from the blank-profile browser suite.
+- [x] Implement lazy, on-demand loading for chart PDF/PNG capture libraries and retain export behavior with direct regression coverage.
+- [x] Add a GitHub Actions CI workflow with a disposable MariaDB service and an isolated-database E2E job.
+- [x] Add browser-level test infrastructure and controlled blank-profile coverage for public auth gating and safe export UI behavior without automating a real OAuth login.
+- [x] Add isolated E2E recovery cases proving failed or rejected restoration leaves the original project intact and a confirmed restore can be safely discarded as a separate project.
+- [x] Perform controlled Android Chrome and iPhone Safari sign-in/PWA/PDF validation when an authenticated blank test profile is available; document any user-device-only limitation.
+- [x] Run complete validation, document the results in Bengali, checkpoint, publish, and synchronize GitHub.

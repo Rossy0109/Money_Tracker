@@ -9,7 +9,6 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { downloadHouseholdChartImage, downloadHouseholdChartPdf } from "@/lib/householdChartExport";
 import { CheckCircle2, ChartColumnIncreasing, Clock3, FileDown, House, ImageDown, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -69,6 +68,7 @@ export default function FamilyHousehold() {
     if (!monthlyChartExportRef.current || monthlyContributors.length === 0) return;
     setChartExporting(kind);
     try {
+      const { downloadHouseholdChartImage, downloadHouseholdChartPdf } = await import("@/lib/householdChartExport");
       if (kind === "image") await downloadHouseholdChartImage(monthlyChartExportRef.current);
       else await downloadHouseholdChartPdf(monthlyChartExportRef.current, {
         familyName: overview?.household.name ?? "",

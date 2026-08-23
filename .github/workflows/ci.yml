@@ -1,0 +1,74 @@
+name: Verify money tracker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Regression, type check, and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm check
+      - run: pnpm build
+
+  isolated-e2e:
+    name: Disposable MariaDB API and browser E2E
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      ISOLATED_E2E_DATABASE_URL: mysql://root@127.0.0.1:3306/mysql
+      ADMIN_ACCESS_PASSWORD: ci-isolated-e2e-admin-password
+      JWT_SECRET: ci-isolated-e2e-jwt-secret
+      VITE_APP_ID: ci-browser-e2e
+      VITE_OAUTH_PORTAL_URL: http://127.0.0.1:9999
+      OAUTH_SERVER_URL: http://127.0.0.1:9999
+      BUILT_IN_FORGE_API_URL: http://127.0.0.1:9999
+      BUILT_IN_FORGE_API_KEY: ci-browser-e2e-key
+      VITE_FRONTEND_FORGE_API_URL: http://127.0.0.1:9999
+      VITE_FRONTEND_FORGE_API_KEY: ci-browser-e2e-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:e2e:isolated
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm test:browser:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore

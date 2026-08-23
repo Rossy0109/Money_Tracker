@@ -7,7 +7,9 @@ import superjson from "superjson";
 import App from "./App";
 import "./index.css";
 
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+const shouldRegisterServiceWorker = import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true";
+
+if (shouldRegisterServiceWorker && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(error => {
       console.warn("[PWA] Offline shell registration failed", error);

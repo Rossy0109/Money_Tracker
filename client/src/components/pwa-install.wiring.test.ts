@@ -18,11 +18,12 @@ describe("installable mobile application wiring", () => {
     expect(installButtonSource).toContain("হোম স্ক্রিনে যোগ করুন");
   });
 
-  it("publishes standalone manifest metadata and registers the offline shell only for production", () => {
+  it("publishes standalone manifest metadata and registers the offline shell in production or the explicit isolated-browser test mode", () => {
     expect(clientShell).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(manifest).toContain('"display": "standalone"');
     expect(manifest).toContain('"start_url": "/"');
-    expect(clientBootstrap).toContain('import.meta.env.PROD && "serviceWorker" in navigator');
+    expect(clientBootstrap).toContain('import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true"');
+    expect(clientBootstrap).toContain('if (shouldRegisterServiceWorker && "serviceWorker" in navigator)');
     expect(clientBootstrap).toContain('navigator.serviceWorker.register("/sw.js")');
   });
 

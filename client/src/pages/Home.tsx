@@ -28,13 +28,10 @@ import {
   saveActiveProjectId,
 } from "@/lib/activeProject";
 import { buildAdminAuditFilterInput } from "@/lib/auditFilters";
-import { downloadAuditCsv, downloadAuditPdf } from "@/lib/auditLogExports";
 import {
   accountingReportOptions,
-  downloadMonthlyReportPdf,
-  shareMonthlyReportPdf,
   type AccountingReportType,
-} from "@/lib/monthlyReportPdf";
+} from "@/lib/accountingReportDefinitions";
 import {
   Bar,
   BarChart,
@@ -728,6 +725,7 @@ export default function Home() {
       const result = await auditLogExport.refetch();
       if (!result.data?.length)
         throw new Error("এই ফিল্টারে কোনো audit record নেই");
+      const { downloadAuditCsv, downloadAuditPdf } = await import("@/lib/auditLogExports");
       if (format === "csv") downloadAuditCsv(result.data);
       else await downloadAuditPdf(result.data);
       toast.success(
@@ -789,6 +787,7 @@ export default function Home() {
       setIsReportDownloading(true);
       const report = await getMonthlyReportForExport();
       if (!report) return;
+      const { downloadMonthlyReportPdf } = await import("@/lib/monthlyReportPdf");
       await downloadMonthlyReportPdf(report, reportType);
       const selectedReport = accountingReportOptions.find(option => option.value === reportType);
       toast.success(`${selectedReport?.label ?? "রিপোর্ট"} PDF ডাউনলোড হয়েছে`);
@@ -808,6 +807,7 @@ export default function Home() {
       setIsReportSharing(true);
       const report = await getMonthlyReportForExport();
       if (!report) return;
+      const { downloadMonthlyReportPdf, shareMonthlyReportPdf } = await import("@/lib/monthlyReportPdf");
       const shareResult = await shareMonthlyReportPdf(report, reportType);
       if (shareResult === "unavailable") {
         await downloadMonthlyReportPdf(report, reportType);

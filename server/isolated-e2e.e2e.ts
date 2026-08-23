@@ -137,6 +137,11 @@ describe("isolated role, invitation, and restoration E2E", () => {
     await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "NOT_CONFIRMED" as any, backup })).rejects.toBeTruthy();
     expect((await ownerCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
 
+    const transactionFailureBackup = structuredClone(backup);
+    transactionFailureBackup.transactions[0].amount = "999999999999999999999999999999999.99";
+    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E রোলব্যাক", confirmation: "RESTORE_NEW_PROJECT", backup: transactionFailureBackup })).rejects.toBeTruthy();
+    expect((await ownerCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
+
     const restoration = await ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "RESTORE_NEW_PROJECT", backup });
     expect(restoration.projectId).not.toBe(sourceProjectId);
     const restoredBackup = await ownerCaller.finance.exportProjectBackup({ projectId: restoration.projectId });
