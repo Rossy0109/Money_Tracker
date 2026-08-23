@@ -182,3 +182,8 @@
 - [x] Test PDF title content, fallback behavior, responsive controls, and export privacy before checkpointing and synchronizing GitHub.
 - [x] Perform controlled end-to-end verification of finance logic, access boundaries, household sharing, exports, responsive UI, build health, and deployment without changing user financial records.
 - [x] Produce a Bengali A–Z technical test report covering test evidence, verified behavior, limitations, and actionable recommendations.
+- [x] Define a disposable, isolated test-database lifecycle that cannot use or mutate the production finance database.
+- [x] Add E2E scenarios for administrator/user role boundaries and household owner/editor/viewer permissions in the isolated environment.
+- [x] Add E2E scenarios for normalized-email household invitation acceptance, rejection, and duplicate/unauthorized handling in the isolated environment.
+- [x] Add E2E scenarios for user-controlled backup preview and confirmation-gated restoration while preserving pre-existing test records until confirmation.
+- [x] Run isolated E2E, full regression, type, build, and whitespace validation; document results and synchronize the completed work to GitHub.

@@ -1,0 +1,210 @@
+import { createConnection } from "mysql2/promise";
+
+const statements = [
+  `CREATE TABLE users (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    openId varchar(64) NOT NULL UNIQUE,
+    name text,
+    email varchar(320),
+    loginMethod varchar(64),
+    role enum('user','admin') NOT NULL DEFAULT 'user',
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    lastSignedIn timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_projects (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    name varchar(120) NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_projects_user_name_unique (userId, name)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_households (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    ownerUserId int NOT NULL,
+    name varchar(120) NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_households_owner_name_unique (ownerUserId, name)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_household_members (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    householdId int NOT NULL,
+    userId int,
+    inviteeEmail varchar(320) NOT NULL,
+    displayName varchar(120),
+    role enum('editor','viewer') NOT NULL DEFAULT 'viewer',
+    status enum('pending','active','declined','revoked') NOT NULL DEFAULT 'pending',
+    invitedByUserId int NOT NULL,
+    acceptedAt timestamp NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_household_member_email_unique (householdId, inviteeEmail),
+    UNIQUE KEY finance_household_member_user_unique (householdId, userId)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_shared_budgets (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    householdId int NOT NULL,
+    label varchar(120) NOT NULL,
+    monthKey varchar(7) NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    createdByUserId int NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_shared_budgets_household_label_month_unique (householdId, label, monthKey)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_shared_expenses (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    householdId int NOT NULL,
+    budgetId int NOT NULL,
+    contributorUserId int NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    note varchar(500),
+    occurredAt timestamp NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_accounts (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    name varchar(120) NOT NULL,
+    type enum('cash','bank','mobile') NOT NULL,
+    openingBalance decimal(15,2) NOT NULL DEFAULT 0.00,
+    currentBalance decimal(15,2) NOT NULL DEFAULT 0.00,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_categories (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    name varchar(120) NOT NULL,
+    type enum('income','expense') NOT NULL,
+    isDefault tinyint(1) NOT NULL DEFAULT 0,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_categories_user_project_name_type_unique (userId, projectId, name, type)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_recurring_transactions (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    accountId int NULL,
+    categoryId int NOT NULL,
+    type enum('income','expense') NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    paymentMethod varchar(100) NOT NULL,
+    note varchar(500),
+    frequency enum('weekly','monthly') NOT NULL,
+    scheduleDay int NOT NULL,
+    nextRunAt timestamp NOT NULL,
+    lastGeneratedAt timestamp NULL,
+    isActive tinyint(1) NOT NULL DEFAULT 1,
+    scheduleCronTaskUid varchar(65),
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_recurring_schedule_cron_task_unique (scheduleCronTaskUid)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_transactions (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    accountId int NULL,
+    categoryId int NOT NULL,
+    type enum('income','expense') NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    voucherNo varchar(80),
+    reason varchar(180),
+    paymentMethod varchar(100) NOT NULL,
+    note varchar(500),
+    recurringTemplateId int NULL,
+    recurringRunKey varchar(16),
+    occurredAt timestamp NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_transactions_recurring_run_unique (recurringTemplateId, recurringRunKey)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_voucher_settings (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    prefix varchar(24) NOT NULL DEFAULT 'V',
+    startNumber int NOT NULL DEFAULT 1,
+    endNumber int NOT NULL DEFAULT 999999,
+    nextNumber int NOT NULL DEFAULT 1,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_voucher_settings_user_project_unique (userId, projectId)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_budgets (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    categoryId int NOT NULL,
+    monthKey varchar(7) NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_budgets_user_project_category_month_unique (userId, projectId, categoryId, monthKey)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_bills (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    title varchar(180) NOT NULL,
+    amount decimal(15,2) NOT NULL,
+    dueAt timestamp NOT NULL,
+    isPaid tinyint(1) NOT NULL DEFAULT 0,
+    reminderDaysBefore int NOT NULL DEFAULT 3,
+    lastReminderAt timestamp NULL,
+    scheduleCronTaskUid varchar(65),
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_bills_schedule_cron_task_unique (scheduleCronTaskUid)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_dues (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    type enum('debt','receivable') NOT NULL,
+    counterparty varchar(180) NOT NULL,
+    originalAmount decimal(15,2) NOT NULL,
+    outstandingAmount decimal(15,2) NOT NULL,
+    voucherNo varchar(80),
+    reason varchar(180),
+    note varchar(500),
+    openedAt timestamp NOT NULL,
+    dueAt timestamp NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_due_settlements (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    dueId int NOT NULL,
+    accountId int NULL,
+    amount decimal(15,2) NOT NULL,
+    voucherNo varchar(80),
+    note varchar(500),
+    occurredAt timestamp NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE audit_logs (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    actorUserId int NOT NULL,
+    projectId int NULL,
+    action enum('create','update','delete') NOT NULL,
+    entityType varchar(80) NOT NULL,
+    entityId int NULL,
+    summary varchar(300) NOT NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB`,
+];
+
+export async function bootstrapLocalE2eSchema(databaseUrl) {
+  const connection = await createConnection(databaseUrl);
+  try {
+    for (const statement of statements) await connection.query(statement);
+  } finally {
+    connection.destroy();
+  }
+}

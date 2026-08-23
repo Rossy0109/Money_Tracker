@@ -45,6 +45,13 @@ export async function getDb() {
   return _db;
 }
 
+/** Releases the optional mysql pool for disposable test databases and graceful shutdown paths. */
+export async function closeDatabaseConnection() {
+  const client = (_db as any)?.$client as { end?: () => Promise<void> } | undefined;
+  _db = null;
+  await client?.end?.();
+}
+
 function databaseRequired<T>(db: T | null): T {
   if (!db) throw new Error("Database unavailable");
   return db;
