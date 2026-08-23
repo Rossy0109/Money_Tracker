@@ -13,6 +13,8 @@ jobs:
   quality:
     name: Regression, type check, and build
     runs-on: ubuntu-latest
+    env:
+      ADMIN_ACCESS_PASSWORD: ci-regression-admin-password
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
