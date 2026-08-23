@@ -180,3 +180,5 @@
 - [x] Test export scope, download behavior, Bengali output, responsive controls, then checkpoint and synchronize GitHub.
 - [x] Add the authorized household name and a user-customizable Bengali title to the monthly comparison PDF export.
 - [x] Test PDF title content, fallback behavior, responsive controls, and export privacy before checkpointing and synchronizing GitHub.
+- [x] Perform controlled end-to-end verification of finance logic, access boundaries, household sharing, exports, responsive UI, build health, and deployment without changing user financial records.
+- [x] Produce a Bengali A–Z technical test report covering test evidence, verified behavior, limitations, and actionable recommendations.
