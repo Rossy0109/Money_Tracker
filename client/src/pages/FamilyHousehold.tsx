@@ -18,6 +18,7 @@ const taka = (value: number) => `৳ ${new Intl.NumberFormat("bn-BD", { maximumF
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 const comparisonColors = ["#2d8554", "#2d6ea1", "#b4672d", "#8257a6", "#bd4d69", "#337c82"];
 const monthText = (monthKey: string) => new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(new Date(`${monthKey}-01T12:00:00.000Z`));
+const defaultPdfTitle = "পারিবারিক সদস্যদের মাসিক খরচের তুলনা";
 
 function roleLabel(role: "owner" | "editor" | "viewer") {
   return role === "owner" ? "পরিচালক" : role === "editor" ? "সম্পাদক" : "দর্শক";
@@ -33,6 +34,7 @@ export default function FamilyHousehold() {
   const [budget, setBudget] = useState({ label: "", amount: "" });
   const [expense, setExpense] = useState({ budgetId: "", amount: "", note: "" });
   const [chartExporting, setChartExporting] = useState<"image" | "pdf" | null>(null);
+  const [pdfTitle, setPdfTitle] = useState(defaultPdfTitle);
   const monthlyChartExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,8 +70,11 @@ export default function FamilyHousehold() {
     setChartExporting(kind);
     try {
       if (kind === "image") await downloadHouseholdChartImage(monthlyChartExportRef.current);
-      else await downloadHouseholdChartPdf(monthlyChartExportRef.current);
-      toast.success(kind === "image" ? "চার্টের ছবি ডাউনলোড প্রস্তুত" : "চার্টের PDF ডাউনলোড প্রস্তুত");
+      else await downloadHouseholdChartPdf(monthlyChartExportRef.current, {
+        familyName: overview?.household.name ?? "",
+        title: pdfTitle.trim() || defaultPdfTitle,
+      });
+      toast.success(kind === "image" ? "চার্টের ছবি ডাউনলোড প্রস্তুত" : "পরিবারের নামসহ PDF ডাউনলোড প্রস্তুত");
     } catch (error) {
       console.error("Household chart export failed", error);
       toast.error("চার্ট ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।");
@@ -227,14 +232,20 @@ export default function FamilyHousehold() {
                   <CardTitle className="flex items-center gap-2 text-[#173f36]"><ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" /> সদস্যদের মাসিক খরচের তুলনা</CardTitle>
                   <CardDescription>গত ৬ মাসে শেয়ার করা বাজেটে প্রত্যেক সদস্য কত খরচ যোগ করেছেন তার মাসভিত্তিক তুলনা।</CardDescription>
                 </div>
-                {monthlyContributors.length > 0 && <div className="flex flex-wrap items-center gap-2" data-chart-export-hide>
-                  <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">৬ মাসে {taka(monthlyComparisonTotal)}</Badge>
-                  <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("image")}>
-                    {chartExporting === "image" ? <Clock3 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />} ছবি ডাউনলোড
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("pdf")}>
-                    {chartExporting === "pdf" ? <Clock3 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} PDF ডাউনলোড
-                  </Button>
+                {monthlyContributors.length > 0 && <div className="w-full space-y-2 sm:w-auto" data-chart-export-hide>
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <Badge variant="secondary" className="w-fit bg-[#e8f5eb] text-[#215b37]">৬ মাসে {taka(monthlyComparisonTotal)}</Badge>
+                    <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("image")}>
+                      {chartExporting === "image" ? <Clock3 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />} ছবি ডাউনলোড
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]" disabled={chartExporting !== null} onClick={() => exportMonthlyComparison("pdf")}>
+                      {chartExporting === "pdf" ? <Clock3 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} PDF ডাউনলোড
+                    </Button>
+                  </div>
+                  <div className="space-y-1 sm:ml-auto sm:max-w-sm">
+                    <Label htmlFor="household-pdf-title" className="text-xs font-medium text-[#527064]">PDF-এর কাস্টম শিরোনাম</Label>
+                    <Input id="household-pdf-title" value={pdfTitle} onChange={event => setPdfTitle(event.target.value)} className="h-9 bg-white text-sm" maxLength={120} placeholder={defaultPdfTitle} aria-label="PDF-এর কাস্টম শিরোনাম" />
+                  </div>
                 </div>}
               </CardHeader>
               <CardContent>

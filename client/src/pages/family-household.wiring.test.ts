@@ -59,4 +59,11 @@ describe("family household workspace wiring", () => {
     expect(householdSource).toContain("ছবি ডাউনলোড");
     expect(householdSource).toContain("PDF ডাউনলোড");
   });
+
+  it("passes the authorized household name and a Bengali custom title into the PDF export", () => {
+    expect(householdSource).toContain('const defaultPdfTitle = "পারিবারিক সদস্যদের মাসিক খরচের তুলনা"');
+    expect(householdSource).toContain('familyName: overview?.household.name ?? ""');
+    expect(householdSource).toContain("PDF-এর কাস্টম শিরোনাম");
+    expect(householdSource).toContain('id="household-pdf-title"');
+  });
 });

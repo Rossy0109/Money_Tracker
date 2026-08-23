@@ -178,3 +178,5 @@
 - [x] Test monthly aggregation, member visibility boundaries, Bengali chart rendering, responsive layout, then checkpoint and synchronize GitHub.
 - [x] Add role-safe image and PDF downloads for the Bengali household member monthly comparison chart.
 - [x] Test export scope, download behavior, Bengali output, responsive controls, then checkpoint and synchronize GitHub.
+- [x] Add the authorized household name and a user-customizable Bengali title to the monthly comparison PDF export.
+- [x] Test PDF title content, fallback behavior, responsive controls, and export privacy before checkpointing and synchronizing GitHub.
