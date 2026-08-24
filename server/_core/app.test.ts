@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
 import { createApiApp } from "./app";
 import { normalizeVercelRequestPath } from "./vercelPath";
+import vercelHandler from "../vercel-handler";
 
 const servers: Server[] = [];
 
@@ -18,6 +19,10 @@ afterEach(async () => {
 });
 
 describe("Vercel-compatible Express application", () => {
+  it("exports a port-free handler for the generated Vercel function", () => {
+    expect(typeof vercelHandler).toBe("function");
+  });
+
   it("preserves the public storage-proxy path after the Vercel function rewrite", () => {
     expect(normalizeVercelRequestPath("/api/manus-storage/exports/report.pdf?download=1")).toBe(
       "/manus-storage/exports/report.pdf?download=1",

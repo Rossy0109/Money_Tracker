@@ -13,7 +13,7 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 | API ও হিসাবের লজিক | একই `appRouter` এবং `createContext` ব্যবহার | `userId + projectId` ও household permission contract অপরিবর্তিত |
 | OAuth | বিদ্যমান nonce, host-only state cookie এবং secure session cookie অপরিবর্তিত | callback CSRF/session-fixation guard অক্ষুণ্ণ |
 | Client routing | Vite bundle build-এর সময় generated `public/` directory-তে stage করা হয়; non-API SPA path `index.html`-এ rewrite | Vercel CDN static file serve করে; deep link কাজ করবে; API-কে SPA fallback গ্রাস করবে না |
-| Vercel Function routing | `api/[...path].ts` সব `/api/*` Express route নেয়; `/manus-storage/*` একই function-এ rewrite হয়ে মূল path পুনরুদ্ধার করে | tRPC, OAuth, health এবং storage-proxy route একই shared Express app-এ থাকে; existing public storage URL বদলায় না |
+| Vercel Function routing | `build:vercel` shared Express handler-কে bundled `api/[...path].mjs`-এ তৈরি করে; এটি সব `/api/*` route নেয় এবং `/manus-storage/*` একই function-এ rewrite হয়ে মূল path পুনরুদ্ধার করে | tRPC, OAuth, health এবং storage-proxy route একই shared Express app-এ থাকে; local `_core` import অনুপস্থিত থাকার runtime ঝুঁকি এড়ানো হয় এবং existing public storage URL বদলায় না |
 | Private response caching | `/api/*` এবং `/manus-storage/*`-এ `no-store` header | ব্যক্তিগত finance response CDN cache-এ যাবে না |
 | Live probe | `/api/healthz` কেবল `{ ok: true, service: "money-tracker" }` দেয় | কোনো database, user, project বা financial data প্রকাশ করে না |
 | Rollback | বর্তমান Manus URL এবং Pages redirect অপরিবর্তিত | Vercel সমস্যা হলে user traffic বর্তমান যাচাইকৃত app-এ থাকবে |
