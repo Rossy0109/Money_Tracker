@@ -4,6 +4,12 @@
   "buildCommand": "pnpm run build:vercel",
   "outputDirectory": "public",
   "installCommand": "pnpm install --frozen-lockfile",
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/[...path]?path=$1"
+    }
+  ],
   "headers": [
     {
       "source": "/api/:path*",
