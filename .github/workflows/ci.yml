@@ -26,6 +26,7 @@ jobs:
       - run: pnpm test
       - run: pnpm check
       - run: pnpm build
+      - run: pnpm check:vercel-entry
 
   isolated-e2e:
     name: Disposable MariaDB API and browser E2E

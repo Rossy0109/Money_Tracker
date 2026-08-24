@@ -214,6 +214,7 @@
 - [ ] Create and link a dedicated Vercel project for Money_Tracker without replacing the existing Foot_Print_of_Money Git connection.
 - [ ] Correct the Vercel function routing so `/api/*` and `/manus-storage/*` reach the existing Express application instead of returning a static 404.
 - [ ] Ensure the Vercel Node function packages the shared Express application and its local dependencies with resolvable production ESM imports.
+- [ ] Ensure a GitHub-sourced remote Vercel build discovers and deploys the generated API function rather than serving a static 404.
 - [ ] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
 - [ ] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
 - [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
