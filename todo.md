@@ -219,3 +219,9 @@
 - [ ] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
 - [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
 - [ ] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying Manus-managed secrets.
+- [x] Audit all Manus-managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
+- [ ] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
+- [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
+- [ ] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
+- [ ] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
+- [ ] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
