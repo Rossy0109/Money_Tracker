@@ -115,3 +115,4 @@ client/public/__manus__/version.json
 .project-config.json
 .vercel
 .env*
+api/\[...path\].mjs
