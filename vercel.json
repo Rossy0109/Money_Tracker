@@ -8,6 +8,10 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/[...path]?path=$1"
+    },
+    {
+      "src": "/manus-storage/(.*)",
+      "dest": "/api/[...path]?path=manus-storage/$1"
     }
   ],
   "headers": [
