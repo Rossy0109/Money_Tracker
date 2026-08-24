@@ -13,13 +13,14 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 | API ও হিসাবের লজিক | একই `appRouter` এবং `createContext` ব্যবহার | `userId + projectId` ও household permission contract অপরিবর্তিত |
 | OAuth | বিদ্যমান nonce, host-only state cookie এবং secure session cookie অপরিবর্তিত | callback CSRF/session-fixation guard অক্ষুণ্ণ |
 | Client routing | Vite bundle build-এর সময় generated `public/` directory-তে stage করা হয়; non-API SPA path `index.html`-এ rewrite | Vercel CDN static file serve করে; deep link কাজ করবে; API-কে SPA fallback গ্রাস করবে না |
+| Vercel Function routing | `api/[...path].ts` সব `/api/*` Express route নেয়; `/manus-storage/*` একই function-এ rewrite হয়ে মূল path পুনরুদ্ধার করে | tRPC, OAuth, health এবং storage-proxy route একই shared Express app-এ থাকে; existing public storage URL বদলায় না |
 | Private response caching | `/api/*` এবং `/manus-storage/*`-এ `no-store` header | ব্যক্তিগত finance response CDN cache-এ যাবে না |
 | Live probe | `/api/healthz` কেবল `{ ok: true, service: "money-tracker" }` দেয় | কোনো database, user, project বা financial data প্রকাশ করে না |
 | Rollback | বর্তমান Manus URL এবং Pages redirect অপরিবর্তিত | Vercel সমস্যা হলে user traffic বর্তমান যাচাইকৃত app-এ থাকবে |
 
 ## Vercel account ও GitHub সংযোগ
 
-এই sandbox-এ Vercel CLI `59.5.0` পাওয়া গেছে, কিন্তু কোনো Vercel account-এ লগইন করা নেই। Vercel account-এ sign-in করার পর Vercel project-টি `Rossy0109/Money_Tracker` GitHub repository-এর সঙ্গে link করতে হবে। `main` production branch থাকবে; `feat/vercel-serverless-deployment` PR থেকে preview build হবে। GitHub-এর existing strict CI checks সফল না হলে PR merge করা যাবে না।
+এই sandbox-এ Vercel CLI `59.5.0` পাওয়া গেছে এবং user-authorized CLI session চালু আছে। পূর্বে থাকা অন্য একটি Vercel Git connection অক্ষুণ্ণ রেখে `amar-hisab-money-tracker` নামে পৃথক project তৈরি করা হয়েছে। Vercel account-এ GitHub login হিসেবে `Rossy0109` যুক্ত আছে, কিন্তু project-এর Git selector-এ `Rossy0109/Money_Tracker` দেখা যায়নি এবং CLI connection ব্যর্থ হয়েছে। Vercel UI-এর **Adjust GitHub App Permissions** control দিয়ে Vercel GitHub App-কে ওই repository-তে অনুমতি দিতে হবে। এই permission ছাড়া CLI preview deployment সম্ভব, কিন্তু GitHub push-ভিত্তিক স্বয়ংক্রিয় preview চালু হবে না। `main` production branch থাকবে; GitHub-এর existing strict CI checks সফল না হলে PR merge করা যাবে না।
 
 বর্তমান repository public। Finance code প্রকাশ্য হওয়ার ঝুঁকি ব্যবহারকারীকে গ্রহণযোগ্য কি না তা আলাদা সিদ্ধান্ত; repository visibility এই deployment পরিবর্তনের অংশ নয় এবং explicit approval ছাড়া বদলানো হবে না।
 
