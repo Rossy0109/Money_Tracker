@@ -5,7 +5,7 @@ await mkdir("api", { recursive: true });
 
 await build({
   entryPoints: ["server/vercel-handler.ts"],
-  outfile: "api/[...path].mjs",
+  outfile: "dist/vercel-handler.js",
   bundle: true,
   format: "esm",
   platform: "node",
