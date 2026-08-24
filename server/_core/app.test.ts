@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
 import { createApiApp } from "./app";
+import { normalizeVercelRequestPath } from "./vercelPath";
 
 const servers: Server[] = [];
 
@@ -17,6 +18,13 @@ afterEach(async () => {
 });
 
 describe("Vercel-compatible Express application", () => {
+  it("preserves the public storage-proxy path after the Vercel function rewrite", () => {
+    expect(normalizeVercelRequestPath("/api/manus-storage/exports/report.pdf?download=1")).toBe(
+      "/manus-storage/exports/report.pdf?download=1",
+    );
+    expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
+  });
+
   it("exposes a non-mutating health endpoint without starting a process listener", async () => {
     const app = createApiApp();
     const server = createServer(app);
