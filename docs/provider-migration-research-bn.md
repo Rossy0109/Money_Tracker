@@ -33,12 +33,12 @@ Sources: [Google OAuth 2.0 for Web Server Applications](https://developers.googl
 
 ## Object-storage replacement boundary
 
-Vercel Blob is a viable storage candidate because it can use a private store, server-side authenticated access, and short-lived Vercel OIDC credentials when connected to the Vercel project. Finance backups, exports, and user-owned documents must use **private** storage. Public Blob URLs are not acceptable for backups or finance exports. Server-function uploads are limited to the provider's documented request-size limit; any larger user upload would need a separately authorized client-upload design.
+Vercel Blob is a viable storage candidate because it can use a private store and server-side authenticated access when connected to the Vercel project. Finance backups, exports, and user-owned documents must use **private** storage. Public Blob URLs are not acceptable for backups or finance exports. Server-function uploads are limited to the provider's documented request-size limit; any larger user upload would need a separately authorized client-upload design.
 
 | Required design control | Migration decision |
 |---|---|
 | Read visibility | Create a **private** Blob store; files must be served after the existing project/household authorization checks, never by a public URL. |
-| Write authority | Use Vercel OIDC credentials in deployed functions where possible; avoid long-lived read-write tokens in source control. |
+| Write authority | Use only the project-injected `BLOB_READ_WRITE_TOKEN` in the server runtime; never place it in source control, browser variables, or chat. |
 | Object pathing | Use immutable, user/project-scoped keys and retain metadata in the relational database for authorization and auditability. |
 | Migration safety | Do not move existing Manus objects automatically. Verify blank staging uploads/downloads first; production data export/import needs separate consent and inventory. |
 
@@ -106,3 +106,28 @@ The proposed provider-neutral application should replace the current Manus-only 
 [6]: https://vercel.com/docs/cron-jobs "Vercel Cron Jobs"
 [7]: https://developers.cloudflare.com/r2/api/s3/api/ "Cloudflare R2 S3 API compatibility"
 [8]: https://vercel.com/docs/vercel-blob/usage-and-pricing "Vercel Blob pricing"
+
+## Revised private-storage staging decision
+
+Cloudflare R2 is unavailable to the account holder, and the isolated `amar-hisab-money-tracker` Vercel project’s Stores page did not offer a Blob store. Neither provider will be configured or receive finance data. The practical replacement is a **private Google Cloud Storage bucket** in the already-created Google Cloud staging project, with Uniform bucket-level access and a narrowly scoped runtime identity. Google documents a monthly always-free Cloud Storage allowance of 5 GiB standard storage, 55,000 operations, and 100 GiB data transfer; this is a current quota rather than a ten-year price guarantee. [9]
+
+| Control | Revised staging decision |
+|---|---|
+| Bucket visibility | Keep the bucket private; do not enable public access, anonymous object listing, public URL downloads, or website hosting. |
+| Runtime identity | Prefer Vercel-to-GCP Workload Identity Federation so the deployed Vercel project obtains short-lived credentials. Do not store a long-lived Google service-account key in GitHub, client variables, or chat. |
+| Minimum permission | Grant object create/read/delete only for the staging bucket, not project-wide Storage Admin. Application reads must continue through server-side authorization and short-lived signed URLs. |
+| Object protection | Use project/user-scoped generated names, metadata in the relational database, versioning/soft-delete or retention only after reviewing the cost and recovery effect, and lifecycle rules for disposable staging artifacts. |
+| Scope | The bucket starts empty and receives only generated staging backups/exports after provider-neutral code is implemented. No Manus object, key, or real finance record is copied. |
+
+The current official Vercel-to-GCP OIDC guide describes configuring a GCP Workload Identity Pool, a Vercel OIDC provider, a Vercel project/environment-scoped principal, and the required non-secret GCP environment identifiers. [10] This is more secure than serializing a service-account private key into a Vercel variable, but it must be configured by the account holder in the Google Cloud project before the staging storage adapter is enabled.
+
+[9]: https://cloud.google.com/storage "Google Cloud Storage"
+[10]: https://vercel.com/docs/oidc/gcp "Connect to Google Cloud Platform (GCP)"
+
+## Vercel Blob re-check
+
+Vercel’s current documentation states that Blob is available on all plans and that stores can be created and managed from either the account dashboard or the Vercel CLI. Private Blob storage is suitable for sensitive exports because every read requires authenticated access and should be streamed through an application function after the existing project and household authorization checks. [11] The verified staging store is connected through the Vercel-provided server environment contract `BLOB_READ_WRITE_TOKEN`. The token must be treated as a secret: it is passed only to server-side Blob SDK calls and is never committed, placed in a `VITE_` variable, or sent in chat.
+
+The initial Stores-page absence was not evidence that the product was unavailable. The Vercel CLI confirmed the capability and created the private empty staging store `amar-hisab-staging-backups`, connected only to the `amar-hisab-money-tracker` development and preview environments. No finance data was uploaded. The adapter must retain server-side authorization checks and must not expose direct Blob URLs. [11]
+
+[11]: https://vercel.com/docs/vercel-blob "Vercel Blob"

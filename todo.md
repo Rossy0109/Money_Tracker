@@ -220,8 +220,21 @@
 - [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
 - [ ] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying Manus-managed secrets.
 - [x] Audit all Manus-managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
-- [ ] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
+- [x] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
 - [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
 - [ ] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
 - [ ] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
 - [ ] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
+- [ ] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control.
+- [ ] Configure approved staging credentials only through provider dashboards and Vercel environment settings, then validate secret presence without disclosing values.
+- [x] Replace the unavailable Cloudflare R2 staging path with project-scoped Vercel Blob private storage and document its access, retention, and rollback constraints.
+- [ ] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
+- [ ] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
+- [x] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
+- [ ] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control. Cloudflare R2 was unavailable and has been replaced by the separately tracked Vercel Blob staging store.
+- [x] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
+- [ ] Implement a private Vercel Blob storage adapter that preserves existing backup/export authorization boundaries and uses the Vercel-injected Blob credential rather than a committed credential.
+- [x] Align the private Blob adapter with the Vercel-injected `BLOB_READ_WRITE_TOKEN` staging contract without printing, committing, or broadening access to that token.
+- [x] Create the empty private Vercel Blob staging store `amar-hisab-staging-backups` in `sin1`, limited to Development and Preview, without uploading finance data.
+- [ ] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
+- [ ] Add tenant and household denial tests for protected private-Blob downloads, then validate an empty no-data Vercel preview.

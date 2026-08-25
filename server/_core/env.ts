@@ -8,4 +8,6 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  blobStoreId: process.env.BLOB_STORE_ID ?? "",
+  blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN ?? "",
 };
