@@ -13,7 +13,7 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 | API ও হিসাবের লজিক | একই `appRouter` এবং `createContext` ব্যবহার | `userId + projectId` ও household permission contract অপরিবর্তিত |
 | OAuth | বিদ্যমান nonce, host-only state cookie এবং secure session cookie অপরিবর্তিত | callback CSRF/session-fixation guard অক্ষুণ্ণ |
 | Client routing | Vite bundle build-এর সময় generated `public/` directory-তে stage করা হয়; non-API SPA path `index.html`-এ rewrite | Vercel CDN static file serve করে; deep link কাজ করবে; API-কে SPA fallback গ্রাস করবে না |
-| Vercel Function routing | source-controlled `api/[...path].js` Vercel-এর function discovery নিশ্চিত করে; `build:vercel` bundled shared Express handler-কে `dist/vercel-handler.js`-এ তৈরি করে। explicit `/api/(.*)` এবং `/manus-storage/(.*)` route nested tRPC ও public storage path-সহ সব অনুরোধ একই function-এ পাঠায়; storage path adapter সেটি মূল Express path-এ পুনরুদ্ধার করে | tRPC, OAuth, health এবং storage-proxy route একই shared Express app-এ থাকে; local `_core` import অনুপস্থিত থাকার runtime ঝুঁকি এড়ানো হয় এবং existing public storage URL বদলায় না |
+| Vercel Function routing | source-controlled `api/[...path].js` Vercel-এর function discovery নিশ্চিত করে; `build:vercel` bundled shared Express handler-কে `dist/vercel-handler.js`-এ তৈরি করে। explicit `/api/(.*)` এবং `/manus-storage/(.*)` route nested tRPC ও legacy storage path একই function-এ পাঠায় | private Blob branch-এ raw `/manus-storage/<key>` কোনো download grant নয়; metadata-backed owner/project/household authorization ছাড়া object stream হয় না |
 
 এই layout Vercel-এর source-based function discovery এবং Build Output API-র নথির সঙ্গে সামঞ্জস্যপূর্ণ। রেফারেন্স: <https://vercel.com/docs/functions/functions-api-reference>, <https://vercel.com/docs/project-configuration/vercel-json>, এবং <https://vercel.com/docs/build-output-api/v3>।
 | Private response caching | `/api/*` এবং `/manus-storage/*`-এ `no-store` header | ব্যক্তিগত finance response CDN cache-এ যাবে না |
@@ -42,9 +42,21 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 | `BUILT_IN_FORGE_API_URL`, `BUILT_IN_FORGE_API_KEY` | storage/other platform proxy | Vercel ব্যবহারের জন্য provider-authorized credential প্রয়োজন |
 | `VITE_FRONTEND_FORGE_API_URL`, `VITE_FRONTEND_FORGE_API_KEY` | existing frontend platform integration | প্রকাশ্য client exposure review করে কেবল approved value |
 
+### Provider-neutral Preview variables
+
+নিচের নামগুলো ভবিষ্যৎ provider-neutral adapter-এর জন্য; পুরোনো Manus variables এগুলোর বিকল্প নয়। কোনো value এই repository-তে, browser variable-এ, বা chat-এ লেখা যাবে না।
+
+| Variable | Preview policy |
+|---|---|
+| `DATABASE_URL` | কেবল খালি TiDB TLS staging database |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | canonical Google callback implement হওয়ার পরে server-side Preview-only configuration |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Google Console allowlist-এর সাথে exact match |
+| `SESSION_SECRET`, `ADMIN_BOOTSTRAP_EMAIL` | নতুন staged session/bootstrap guard; Manus secret পুনঃব্যবহার নয় |
+| `BLOB_READ_WRITE_TOKEN` | private Blob-এর Vercel-injected Development/Preview server credential; কোনো source, browser বা chat exposure নয় |
+
 ## OAuth ও database cutover gate
 
-পূর্ণ deployment-এর আগে provider-কে production Vercel origin-এর callback allow করতে হবে: `https://<vercel-production-domain>/api/oauth/callback`। Custom domain ব্যবহার হলে তার callback URI-ও আলাদা করে allow করতে হবে: `https://app.<your-domain>/api/oauth/callback`। Preview URL প্রতিটি branch/deployment-এ বদলাতে পারে; wildcard preview callback provider সমর্থন না করলে preview-এ OAuth test না করে production-like staging domain ব্যবহার করতে হবে।
+বর্তমান Manus callback-এর ওপর নতুন Google client নির্ভর করবে না। আগে একটি canonical Google callback implement হবে, তারপর সেই exact URI Google Console-এ allowlist করা হবে। Preview URL প্রতিটি branch/deployment-এ বদলাতে পারে; wildcard preview callback provider সমর্থন না করলে temporary Preview URL-এ OAuth test করা যাবে না।
 
 Vercel Function-এর outbound network policy এবং database provider-এর TLS/IP policy সঙ্গতিপূর্ণ হতে হবে। কোনো managed Manus database credential বা Forge credential sandbox environment থেকে export/copy করা হবে না। User বা provider-approved credential ছাড়া Vercel-এ environment variable যোগ করা যাবে না।
 
@@ -53,6 +65,10 @@ Vercel Function-এর outbound network policy এবং database provider-এ�
 প্রথমে Vercel preview-এ `GET /api/healthz`, unauthenticated `GET /api/trpc/auth.me` behavior, static PWA files এবং SPA deep-link পরীক্ষা করা হবে। Authenticated OAuth, actual financial data, restore, export বা scheduled automation কেবল staging/blank profile এবং approved callback/database দিয়ে পরীক্ষা হবে। Preview সফল, secrets/callback approved এবং production smoke check পাস হওয়ার পরে `main` থেকে production deployment করা যাবে।
 
 সমস্যা হলে Vercel custom domain/Pages redirect পরিবর্তন না করে বর্তমান Manus endpoint চালু থাকবে। ভবিষ্যতে Vercel production cutover-এর পর সমস্যা হলে পূর্বের Vercel deployment rollback এবং Pages redirect পুনরায় বর্তমান Manus endpoint-এ রাখা হবে।
+
+### Pull request 98 preview evidence
+
+2026-08-25-এ protected Vercel preview `amar-hisab-money-tracker-16w0pi9bk-rossy0109s-projects.vercel.app` browser-এর authenticated Vercel session দিয়ে non-mutatingভাবে পরীক্ষা করা হয়েছে। `GET /api/healthz` প্রত্যাশিত `{"ok":true,"service":"money-tracker"}` দিয়েছে এবং unauthenticated `auth.me` batch result `null` দিয়েছে। Opaque raw `/manus-storage/opaque-nonexistent-key` request প্রত্যাশিত protected-download message-এ denied হয়েছে; ফলে raw key-টি access grant হয়নি। State ও code-ছাড়া `/api/oauth/callback` প্রত্যাশিত guard error দিয়েছে। CLI-based anonymous request Vercel SSO protection-এ redirect হয়েছিল; এটি app failure নয় এবং preview protection কার্যকর থাকার প্রমাণ। কোনো sign-in, database write, backup/export, Blob upload, বা secret inspection করা হয়নি।
 
 ## প্রাসঙ্গিক উৎস
 

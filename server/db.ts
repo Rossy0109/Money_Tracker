@@ -11,6 +11,7 @@ import {
   financeHouseholdMembers,
   financeHouseholds,
   financeProjects,
+  financePrivateStorageObjects,
   financeRecurringTransactions,
   financeSharedBudgets,
   financeSharedExpenses,
@@ -28,6 +29,7 @@ import {
 } from "./finance.constants";
 import { calculateSharedBudgetProgress } from "./householdAccounting";
 import { summarizeHouseholdContributorMonthlySpend, summarizeHouseholdContributorSpend } from "./householdContributorAnalysis";
+import { canDownloadPrivateObject, type PrivateObjectScope } from "./privateStorageAccess";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
@@ -176,6 +178,104 @@ export async function assertOwnedProject(userId: number, projectId: number) {
   const [project] = await db.select().from(financeProjects).where(and(eq(financeProjects.id, projectId), eq(financeProjects.userId, userId))).limit(1);
   if (!project) throw new Error("Project not found or access denied");
   return project;
+}
+
+type RegisterPrivateStorageObjectInput = {
+  projectId?: number;
+  householdId?: number;
+  storageKey: string;
+  kind: "backup" | "export";
+  scope: PrivateObjectScope;
+  contentType: string;
+  fileName: string;
+  sizeBytes: number;
+};
+
+/**
+ * Persists the authorization metadata required before a finance Blob object
+ * can be exposed. Callers must upload the object first and delete it if this
+ * registration fails, so an unregistered key is never downloadable.
+ */
+export async function registerPrivateStorageObject(
+  userId: number,
+  input: RegisterPrivateStorageObjectInput,
+) {
+  const storageKey = input.storageKey.replace(/^\/+/, "");
+  if (!storageKey || storageKey.includes("\0")) throw new Error("স্টোরেজ কী সঠিক নয়");
+  if (!input.contentType || !input.fileName.trim() || !Number.isSafeInteger(input.sizeBytes) || input.sizeBytes < 0) {
+    throw new Error("ব্যাকআপ ফাইলের মেটাডেটা সঠিক নয়");
+  }
+
+  if (input.scope === "owner") {
+    if (!input.projectId || input.householdId) throw new Error("প্রাইভেট প্রজেক্ট ফাইলের স্কোপ সঠিক নয়");
+    await assertOwnedProject(userId, input.projectId);
+  } else {
+    if (!input.householdId || input.projectId) throw new Error("পারিবারিক ফাইলের স্কোপ সঠিক নয়");
+    const access = await getHouseholdAccess(userId, input.householdId);
+    requireHouseholdRole(access.role, ["owner", "editor"]);
+  }
+
+  const db = databaseRequired(await getDb());
+  const result = await db.insert(financePrivateStorageObjects).values({
+    ownerUserId: userId,
+    projectId: input.projectId ?? null,
+    householdId: input.householdId ?? null,
+    storageKey,
+    kind: input.kind,
+    scope: input.scope,
+    contentType: input.contentType,
+    fileName: input.fileName.trim(),
+    sizeBytes: input.sizeBytes,
+  });
+  const id = Number(result[0].insertId);
+  const [object] = await db.select().from(financePrivateStorageObjects).where(eq(financePrivateStorageObjects.id, id)).limit(1);
+  if (!object) throw new Error("প্রাইভেট স্টোরেজ ফাইল নিবন্ধন করা যায়নি");
+  return object;
+}
+
+/** Returns null for unknown, tenant-denied, or inactive-household objects. */
+export async function getPrivateStorageObjectForDownload(userId: number, objectId: number) {
+  const db = databaseRequired(await getDb());
+  const [object] = await db.select().from(financePrivateStorageObjects).where(eq(financePrivateStorageObjects.id, objectId)).limit(1);
+  if (!object) return null;
+
+  let ownsReferencedProject = false;
+  let hasActiveHouseholdMembership = false;
+
+  if (object.projectId !== null) {
+    const [project] = await db
+      .select({ id: financeProjects.id })
+      .from(financeProjects)
+      .where(and(eq(financeProjects.id, object.projectId), eq(financeProjects.userId, userId)))
+      .limit(1);
+    ownsReferencedProject = Boolean(project);
+  }
+
+  if (object.householdId !== null) {
+    const [household] = await db
+      .select({ ownerUserId: financeHouseholds.ownerUserId })
+      .from(financeHouseholds)
+      .where(eq(financeHouseholds.id, object.householdId))
+      .limit(1);
+    if (household?.ownerUserId === userId) {
+      hasActiveHouseholdMembership = true;
+    } else {
+      const [membership] = await db
+        .select({ id: financeHouseholdMembers.id })
+        .from(financeHouseholdMembers)
+        .where(and(
+          eq(financeHouseholdMembers.householdId, object.householdId),
+          eq(financeHouseholdMembers.userId, userId),
+          eq(financeHouseholdMembers.status, "active"),
+        ))
+        .limit(1);
+      hasActiveHouseholdMembership = Boolean(membership);
+    }
+  }
+
+  return canDownloadPrivateObject(object, { userId, ownsReferencedProject, hasActiveHouseholdMembership })
+    ? object
+    : null;
 }
 
 export async function createProject(userId: number, name: string) {

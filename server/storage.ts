@@ -1,8 +1,18 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Storage helpers preserve legacy Forge support and add private Vercel Blob support.
+// Forge retains its legacy compatibility route. Private Blob requires registered metadata.
 
 import { ENV } from "./_core/env";
+import { selectStorageBackend } from "./_core/storageBackend";
+
+function getStorageBackend() {
+  const backend = selectStorageBackend(ENV);
+  if (backend === "missing") {
+    throw new Error(
+      "Storage config missing: configure Forge, or BLOB_READ_WRITE_TOKEN for private Vercel Blob",
+    );
+  }
+  return backend;
+}
 
 function getForgeConfig() {
   const forgeUrl = ENV.forgeApiUrl;
@@ -33,10 +43,16 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const backend = getStorageBackend();
   const key = appendHashSuffix(normalizeKey(relKey));
 
-  // 1. Get presigned PUT URL from Forge
+  if (backend === "vercel-blob") {
+    throw new Error(
+      "Private Blob uploads require finance metadata registration and an authorized upload workflow",
+    );
+  }
+
+  const { forgeUrl, forgeKey } = getForgeConfig();
   const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
   presignUrl.searchParams.set("path", key);
 
@@ -52,7 +68,6 @@ export async function storagePut(
   const { url: s3Url } = (await presignResp.json()) as { url: string };
   if (!s3Url) throw new Error("Forge returned empty presign URL");
 
-  // 2. PUT file directly to S3
   const blob =
     typeof data === "string"
       ? new Blob([data], { type: contentType })
@@ -77,9 +92,16 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const backend = getStorageBackend();
   const key = normalizeKey(relKey);
 
+  if (backend === "vercel-blob") {
+    throw new Error(
+      "Private Blob objects require metadata registration and an authenticated /api/storage/objects/:id download route",
+    );
+  }
+
+  const { forgeUrl, forgeKey } = getForgeConfig();
   const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
   getUrl.searchParams.set("path", key);
 

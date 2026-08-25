@@ -332,6 +332,33 @@ export const auditLogs = mysqlTable(
   ],
 );
 
+/**
+ * Metadata, not file bytes, for private finance exports and backups. A Blob
+ * pathname is never accepted as proof that a browser may read the object.
+ */
+export const financePrivateStorageObjects = mysqlTable(
+  "finance_private_storage_objects",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").references(() => financeProjects.id, { onDelete: "cascade" }),
+    householdId: int("householdId").references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    kind: mysqlEnum("kind", ["backup", "export"]).notNull(),
+    scope: mysqlEnum("scope", ["owner", "household"]).notNull(),
+    contentType: varchar("contentType", { length: 160 }).notNull(),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    sizeBytes: int("sizeBytes").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_private_storage_key_unique").on(table.storageKey),
+    index("finance_private_storage_owner_created_idx").on(table.ownerUserId, table.createdAt),
+    index("finance_private_storage_project_created_idx").on(table.projectId, table.createdAt),
+    index("finance_private_storage_household_created_idx").on(table.householdId, table.createdAt),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
@@ -347,3 +374,4 @@ export type FinanceBudget = typeof financeBudgets.$inferSelect;
 export type FinanceBill = typeof financeBills.$inferSelect;
 export type FinanceRecurringTransaction = typeof financeRecurringTransactions.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type FinancePrivateStorageObject = typeof financePrivateStorageObjects.$inferSelect;
