@@ -1,7 +1,6 @@
 // Storage helpers preserve legacy Forge support and add private Vercel Blob support.
-// Downloads continue to use the same-origin /manus-storage/{key} compatibility route.
+// Forge retains its legacy compatibility route. Private Blob requires registered metadata.
 
-import { get as getBlob, put as putBlob } from "@vercel/blob";
 import { ENV } from "./_core/env";
 import { selectStorageBackend } from "./_core/storageBackend";
 
@@ -48,19 +47,9 @@ export async function storagePut(
   const key = appendHashSuffix(normalizeKey(relKey));
 
   if (backend === "vercel-blob") {
-    const body =
-      typeof data === "string" || Buffer.isBuffer(data)
-        ? data
-        : Buffer.from(data);
-    const result = await putBlob(key, body, {
-      access: "private",
-      addRandomSuffix: false,
-      contentType,
-      cacheControlMaxAge: 60,
-      token: ENV.blobReadWriteToken,
-    });
-
-    return { key: result.pathname, url: `/manus-storage/${result.pathname}` };
+    throw new Error(
+      "Private Blob uploads require finance metadata registration and an authorized upload workflow",
+    );
   }
 
   const { forgeUrl, forgeKey } = getForgeConfig();
@@ -107,12 +96,9 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const key = normalizeKey(relKey);
 
   if (backend === "vercel-blob") {
-    const result = await getBlob(key, {
-      access: "private",
-      token: ENV.blobReadWriteToken,
-    });
-    if (!result) throw new Error("Storage object not found");
-    return `/manus-storage/${key}`;
+    throw new Error(
+      "Private Blob objects require metadata registration and an authenticated /api/storage/objects/:id download route",
+    );
   }
 
   const { forgeUrl, forgeKey } = getForgeConfig();

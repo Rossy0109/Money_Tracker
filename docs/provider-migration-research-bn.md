@@ -1,133 +1,76 @@
-# Vercel-Compatible Provider Migration Research
+# প্রোভাইডার-নিরপেক্ষ Vercel স্টেজিং মাইগ্রেশন নকশা
 
-## TiDB Cloud Starter as a staging database candidate
+## উদ্দেশ্য ও অপরিবর্তনীয় সীমা
 
-The current finance schema and Drizzle configuration use a MySQL-compatible dialect. TiDB Cloud Starter is therefore a candidate for an **empty staging environment**, because TiDB documents MySQL native TCP connections, TLS requirements for Starter/Essential public endpoints, and a Vercel integration that can inject project environment variables. This is a research finding only; no user finance data, connection string, or provider credential has been moved.
+এই নথি **খালি স্টেজিং** পরিবেশের নকশা। এটি কোনো উৎপাদন কাটওভার, প্রকৃত আর্থিক ডেটা স্থানান্তর, Manus credential পুনঃব্যবহার, অথবা দীর্ঘমেয়াদি বিনা-মূল্যের নিশ্চয়তা নয়। বর্তমান Manus live endpoint ও GitHub Pages redirect অপরিবর্তিত থাকবে, যতক্ষণ না নতুন প্রোভাইডার-নিরপেক্ষ authentication, database, storage এবং scheduler সীমা আলাদাভাবে পরীক্ষা করা হয়।
 
-| Decision area | Official finding | Migration implication |
-|---|---|---|
-| SQL compatibility | TiDB Cloud supports direct connections through MySQL-native TCP clients. | The current MySQL-oriented Drizzle logic can be evaluated without changing accounting queries first. |
-| Network security | Starter and Essential direct connections require TLS. | The Vercel database URL must enforce provider-approved TLS settings. |
-| Vercel linkage | The TiDB Cloud integration can add connection environment variables to a selected Vercel project and supports per-Git-branch database branching. | A blank staging cluster/branch can isolate preview verification from production finance data. |
-| Free quota | The published Starter pricing page states a monthly free quota for qualifying instances, with finite storage and request-unit limits. | This supports limited staging trials but is not a ten-year availability or no-cost guarantee. A usage/spending guard and backup plan remain required. |
+নির্বাচিত স্টেজিং সংমিশ্রণ হলো **TiDB Cloud Starter + Google OAuth Web Application + private Vercel Blob**। Cloudflare R2 উপলভ্য ছিল না। Google Cloud Storage-কে কেবল বিকল্প হিসেবে গবেষণা করা হয়েছিল; সেটি নির্বাচিত বা কনফিগার করা হয়নি।
 
-## Sources
-
-1. [Connect to Your TiDB Cloud Starter or Essential Instance](https://docs.pingcap.com/tidbcloud/connect-to-tidb-cluster-serverless/) — MySQL-native connections, TLS, and serverless connection methods.
-2. [Integrate TiDB Cloud with Vercel](https://docs.pingcap.com/tidbcloud/integrate-tidbcloud-with-vercel/) — Vercel integration, environment injection, and branch-isolated deployments.
-3. [TiDB Cloud Starter Pricing Details](https://www.pingcap.com/tidb-cloud-starter-pricing-details/) — published free quota, resource limits, and spending-limit behavior.
-
-## Google OAuth replacement boundary
-
-Google documents the web-server OAuth authorization-code flow for applications that can securely retain a confidential client secret and state. A new OAuth client must be a **Web application** and must explicitly register the Vercel callback URI. The Google client secret is visible only at creation time and must not be committed, copied to GitHub, or sent in chat.
-
-| Required design control | Migration decision |
-|---|---|
-| Callback allowlist | Register `https://amar-hisab-money-tracker.vercel.app/api/oauth/callback` only after the new server-side callback implementation exists. |
-| Minimal identity scope | Use OpenID Connect identity scopes needed for sign-in and profile identity; do not request Drive or unrelated Google API scopes for finance login. |
-| Server-side secret | Retain `GOOGLE_CLIENT_SECRET` only in Vercel Production/Preview secrets, never in `VITE_` variables or source control. |
-| Account identity | Map Google `sub` to a provider-neutral external identity field and preserve the existing user/project authorization model. Do not guess or copy a Manus `openId`. |
-| Session integrity | Retain state/nonce validation, HTTPS-only httpOnly signed session cookies, fixed callback origin, and logout invalidation. |
-
-Sources: [Google OAuth 2.0 for Web Server Applications](https://developers.google.com/identity/protocols/oauth2/web-server) and [Google Cloud: Manage OAuth Clients](https://support.google.com/cloud/answer/15549257?hl=en).
-
-## Object-storage replacement boundary
-
-Vercel Blob is a viable storage candidate because it can use a private store and server-side authenticated access when connected to the Vercel project. Finance backups, exports, and user-owned documents must use **private** storage. Public Blob URLs are not acceptable for backups or finance exports. Server-function uploads are limited to the provider's documented request-size limit; any larger user upload would need a separately authorized client-upload design.
-
-| Required design control | Migration decision |
-|---|---|
-| Read visibility | Create a **private** Blob store; files must be served after the existing project/household authorization checks, never by a public URL. |
-| Write authority | Use only the project-injected `BLOB_READ_WRITE_TOKEN` in the server runtime; never place it in source control, browser variables, or chat. |
-| Object pathing | Use immutable, user/project-scoped keys and retain metadata in the relational database for authorization and auditability. |
-| Migration safety | Do not move existing Manus objects automatically. Verify blank staging uploads/downloads first; production data export/import needs separate consent and inventory. |
-
-Sources: [Vercel Blob](https://vercel.com/docs/vercel-blob), [Server Uploads with Vercel Blob](https://vercel.com/docs/vercel-blob/server-upload), and [Vercel Blob SDK](https://vercel.com/docs/vercel-blob/using-blob-sdk).
-
-## Recurring finance automation replacement boundary
-
-Vercel Cron sends an HTTP `GET` request only to the **production** deployment. The route must verify `Authorization: Bearer ${CRON_SECRET}` with a random secret stored only in Vercel environment settings. A failed invocation is not retried by the provider, and overlapping scheduled invocations can run concurrently; accounting writes therefore require both a database-level idempotency key and an explicit transaction/lock strategy.
-
-| Constraint | Effect on this application |
-|---|---|
-| Vercel Hobby scheduling | A project can define up to 100 jobs, but each can run only **once per day**, with a documented execution window of up to ±59 minutes. Per-user bill reminders and recurring transaction schedules cannot be preserved with the former arbitrary per-user timing on Hobby. |
-| Vercel Pro scheduling | Supports one-minute minimum interval and per-minute precision, but increases recurring service cost. |
-| Request method | The scheduled route must support `GET` (not rely solely on the current POST-only Manus callback contract). |
-| Request authentication | Require `CRON_SECRET`; do not accept browser sessions, user-supplied task identifiers, or unverified paths as proof of scheduler authority. |
-| Duplicate prevention | Preserve the existing unique recurring run key and add transaction/locking checks around each daily sweep, because Vercel may invoke overlapping runs. |
-| Failure behaviour | Log a non-sensitive failure audit entry and leave eligible work pending for the next sweep; do not mark a transaction or reminder complete before the database transaction succeeds. |
-
-The safe free-tier design is one daily, project-level sweep for eligible recurring transactions and bill reminders, not one job per user or bill. Any requirement for exact-time or multiple daily reminders must remain on the currently working Manus deployment or move to a paid scheduler chosen explicitly by the user.
-
-Sources: [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs), [Managing Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs), and [Vercel Cron usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing).
-
-## Existing application dependency audit
-
-The business tables and accounting procedures remain MySQL-compatible. They do not depend on Manus types, and their essential privacy boundary is the database relationship between the internal numeric `users.id`, `finance_projects.userId`, and each finance row's `(userId, projectId)`. Household membership, invitations, shared budgets, audit logs, voucher sequencing, transaction atomicity, and restore transactions are likewise database-level logic; none may be rewritten as browser-side checks during migration.
-
-| Boundary | Current implementation | Migration-safe replacement rule |
-|---|---|---|
-| User identity | `users.openId` is unique and receives a Manus `openId`; the first upsert assigns administrator role only when it matches `OWNER_OPEN_ID`. | Introduce a provider-neutral identity adapter which stores a stable Google subject as a namespaced external subject, e.g. `google:<sub>`. Keep internal `users.id` as the only foreign-key identity. Do not infer identity from email alone. |
-| Session | Manus SDK validates bearer/session state and signs the application session. | Server-side Google authorization-code flow with PKCE/state/nonce validation, then a signed, secure, HTTP-only local session cookie using a user-owned `JWT_SECRET`. The callback must verify issuer, audience, expiry, and nonce before upsert. |
-| First administrator | Configured with Manus owner `openId`. | Create a one-time, environment-gated bootstrap administrator email/subject flow. The bootstrap control must be removed or disabled after the verified owner claims the account. |
-| Database | Drizzle + MySQL/TiDB-compatible tables. | Apply schema only to an empty user-owned staging TiDB/MySQL database first. Production data transfer requires a separately approved encrypted export, checksum, referential-integrity validation, and a documented identity map. |
-| File storage | Server asks Manus Forge for presigned S3 URLs; `/manus-storage/*` redirects to the resulting signed URL. | Retain the narrow `storagePut/storageGetSignedUrl` server interface, but implement it with a user-owned object store. The storage key must remain server-generated, namespaced, and authorization-checked before every signed download. |
-| Scheduler | Manus heartbeat creates per-user/per-record authenticated POST callbacks using an SDK-issued cron identity. | A single Vercel `GET` cron sweep plus `CRON_SECRET` on a user-owned database. Do not expose current user-selected scheduler paths externally. Preserve idempotency within one database transaction. |
-| Optional Manus capabilities | Image generation, maps, transcription, and data proxy read Forge credentials. | Exclude from the first Vercel finance cutover or replace each through a separately approved provider. They are not required for core accounting, but their menus/routes must fail closed rather than expose dead controls. |
-
-### Data and identity migration guardrails
-
-The pending Vercel staging deployment must start **empty**. It must not connect to the Manus database, import a database dump, copy a Forge key, or use the existing Manus user identifier as a login credential. A later production migration must map every existing internal `users.id` to the verified new identity before importing dependent finance and household rows. Email normalization is valid for household invitation matching only; it is not sufficient proof that two authentication identities are the same account.
-
-## Recommended user-owned staging architecture
-
-For the initial empty staging environment, the recommended combination is **TiDB Cloud Starter + Google OAuth web application + Cloudflare R2**. This retains the current MySQL/Drizzle query surface and uses vendors that the account holder can administer independently of Manus. It is a migration recommendation, not a guarantee that any free tier will remain available for ten years; limits, billing, retention, and provider terms must be reviewed periodically.
-
-| Layer | Recommended service | Why it fits this application | Operational caveat |
+| স্তর | অনুমোদিত স্টেজিং সেবা | যাচাইকৃত অবস্থা | আবশ্যিক সুরক্ষা সীমা |
 |---|---|---|---|
-| Database | TiDB Cloud Starter | It is MySQL-compatible, supports TLS on Starter/Essential connections, exposes a direct SQL/ORM connection path, and its current Starter tier advertises 25 GiB row storage, 25 GiB column storage, and 250M RUs free per organization per month. | Starter must be treated as an empty staging target until backups, recovery testing, budget limits, and owner access have been confirmed. The documented Essential tier offers point-in-time backup and 30-day retention, but its stated typical small-production price is about USD 20/day. |
-| Authentication | Google OAuth 2.0 web-server authorization-code flow | Google documents this flow for confidential web-server applications. A Vercel function can keep the client secret server-side and use the registered callback route. | Request only `openid`, `email`, and `profile`. Store the client-secret only in Vercel. Google requires an exact registered redirect URI and cautions that the secret cannot be retrieved again after creation. |
-| Private export/backup object storage | Cloudflare R2 Standard via S3-compatible API | R2 exposes an S3 API and current free allowance of 10 GB-month, 1M Class-A operations, 10M Class-B operations, and zero direct egress. Existing server-side storage can be adapted without exposing a public bucket. | Use a private bucket, server-side signed URLs, an account-scoped S3 endpoint, and lifecycle/backup policy. Do not make financial exports public. Free allowance and pricing can change. |
-| Scheduled finance sweep | Vercel Cron `GET /api/cron/daily` guarded by `CRON_SECRET` | Vercel invokes production cron routes with `GET`, and recommends a random `CRON_SECRET` checked against the Bearer Authorization header. One daily sweep can find due recurring templates and bill reminders. | Vercel does not retry failed cron invocations. The handler needs an idempotency transaction/lock and durable audit/error output. It cannot retain the current per-user Manus callback identity model. |
+| Database | TiDB Cloud Starter | ব্যবহারকারী স্টেজিং account/cluster তৈরি সম্পন্ন বলেছেন। TiDB Starter/Essential সংযোগ MySQL-native এবং TLS-নির্ভর। [1] | `DATABASE_URL` কেবল Preview-তে যাবে; database খালি থাকবে এবং user অনুমতি ছাড়া কোনো schema বা বাস্তব ডেটা প্রয়োগ হবে না। |
+| Sign-in | Google OAuth 2.0 Web application | ব্যবহারকারী staging client তৈরি সম্পন্ন বলেছেন। Google server-side flow confidential client ও exact registered redirect URI চায়। [2] | কেবল `openid`, `email`, `profile`; secret কেবল Vercel server environment-এ থাকবে। |
+| Object storage | Private Vercel Blob | `amar-hisab-staging-backups` private store `sin1`-এ তৈরি; শুধু Development ও Preview-তে সংযুক্ত; কোনো finance data আপলোড করা হয়নি। | Browser, Git, chat, public URL বা `VITE_` variable-এ token যাবে না। |
+| Scheduler | কোনো নতুন Vercel scheduler এখনো নির্বাচিত নয় | বর্তমান live Manus heartbeat চলছে। Vercel Cron production deployment-এ UTC অনুযায়ী `GET` পাঠায়। [3] | বিনা অনুমতিতে per-user/exact-time schedule-কে daily sweep-এ নামানো যাবে না। |
 
-> “Vercel will not retry an invocation if a cron job fails.” — Vercel Cron management documentation. The migration therefore needs a durable processing ledger and manual retry/admin visibility instead of assuming the provider retries work. [5]
+## TiDB database boundary
 
-### Required configuration names for the recommended design
+বর্তমান Drizzle schema ও accounting queries MySQL-compatible। TiDB-এর MySQL-native TCP সংযোগ বর্তমান data model পরীক্ষা করার উপযোগী; তবে Vercel function deployment-এর সাথে connection behavior এবং TLS connection string অবশ্যই খালি Preview database-এ পরীক্ষা করতে হবে। [1] Internal numeric `users.id`, `finance_projects.userId`, এবং প্রতিটি finance row-এর `(userId, projectId)` isolation অপরিবর্তিত থাকবে।
 
-The proposed provider-neutral application should replace the current Manus-only values with `DATABASE_URL`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `SESSION_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`, `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, and `CRON_SECRET`. Each value is production-only in Vercel; preview must use a separately created empty database and bucket. No production credential, legacy value, database record, or identity is copied into preview.
+কোনো বাস্তব backup dump, Manus `DATABASE_URL`, বা current user identity TiDB staging-এ যাবে না। ভবিষ্যৎ production migration-এর জন্য encrypted export, checksum, foreign-key integrity validation, restore rehearsal, এবং verified identity mapping-এর আলাদা লিখিত অনুমোদন প্রয়োজন।
+
+## Google OAuth boundary
+
+Google OAuth server-side authorization-code flow এমন application-এর জন্য যেখানে secret নিরাপদে রাখা যায় এবং state ধরে রাখা যায়। [2] তাই provider-neutral adapter নিম্নলিখিত বৈশিষ্ট্য ছাড়া লেখা যাবে না: PKCE, state, nonce, exact callback allowlist, issuer/audience/expiry validation, secure HTTP-only signed session cookie, এবং stable `google:<sub>` identity mapping। Email household invitation মিলানোর কাজে ব্যবহৃত হতে পারে, কিন্তু authentication identity-এর একমাত্র প্রমাণ নয়।
+
+বর্তমান callback নিয়ে দুটি পুরোনো সম্ভাব্য path আছে: `/api/oauth/callback` এবং `/api/auth/google/callback`। Google client-এ কোনো path নতুন করে যোগ বা বদলানোর আগে code-এ একটি canonical callback স্থির করা হবে; তারপর ব্যবহারকারী Google Console-এ ঠিক সেই URI allowlist করবেন।
+
+| Preview-only variable | উৎস | নিষেধাজ্ঞা |
+|---|---|---|
+| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth Web client | Git বা chat-এ secret হিসেবে লিখতে হবে না, তবে browser/client-এ কেবল প্রয়োজন হলে প্রকাশ করা যাবে। |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth Web client | Server-only; Vercel Preview environment ছাড়া কোথাও নয়। |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Implemented canonical callback | Google Console allowlist-এর সাথে byte-for-byte মিলতে হবে। |
+| `SESSION_SECRET` | নতুন random secret | Manus `JWT_SECRET` পুনঃব্যবহার করা যাবে না। |
+| `ADMIN_BOOTSTRAP_EMAIL` | যাচাইকৃত owner email | One-time staged admin-claim guard; claim-এর পরে বন্ধ করতে হবে। |
+
+## Private Vercel Blob boundary
+
+Vercel-এর মতে private Blob store-এ read access authenticated এবং private objects application Function-এর মাধ্যমে deliver করা হয়; public store-এ direct URL যে কেউ ব্যবহার করতে পারে। Store access mode সৃষ্টি হওয়ার পরে বদলানো যায় না। [4] Finance backup, export এবং user-owned document-এর জন্য তাই private store-ই বাধ্যতামূলক।
+
+এই প্রকল্পে Vercel CLI-দিয়ে private store তৈরি করার পরে Preview/Development runtime-এ `BLOB_READ_WRITE_TOKEN` পাওয়া গেছে। Official guidance অনুযায়ী project-linked store সাধারণত OIDC-ও ব্যবহার করতে পারে, তবে এই runtime contract-এ `BLOB_STORE_ID` এবং `VERCEL_OIDC_TOKEN` দেখা যায়নি। [4] Adapter কেবল runtime `BLOB_READ_WRITE_TOKEN` ব্যবহার করে; token log, source, test fixture, browser response বা chat-এ প্রকাশ করে না। Token অনুপস্থিত কিন্তু Blob store configured হলে adapter Forge-এ fallback না করে fail closed করে।
+
+### Download authorization rule
+
+Opaque Blob key কোনো authorization credential নয়। Vercel Blob branch সক্রিয় থাকলে raw legacy `/manus-storage/<key>` path আর private object stream করে না। এর পরিবর্তে sensitive object-এর জন্য relational metadata থাকবে: owner user, ঠিক একটি scope (project owner বা household), object kind, content type, filename, size, created time এবং immutable storage key। Protected `/api/storage/objects/:id` endpoint session authenticate করে project ownership অথবা active household membership যাচাই করার পরে মাত্র object stream করতে পারে।
+
+| অবস্থা | ফলাফল |
+|---|---|
+| Unknown object, malformed scope, অন্য tenant, inactive household member | কোনো file নয়; object-existence leakage কমাতে not-found response। |
+| Project-scoped export | শুধু metadata owner এবং উল্লেখিত project-এর owner। |
+| Household-scoped export | active household member download করতে পারে; metadata create/update কেবল household owner/editor-এর মাধ্যমে হবে। |
+| Raw Blob pathname | Vercel Blob branch-এ reject; pathname জানলেই download করা যায় না। |
+| Existing Manus/Forge live runtime | পুরোনো Forge path কেবল legacy environment-এ থাকে; staging Blob credential অনুপস্থিত হলে Forge fallback হয় না। |
+
+Private store এখনো খালি। কোনো finance backup/export flow এখনো metadata registration + upload-cleanup workflow দিয়ে Blob-এ লিখছে না। এটি ইচ্ছাকৃত: generated SQL migration প্রথমে review করা হয়েছে, কিন্তু কোনো TiDB database-এ apply করা হয়নি। Staging-only upload implementation, cleanup-on-registration-failure, tenant/household denial test, এবং empty preview validation শেষ না হওয়া পর্যন্ত Blob-এ সংবেদনশীল data রাখা যাবে না।
+
+## Scheduler boundary
+
+Vercel Cron production URL-এ `GET` পাঠায়, failed invocation স্বয়ংক্রিয়ভাবে retry করে না, এবং UTC cron expression ব্যবহার করে। [3] Hobby-level daily execution exact per-user bill reminder ও recurring timing-এর সমতুল্য নয়। নিরাপদ বিকল্প বেছে নেওয়ার অধিকার ব্যবহারকারীর: বর্তমান Manus scheduler রাখা, daily idempotent Vercel sweep গ্রহণ করা, অথবা paid precise scheduler নেওয়া। নতুন cron route, `CRON_SECRET`, অথবা scheduler downgrade এখনো যোগ করা হয়নি।
+
+## অনুমোদন-পূর্ব Preview checklist
+
+| ক্রম | কার্যক্রম | অনুমোদন/সীমা |
+|---|---|---|
+| 1 | Preview-only TiDB `DATABASE_URL` যোগ করা | ব্যবহারকারী Vercel dashboard-এ secret দেবেন; chat-এ নয়। |
+| 2 | Canonical Google callback implement করা | তারপর user Google Console allowlist পরিবর্তন করবেন। |
+| 3 | Provider mode switch ও isolated OAuth tests যোগ করা | Legacy Manus live path ভাঙা যাবে না। |
+| 4 | খালি TiDB-তে reviewed migration প্রয়োগ করা | Explicit user approval ছাড়া নয়। |
+| 5 | Blank profile-এ authenticated preview test | কোনো বাস্তব finance data, backup বা object ব্যবহার নয়। |
+| 6 | Scheduler policy নির্বাচন | Free daily sweep কোনো implicit replacement হতে পারবে না। |
 
 ## References
 
-[1]: https://www.pingcap.com/pricing/ "TiDB Cloud pricing"
-[2]: https://docs.pingcap.com/tidbcloud/connect-to-tidb-cluster-serverless/ "Connect to TiDB Cloud Starter or Essential"
-[3]: https://developers.google.com/identity/protocols/oauth2/web-server "Google OAuth 2.0 for Web Server Applications"
-[4]: https://developers.cloudflare.com/r2/pricing/ "Cloudflare R2 pricing"
-[5]: https://vercel.com/docs/cron-jobs/manage-cron-jobs "Managing Vercel Cron Jobs"
-[6]: https://vercel.com/docs/cron-jobs "Vercel Cron Jobs"
-[7]: https://developers.cloudflare.com/r2/api/s3/api/ "Cloudflare R2 S3 API compatibility"
-[8]: https://vercel.com/docs/vercel-blob/usage-and-pricing "Vercel Blob pricing"
-
-## Revised private-storage staging decision
-
-Cloudflare R2 is unavailable to the account holder, and the isolated `amar-hisab-money-tracker` Vercel project’s Stores page did not offer a Blob store. Neither provider will be configured or receive finance data. The practical replacement is a **private Google Cloud Storage bucket** in the already-created Google Cloud staging project, with Uniform bucket-level access and a narrowly scoped runtime identity. Google documents a monthly always-free Cloud Storage allowance of 5 GiB standard storage, 55,000 operations, and 100 GiB data transfer; this is a current quota rather than a ten-year price guarantee. [9]
-
-| Control | Revised staging decision |
-|---|---|
-| Bucket visibility | Keep the bucket private; do not enable public access, anonymous object listing, public URL downloads, or website hosting. |
-| Runtime identity | Prefer Vercel-to-GCP Workload Identity Federation so the deployed Vercel project obtains short-lived credentials. Do not store a long-lived Google service-account key in GitHub, client variables, or chat. |
-| Minimum permission | Grant object create/read/delete only for the staging bucket, not project-wide Storage Admin. Application reads must continue through server-side authorization and short-lived signed URLs. |
-| Object protection | Use project/user-scoped generated names, metadata in the relational database, versioning/soft-delete or retention only after reviewing the cost and recovery effect, and lifecycle rules for disposable staging artifacts. |
-| Scope | The bucket starts empty and receives only generated staging backups/exports after provider-neutral code is implemented. No Manus object, key, or real finance record is copied. |
-
-The current official Vercel-to-GCP OIDC guide describes configuring a GCP Workload Identity Pool, a Vercel OIDC provider, a Vercel project/environment-scoped principal, and the required non-secret GCP environment identifiers. [10] This is more secure than serializing a service-account private key into a Vercel variable, but it must be configured by the account holder in the Google Cloud project before the staging storage adapter is enabled.
-
-[9]: https://cloud.google.com/storage "Google Cloud Storage"
-[10]: https://vercel.com/docs/oidc/gcp "Connect to Google Cloud Platform (GCP)"
-
-## Vercel Blob re-check
-
-Vercel’s current documentation states that Blob is available on all plans and that stores can be created and managed from either the account dashboard or the Vercel CLI. Private Blob storage is suitable for sensitive exports because every read requires authenticated access and should be streamed through an application function after the existing project and household authorization checks. [11] The verified staging store is connected through the Vercel-provided server environment contract `BLOB_READ_WRITE_TOKEN`. The token must be treated as a secret: it is passed only to server-side Blob SDK calls and is never committed, placed in a `VITE_` variable, or sent in chat.
-
-The initial Stores-page absence was not evidence that the product was unavailable. The Vercel CLI confirmed the capability and created the private empty staging store `amar-hisab-staging-backups`, connected only to the `amar-hisab-money-tracker` development and preview environments. No finance data was uploaded. The adapter must retain server-side authorization checks and must not expose direct Blob URLs. [11]
-
-[11]: https://vercel.com/docs/vercel-blob "Vercel Blob"
+[1]: https://docs.pingcap.com/tidbcloud/connect-to-tidb-cluster-serverless/ "Connect to Your TiDB Cloud Starter or Essential Instance"
+[2]: https://developers.google.com/identity/protocols/oauth2/web-server "Using OAuth 2.0 for Web Server Applications"
+[3]: https://vercel.com/docs/cron-jobs "Vercel Cron Jobs"
+[4]: https://vercel.com/docs/vercel-blob "Vercel Blob"

@@ -17,7 +17,7 @@ describe("selectStorageBackend", () => {
     expect(
       selectStorageBackend({
         ...forgeEnvironment,
-        blobReadWriteToken: "vercel_blob_rw_example",
+        blobReadWriteToken: "configured-private-blob-credential",
       }),
     ).toBe("vercel-blob");
   });

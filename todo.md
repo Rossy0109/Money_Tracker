@@ -233,8 +233,9 @@
 - [x] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
 - [ ] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control. Cloudflare R2 was unavailable and has been replaced by the separately tracked Vercel Blob staging store.
 - [x] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
-- [ ] Implement a private Vercel Blob storage adapter that preserves existing backup/export authorization boundaries and uses the Vercel-injected Blob credential rather than a committed credential.
+- [x] Implement a private Vercel Blob storage adapter that preserves existing backup/export authorization boundaries and uses the Vercel-injected Blob credential rather than a committed credential.
 - [x] Align the private Blob adapter with the Vercel-injected `BLOB_READ_WRITE_TOKEN` staging contract without printing, committing, or broadening access to that token.
 - [x] Create the empty private Vercel Blob staging store `amar-hisab-staging-backups` in `sin1`, limited to Development and Preview, without uploading finance data.
-- [ ] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
-- [ ] Add tenant and household denial tests for protected private-Blob downloads, then validate an empty no-data Vercel preview.
+- [x] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
+- [x] Add tenant and household denial tests for protected private-Blob downloads.
+- [ ] Validate the empty no-data Vercel Preview deployment without uploading any storage object or using real financial data.
