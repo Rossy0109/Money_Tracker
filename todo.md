@@ -238,4 +238,4 @@
 - [x] Create the empty private Vercel Blob staging store `amar-hisab-staging-backups` in `sin1`, limited to Development and Preview, without uploading finance data.
 - [x] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
 - [x] Add tenant and household denial tests for protected private-Blob downloads.
-- [ ] Validate the empty no-data Vercel Preview deployment without uploading any storage object or using real financial data.
+- [x] Validate the empty no-data Vercel Preview deployment without uploading any storage object or using real financial data.

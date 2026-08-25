@@ -70,6 +70,8 @@ Vercel Function-এর outbound network policy এবং database provider-এ�
 
 2026-08-25-এ protected Vercel preview `amar-hisab-money-tracker-16w0pi9bk-rossy0109s-projects.vercel.app` browser-এর authenticated Vercel session দিয়ে non-mutatingভাবে পরীক্ষা করা হয়েছে। `GET /api/healthz` প্রত্যাশিত `{"ok":true,"service":"money-tracker"}` দিয়েছে এবং unauthenticated `auth.me` batch result `null` দিয়েছে। Opaque raw `/manus-storage/opaque-nonexistent-key` request প্রত্যাশিত protected-download message-এ denied হয়েছে; ফলে raw key-টি access grant হয়নি। State ও code-ছাড়া `/api/oauth/callback` প্রত্যাশিত guard error দিয়েছে। CLI-based anonymous request Vercel SSO protection-এ redirect হয়েছিল; এটি app failure নয় এবং preview protection কার্যকর থাকার প্রমাণ। কোনো sign-in, database write, backup/export, Blob upload, বা secret inspection করা হয়নি।
 
+Pull request 98 merge-এর পরে production alias `amar-hisab-money-tracker.vercel.app`-ও health endpoint-এ একই non-sensitive success response দিয়েছে। সেখানে opaque raw storage key-র response ছিল `Storage proxy not configured`, কারণ production-এ Blob/Forge storage credential ইচ্ছাকৃতভাবে নেই। এটি কোনো private object-এর access দেয়নি এবং production finance cutover বা data migration বোঝায় না।
+
 ## প্রাসঙ্গিক উৎস
 
 Vercel-এর Express function, Vite SPA rewrite, GitHub preview deployment ও encrypted environment-variable guidance-এর ভিত্তিতে এই configuration তৈরি করা হয়েছে। [1] [2] [3] [4]
