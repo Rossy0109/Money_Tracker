@@ -154,7 +154,14 @@ class SDKServer {
   }
 
   private getSessionSecret() {
-    const secret = ENV.cookieSecret;
+    const secret = ENV.authMode === "google" ? ENV.sessionSecret : ENV.cookieSecret;
+    if (!secret) {
+      throw new Error(
+        ENV.authMode === "google"
+          ? "SESSION_SECRET is required when AUTH_MODE=google"
+          : "JWT_SECRET is required for Manus authentication",
+      );
+    }
     return new TextEncoder().encode(secret);
   }
 
@@ -170,7 +177,7 @@ class SDKServer {
     return this.signSession(
       {
         openId,
-        appId: ENV.appId,
+        appId: ENV.authMode === "google" ? "google" : ENV.appId,
         name: options.name || "",
       },
       options
@@ -288,6 +295,17 @@ class SDKServer {
     const sessionUserId = session.openId;
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
+
+    // A Google-mode session is created only after the server verifies its
+    // Google ID token and upserts the local principal. Never send a Google
+    // session to the Manus identity API as a fallback.
+    if (ENV.authMode === "google") {
+      if (!user) {
+        throw ForbiddenError("Google session user not found");
+      }
+      await db.upsertUser({ openId: user.openId, lastSignedIn: signedInAt });
+      return user;
+    }
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {

@@ -90,8 +90,12 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet[field] = user[field] ?? null;
     }
   }
+  const shouldSetRole = user.openId === ENV.ownerOpenId || user.role !== undefined;
   values.role = user.openId === ENV.ownerOpenId ? "admin" : user.role ?? "user";
-  updateSet.role = values.role;
+  // Do not silently demote an existing administrator during an ordinary sign-in.
+  // A role changes only through explicit bootstrap/administration or the existing
+  // Manus owner mapping.
+  if (shouldSetRole) updateSet.role = values.role;
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 

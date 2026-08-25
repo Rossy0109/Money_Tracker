@@ -49,4 +49,23 @@ describe("Vercel-compatible Express application", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, service: "money-tracker" });
   });
+
+  it("keeps Google OAuth endpoints disabled when the legacy Manus mode is active", async () => {
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/auth/google/login`, {
+      redirect: "manual",
+    });
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Google OAuth is not enabled" });
+  });
 });
