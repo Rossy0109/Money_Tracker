@@ -23,7 +23,22 @@
 
 Google OAuth server-side authorization-code flow এমন application-এর জন্য যেখানে secret নিরাপদে রাখা যায় এবং state ধরে রাখা যায়। [2] তাই provider-neutral adapter নিম্নলিখিত বৈশিষ্ট্য ছাড়া লেখা যাবে না: PKCE, state, nonce, exact callback allowlist, issuer/audience/expiry validation, secure HTTP-only signed session cookie, এবং stable `google:<sub>` identity mapping। Email household invitation মিলানোর কাজে ব্যবহৃত হতে পারে, কিন্তু authentication identity-এর একমাত্র প্রমাণ নয়।
 
-বর্তমান callback নিয়ে দুটি পুরোনো সম্ভাব্য path আছে: `/api/oauth/callback` এবং `/api/auth/google/callback`। Google client-এ কোনো path নতুন করে যোগ বা বদলানোর আগে code-এ একটি canonical callback স্থির করা হবে; তারপর ব্যবহারকারী Google Console-এ ঠিক সেই URI allowlist করবেন।
+বর্তমান Manus callback হলো `/api/oauth/callback`। Google staging mode-এর জন্য আলাদা canonical callback হবে **`/api/auth/google/callback`**। এটি Manus callback-কে প্রতিস্থাপন করবে না; `AUTH_MODE=google` না হলে পুরোনো Manus flow অপরিবর্তিত থাকবে। Google Console-এ redirect URI কেবল নির্ধারিত Google-staging Preview origin-এর সঙ্গে এই path জুড়ে নিবন্ধন করতে হবে; Preview URL নিশ্চিত হওয়ার আগে কোনো production alias বা Manus URL allowlist করা যাবে না। Google-এর নিয়ম অনুযায়ী redirect URI-টি নিবন্ধিত URI-এর সঙ্গে হুবহু মিলতে হবে। [5]
+
+### Google staging authentication architecture
+
+Google mode কেবল খালি staging environment-এর জন্য হবে এবং `AUTH_MODE=google` দ্বারা সচল হবে। অনুপস্থিত বা `manus` mode বর্তমান live fallback-এর বিদ্যমান Manus endpoint, callback এবং session flow ব্যবহার করবে। Browser-side mode flag (`VITE_AUTH_MODE=google`) কোনো secret নয়; এটি browser-কে কেবল `/api/auth/google/login` route-এ পাঠায়। Client ID, client secret, PKCE verifier, state, nonce এবং session secret কখনো `VITE_` variable, HTML, source control, log বা chat-এ যাবে না।
+
+| ধাপ | Google staging mode-এর বাধ্যতামূলক নিয়ম |
+|---|---|
+| Login শুরু | Server 256-bit random `state`, `nonce` এবং PKCE verifier তৈরি করবে; verifier, state ও nonce কেবল short-lived host-only HTTP-only cookie-এ থাকবে। Browser কোনো provider secret তৈরি বা ধরে রাখবে না। |
+| Authorization request | `openid email profile`, authorization-code response, `state`, `nonce`, PKCE `S256`, এবং fixed configured redirect URI ব্যবহার করবে। Google server flow state CSRF guard ও nonce replay protection চায়। [5] |
+| Callback | Cookie-এর state constant-time match না হলে code exchange-এর আগেই fail closed হবে। Callback one-time cookie মুছে দেবে এবং user-controlled return URL গ্রহণ করবে না। |
+| Token/identity validation | Server Google discovery/JWKS ব্যবহার করে ID token signature, issuer, audience (এই client ID), expiry এবং nonce যাচাই করবে। Internal principal হবে immutable `google:<sub>`; email কেবল verified profile/invitation matching-এর জন্য। Google server-side ID token validation আবশ্যক বলে। [6] |
+| Application session | বর্তমান `jose`-signed first-party cookie format ব্যবহার হবে, কিন্তু Google mode-এ আলাদা `SESSION_SECRET` বাধ্যতামূলক; Manus `JWT_SECRET` পুনঃব্যবহার করা যাবে না। Finance procedures শুধু internal `users.id` পায়, ফলে accounting/project isolation provider token থেকে স্বাধীন থাকে। |
+| Admin bootstrap | `ADMIN_BOOTSTRAP_EMAIL` কেবল verified Google email-এর প্রথম staging account-কে admin claim করতে পারে। এই allowlist পরে অপসারণ/বন্ধ করতে হবে; email কখনো principal key নয়। |
+
+Google client secret নিরাপদে server-এ রাখার জন্য web-server flow উপযোগী এবং Google নিজেই pre-written server-side library ব্যবহার করার সুপারিশ করে। [5] বর্তমান dependency-তে ইতিমধ্যে `jose` আছে; অতএব নতুন broad Google API permission বা browser SDK না এনে discovery, PKCE এবং ID-token verification-এর জন্য সেই audited JWT primitive-ই ব্যবহার করা হবে। Drive scope, refresh token বা Google Drive file access এই sign-in design-এর অংশ নয়।
 
 | Preview-only variable | উৎস | নিষেধাজ্ঞা |
 |---|---|---|
@@ -74,3 +89,5 @@ Vercel Cron production URL-এ `GET` পাঠায়, failed invocation স�
 [2]: https://developers.google.com/identity/protocols/oauth2/web-server "Using OAuth 2.0 for Web Server Applications"
 [3]: https://vercel.com/docs/cron-jobs "Vercel Cron Jobs"
 [4]: https://vercel.com/docs/vercel-blob "Vercel Blob"
+[5]: https://developers.google.com/identity/protocols/oauth2/web-server "Using OAuth 2.0 for Web Server Applications"
+[6]: https://developers.google.com/identity/openid-connect/openid-connect "OpenID Connect | Sign in with Google"
