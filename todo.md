@@ -239,3 +239,8 @@
 - [x] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
 - [x] Add tenant and household denial tests for protected private-Blob downloads.
 - [x] Validate the empty no-data Vercel Preview deployment without uploading any storage object or using real financial data.
+- [x] Select the isolated `AUTH_MODE=google` staging architecture and canonical callback `/api/auth/google/callback` while retaining the existing Manus callback for the live fallback.
+- [x] Implement the server-side Google authorization-code flow with PKCE, state, nonce, discovery/JWKS ID-token verification, and `google:<sub>` identity mapping.
+- [x] Add mode-switch and Google OAuth regression tests, including invalid state, nonce, issuer, audience, expired-token, and verified-email/admin-bootstrap denial paths.
+- [ ] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
+- [ ] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.

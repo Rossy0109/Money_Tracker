@@ -8,7 +8,7 @@ function isIpAddress(host: string) {
   return host.includes(":");
 }
 
-function isSecureRequest(req: Request) {
+export function isSecureRequest(req: Request) {
   if (req.protocol === "https") return true;
 
   const forwardedProto = req.headers["x-forwarded-proto"];
@@ -43,6 +43,21 @@ export function getSessionCookieOptions(
     httpOnly: true,
     path: "/",
     sameSite: "none",
+    secure: isSecureRequest(req),
+  };
+}
+
+/**
+ * OAuth transaction cookies must survive the provider's top-level callback but
+ * must not accompany third-party subrequests. `Lax` provides that balance.
+ */
+export function getOAuthTransactionCookieOptions(
+  req: Request
+): Pick<CookieOptions, "httpOnly" | "path" | "sameSite" | "secure"> {
+  return {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
     secure: isSecureRequest(req),
   };
 }
