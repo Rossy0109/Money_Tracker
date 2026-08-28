@@ -215,7 +215,7 @@
 - [x] Correct the Vercel function routing so `/api/*` and `/manus-storage/*` reach the existing Express application instead of returning a static 404.
 - [x] Ensure the Vercel Node function packages the shared Express application and its local dependencies with resolvable production ESM imports.
 - [x] Ensure a GitHub-sourced remote Vercel build discovers and deploys the generated API function rather than serving a static 404.
-- [ ] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
+- [x] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
 - [ ] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
 - [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
 - [ ] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying Manus-managed secrets.
@@ -223,7 +223,7 @@
 - [x] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
 - [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
 - [ ] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
-- [ ] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
+- [x] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
 - [ ] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
 - [ ] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control.
 - [ ] Configure approved staging credentials only through provider dashboards and Vercel environment settings, then validate secret presence without disclosing values.
