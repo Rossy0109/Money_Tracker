@@ -4,7 +4,8 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, Si
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
-import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, HardDriveDownload, LayoutDashboard, LogOut, Plus, ReceiptText, Tags, UsersRound, WalletCards } from "lucide-react";
+import { BiometricLockScreen, useBiometricLock } from "@/components/BiometricLock";
+import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, Fingerprint, HardDriveDownload, LayoutDashboard, Lock, LogOut, Plus, ReceiptText, Tags, UsersRound, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
@@ -20,6 +21,8 @@ const menuItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user, logout } = useAuth();
+  const { isSupported, isEnabled, isLocked, enableBiometric, disableBiometric, unlockApp, lockApp } = useBiometricLock(user?.email);
+
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><Banknote className="h-8 w-8 animate-pulse" /></div>;
   if (!user) {
     return (
@@ -35,6 +38,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
     );
   }
+
+  if (isLocked) {
+    return <BiometricLockScreen onUnlock={unlockApp} />;
+  }
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
@@ -59,10 +67,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-3">
-          <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5">
+          <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5 space-y-2">
+            {/* Biometric Lock Toggle */}
+            <div className="flex items-center justify-between group-data-[collapsible=icon]:hidden border-b border-white/10 pb-2">
+              <span className="flex items-center gap-1.5 text-xs text-[#b9d2c2]">
+                <Fingerprint className="h-3.5 w-3.5 text-[#8ce0a3]" />
+                <span>ফিঙ্গারপ্রিন্ট লক</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => (isEnabled ? disableBiometric() : enableBiometric())}
+                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                  isEnabled ? "bg-[#8ce0a3] text-[#113a30]" : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+              >
+                {isEnabled ? "চালু আছে" : "চালু করুন"}
+              </button>
+            </div>
+
             <div className="flex items-center gap-2.5">
               <Avatar className="h-8 w-8 border border-white/20"><AvatarFallback className="bg-[#285d4e] text-xs text-white">{(user.name || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar>
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden"><p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p><p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p></div>
+              {isEnabled && (
+                <button onClick={lockApp} title="অ্যাপ লক করুন" aria-label="অ্যাপ লক করুন" className="rounded-lg p-1.5 text-[#8ce0a3] transition hover:bg-white/10 focus:outline-none group-data-[collapsible=icon]:hidden">
+                  <Lock className="h-4 w-4" />
+                </button>
+              )}
               <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
             </div>
           </div>
@@ -72,7 +102,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
           <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
           <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">আমার হিসাব</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
-          <div className="ml-auto"><PwaInstallButton /></div>
+          <div className="ml-auto flex items-center gap-2">
+            {isEnabled && (
+              <button onClick={lockApp} aria-label="লক করুন" className="rounded-xl border border-[#c2ded0] bg-white p-2 text-[#173f36] shadow-sm">
+                <Lock className="h-4 w-4" />
+              </button>
+            )}
+            <PwaInstallButton />
+          </div>
         </div>
         <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">{children}</div>
         <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
