@@ -205,9 +205,9 @@
 - [x] Inspect the current GitHub main-branch rules and define a compatible protection policy that preserves CI and emergency recovery capability.
 - [x] Repair the invalid GitHub Actions setup-action version and verify a successful CI run before requiring its checks on main.
 - [x] Apply the approved GitHub branch protection to `Rossy0109/Money_Tracker` main and verify the policy through the GitHub API.
-- [ ] Obtain the selected custom domain and prepare the exact DNS records and redirect topology for GitHub Pages and the live full-stack application.
-- [ ] Bind the verified custom domain to the live hosting and configure the Pages redirect target after DNS ownership is confirmed.
-- [ ] Verify HTTPS, redirect behavior, branch protection, and document the configuration without exposing DNS or account secrets.
+- [x] Obtain the selected custom domain and prepare the exact DNS records and redirect topology for GitHub Pages and the live full-stack application.
+- [x] Bind the verified custom domain to the live hosting and configure the Pages redirect target after DNS ownership is confirmed.
+- [x] Verify HTTPS, redirect behavior, branch protection, and document the configuration without exposing DNS or account secrets.
 - [x] Inspect the current Express/tRPC, OAuth, database, PWA, and environment contracts for Vercel serverless compatibility without changing running production behavior.
 - [x] Add a Vercel-compatible entrypoint and configuration that preserves the existing backend routes and static client behavior without embedding secrets.
 - [x] Add deployment documentation, environment-variable inventory, health checks, and a clear rollback path from Vercel to the current verified hosting.
@@ -216,15 +216,15 @@
 - [x] Ensure the Vercel Node function packages the shared Express application and its local dependencies with resolvable production ESM imports.
 - [x] Ensure a GitHub-sourced remote Vercel build discovers and deploys the generated API function rather than serving a static 404.
 - [x] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
-- [ ] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
-- [ ] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
+- [x] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
+- [x] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
 - [x] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying Manus-managed secrets.
 - [x] Audit all Manus-managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
 - [x] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
 - [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
 - [x] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
 - [x] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
-- [ ] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
+- [x] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
 - [x] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control.
 - [x] Configure approved staging credentials only through provider dashboards and Vercel environment settings, then validate secret presence without disclosing values.
 - [x] Replace the unavailable Cloudflare R2 staging path with project-scoped Vercel Blob private storage and document its access, retention, and rollback constraints.
@@ -243,8 +243,8 @@
 - [x] Implement the server-side Google authorization-code flow with PKCE, state, nonce, discovery/JWKS ID-token verification, and `google:<sub>` identity mapping.
 - [x] Add mode-switch and Google OAuth regression tests, including invalid state, nonce, issuer, audience, expired-token, and verified-email/admin-bootstrap denial paths.
 - [x] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
-- [ ] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.
+- [x] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.
 - [x] Audit the existing MySQL, Manus/Google authentication, and Vercel Blob coupling before replacing any staging provider with Supabase.
 - [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a Manus live-fallback rollback path.
-- [ ] Add a tested Supabase staging adapter while preserving existing accounting rules, tenant/household authorization, exports, backups, audit logging, and user data boundaries.
-- [ ] Configure only an empty Supabase staging project and run blank-profile tests before seeking any production migration approval.
+- [x] Add a tested Supabase staging adapter while preserving existing accounting rules, tenant/household authorization, exports, backups, audit logging, and user data boundaries.
+- [x] Configure only an empty Supabase staging project and run blank-profile tests before seeking any production migration approval.
