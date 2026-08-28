@@ -244,3 +244,7 @@
 - [x] Add mode-switch and Google OAuth regression tests, including invalid state, nonce, issuer, audience, expired-token, and verified-email/admin-bootstrap denial paths.
 - [ ] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
 - [ ] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.
+- [x] Audit the existing MySQL, Manus/Google authentication, and Vercel Blob coupling before replacing any staging provider with Supabase.
+- [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a Manus live-fallback rollback path.
+- [ ] Add a tested Supabase staging adapter while preserving existing accounting rules, tenant/household authorization, exports, backups, audit logging, and user data boundaries.
+- [ ] Configure only an empty Supabase staging project and run blank-profile tests before seeking any production migration approval.
