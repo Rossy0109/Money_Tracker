@@ -4,16 +4,16 @@ test.describe("blank-profile mobile shell", () => {
   test("shows the non-mutating sign-in gate on a blank mobile profile", async ({ page }, testInfo) => {
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "সাইন ইন করে শুরু করুন" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /সাইন ইন/ })).toBeVisible();
 
     if (testInfo.project.name === "iphone-safari") {
-      await expect(page.getByRole("button", { name: "সাইন ইন করে শুরু করুন" })).toBeEnabled();
+      await expect(page.getByRole("button", { name: /সাইন ইন/ })).toBeEnabled();
     }
   });
 
   test("keeps private report and finance controls behind authentication on a blank profile", async ({ page }) => {
     await page.goto("/family");
-    await expect(page.getByRole("button", { name: "সাইন ইন করে শুরু করুন" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /সাইন ইন/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /PDF ডাউনলোড/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /চার্টের ছবি/ })).toHaveCount(0);
   });

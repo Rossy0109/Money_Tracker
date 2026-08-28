@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#14382f]">নিরাপদে আপনার অর্থ দেখুন</h1>
           <p className="mt-4 text-sm leading-6 text-[#678077]">আপনার সুরক্ষিত Google / অনুমোদিত অ্যাকাউন্ট দিয়ে সাইন ইন করুন। প্রতিটি হিসাব শুধুই আপনার জন্য আলাদা ও সুরক্ষিত থাকবে।</p>
           <p className="mt-3 rounded-lg bg-[#f6faf7] p-3 text-left text-xs leading-5 text-[#5b7468]">মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।</p>
-          <Button onClick={() => startLogin()} className="mt-7 h-12 w-full rounded-xl bg-[#173f36] text-base hover:bg-[#0f3028]">Google দিয়ে সাইন ইন করুন</Button>
+          <Button onClick={() => startLogin()} className="mt-7 h-12 w-full rounded-xl bg-[#173f36] text-base hover:bg-[#0f3028]">সাইন ইন করে শুরু করুন</Button>
         </section>
       </main>
     );
