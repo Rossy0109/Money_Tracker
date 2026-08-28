@@ -222,14 +222,14 @@
 - [x] Audit all Manus-managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
 - [x] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
 - [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
-- [ ] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
+- [x] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
 - [x] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
 - [ ] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
 - [x] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control.
 - [x] Configure approved staging credentials only through provider dashboards and Vercel environment settings, then validate secret presence without disclosing values.
 - [x] Replace the unavailable Cloudflare R2 staging path with project-scoped Vercel Blob private storage and document its access, retention, and rollback constraints.
-- [ ] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
-- [ ] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
+- [x] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
+- [x] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
 - [x] Re-check the isolated Vercel project’s available Blob or storage integrations and document the exact account, plan, or integration gate before falling back to Google Cloud Storage.
 - [x] Create user-owned empty staging accounts for TiDB Cloud, Google OAuth, and Cloudflare R2 without adding production finance data or secrets to source control. Cloudflare R2 was unavailable and has been replaced by the separately tracked Vercel Blob staging store.
 - [x] Confirm an available private object-storage provider after the current Vercel project storage page did not offer a Blob store, before implementing or entering credentials.
@@ -242,7 +242,7 @@
 - [x] Select the isolated `AUTH_MODE=google` staging architecture and canonical callback `/api/auth/google/callback` while retaining the existing Manus callback for the live fallback.
 - [x] Implement the server-side Google authorization-code flow with PKCE, state, nonce, discovery/JWKS ID-token verification, and `google:<sub>` identity mapping.
 - [x] Add mode-switch and Google OAuth regression tests, including invalid state, nonce, issuer, audience, expired-token, and verified-email/admin-bootstrap denial paths.
-- [ ] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
+- [x] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
 - [ ] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.
 - [x] Audit the existing MySQL, Manus/Google authentication, and Vercel Blob coupling before replacing any staging provider with Supabase.
 - [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a Manus live-fallback rollback path.
