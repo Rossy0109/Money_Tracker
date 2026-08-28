@@ -46,7 +46,7 @@ type MonthlyReport = {
   }>;
 };
 
-const BENGALI_FONT_URL = "/manus-storage/NotoSansBengali-Regular_ca0a97c7.ttf";
+const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 const bdt = (value: number) =>
   `৳ ${new Intl.NumberFormat("bn-BD", {
     minimumFractionDigits: 0,

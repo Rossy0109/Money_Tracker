@@ -10,9 +10,35 @@
     <title>আমার হিসাব — Money Tracker</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/app-icon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="preload" href="/fonts/NotoSansBengali-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/NotoSansBengali-SemiBold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/NotoSansBengali-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face {
+        font-family: 'Noto Sans Bengali';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/NotoSansBengali-Regular.woff2') format('woff2');
+        unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
+      }
+      @font-face {
+        font-family: 'Noto Sans Bengali';
+        font-style: normal;
+        font-weight: 500 600;
+        font-display: swap;
+        src: url('/fonts/NotoSansBengali-SemiBold.woff2') format('woff2');
+        unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
+      }
+      @font-face {
+        font-family: 'Noto Sans Bengali';
+        font-style: normal;
+        font-weight: 700 800;
+        font-display: swap;
+        src: url('/fonts/NotoSansBengali-Bold.woff2') format('woff2');
+        unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

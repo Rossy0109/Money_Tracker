@@ -13,7 +13,7 @@ export type AuditLogExportRecord = {
   projectName: string | null;
 };
 
-const BENGALI_FONT_URL = "/manus-storage/NotoSansBengali-Regular_ca0a97c7.ttf";
+const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 const auditDate = (value: Date | string) => new Intl.DateTimeFormat("bn-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const actorText = (row: AuditLogExportRecord) => row.actorName ?? `User #${row.actorUserId}`;
 const projectText = (row: AuditLogExportRecord) => row.projectName ?? "—";

@@ -7,7 +7,7 @@ export type HouseholdChartPdfHeader = {
   title: string;
 };
 
-const BENGALI_FONT_URL = "/manus-storage/NotoSansBengali-Regular_ca0a97c7.ttf";
+const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 
 export function householdChartExportFilename(kind: HouseholdChartExportKind, date = new Date()) {
   const suffix = kind === "image" ? "png" : "pdf";
