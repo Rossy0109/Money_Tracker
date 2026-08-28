@@ -2021,7 +2021,7 @@ export default function Home() {
               className="grid gap-4"
             >
               <p className="text-sm text-[#667f75]">
-                Manus OAuth identity ও server-only password—দুই ধাপে Admin
+                Google/OAuth identity ও server-only password—দুই ধাপে Admin
                 নিয়ন্ত্রণ সুরক্ষিত।
               </p>
               <Field label="অ্যাডমিন পাসওয়ার্ড">
