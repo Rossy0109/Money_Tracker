@@ -3,13 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { BiometricLockScreen, useBiometricLock } from "@/components/BiometricLock";
-import { Banknote, CalendarClock, ChartNoAxesCombined, ChartSpline, Fingerprint, HardDriveDownload, LayoutDashboard, Lock, LogOut, Plus, ReceiptText, Tags, UsersRound, WalletCards } from "lucide-react";
+import { AuthCard } from "@/components/AuthCard";
+import { Banknote, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, Fingerprint, HardDriveDownload, LayoutDashboard, Lock, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UsersRound, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
+  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },
+  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements" },
+  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator" },
   { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
   { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
   { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
@@ -22,21 +27,12 @@ const menuItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user, logout } = useAuth();
   const { isSupported, isEnabled, isLocked, enableBiometric, disableBiometric, unlockApp, lockApp } = useBiometricLock(user?.email);
+  const { isOnline, pendingCount, syncQueue } = useOfflineSync();
 
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><Banknote className="h-8 w-8 animate-pulse" /></div>;
   if (!user) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-[#f7f8f4] p-5">
-        <section className="w-full max-w-md rounded-[2rem] border border-[#d9e4db] bg-white p-8 text-center shadow-[0_24px_70px_rgba(16,53,47,.12)]">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#d8f2dd] text-[#166534]"><Banknote className="h-7 w-7" /></div>
-          <p className="mt-7 text-sm font-bold tracking-[.18em] text-[#4f7b67]">আমার হিসাব</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#14382f]">নিরাপদে আপনার অর্থ দেখুন</h1>
-          <p className="mt-4 text-sm leading-6 text-[#678077]">আপনার সুরক্ষিত Google / অনুমোদিত অ্যাকাউন্ট দিয়ে সাইন ইন করুন। প্রতিটি হিসাব শুধুই আপনার জন্য আলাদা ও সুরক্ষিত থাকবে।</p>
-          <p className="mt-3 rounded-lg bg-[#f6faf7] p-3 text-left text-xs leading-5 text-[#5b7468]">মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।</p>
-          <Button onClick={() => startLogin()} className="mt-7 h-12 w-full rounded-xl bg-[#173f36] text-base hover:bg-[#0f3028]">সাইন ইন করে শুরু করুন</Button>
-        </section>
-      </main>
-    );
+    // মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।
+    return <AuthCard />;
   }
 
   if (isLocked) {
@@ -48,8 +44,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
         <SidebarHeader className="h-20 justify-center px-3">
           <a href="/" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#d8f2dd] text-[#113a30]"><Banknote className="h-5 w-5" /></span>
-            <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">আমার হিসাব</span><span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span></span>
+            <img src="/logo.png" alt="Ahmed's Financial Accounting" className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+            <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">Ahmed's Financial</span><span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span></span>
           </a>
         </SidebarHeader>
         <SidebarContent className="px-2 py-3">
@@ -101,7 +97,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
           <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
-          <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">আমার হিসাব</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
+          <img src="/logo.png" alt="Logo" className="ml-1 h-7 w-7 rounded-lg object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+          <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">Ahmed's Financial</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
           <div className="ml-auto flex items-center gap-2">
             {isEnabled && (
               <button onClick={lockApp} aria-label="লক করুন" className="rounded-xl border border-[#c2ded0] bg-white p-2 text-[#173f36] shadow-sm">
@@ -111,6 +108,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <PwaInstallButton />
           </div>
         </div>
+        {(!isOnline || pendingCount > 0) && (
+          <div className="bg-amber-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              {!isOnline ? <CloudOff className="h-4 w-4" /> : <RefreshCw className="h-4 w-4 animate-spin" />}
+              <span>
+                {!isOnline
+                  ? "অফলাইন মোড — ইন্টারনেট সংযোগ নেই, লেনদেন ডিভাইসে সংরক্ষিত থাকবে।"
+                  : `${pendingCount}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক করা বাকি`}
+              </span>
+            </div>
+            {isOnline && pendingCount > 0 && (
+              <button type="button" onClick={() => syncQueue()} className="underline hover:opacity-90 ml-3">
+                এখনই সিঙ্ক করুন
+              </button>
+            )}
+          </div>
+        )}
         <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">{children}</div>
         <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
       </SidebarInset>

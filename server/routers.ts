@@ -1,11 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { COOKIE_NAME } from "../shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import * as financeDb from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
 import { createHeartbeatJob } from "./_core/heartbeat";
+import { sdk } from "./_core/sdk";
+import { hashPassword, verifyPassword } from "./_core/passwordAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -82,6 +84,111 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    register: publicProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1, "নাম প্রদান করুন").max(120),
+          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
+          password: z.string().min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে").max(100),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const passwordHash = hashPassword(input.password);
+          const user = await financeDb.createPasswordUser({
+            name: input.name,
+            email: input.email,
+            passwordHash,
+          });
+
+          if (user.status === "pending") {
+            return {
+              success: true,
+              pendingApproval: true,
+              message: "রেজিস্ট্রেশন সফল হয়েছে! আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর আপনি লগইন করতে পারবেন।",
+              user: null,
+            };
+          }
+
+          const sessionToken = await sdk.createSessionToken(user.openId, {
+            name: user.name || user.email || "",
+            expiresInMs: ONE_YEAR_MS,
+          });
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, {
+            ...cookieOptions,
+            maxAge: ONE_YEAR_MS,
+          });
+          return {
+            success: true,
+            pendingApproval: false,
+            message: "সফলভাবে নিবন্ধিত ও লগইন হয়েছে।",
+            user: {
+              id: user.id,
+              openId: user.openId,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            },
+          };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error.message || "রেজিস্ট্রেশন ব্যর্থ হয়েছে",
+          });
+        }
+      }),
+    login: publicProcedure
+      .input(
+        z.object({
+          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
+          password: z.string().min(1, "পাসওয়ার্ড দিন").max(100),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const user = await financeDb.getUserByEmail(input.email);
+        if (!user || !user.passwordHash || !verifyPassword(input.password, user.passwordHash)) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।",
+          });
+        }
+
+        if (user.status === "pending") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+          });
+        }
+
+        if (user.status === "suspended") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+          });
+        }
+
+        await financeDb.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.name || user.email || "",
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...cookieOptions,
+          maxAge: ONE_YEAR_MS,
+        });
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            openId: user.openId,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+        };
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -96,6 +203,11 @@ export const appRouter = router({
     users: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
       return financeDb.listUsersForAdmin();
+    }),
+    updateUserStatus: adminProcedure.input(z.object({ password: z.string().min(1).max(128), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ input }) => {
+      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+      const updated = await financeDb.updateUserStatus(input.targetUserId, input.status);
+      return { success: true, user: updated };
     }),
     projects: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).query(({ input }) => {
       if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
@@ -169,6 +281,54 @@ export const appRouter = router({
       const job = await createHeartbeatJob({ name: `finance-recurring-${ctx.user.id}-${input.id}`, cron: "0 5 0 * * *", path: "/api/scheduled/finance-recurring", description: "Daily check for a user-controlled recurring finance transaction" }, userSessionFromRequest(ctx.req));
       await financeDb.setRecurringScheduleTask(ctx.user.id, input.projectId, input.id, job.taskUid);
       return job;
+    }),
+    invoices: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.listInvoices(ctx.user.id, input.projectId)),
+    invoiceById: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).query(({ ctx, input }) => financeDb.getInvoiceById(ctx.user.id, input.projectId, input.id)),
+    createInvoice: protectedProcedure.input(z.object({
+      projectId,
+      invoiceNumber: z.string().trim().max(64).optional(),
+      clientName: z.string().trim().min(1).max(160),
+      clientPhone: z.string().trim().max(40).optional(),
+      clientEmail: z.string().trim().email().max(320).optional().or(z.literal("")),
+      clientAddress: z.string().max(500).optional(),
+      clientBinTin: z.string().max(64).optional(),
+      issueDate: z.coerce.date(),
+      dueDate: z.coerce.date(),
+      discountAmount: z.number().finite().nonnegative().optional(),
+      notesTerms: z.string().max(1000).optional(),
+      items: z.array(
+        z.object({
+          description: z.string().trim().min(1).max(255),
+          quantity: z.number().finite().positive(),
+          unitPrice: z.number().finite().nonnegative(),
+          vatRate: z.number().finite().nonnegative().optional(),
+        })
+      ).min(1),
+    })).mutation(({ ctx, input }) => financeDb.createInvoice(ctx.user.id, {
+      ...input,
+      clientEmail: input.clientEmail || undefined,
+    })),
+    updateInvoiceStatus: protectedProcedure.input(z.object({
+      projectId,
+      id: z.number().int().positive(),
+      status: z.enum(["draft", "unpaid", "partially_paid", "paid", "overdue", "cancelled"]),
+      paidAmount: z.number().finite().nonnegative().optional(),
+    })).mutation(({ ctx, input }) => financeDb.updateInvoiceStatus(ctx.user.id, input.projectId, input.id, {
+      status: input.status,
+      paidAmount: input.paidAmount,
+    })),
+    deleteInvoice: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive() })).mutation(({ ctx, input }) => financeDb.deleteInvoice(ctx.user.id, input.projectId, input.id)),
+    financialStatements: protectedProcedure.input(z.object({ projectId })).query(({ ctx, input }) => financeDb.getFinancialStatements(ctx.user.id, input.projectId)),
+    syncOfflineTransactions: protectedProcedure.input(z.object({
+      projectId,
+      items: z.array(transactionInput),
+    })).mutation(async ({ ctx, input }) => {
+      const results = [];
+      for (const item of input.items) {
+        const created = await financeDb.createTransaction(ctx.user.id, item);
+        results.push(created);
+      }
+      return { syncedCount: results.length, transactions: results };
     }),
     enableBillReminder: protectedProcedure.input(z.object({ projectId, id: z.number().int().positive(), reminderDaysBefore: z.number().int().min(0).max(90) })).mutation(async ({ ctx, input }) => {
       await financeDb.setBillReminderSettings(ctx.user.id, input.projectId, input.id, input.reminderDaysBefore);

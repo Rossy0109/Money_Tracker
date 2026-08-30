@@ -67,3 +67,41 @@ export function calculateBudgetEarlyWarnings(
         right.spent / right.budgetAmount - left.spent / left.budgetAmount
     );
 }
+
+export type BudgetAnomalyAlert = BudgetAlertCandidate & {
+  currentDay: number;
+  totalDaysInMonth: number;
+  projectedSpend: number;
+  projectedOverrun: number;
+  dailyBurnRate: number;
+};
+
+export function calculateBurnRateAnomalies(
+  candidates: BudgetAlertCandidate[],
+  date: Date = new Date()
+): BudgetAnomalyAlert[] {
+  const currentDay = Math.max(1, date.getDate());
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const totalDaysInMonth = new Date(year, month, 0).getDate();
+  const daysRemaining = Math.max(0, totalDaysInMonth - currentDay);
+
+  return candidates
+    .filter(candidate => candidate.budgetAmount > 0 && candidate.spent > 0)
+    .map(candidate => {
+      const dailyBurnRate = candidate.spent / currentDay;
+      const projectedSpend = Math.round(candidate.spent + dailyBurnRate * daysRemaining);
+      const projectedOverrun = projectedSpend - candidate.budgetAmount;
+      return {
+        ...candidate,
+        currentDay,
+        totalDaysInMonth,
+        projectedSpend,
+        projectedOverrun,
+        dailyBurnRate: Math.round(dailyBurnRate),
+      };
+    })
+    .filter(item => item.projectedOverrun > 0 && item.spent <= item.budgetAmount)
+    .sort((a, b) => b.projectedOverrun - a.projectedOverrun);
+}
+

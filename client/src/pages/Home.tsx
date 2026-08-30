@@ -58,12 +58,15 @@ import {
   ReceiptText,
   Share2,
   ShieldCheck,
+  Sparkles,
+  MessageSquare,
   Trash2,
   TrendingDown,
   TrendingUp,
   WalletCards,
   X,
 } from "lucide-react";
+import { parseTransactionSMS } from "@/lib/smsParser";
 import {
   cloneElement,
   FormEvent,
@@ -187,6 +190,8 @@ export default function Home() {
   >(null);
   const [transactionForm, setTransactionForm] =
     useState<TransactionDraft>(blankTransaction());
+  const [smsInput, setSmsInput] = useState("");
+  const [showSmsHelper, setShowSmsHelper] = useState(false);
   const [dueOpen, setDueOpen] = useState(false);
   const [dueForm, setDueForm] = useState<DueDraft>(blankDue());
   const [settlementOpen, setSettlementOpen] = useState(false);
@@ -514,6 +519,39 @@ export default function Home() {
     setEditingTransactionId(null);
     setTransactionType("expense");
     setTransactionForm(blankTransaction());
+    setSmsInput("");
+    setShowSmsHelper(false);
+  }
+
+  function handleApplySMS() {
+    if (!smsInput.trim()) {
+      toast.error("অনুগ্রহ করে SMS টেক্সট পেস্ট করুন");
+      return;
+    }
+    const parsed = parseTransactionSMS(smsInput);
+    if (parsed.amount) {
+      const providerPaymentMap: Record<string, string> = {
+        bkash: "bKash",
+        nagad: "Nagad",
+        rocket: "Rocket",
+        bank: "Bank Transfer",
+        cash: "Cash",
+      };
+      setTransactionForm(current => ({
+        ...current,
+        amount: String(parsed.amount),
+        paymentMethod: providerPaymentMap[parsed.provider] || current.paymentMethod,
+        note: parsed.suggestedNote || current.note,
+      }));
+      if (parsed.type) {
+        setTransactionType(parsed.type);
+      }
+      toast.success("SMS থেকে টাকার অঙ্ক ও বিবরণ স্বয়ংক্রিয়ভাবে বসানো হয়েছে!");
+      setSmsInput("");
+      setShowSmsHelper(false);
+    } else {
+      toast.error("SMS থেকে টাকার পরিমাণ শনাক্ত করা যায়নি। অনুগ্রহ করে ম্যানুয়ালি ইনপুট দিন।");
+    }
   }
   function resetAccount() {
     setAccountOpen(false);
@@ -855,7 +893,7 @@ export default function Home() {
         <section className="flex flex-col justify-between gap-5 rounded-3xl bg-[#edf5ee] p-4 sm:p-7 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-bold tracking-[.16em] text-[#4f7b67]">
-              আমার হিসাব
+              Ahmed's Financial Accounting
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#163c32] sm:text-4xl">
               প্রোফাইল
@@ -1552,6 +1590,47 @@ export default function Home() {
                 <TabsTrigger value="income">আয়</TabsTrigger>
               </TabsList>
             </Tabs>
+
+            {!editingTransactionId && (
+              <div className="rounded-xl border border-[#cbe4d3] bg-[#f4faf5] p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-semibold text-[#144434]">
+                    <Sparkles className="h-4 w-4 text-[#166534]" />
+                    <span>ব্যাংক বা বিকাশ/নগদ SMS দিয়ে অটো-পূরণ</span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSmsHelper(!showSmsHelper)}
+                    className="h-7 text-xs text-[#166534] hover:bg-[#e2f2e5]"
+                  >
+                    {showSmsHelper ? "লুকান" : "SMS পেস্ট করুন"}
+                  </Button>
+                </div>
+                {showSmsHelper && (
+                  <div className="mt-2 space-y-2 pt-2 border-t border-[#d8ece0]">
+                    <Textarea
+                      placeholder="এখানে বিকাশ, নগদ, রকেট বা ব্যাংকের ট্রানজ্যাকশন SMS পেস্ট করুন..."
+                      value={smsInput}
+                      onChange={e => setSmsInput(e.target.value)}
+                      className="h-16 text-xs bg-white resize-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleApplySMS}
+                        className="h-7 rounded-lg bg-[#166534] hover:bg-[#114f29] text-white text-xs px-3"
+                      >
+                        অটো-বসিয়ে দিন
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Field label="টাকার অঙ্ক">
               <Input
                 required

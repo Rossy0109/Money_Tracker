@@ -59,7 +59,12 @@ function requireGoogleConfiguration() {
 
 function assertGoogleEndpoint(value: string, field: keyof GoogleDiscovery) {
   const url = new URL(value);
-  if (url.protocol !== "https:" || !url.hostname.endsWith("google.com")) {
+  const isGoogleHost =
+    url.hostname === "google.com" ||
+    url.hostname.endsWith(".google.com") ||
+    url.hostname === "googleapis.com" ||
+    url.hostname.endsWith(".googleapis.com");
+  if (url.protocol !== "https:" || !isGoogleHost) {
     throw new Error(`Unexpected Google discovery ${field}`);
   }
   return url;

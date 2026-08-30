@@ -1,3 +1,6 @@
+import { useState, useEffect } from "react";
+import { trpc } from "@/lib/trpc";
+
 export const ACTIVE_PROJECT_STORAGE_KEY = "my-hisab.active-project-id";
 
 export function resolveActiveProjectId(
@@ -29,4 +32,38 @@ export function saveActiveProjectId(projectId: number) {
   } catch {
     // Storage can be unavailable in privacy-restricted mobile browsers.
   }
+}
+
+export function useActiveProject() {
+  const { data: projects = [], isLoading } = trpc.projects.list.useQuery();
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(() => readActiveProjectId());
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      setActiveProjectId((current) => {
+        const next = resolveActiveProjectId(
+          projects.map((p) => p.id),
+          current,
+          readActiveProjectId()
+        );
+        if (next !== null && next !== current) {
+          saveActiveProjectId(next);
+        }
+        return next;
+      });
+    }
+  }, [projects]);
+
+  const selectProject = (id: number) => {
+    setActiveProjectId(id);
+    saveActiveProjectId(id);
+  };
+
+  return {
+    activeProjectId,
+    projects,
+    isLoading,
+    selectProject,
+    setActiveProjectId: selectProject,
+  };
 }

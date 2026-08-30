@@ -19,6 +19,7 @@ import {
 } from "./googleOAuth";
 import { ENV } from "./env";
 import { sdk } from "./sdk";
+import { hashPassword, verifyPassword } from "./passwordAuth";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -26,6 +27,129 @@ function getQueryParam(req: Request, key: string): string | undefined {
 }
 
 export function registerOAuthRoutes(app: Express) {
+  // Direct email & password registration endpoint
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const { name, email, password } = req.body || {};
+      if (!email || typeof email !== "string" || !email.includes("@")) {
+        res.status(400).json({ error: "সঠিক ইমেইল ঠিকানা দিন" });
+        return;
+      }
+      if (!password || typeof password !== "string" || password.length < 6) {
+        res.status(400).json({ error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে" });
+        return;
+      }
+
+      const passwordHash = hashPassword(password);
+      const user = await db.createPasswordUser({
+        name: typeof name === "string" ? name : "",
+        email,
+        passwordHash,
+      });
+
+      if (user.status === "pending") {
+        res.status(201).json({
+          success: true,
+          pendingApproval: true,
+          message: "রেজিস্ট্রেশন সফল হয়েছে! আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর আপনি লগইন করতে পারবেন।",
+          user: null,
+        });
+        return;
+      }
+
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || user.email || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
+
+      res.status(201).json({
+        success: true,
+        pendingApproval: false,
+        user: {
+          id: user.id,
+          openId: user.openId,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error: any) {
+      console.error("[Auth Register] Failed:", error);
+      res.status(400).json({ error: error.message || "রেজিস্ট্রেশন সম্পন্ন করা যায়নি" });
+    }
+  });
+
+  // Direct email & password login endpoint
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || typeof email !== "string" || !password || typeof password !== "string") {
+        res.status(400).json({ error: "ইমেইল এবং পাসওয়ার্ড দিন" });
+        return;
+      }
+
+      const user = await db.getUserByEmail(email);
+      if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+        res.status(401).json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
+        return;
+      }
+
+      if (user.status === "pending") {
+        res.status(403).json({
+          error: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+        });
+        return;
+      }
+
+      if (user.status === "suspended") {
+        res.status(403).json({
+          error: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+        });
+        return;
+      }
+
+      await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || user.email || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
+
+      res.status(200).json({
+        success: true,
+        user: {
+          id: user.id,
+          openId: user.openId,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error: any) {
+      console.error("[Auth Login] Failed:", error);
+      res.status(500).json({ error: "লগইন প্রক্রিয়া ব্যর্থ হয়েছে" });
+    }
+  });
+
+  // Direct logout endpoint
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    const cookieOptions = getSessionCookieOptions(req);
+    res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    res.status(200).json({ success: true });
+  });
+
   app.get(GOOGLE_LOGIN_PATH, async (req: Request, res: Response) => {
     if (ENV.authMode !== "google") {
       res.status(404).json({ error: "Google OAuth is not enabled" });

@@ -10,6 +10,8 @@ import {
   financeDueSettlements,
   financeHouseholdMembers,
   financeHouseholds,
+  financeInvoices,
+  financeInvoiceItems,
   financeProjects,
   financePrivateStorageObjects,
   financeRecurringTransactions,
@@ -25,6 +27,7 @@ import { calculateDueSettlement } from "./dueAccounting";
 import {
   calculateBudgetAlerts,
   calculateBudgetEarlyWarnings,
+  calculateBurnRateAnomalies,
   DEFAULT_CATEGORIES,
 } from "./finance.constants";
 import { calculateSharedBudgetProgress } from "./householdAccounting";
@@ -104,6 +107,53 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const normalized = email.trim().toLowerCase();
+  const result = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
+  return result[0];
+}
+
+export async function createPasswordUser(input: { name: string; email: string; passwordHash: string }) {
+  const db = databaseRequired(await getDb());
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existing = await getUserByEmail(normalizedEmail);
+  if (existing) {
+    throw new Error("এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে। অনুগ্রহ করে লগইন করুন।");
+  }
+
+  const openId = `local:${normalizedEmail}`;
+  const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
+  const isBootstrapAdmin = (bootstrapEmail && normalizedEmail === bootstrapEmail) || openId === ENV.ownerOpenId;
+  const role = isBootstrapAdmin ? ("admin" as const) : ("user" as const);
+  const status = isBootstrapAdmin ? ("active" as const) : ("pending" as const);
+
+  await db.insert(users).values({
+    openId,
+    name: input.name.trim() || normalizedEmail.split("@")[0],
+    email: normalizedEmail,
+    passwordHash: input.passwordHash,
+    loginMethod: "password",
+    role,
+    status,
+    lastSignedIn: new Date(),
+  });
+
+  const [user] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  if (user) {
+    await ensureDefaultProject(user.id);
+  }
+  return user;
+}
+
+export async function updateUserStatus(userId: number, status: "pending" | "active" | "suspended") {
+  const db = databaseRequired(await getDb());
+  await db.update(users).set({ status }).where(eq(users.id, userId));
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return user;
 }
 
 async function ensureDefaultProject(userId: number) {
@@ -617,6 +667,7 @@ export async function getOverview(userId: number, projectId: number) {
   }));
   const budgetAlerts = calculateBudgetAlerts(budgetCandidates);
   const budgetEarlyWarnings = calculateBudgetEarlyWarnings(budgetCandidates);
+  const budgetAnomalies = calculateBurnRateAnomalies(budgetCandidates);
   const trend = Array.from({ length: 6 }, (_, offset) => {
     const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - (5 - offset), 1));
     const key = date.toISOString().slice(0, 7);
@@ -634,7 +685,7 @@ export async function getOverview(userId: number, projectId: number) {
   const displayDues = dues.map(due => ({ ...due, settlements: dueSettlements.filter(settlement => settlement.dueId === due.id).map(settlement => ({ ...settlement, accountName: settlement.accountId ? accounts.find(account => account.id === settlement.accountId)?.name ?? null : null })) }));
   const totalDebt = dues.filter(due => due.type === "debt").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
   const totalReceivable = dues.filter(due => due.type === "receivable").reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
-  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, budgetAlerts, budgetEarlyWarnings, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
+  return { accounts, categories, transactions: displayTransactions, budgets: budgetProgress, budgetAlerts, budgetEarlyWarnings, budgetAnomalies, bills, dues: displayDues, voucherSettings, trend, monthKey: monthKey(), totals: { totalBalance, totalIncome, totalExpense, totalDebt, totalReceivable, netAmount: totalIncome - totalExpense } };
 }
 
 export async function getBudgetPlan(userId: number, projectId: number, targetMonthKey: string) {
@@ -1248,10 +1299,238 @@ export async function listAuditLogs(filters: AuditLogFilters = {}) {
 
 export async function listUsersForAdmin() {
   const db = databaseRequired(await getDb());
-  return db.select({ id: users.id, name: users.name, email: users.email, role: users.role, lastSignedIn: users.lastSignedIn, createdAt: users.createdAt }).from(users).orderBy(desc(users.lastSignedIn));
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      status: users.status,
+      loginMethod: users.loginMethod,
+      lastSignedIn: users.lastSignedIn,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
 }
 
 export async function listProjectsForAdmin() {
   const db = databaseRequired(await getDb());
   return db.select({ id: financeProjects.id, name: financeProjects.name, userId: financeProjects.userId, ownerName: users.name, ownerEmail: users.email, createdAt: financeProjects.createdAt }).from(financeProjects).leftJoin(users, eq(financeProjects.userId, users.id)).orderBy(desc(financeProjects.createdAt));
 }
+
+export type CreateInvoiceInput = {
+  projectId: number;
+  invoiceNumber?: string;
+  clientName: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientAddress?: string;
+  clientBinTin?: string;
+  issueDate: Date;
+  dueDate: Date;
+  discountAmount?: number;
+  notesTerms?: string;
+  items: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate?: number;
+  }>;
+};
+
+export async function createInvoice(userId: number, input: CreateInvoiceInput) {
+  await assertOwnedProject(userId, input.projectId);
+  if (!input.clientName.trim()) throw new Error("গ্রাহকের নাম প্রদান করুন");
+  if (!input.items || input.items.length === 0) throw new Error("অন্তত একটি আইটেম যোগ করুন");
+
+  const db = databaseRequired(await getDb());
+
+  let subtotal = 0;
+  let vatAmount = 0;
+
+  const processedItems = input.items.map(item => {
+    const qty = Number(item.quantity) || 1;
+    const price = Number(item.unitPrice) || 0;
+    const vatRate = Number(item.vatRate) || 0;
+    const itemTotal = qty * price;
+    const itemVat = itemTotal * (vatRate / 100);
+
+    subtotal += itemTotal;
+    vatAmount += itemVat;
+
+    return {
+      description: item.description.trim() || "Item",
+      quantity: decimal(qty),
+      unitPrice: decimal(price),
+      vatRate: decimal(vatRate),
+      total: decimal(itemTotal),
+    };
+  });
+
+  const discount = Math.max(0, Number(input.discountAmount) || 0);
+  const grandTotal = Math.max(0, subtotal + vatAmount - discount);
+
+  let invNumber = input.invoiceNumber?.trim();
+  if (!invNumber) {
+    const count = await db.select({ count: sql<number>`count(*)` }).from(financeInvoices).where(eq(financeInvoices.projectId, input.projectId));
+    const nextSeq = (Number(count[0]?.count) || 0) + 1;
+    invNumber = `INV-${new Date().getFullYear()}-${String(nextSeq).padStart(4, "0")}`;
+  }
+
+  const result = await db.insert(financeInvoices).values({
+    userId,
+    projectId: input.projectId,
+    invoiceNumber: invNumber,
+    clientName: input.clientName.trim(),
+    clientPhone: input.clientPhone?.trim() || null,
+    clientEmail: input.clientEmail?.trim() || null,
+    clientAddress: input.clientAddress?.trim() || null,
+    clientBinTin: input.clientBinTin?.trim() || null,
+    issueDate: input.issueDate,
+    dueDate: input.dueDate,
+    subtotal: decimal(subtotal),
+    discountAmount: decimal(discount),
+    vatAmount: decimal(vatAmount),
+    grandTotal: decimal(grandTotal),
+    paidAmount: "0.00",
+    status: "unpaid",
+    notesTerms: input.notesTerms?.trim() || null,
+  });
+
+  const invoiceId = Number(result[0].insertId);
+
+  if (processedItems.length > 0) {
+    await db.insert(financeInvoiceItems).values(
+      processedItems.map(item => ({
+        invoiceId,
+        ...item,
+      }))
+    );
+  }
+
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "invoice",
+    entityId: invoiceId,
+    summary: `Invoice created: ${invNumber} for ${input.clientName} (৳${grandTotal.toFixed(2)})`,
+  });
+
+  return getInvoiceById(userId, input.projectId, invoiceId);
+}
+
+export async function listInvoices(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const invoices = await db
+    .select()
+    .from(financeInvoices)
+    .where(and(eq(financeInvoices.userId, userId), eq(financeInvoices.projectId, projectId)))
+    .orderBy(desc(financeInvoices.issueDate), desc(financeInvoices.id));
+
+  return invoices;
+}
+
+export async function getInvoiceById(userId: number, projectId: number, invoiceId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [invoice] = await db
+    .select()
+    .from(financeInvoices)
+    .where(and(eq(financeInvoices.id, invoiceId), eq(financeInvoices.userId, userId), eq(financeInvoices.projectId, projectId)))
+    .limit(1);
+
+  if (!invoice) throw new Error("চালান / ইনভয়েসটি পাওয়া যায়নি");
+
+  const items = await db
+    .select()
+    .from(financeInvoiceItems)
+    .where(eq(financeInvoiceItems.invoiceId, invoiceId))
+    .orderBy(asc(financeInvoiceItems.id));
+
+  return {
+    ...invoice,
+    items,
+  };
+}
+
+export async function updateInvoiceStatus(
+  userId: number,
+  projectId: number,
+  invoiceId: number,
+  input: { status: "draft" | "unpaid" | "partially_paid" | "paid" | "overdue" | "cancelled"; paidAmount?: number }
+) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [invoice] = await db
+    .select()
+    .from(financeInvoices)
+    .where(and(eq(financeInvoices.id, invoiceId), eq(financeInvoices.userId, userId), eq(financeInvoices.projectId, projectId)))
+    .limit(1);
+
+  if (!invoice) throw new Error("চালান / ইনভয়েস পাওয়া যায়নি");
+
+  const paidAmount = input.paidAmount !== undefined ? decimal(input.paidAmount) : invoice.paidAmount;
+
+  await db
+    .update(financeInvoices)
+    .set({
+      status: input.status,
+      paidAmount,
+    })
+    .where(eq(financeInvoices.id, invoiceId));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "invoice",
+    entityId: invoiceId,
+    summary: `Invoice status updated to ${input.status}`,
+  });
+
+  return getInvoiceById(userId, projectId, invoiceId);
+}
+
+export async function deleteInvoice(userId: number, projectId: number, invoiceId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [invoice] = await db
+    .select()
+    .from(financeInvoices)
+    .where(and(eq(financeInvoices.id, invoiceId), eq(financeInvoices.userId, userId), eq(financeInvoices.projectId, projectId)))
+    .limit(1);
+
+  if (!invoice) throw new Error("চালান / ইনভয়েস পাওয়া যায়নি");
+
+  await db.delete(financeInvoices).where(eq(financeInvoices.id, invoiceId));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "delete",
+    entityType: "invoice",
+    entityId: invoiceId,
+    summary: `Invoice deleted: ${invoice.invoiceNumber}`,
+  });
+
+  return { success: true };
+}
+
+export async function getFinancialStatements(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const overview = await getOverview(userId, projectId);
+  const { generateDoubleEntryStatements } = await import("./doubleEntryAccounting");
+  return generateDoubleEntryStatements({
+    accounts: overview.accounts,
+    transactions: overview.transactions,
+    dues: overview.dues,
+  });
+}
+

@@ -17,8 +17,10 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  status: mysqlEnum("status", ["pending", "active", "suspended"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -359,6 +361,56 @@ export const financePrivateStorageObjects = mysqlTable(
   ],
 );
 
+/** Customer invoices and billing vouchers. */
+export const financeInvoices = mysqlTable(
+  "finance_invoices",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
+    clientName: varchar("clientName", { length: 160 }).notNull(),
+    clientPhone: varchar("clientPhone", { length: 40 }),
+    clientEmail: varchar("clientEmail", { length: 320 }),
+    clientAddress: text("clientAddress"),
+    clientBinTin: varchar("clientBinTin", { length: 64 }),
+    issueDate: timestamp("issueDate").notNull(),
+    dueDate: timestamp("dueDate").notNull(),
+    subtotal: decimal("subtotal", { precision: 15, scale: 2 }).notNull(),
+    discountAmount: decimal("discountAmount", { precision: 15, scale: 2 }).default("0.00").notNull(),
+    vatAmount: decimal("vatAmount", { precision: 15, scale: 2 }).default("0.00").notNull(),
+    grandTotal: decimal("grandTotal", { precision: 15, scale: 2 }).notNull(),
+    paidAmount: decimal("paidAmount", { precision: 15, scale: 2 }).default("0.00").notNull(),
+    status: mysqlEnum("status", ["draft", "unpaid", "partially_paid", "paid", "overdue", "cancelled"]).default("unpaid").notNull(),
+    notesTerms: text("notesTerms"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_invoices_project_number_unique").on(table.projectId, table.invoiceNumber),
+    index("finance_invoices_user_project_idx").on(table.userId, table.projectId),
+    index("finance_invoices_status_idx").on(table.projectId, table.status),
+  ],
+);
+
+/** Individual line items for customer invoices. */
+export const financeInvoiceItems = mysqlTable(
+  "finance_invoice_items",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    invoiceId: int("invoiceId").notNull().references(() => financeInvoices.id, { onDelete: "cascade" }),
+    description: varchar("description", { length: 255 }).notNull(),
+    quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+    unitPrice: decimal("unitPrice", { precision: 15, scale: 2 }).notNull(),
+    vatRate: decimal("vatRate", { precision: 5, scale: 2 }).default("0.00").notNull(),
+    total: decimal("total", { precision: 15, scale: 2 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("finance_invoice_items_invoice_idx").on(table.invoiceId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
@@ -375,3 +427,5 @@ export type FinanceBill = typeof financeBills.$inferSelect;
 export type FinanceRecurringTransaction = typeof financeRecurringTransactions.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type FinancePrivateStorageObject = typeof financePrivateStorageObjects.$inferSelect;
+export type FinanceInvoice = typeof financeInvoices.$inferSelect;
+export type FinanceInvoiceItem = typeof financeInvoiceItems.$inferSelect;

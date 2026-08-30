@@ -5,6 +5,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
+import { runScheduledBackup } from "../scheduledBackup";
 
 /**
  * Creates the HTTP application without binding a port.
@@ -29,6 +30,7 @@ export function createApiApp() {
   registerOAuthRoutes(app);
   app.post("/api/scheduled/finance-recurring", runScheduledRecurring);
   app.post("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
+  app.post("/api/scheduled/finance-backup", runScheduledBackup);
   app.use(
     "/api/trpc",
     createExpressMiddleware({

@@ -1,31 +1,40 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Categories from "./pages/Categories";
-import FinanceAutomation from "./pages/FinanceAutomation";
-import FinanceBackup from "./pages/FinanceBackup";
-import FamilyHousehold from "./pages/FamilyHousehold";
-import FinanceInsights from "./pages/FinanceInsights";
-import Home from "./pages/Home";
+
+const Home = lazy(() => import("./pages/Home"));
+const FinanceInsights = lazy(() => import("./pages/FinanceInsights"));
+const FinanceAutomation = lazy(() => import("./pages/FinanceAutomation"));
+const FinanceBackup = lazy(() => import("./pages/FinanceBackup"));
+const FamilyHousehold = lazy(() => import("./pages/FamilyHousehold"));
+const Categories = lazy(() => import("./pages/Categories"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const FinancialStatements = lazy(() => import("./pages/FinancialStatements"));
+const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/insights"} component={FinanceInsights} />
-      <Route path={"/automation"} component={FinanceAutomation} />
-      <Route path={"/backup"} component={FinanceBackup} />
-      <Route path={"/family"} component={FamilyHousehold} />
-      <Route path={"/categories"} component={Categories} />
-      <Route path={"/categories/:type"} component={Categories} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><div className="animate-pulse font-semibold text-sm">লোড হচ্ছে...</div></div>}>
+      <Switch>
+        <Route path={"/"} component={Home} />
+        <Route path={"/invoices"} component={Invoices} />
+        <Route path={"/statements"} component={FinancialStatements} />
+        <Route path={"/tax-calculator"} component={TaxCalculator} />
+        <Route path={"/insights"} component={FinanceInsights} />
+        <Route path={"/automation"} component={FinanceAutomation} />
+        <Route path={"/backup"} component={FinanceBackup} />
+        <Route path={"/family"} component={FamilyHousehold} />
+        <Route path={"/categories"} component={Categories} />
+        <Route path={"/categories/:type"} component={Categories} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

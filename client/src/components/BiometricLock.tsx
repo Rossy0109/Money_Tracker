@@ -42,7 +42,7 @@ export function useBiometricLock(userEmail?: string | null) {
       const credential = await navigator.credentials.create({
         publicKey: {
           challenge,
-          rp: { name: "আমার হিসাব (Money Tracker)" },
+          rp: { name: "Ahmed's Financial Accounting" },
           user: {
             id: userId,
             name: email,
