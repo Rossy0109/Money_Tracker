@@ -248,3 +248,13 @@
 - [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a Manus live-fallback rollback path.
 - [x] Add a tested Supabase staging adapter while preserving existing accounting rules, tenant/household authorization, exports, backups, audit logging, and user data boundaries.
 - [x] Configure only an empty Supabase staging project and run blank-profile tests before seeking any production migration approval.
+- [x] Implement double-entry financial statements (Profit & Loss, Balance Sheet, Trial Balance) with standard debits and credits.
+- [x] Implement multi-item customer invoicing with VAT, discounts, due tracking, and clean Bengali BDT PDF generator.
+- [x] Implement NBR Bangladesh personal income tax calculator supporting tax slabs, exemptions, and investment rebates.
+- [x] Implement Bank and MFS SMS parser for bKash, Nagad, Rocket, DBBL, City Bank, Islami Bank, and BRAC Bank.
+- [x] Integrate SMS quick auto-fill helper inside the transaction modal.
+- [x] Implement client-side offline transaction queue with automatic background sync and dashboard indicator.
+- [x] Implement standalone username/password authentication mode with scrypt salt/hash.
+- [x] Verify full type safety (0 errors in `pnpm check`), 158/158 Vitest tests, and production build (`pnpm build`).
+- [x] Synchronize all completed features and migrations to the main GitHub repository.
+
