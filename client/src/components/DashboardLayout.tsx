@@ -4,10 +4,10 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, Si
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
-import { BiometricLockScreen, useBiometricLock } from "@/components/BiometricLock";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, Fingerprint, HardDriveDownload, LayoutDashboard, Lock, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UsersRound, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
@@ -27,17 +27,13 @@ const menuItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user, logout } = useAuth();
-  const { isSupported, isEnabled, isLocked, enableBiometric, disableBiometric, unlockApp, lockApp } = useBiometricLock(user?.email);
+  const { logoUrl } = useAppLogo();
   const { isOnline, pendingCount, syncQueue } = useOfflineSync();
 
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><Banknote className="h-8 w-8 animate-pulse" /></div>;
-  if (!user) {
+  if (!user || user.status === "pending") {
     // মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।
-    return <AuthCard />;
-  }
-
-  if (isLocked) {
-    return <BiometricLockScreen onUnlock={unlockApp} />;
+    return <AuthCard pendingUser={user?.status === "pending" ? user : null} />;
   }
 
   return (
@@ -45,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
         <SidebarHeader className="h-20 justify-center px-3">
           <a href="/" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
-            <img src="/logo.png" alt="Ahmed's Financial Accounting" className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+            <img src={logoUrl || "/logo.png"} alt="Ahmed's Financial Accounting" className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
             <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">Ahmed's Financial</span><span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span></span>
           </a>
         </SidebarHeader>
@@ -65,31 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </SidebarContent>
         <SidebarFooter className="p-3">
           <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5 space-y-2">
-            {/* Biometric Lock Toggle */}
-            <div className="flex items-center justify-between group-data-[collapsible=icon]:hidden border-b border-white/10 pb-2">
-              <span className="flex items-center gap-1.5 text-xs text-[#b9d2c2]">
-                <Fingerprint className="h-3.5 w-3.5 text-[#8ce0a3]" />
-                <span>ফিঙ্গারপ্রিন্ট লক</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => (isEnabled ? disableBiometric() : enableBiometric())}
-                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
-                  isEnabled ? "bg-[#8ce0a3] text-[#113a30]" : "bg-white/15 text-white hover:bg-white/25"
-                }`}
-              >
-                {isEnabled ? "চালু আছে" : "চালু করুন"}
-              </button>
-            </div>
-
             <div className="flex items-center gap-2.5">
               <Avatar className="h-8 w-8 border border-white/20"><AvatarFallback className="bg-[#285d4e] text-xs text-white">{(user.name || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar>
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden"><p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p><p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p></div>
-              {isEnabled && (
-                <button onClick={lockApp} title="অ্যাপ লক করুন" aria-label="অ্যাপ লক করুন" className="rounded-lg p-1.5 text-[#8ce0a3] transition hover:bg-white/10 focus:outline-none group-data-[collapsible=icon]:hidden">
-                  <Lock className="h-4 w-4" />
-                </button>
-              )}
               <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
             </div>
           </div>
@@ -98,14 +72,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
           <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
-          <img src="/logo.png" alt="Logo" className="ml-1 h-7 w-7 rounded-lg object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+          <img src={logoUrl || "/logo.png"} alt="Logo" className="ml-1 h-7 w-7 rounded-lg object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
           <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">Ahmed's Financial</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
           <div className="ml-auto flex items-center gap-2">
-            {isEnabled && (
-              <button onClick={lockApp} aria-label="লক করুন" className="rounded-xl border border-[#c2ded0] bg-white p-2 text-[#173f36] shadow-sm">
-                <Lock className="h-4 w-4" />
-              </button>
-            )}
             <PwaInstallButton />
           </div>
         </div>

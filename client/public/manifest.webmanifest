@@ -1,7 +1,7 @@
 {
-  "name": "আমার হিসাব",
-  "short_name": "আমার হিসাব",
-  "description": "ব্যক্তিগত আয়, ব্যয় ও বাজেটের নিরাপদ হিসাব",
+  "name": "Ahmed's Financial Accounting",
+  "short_name": "Ahmed's Finance",
+  "description": "Ahmed's Financial Accounting — ব্যক্তিগত ও ব্যবসায়িক আয়, ব্যয় ও বাজেটের নিরাপদ হিসাব",
   "lang": "bn",
   "dir": "ltr",
   "start_url": "/",

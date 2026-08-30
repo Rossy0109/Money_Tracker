@@ -76,7 +76,7 @@ export function generateDueReminderMessage(due: {
     `*বকেয়া পরিমাণ: ${formattedAmount}*\n` +
     (due.reason ? `বিবরণ: ${due.reason}\n` : "") +
     dateStr +
-    `\nবকেয়া অর্থ পরিশোধের প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য বিনীত অনুরোধ করা হচ্ছে। ধন্যবাদ।\n\n— আমার হিসাব`
+    `\nবকেয়া অর্থ পরিশোধের প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য বিনীত অনুরোধ করা হচ্ছে। ধন্যবাদ।\n\n— Ahmed's Financial Accounting`
   );
 }
 

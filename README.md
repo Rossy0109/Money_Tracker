@@ -1,6 +1,6 @@
-# আমার হিসাব — Bengali Personal Finance Manager
+# Ahmed's Financial Accounting — Personal & Business Finance Manager
 
-**আমার হিসাব** is a Bengali-friendly personal finance web application for recording income, expenses, account balances, monthly budgets, and bill reminders in Bangladeshi taka (৳).
+**Ahmed's Financial Accounting** is a modern personal & business finance web application for recording income, expenses, account balances, monthly budgets, invoices, inventory, and bill reminders in Bangladeshi taka (৳).
 
 ## What it includes
 

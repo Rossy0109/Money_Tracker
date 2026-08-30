@@ -64,9 +64,13 @@ import {
   Trash2,
   TrendingDown,
   TrendingUp,
+  Upload,
+  UserCheck,
+  UserX,
   WalletCards,
   X,
 } from "lucide-react";
+import { useAppLogo } from "@/hooks/useAppLogo";
 import { parseTransactionSMS } from "@/lib/smsParser";
 import { generateDueReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
 import {
@@ -493,6 +497,17 @@ export default function Home() {
     onError: () => {
       setAdminVerified(false);
       toast.error("Admin password সঠিক নয়");
+    },
+  });
+
+  const { logoUrl, uploadLogo, resetLogo, isCustom: isCustomLogo } = useAppLogo();
+  const updateUserStatus = trpc.admin.updateUserStatus.useMutation({
+    onSuccess: () => {
+      toast.success("ব্যবহারকারীর অনুমোদনের অবস্থা আপডেট হয়েছে");
+      adminUsers.refetch();
+    },
+    onError: error => {
+      toast.error(error.message || "অবস্থা আপডেট করা যায়নি");
     },
   });
 
@@ -2397,23 +2412,153 @@ export default function Home() {
                 </div>
               </section>
               <section>
-                <h3 className="font-semibold text-[#173f36]">
-                  নিবন্ধিত ব্যবহারকারী
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-[#173f36]">
+                    ব্যবহারকারী অনুমোদন ও পরিচালনা
+                  </h3>
+                  <span className="text-xs text-[#527768]">
+                    মোট: {adminUsers.data?.length ?? 0} জন
+                  </span>
+                </div>
+                <div className="mt-3 max-h-56 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
+                  {adminUsers.data?.length ? (
+                    adminUsers.data.map(member => (
+                      <div
+                        key={member.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm hover:bg-[#fafdfb]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-[#25483e] truncate">
+                              {member.name || `User #${member.id}`}
+                            </span>
+                            <span className="rounded-full bg-[#eff5ef] px-2 py-0.5 text-[11px] text-[#477263]">
+                              {member.role}
+                            </span>
+                            {member.status === "pending" && (
+                              <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[11px] font-semibold">
+                                অপেক্ষমাণ (Pending)
+                              </span>
+                            )}
+                            {member.status === "active" && (
+                              <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-semibold">
+                                সক্রিয় (Active)
+                              </span>
+                            )}
+                            {member.status === "suspended" && (
+                              <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[11px] font-semibold">
+                                স্থগিত (Suspended)
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[#73857c] truncate mt-0.5">
+                            {member.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
+                          {member.status !== "active" && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={updateUserStatus.isPending}
+                              onClick={() => {
+                                updateUserStatus.mutate({
+                                  password: adminPassword || "",
+                                  targetUserId: member.id,
+                                  status: "active",
+                                });
+                              }}
+                              className="h-8 rounded-lg bg-[#173f36] hover:bg-[#12312a] text-white text-xs px-2.5 flex items-center gap-1"
+                            >
+                              <UserCheck className="h-3.5 w-3.5" />
+                              <span>অনুমোদন দিন</span>
+                            </Button>
+                          )}
+                          {member.status === "active" && member.role !== "admin" && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={updateUserStatus.isPending}
+                              onClick={() => {
+                                updateUserStatus.mutate({
+                                  password: adminPassword || "",
+                                  targetUserId: member.id,
+                                  status: "suspended",
+                                });
+                              }}
+                              className="h-8 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 text-xs px-2.5 flex items-center gap-1"
+                            >
+                              <UserX className="h-3.5 w-3.5" />
+                              <span>স্থগিত করুন</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <Empty text="কোনো নিবন্ধিত ব্যবহারকারী নেই" />
+                  )}
+                </div>
+              </section>
+
+              {/* Logo Management Section */}
+              <section className="pt-2 border-t border-[#e1ebe3]">
+                <h3 className="font-semibold text-[#173f36] mb-2">
+                  লোগো আপলোড ও পরিবর্তন
                 </h3>
-                <div className="mt-3 max-h-40 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
-                  {adminUsers.data?.map(member => (
-                    <div
-                      key={member.id}
-                      className="flex justify-between gap-3 p-3 text-sm"
-                    >
-                      <span className="font-medium text-[#25483e]">
-                        {member.name ?? member.email ?? `User #${member.id}`}
-                      </span>
-                      <span className="rounded-full bg-[#eff5ef] px-2 py-0.5 text-xs text-[#477263]">
-                        {member.role}
-                      </span>
+                <div className="flex items-center gap-4 p-3 rounded-xl border border-[#e1ebe3] bg-[#fbfdfb]">
+                  <div className="h-14 w-14 rounded-xl border border-[#c9dcd0] bg-white p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                    <img
+                      src={logoUrl || "/logo.png"}
+                      alt="App Logo"
+                      className="h-full w-full object-contain"
+                      onError={e => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <p className="text-xs text-[#527768]">
+                      আপনার পছন্দের নতুন লোগো (PNG, SVG, JPG, সর্বোচ্চ 2MB) আপলোড করতে পারেন।
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-[#173f36] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#12312a] transition">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>নতুন লোগো আপলোড</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                await uploadLogo(file);
+                                toast.success("নতুন লোগো সফলভাবে আপলোড ও যুক্ত করা হয়েছে!");
+                              } catch (err: any) {
+                                toast.error(err.message || "লোগো আপলোড ব্যর্থ হয়েছে");
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      {isCustomLogo && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            resetLogo();
+                            toast.success("ডিফল্ট লোগো পুনরুদ্ধার করা হয়েছে");
+                          }}
+                          className="h-8 rounded-lg text-xs"
+                        >
+                          ডিফল্ট লোগো ফিরিয়ে আনুন
+                        </Button>
+                      )}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </section>
             </div>

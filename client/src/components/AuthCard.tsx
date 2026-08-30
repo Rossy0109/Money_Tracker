@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { startLogin } from "@/const";
+import { useAppLogo } from "@/hooks/useAppLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +19,12 @@ import {
   Sparkles,
   Clock,
   CheckCircle2,
+  RefreshCw,
+  LogOut,
 } from "lucide-react";
 
-export function AuthCard() {
+export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null; email?: string | null } | null }) {
+  const { logoUrl } = useAppLogo();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -31,6 +35,13 @@ export function AuthCard() {
   const [pendingApprovalMsg, setPendingApprovalMsg] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
+
+  const logoutMutation = trpc.auth.logout.useMutation({
+    onSuccess: async () => {
+      utils.auth.me.setData(undefined, null);
+      await utils.auth.me.invalidate();
+    },
+  });
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async (data) => {
@@ -107,7 +118,7 @@ export function AuthCard() {
         {/* Top App Identity */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white p-1 shadow-lg shadow-green-900/15 mb-3 ring-4 ring-white/80 overflow-hidden">
-            <img src="/logo.png" alt="Ahmed's Financial Accounting" className="h-full w-full object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+            <img src={logoUrl || "/logo.png"} alt="Ahmed's Financial Accounting" className="h-full w-full object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f]">
             Ahmed's Financial Accounting
@@ -119,38 +130,76 @@ export function AuthCard() {
 
         {/* Auth Card Box */}
         <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#d6e5db] shadow-[0_20px_50px_rgba(20,56,47,0.08)] p-6 sm:p-8">
-          {/* Tab Switcher */}
-          <div className="grid grid-cols-2 p-1 bg-[#eef4f0] rounded-2xl mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                setMode("login");
-                setErrorMessage(null);
-              }}
-              className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
-                mode === "login"
-                  ? "bg-white text-[#14382f] shadow-sm"
-                  : "text-[#5b7468] hover:text-[#14382f]"
-              }`}
-            >
-              লগইন (Sign In)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode("register");
-                setErrorMessage(null);
-                setPendingApprovalMsg(null);
-              }}
-              className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
-                mode === "register"
-                  ? "bg-white text-[#14382f] shadow-sm"
-                  : "text-[#5b7468] hover:text-[#14382f]"
-              }`}
-            >
-              নতুন একাউন্ট (Sign Up)
-            </button>
-          </div>
+          {pendingUser ? (
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
+                <Clock className="h-7 w-7 animate-pulse" />
+              </div>
+              <h2 className="text-lg font-bold text-[#14382f]">
+                অ্যাকাউন্ট অনুমোদনের অপেক্ষায়
+              </h2>
+              <div className="p-3.5 rounded-2xl bg-[#fafdfb] border border-[#d6e5db] text-xs text-[#3b5d50] space-y-1.5 text-left">
+                <p className="font-semibold text-[#14382f]">ব্যবহারকারী: {pendingUser.name || "নতুন সদস্য"}</p>
+                <p className="text-[#59786a]">ইমেইল: {pendingUser.email}</p>
+                <p className="text-amber-700 font-medium pt-1 border-t border-[#e2ece5]">
+                  আপনার নিবন্ধন সফল হয়েছে। অ্যাডমিন অনুমোদন করার পর আপনি ড্যাশবোর্ড ব্যবহার করতে পারবেন।
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => utils.auth.me.invalidate()}
+                  className="w-full h-10 rounded-xl border-[#c9dcd0] text-[#1e3b32] font-semibold text-xs flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  অবস্থা যাচাই করুন (Refresh)
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => logoutMutation.mutate()}
+                  className="w-full h-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center justify-center gap-2"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  সাইন আউট / অন্য অ্যাকাউন্টে প্রবেশ
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Tab Switcher */}
+              <div className="grid grid-cols-2 p-1 bg-[#eef4f0] rounded-2xl mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("login");
+                    setErrorMessage(null);
+                  }}
+                  className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                    mode === "login"
+                      ? "bg-white text-[#14382f] shadow-sm"
+                      : "text-[#5b7468] hover:text-[#14382f]"
+                  }`}
+                >
+                  লগইন (Sign In)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("register");
+                    setErrorMessage(null);
+                    setPendingApprovalMsg(null);
+                  }}
+                  className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                    mode === "register"
+                      ? "bg-white text-[#14382f] shadow-sm"
+                      : "text-[#5b7468] hover:text-[#14382f]"
+                  }`}
+                >
+                  নতুন একাউন্ট (Sign Up)
+                </button>
+              </div>
 
           {/* Pending Approval Success Banner */}
           {pendingApprovalMsg && (
@@ -329,6 +378,8 @@ export function AuthCard() {
             <ShieldCheck className="h-3.5 w-3.5 text-[#166534]" />
             <span>১০০% এনক্রিপ্টেড এবং সম্পূর্ণ সুরক্ষিত ব্যক্তিগত ক্লাউড</span>
           </div>
+            </>
+          )}
         </div>
       </div>
     </main>
