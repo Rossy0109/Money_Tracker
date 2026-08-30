@@ -60,6 +60,7 @@ import {
   ShieldCheck,
   Sparkles,
   MessageSquare,
+  MessageCircle,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -67,6 +68,7 @@ import {
   X,
 } from "lucide-react";
 import { parseTransactionSMS } from "@/lib/smsParser";
+import { generateDueReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
 import {
   cloneElement,
   FormEvent,
@@ -2476,13 +2478,38 @@ function DuesPanel({
                 <p className="text-xs text-[#778980]">
                   মোট {bdt(due.originalAmount)} · {dateText(due.openedAt)}
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSettle(due)}
-                >
-                  সমন্বয়
-                </Button>
+                <div className="flex items-center gap-2">
+                  {due.type === "receivable" && Number(due.outstandingAmount) > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const msg = generateDueReminderMessage({
+                          counterparty: due.counterparty,
+                          outstandingAmount: due.outstandingAmount,
+                          voucherNo: due.voucherNo,
+                          dueAt: due.dueAt,
+                          reason: due.reason || due.note,
+                        });
+                        const url = getWhatsAppShareUrl(null, msg);
+                        window.open(url, "_blank");
+                      }}
+                      className="h-8 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] text-xs font-semibold flex items-center gap-1 shadow-sm"
+                      title="WhatsApp এ বকেয়া তাগাদা পাঠান"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
+                      তাগাদা
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSettle(due)}
+                    className="h-8 rounded-xl"
+                  >
+                    সমন্বয়
+                  </Button>
+                </div>
               </div>
               {due.settlements?.length ? (
                 <div className="mt-3 rounded-lg bg-[#f6faf7] p-2">

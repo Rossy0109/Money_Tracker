@@ -12,6 +12,7 @@ import {
   financeHouseholds,
   financeInvoices,
   financeInvoiceItems,
+  financeInventoryItems,
   financeProjects,
   financePrivateStorageObjects,
   financeRecurringTransactions,
@@ -1533,4 +1534,179 @@ export async function getFinancialStatements(userId: number, projectId: number) 
     dues: overview.dues,
   });
 }
+
+export async function listInventoryItems(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  return db
+    .select()
+    .from(financeInventoryItems)
+    .where(and(eq(financeInventoryItems.userId, userId), eq(financeInventoryItems.projectId, projectId)))
+    .orderBy(asc(financeInventoryItems.name));
+}
+
+export async function createInventoryItem(input: {
+  userId: number;
+  projectId: number;
+  name: string;
+  sku?: string;
+  category?: string;
+  unit: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  currentStock: number;
+  lowStockThreshold?: number;
+  notes?: string;
+}) {
+  await assertOwnedProject(input.userId, input.projectId);
+  const db = databaseRequired(await getDb());
+
+  const result = await db.insert(financeInventoryItems).values({
+    userId: input.userId,
+    projectId: input.projectId,
+    name: input.name.trim(),
+    sku: input.sku?.trim() || null,
+    category: input.category?.trim() || null,
+    unit: input.unit.trim() || "পিস",
+    purchasePrice: input.purchasePrice.toFixed(2),
+    sellingPrice: input.sellingPrice.toFixed(2),
+    currentStock: input.currentStock.toFixed(2),
+    lowStockThreshold: (input.lowStockThreshold ?? 5).toFixed(2),
+    notes: input.notes?.trim() || null,
+  });
+
+  const insertId = Number((result as any)[0]?.insertId || (result as any).insertId || 0);
+
+  await logAudit({
+    actorUserId: input.userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "inventory_item",
+    entityId: insertId,
+    summary: `Created inventory product: ${input.name} (Stock: ${input.currentStock} ${input.unit})`,
+  });
+
+  return { id: insertId, success: true };
+}
+
+export async function updateInventoryItem(
+  userId: number,
+  projectId: number,
+  id: number,
+  input: {
+    name?: string;
+    sku?: string;
+    category?: string;
+    unit?: string;
+    purchasePrice?: number;
+    sellingPrice?: number;
+    currentStock?: number;
+    lowStockThreshold?: number;
+    notes?: string;
+  }
+) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [existing] = await db
+    .select()
+    .from(financeInventoryItems)
+    .where(and(eq(financeInventoryItems.id, id), eq(financeInventoryItems.userId, userId), eq(financeInventoryItems.projectId, projectId)))
+    .limit(1);
+
+  if (!existing) throw new Error("ইনভেন্টরি আইটেম পাওয়া যায়নি");
+
+  const updateData: Record<string, any> = {};
+  if (input.name !== undefined) updateData.name = input.name.trim();
+  if (input.sku !== undefined) updateData.sku = input.sku?.trim() || null;
+  if (input.category !== undefined) updateData.category = input.category?.trim() || null;
+  if (input.unit !== undefined) updateData.unit = input.unit.trim() || "পিস";
+  if (input.purchasePrice !== undefined) updateData.purchasePrice = input.purchasePrice.toFixed(2);
+  if (input.sellingPrice !== undefined) updateData.sellingPrice = input.sellingPrice.toFixed(2);
+  if (input.currentStock !== undefined) updateData.currentStock = input.currentStock.toFixed(2);
+  if (input.lowStockThreshold !== undefined) updateData.lowStockThreshold = input.lowStockThreshold.toFixed(2);
+  if (input.notes !== undefined) updateData.notes = input.notes?.trim() || null;
+
+  await db
+    .update(financeInventoryItems)
+    .set(updateData)
+    .where(eq(financeInventoryItems.id, id));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "inventory_item",
+    entityId: id,
+    summary: `Updated inventory product: ${input.name || existing.name}`,
+  });
+
+  return { success: true };
+}
+
+export async function adjustInventoryStock(
+  userId: number,
+  projectId: number,
+  id: number,
+  quantityChange: number,
+  reason: string
+) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [existing] = await db
+    .select()
+    .from(financeInventoryItems)
+    .where(and(eq(financeInventoryItems.id, id), eq(financeInventoryItems.userId, userId), eq(financeInventoryItems.projectId, projectId)))
+    .limit(1);
+
+  if (!existing) throw new Error("ইনভেন্টরি আইটেম পাওয়া যায়নি");
+
+  const current = Number(existing.currentStock) || 0;
+  const nextStock = Math.max(0, current + quantityChange);
+
+  await db
+    .update(financeInventoryItems)
+    .set({ currentStock: nextStock.toFixed(2) })
+    .where(eq(financeInventoryItems.id, id));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "inventory_item",
+    entityId: id,
+    summary: `Adjusted stock for ${existing.name}: ${quantityChange > 0 ? "+" : ""}${quantityChange} ${existing.unit} (Reason: ${reason}). New Stock: ${nextStock}`,
+  });
+
+  return { currentStock: nextStock, success: true };
+}
+
+export async function deleteInventoryItem(userId: number, projectId: number, id: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [existing] = await db
+    .select()
+    .from(financeInventoryItems)
+    .where(and(eq(financeInventoryItems.id, id), eq(financeInventoryItems.userId, userId), eq(financeInventoryItems.projectId, projectId)))
+    .limit(1);
+
+  if (!existing) throw new Error("ইনভেন্টরি আইটেম পাওয়া যায়নি");
+
+  await db.delete(financeInventoryItems).where(eq(financeInventoryItems.id, id));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "delete",
+    entityType: "inventory_item",
+    entityId: id,
+    summary: `Deleted inventory product: ${existing.name}`,
+  });
+
+  return { success: true };
+}
+
 

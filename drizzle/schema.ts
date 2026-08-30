@@ -411,6 +411,31 @@ export const financeInvoiceItems = mysqlTable(
   ],
 );
 
+/** Products, goods, materials and stock inventory. */
+export const financeInventoryItems = mysqlTable(
+  "finance_inventory_items",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 180 }).notNull(),
+    sku: varchar("sku", { length: 80 }),
+    category: varchar("category", { length: 100 }),
+    unit: varchar("unit", { length: 40 }).default("পিস").notNull(),
+    purchasePrice: decimal("purchasePrice", { precision: 15, scale: 2 }).default("0.00").notNull(),
+    sellingPrice: decimal("sellingPrice", { precision: 15, scale: 2 }).default("0.00").notNull(),
+    currentStock: decimal("currentStock", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    lowStockThreshold: decimal("lowStockThreshold", { precision: 12, scale: 2 }).default("5.00").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("finance_inventory_user_project_idx").on(table.userId, table.projectId),
+    index("finance_inventory_sku_idx").on(table.projectId, table.sku),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
@@ -429,3 +454,6 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type FinancePrivateStorageObject = typeof financePrivateStorageObjects.$inferSelect;
 export type FinanceInvoice = typeof financeInvoices.$inferSelect;
 export type FinanceInvoiceItem = typeof financeInvoiceItems.$inferSelect;
+export type FinanceInventoryItem = typeof financeInventoryItems.$inferSelect;
+export type InsertFinanceInventoryItem = typeof financeInventoryItems.$inferInsert;
+

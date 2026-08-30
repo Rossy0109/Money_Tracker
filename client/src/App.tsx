@@ -15,6 +15,7 @@ const Categories = lazy(() => import("./pages/Categories"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const FinancialStatements = lazy(() => import("./pages/FinancialStatements"));
 const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
+const Inventory = lazy(() => import("./pages/Inventory"));
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Home} />
         <Route path={"/invoices"} component={Invoices} />
+        <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />
         <Route path={"/tax-calculator"} component={TaxCalculator} />
         <Route path={"/insights"} component={FinanceInsights} />

@@ -23,7 +23,9 @@ import {
   Receipt,
   Search,
   Filter,
+  MessageCircle,
 } from "lucide-react";
+import { generateInvoiceReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
 
 interface InvoiceItemState {
   description: string;
@@ -55,6 +57,12 @@ export default function Invoices() {
   ]);
 
   const utils = trpc.useUtils();
+
+  const inventoryQuery = trpc.finance.inventoryList.useQuery(
+    { projectId: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
+  const inventoryItems = inventoryQuery.data || [];
 
   const invoicesQuery = trpc.finance.invoices.useQuery(
     { projectId: activeProjectId! },
@@ -118,6 +126,14 @@ export default function Invoices() {
   const handleItemChange = (index: number, field: keyof InvoiceItemState, value: any) => {
     const next = [...items];
     next[index] = { ...next[index], [field]: value };
+    if (field === "description" && typeof value === "string") {
+      const match = inventoryItems.find(
+        (i) => i.name.toLowerCase() === value.trim().toLowerCase()
+      );
+      if (match && Number(match.sellingPrice) > 0) {
+        next[index].unitPrice = Number(match.sellingPrice);
+      }
+    }
     setItems(next);
   };
 
@@ -328,7 +344,8 @@ export default function Invoices() {
                       >
                         <div className="col-span-5">
                           <Input
-                            placeholder="বিবরণ"
+                            placeholder="বিবরণ বা পণ্য বাছাই"
+                            list="inventory-datalist"
                             required
                             value={item.description}
                             onChange={(e) => handleItemChange(idx, "description", e.target.value)}
@@ -381,6 +398,14 @@ export default function Invoices() {
                       </div>
                     ))}
                   </div>
+
+                  <datalist id="inventory-datalist">
+                    {inventoryItems.map((inv) => (
+                      <option key={inv.id} value={inv.name}>
+                        {inv.name} (স্টক: {inv.currentStock} {inv.unit} · বিক্রয়মূল্য: ৳{inv.sellingPrice})
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Totals Summary */}
@@ -541,6 +566,29 @@ export default function Invoices() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {dueAmount > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const msg = generateInvoiceReminderMessage({
+                              invoiceNumber: invoice.invoiceNumber,
+                              clientName: invoice.clientName,
+                              grandTotal: grandTotal,
+                              paidAmount: paidAmount,
+                              dueDate: invoice.dueDate,
+                            });
+                            const url = getWhatsAppShareUrl(invoice.clientPhone, msg);
+                            window.open(url, "_blank");
+                          }}
+                          className="h-9 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                          title="WhatsApp এ বকেয়া পরিশোধের তাগাদা মেসেজ পাঠান"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
+                          তাগাদা পাঠান
+                        </Button>
+                      )}
+
                       <Button
                         variant="outline"
                         size="sm"
