@@ -94,8 +94,19 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet[field] = user[field] ?? null;
     }
   }
-  const shouldSetRole = user.openId === ENV.ownerOpenId || user.role !== undefined;
-  values.role = user.openId === ENV.ownerOpenId ? "admin" : user.role ?? "user";
+  const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
+  const normalizedEmail = (user.email || "").trim().toLowerCase();
+  const isBootstrapAdmin =
+    (bootstrapEmail && normalizedEmail === bootstrapEmail) ||
+    user.openId === ENV.ownerOpenId ||
+    user.role === "admin";
+
+  const shouldSetRole = isBootstrapAdmin || user.role !== undefined;
+  values.role = isBootstrapAdmin ? "admin" : user.role ?? "user";
+  if (isBootstrapAdmin) {
+    values.status = "active";
+    updateSet.status = "active";
+  }
   // Do not silently demote an existing administrator during an ordinary sign-in.
   // A role changes only through explicit bootstrap/administration or the existing
   // Manus owner mapping.
