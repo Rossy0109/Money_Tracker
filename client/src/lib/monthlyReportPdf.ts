@@ -449,7 +449,47 @@ async function buildAccountingReportPdf(
     doc.setFontSize(8);
     doc.setTextColor(94, 116, 105);
     doc.text("দ্রষ্টব্য: দেনা বা পাওনা নিষ্পত্তি আয় বা ব্যয়ের সঙ্গে যুক্ত করা হয়নি।", margin, y + 12);
+    y += 18;
   }
+
+  // Official Signature Block
+  y = ensureSpace(y, 75);
+  y += 40;
+  const colWidth = (contentWidth - 40) / 3;
+
+  // Column 1: Prepared By
+  const col1X = margin;
+  doc.setDrawColor(180, 195, 185);
+  doc.line(col1X, y, col1X + colWidth, y);
+  doc.setFontSize(8.5);
+  doc.setTextColor(52, 76, 66);
+  doc.text("প্রস্তুতকারকের স্বাক্ষর", col1X + colWidth / 2, y + 11, { align: "center" });
+  doc.setFontSize(7);
+  doc.setTextColor(110, 130, 120);
+  doc.text("(Prepared By)", col1X + colWidth / 2, y + 21, { align: "center" });
+
+  // Column 2: Checked By
+  const col2X = margin + colWidth + 20;
+  doc.setDrawColor(180, 195, 185);
+  doc.line(col2X, y, col2X + colWidth, y);
+  doc.setFontSize(8.5);
+  doc.setTextColor(52, 76, 66);
+  doc.text("যাচাইকারীর স্বাক্ষর", col2X + colWidth / 2, y + 11, { align: "center" });
+  doc.setFontSize(7);
+  doc.setTextColor(110, 130, 120);
+  doc.text("(Checked / Accountant)", col2X + colWidth / 2, y + 21, { align: "center" });
+
+  // Column 3: Authorized Signature & Seal
+  const col3X = margin + (colWidth + 20) * 2;
+  doc.setDrawColor(180, 195, 185);
+  doc.line(col3X, y, col3X + colWidth, y);
+  doc.setFontSize(8.5);
+  doc.setTextColor(52, 76, 66);
+  doc.text("অনুমোদিত কর্মকর্তার স্বাক্ষর ও সিল", col3X + colWidth / 2, y + 11, { align: "center" });
+  doc.setFontSize(7);
+  doc.setTextColor(110, 130, 120);
+  doc.text("(Authorized Signature & Seal)", col3X + colWidth / 2, y + 21, { align: "center" });
+
   return { doc, definition };
 }
 
