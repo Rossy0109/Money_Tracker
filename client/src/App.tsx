@@ -16,12 +16,14 @@ const Invoices = lazy(() => import("./pages/Invoices"));
 const FinancialStatements = lazy(() => import("./pages/FinancialStatements"));
 const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
 const Inventory = lazy(() => import("./pages/Inventory"));
+const PartyLedger = lazy(() => import("./pages/PartyLedger"));
 
 function Router() {
   return (
     <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><div className="animate-pulse font-semibold text-sm">লোড হচ্ছে...</div></div>}>
       <Switch>
         <Route path={"/"} component={Home} />
+        <Route path={"/party-ledger"} component={PartyLedger} />
         <Route path={"/invoices"} component={Invoices} />
         <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />
