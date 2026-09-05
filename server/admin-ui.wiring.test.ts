@@ -1,7 +1,25 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const homeSource = readFileSync(new URL("../client/src/pages/Home.tsx", import.meta.url), "utf8");
+const getCombinedHomeSource = () => {
+  const home = readFileSync(new URL("../client/src/pages/Home.tsx", import.meta.url), "utf8");
+  const dashboardDir = resolve(import.meta.dirname, "../client/src/components/dashboard");
+  const dialogsDir = resolve(dashboardDir, "dialogs");
+  let combined = home;
+  for (const dir of [dashboardDir, dialogsDir]) {
+    try {
+      for (const file of readdirSync(dir)) {
+        if (file.endsWith(".tsx") || file.endsWith(".ts")) {
+          combined += "\n" + readFileSync(resolve(dir, file), "utf8");
+        }
+      }
+    } catch {}
+  }
+  return combined;
+};
+
+const homeSource = getCombinedHomeSource();
 
 describe("administrator dashboard wiring", () => {
   it("keeps admin data views gated by verified in-memory password state", () => {

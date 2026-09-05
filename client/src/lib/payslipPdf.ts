@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import type { jsPDF } from "jspdf";
 
 export interface PayslipData {
   voucherNo?: string | null;
@@ -24,6 +24,7 @@ const bdt = (val?: number | string | null) =>
   `BDT ${Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export async function generatePayslipPdf(data: PayslipData): Promise<void> {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",

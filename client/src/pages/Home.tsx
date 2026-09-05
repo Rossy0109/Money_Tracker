@@ -1,37 +1,45 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
-import { DuesPanel } from "@/components/dashboard/DuesPanel";
-import { BillsPanel } from "@/components/dashboard/BillsPanel";
-import { TransactionsPanel } from "@/components/dashboard/TransactionsPanel";
 import {
   Metric,
-  AccountingMetric,
-  Field,
-  Empty,
   LoadingState,
   ErrorState,
   EmptySignIn,
 } from "@/components/dashboard/DashboardMetrics";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { BillsPanel } from "@/components/dashboard/BillsPanel";
+import { DuesPanel } from "@/components/dashboard/DuesPanel";
+import { TransactionsPanel } from "@/components/dashboard/TransactionsPanel";
+import { AccountsPanel } from "@/components/dashboard/AccountsPanel";
+import { BudgetsPanel } from "@/components/dashboard/BudgetsPanel";
+import { MonthlyTrendChart } from "@/components/dashboard/MonthlyTrendChart";
+import { AccountingSummarySection } from "@/components/dashboard/AccountingSummarySection";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { QuickDataEntryBanner } from "@/components/dashboard/QuickDataEntryBanner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
+  VoucherSettingsDialog,
+  TransactionDialog,
+  DueDialog,
+  SettlementDialog,
+  AccountDialog,
+  BudgetDialog,
+  BillDialog,
+  ProjectDialog,
+  MonthlyReportDialog,
+  AdminDialog,
+} from "@/components/dashboard/dialogs";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+  bdt,
+  today,
+  blankTransaction,
+  blankDue,
+  type TransactionDraft,
+  type DueDraft,
+  type SettlementDraft,
+  type AccountDraft,
+  type BudgetDraft,
+  type BillDraft,
+  type VoucherSettingsDraft,
+} from "@/components/dashboard/types";
 import { trpc } from "@/lib/trpc";
 import { canLoadAdminData } from "@/lib/adminAccess";
 import {
@@ -44,120 +52,23 @@ import {
   accountingReportOptions,
   type AccountingReportType,
 } from "@/lib/accountingReportDefinitions";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { toast } from "sonner";
 import {
   Banknote,
-  BellRing,
-  Building2,
-  CalendarClock,
-  Check,
-  CircleAlert,
-  Download,
-  Landmark,
-  Loader2,
-  LockKeyhole,
-  Pencil,
-  Plus,
-  ReceiptText,
-  Share2,
-  ShieldCheck,
-  Sparkles,
-  MessageSquare,
-  MessageCircle,
-  Trash2,
   TrendingDown,
   TrendingUp,
-  Upload,
-  UserCheck,
-  UserX,
   WalletCards,
-  X,
 } from "lucide-react";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { parseTransactionSMS } from "@/lib/smsParser";
-import { generateDueReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
 import {
-  cloneElement,
   FormEvent,
-  isValidElement,
   useDeferredValue,
   useEffect,
-  useId,
   useMemo,
   useState,
 } from "react";
 import type { DateRange } from "react-day-picker";
-
-const bdt = (value: number | string) =>
-  `৳ ${new Intl.NumberFormat("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
-const today = () => new Date().toISOString().slice(0, 10);
-const monthText = (key: string) =>
-  new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(
-    new Date(`${key}-01T12:00:00Z`)
-  );
-const dateText = (value: Date | string) =>
-  new Intl.DateTimeFormat("bn-BD", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-const auditActionText = (action: string) =>
-  action === "create"
-    ? "তৈরি"
-    : action === "update"
-      ? "আপডেট"
-      : action === "delete"
-        ? "মুছে ফেলা"
-        : action;
-
-type TransactionDraft = {
-  amount: string;
-  categoryId: string;
-  accountId: string;
-  paymentMethod: string;
-  occurredAt: string;
-  note: string;
-};
-type DueDraft = {
-  type: "debt" | "receivable";
-  counterparty: string;
-  amount: string;
-  note: string;
-  openedAt: string;
-  dueAt: string;
-};
-type SettlementDraft = {
-  dueId: number;
-  accountId: string;
-  amount: string;
-  note: string;
-  occurredAt: string;
-};
-const blankTransaction = (): TransactionDraft => ({
-  amount: "",
-  categoryId: "",
-  accountId: "none",
-  paymentMethod: "Cash",
-  occurredAt: today(),
-  note: "",
-});
-const blankDue = (): DueDraft => ({
-  type: "debt",
-  counterparty: "",
-  amount: "",
-  note: "",
-  openedAt: today(),
-  dueAt: "",
-});
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -178,6 +89,8 @@ export default function Home() {
     enabled: false,
     retry: false,
   });
+
+  // Monthly Report
   const [monthlyReportOpen, setMonthlyReportOpen] = useState(false);
   const [reportMonthKey, setReportMonthKey] = useState(() =>
     new Date().toISOString().slice(0, 7)
@@ -196,6 +109,8 @@ export default function Home() {
       retry: false,
     }
   );
+
+  // Transactions
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     "expense"
   );
@@ -210,6 +125,8 @@ export default function Home() {
     useState<TransactionDraft>(blankTransaction());
   const [smsInput, setSmsInput] = useState("");
   const [showSmsHelper, setShowSmsHelper] = useState(false);
+
+  // Dues & Settlements
   const [dueOpen, setDueOpen] = useState(false);
   const [dueForm, setDueForm] = useState<DueDraft>(blankDue());
   const [settlementOpen, setSettlementOpen] = useState(false);
@@ -220,31 +137,41 @@ export default function Home() {
     note: "",
     occurredAt: today(),
   });
+
+  // Accounts
   const [accountOpen, setAccountOpen] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
-  const [accountForm, setAccountForm] = useState({
+  const [accountForm, setAccountForm] = useState<AccountDraft>({
     name: "",
-    type: "cash" as "cash" | "bank" | "mobile",
+    type: "cash",
     openingBalance: "0",
   });
+
+  // Budgets & Bills
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetForm, setBudgetForm] = useState({ categoryId: "", amount: "" });
+  const [budgetForm, setBudgetForm] = useState<BudgetDraft>({ categoryId: "", amount: "" });
   const [billOpen, setBillOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState<number | null>(null);
-  const [billForm, setBillForm] = useState({
+  const [billForm, setBillForm] = useState<BillDraft>({
     title: "",
     amount: "",
     dueAt: today(),
     isPaid: false,
   });
+
+  // Voucher Settings
   const [voucherSettingsOpen, setVoucherSettingsOpen] = useState(false);
-  const [voucherSettingsForm, setVoucherSettingsForm] = useState({
+  const [voucherSettingsForm, setVoucherSettingsForm] = useState<VoucherSettingsDraft>({
     prefix: "V",
     startNumber: "1",
     endNumber: "999999",
   });
+
+  // Projects
   const [projectOpen, setProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+
+  // Admin
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [adminVerified, setAdminVerified] = useState(false);
@@ -274,10 +201,12 @@ export default function Home() {
     );
     if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
   }, [activeProjectId, projects.data]);
+
   function selectProject(projectId: number) {
     saveActiveProjectId(projectId);
     setActiveProjectId(projectId);
   }
+
   useEffect(() => {
     setAuditPage(1);
   }, [
@@ -330,12 +259,14 @@ export default function Home() {
     { password: adminPassword || "pending" },
     { enabled: canViewAdminData, retry: false }
   );
+
   const refresh = async () => {
     await Promise.all([
       utils.finance.overview.invalidate(),
       utils.projects.list.invalidate(),
     ]);
   };
+
   const showBudgetAlertForTransaction = async (
     projectId: number,
     categoryId: number,
@@ -377,6 +308,7 @@ export default function Home() {
     }
   };
 
+  // Mutations
   const createProject = trpc.projects.create.useMutation({
     onSuccess: async project => {
       await refresh();
@@ -387,6 +319,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const addTransaction = trpc.finance.addTransaction.useMutation({
     onSuccess: async (_transaction, input) => {
       await refresh();
@@ -400,6 +333,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const updateTransaction = trpc.finance.updateTransaction.useMutation({
     onSuccess: async (_transaction, input) => {
       await refresh();
@@ -413,10 +347,12 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const deleteTransaction = trpc.finance.deleteTransaction.useMutation({
     onSuccess: refresh,
     onError: error => toast.error(error.message),
   });
+
   const addDue = trpc.finance.addDue.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -426,6 +362,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const saveVoucherSettings = trpc.finance.saveVoucherSettings.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -437,6 +374,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const settleDue = trpc.finance.settleDue.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -447,6 +385,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const addAccount = trpc.finance.addAccount.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -456,6 +395,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const updateAccount = trpc.finance.updateAccount.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -464,10 +404,12 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const deleteAccount = trpc.finance.deleteAccount.useMutation({
     onSuccess: refresh,
     onError: error => toast.error(error.message),
   });
+
   const saveBudget = trpc.finance.saveBudget.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -477,6 +419,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const addBill = trpc.finance.addBill.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -485,6 +428,7 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const updateBill = trpc.finance.updateBill.useMutation({
     onSuccess: async () => {
       await refresh();
@@ -493,14 +437,17 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+
   const setBillPaid = trpc.finance.setBillPaid.useMutation({
     onSuccess: refresh,
     onError: error => toast.error(error.message),
   });
+
   const deleteBill = trpc.finance.deleteBill.useMutation({
     onSuccess: refresh,
     onError: error => toast.error(error.message),
   });
+
   const verifyAdmin = trpc.admin.verifyAccess.useMutation({
     onSuccess: () => {
       setAdminVerified(true);
@@ -582,16 +529,19 @@ export default function Home() {
       toast.error("SMS থেকে টাকার পরিমাণ শনাক্ত করা যায়নি। অনুগ্রহ করে ম্যানুয়ালি ইনপুট দিন।");
     }
   }
+
   function resetAccount() {
     setAccountOpen(false);
     setEditingAccountId(null);
     setAccountForm({ name: "", type: "cash", openingBalance: "0" });
   }
+
   function resetBill() {
     setBillOpen(false);
     setEditingBillId(null);
     setBillForm({ title: "", amount: "", dueAt: today(), isPaid: false });
   }
+
   function requireProject() {
     if (!activeProjectId) {
       toast.error("আগে একটি প্রজেক্ট নির্বাচন করুন");
@@ -599,11 +549,13 @@ export default function Home() {
     }
     return true;
   }
+
   function openNewTransaction() {
     if (!requireProject()) return;
     resetTransaction();
     setTransactionOpen(true);
   }
+
   function openVoucherSettings() {
     if (!requireProject()) return;
     const settings = voucherSettings.data ?? data?.voucherSettings;
@@ -614,6 +566,7 @@ export default function Home() {
     });
     setVoucherSettingsOpen(true);
   }
+
   function submitVoucherSettings(event: FormEvent) {
     event.preventDefault();
     if (!requireProject()) return;
@@ -633,6 +586,7 @@ export default function Home() {
       endNumber,
     });
   }
+
   function submitTransaction(event: FormEvent) {
     event.preventDefault();
     if (!requireProject()) return;
@@ -656,6 +610,7 @@ export default function Home() {
       updateTransaction.mutate({ id: editingTransactionId, ...payload });
     else addTransaction.mutate(payload);
   }
+
   function submitAccount(event: FormEvent) {
     event.preventDefault();
     if (!requireProject() || !accountForm.name.trim())
@@ -669,6 +624,7 @@ export default function Home() {
       updateAccount.mutate({ id: editingAccountId, ...payload });
     else addAccount.mutate(payload);
   }
+
   function submitBudget(event: FormEvent) {
     event.preventDefault();
     if (
@@ -684,6 +640,7 @@ export default function Home() {
       amount: Number(budgetForm.amount),
     });
   }
+
   function submitBill(event: FormEvent) {
     event.preventDefault();
     if (
@@ -706,6 +663,7 @@ export default function Home() {
       });
     else addBill.mutate(payload);
   }
+
   function submitDue(event: FormEvent) {
     event.preventDefault();
     if (
@@ -724,6 +682,7 @@ export default function Home() {
       dueAt: dueForm.dueAt ? new Date(`${dueForm.dueAt}T12:00:00Z`) : undefined,
     });
   }
+
   function openSettlement(due: NonNullable<typeof data>["dues"][number]) {
     setSettlementForm({
       dueId: due.id,
@@ -734,6 +693,7 @@ export default function Home() {
     });
     setSettlementOpen(true);
   }
+
   function submitSettlement(event: FormEvent) {
     event.preventDefault();
     if (!requireProject() || Number(settlementForm.amount) <= 0)
@@ -750,6 +710,7 @@ export default function Home() {
       occurredAt: new Date(`${settlementForm.occurredAt}T12:00:00Z`),
     });
   }
+
   function openTransactionEditor(
     row: NonNullable<typeof data>["transactions"][number]
   ) {
@@ -765,6 +726,7 @@ export default function Home() {
     });
     setTransactionOpen(true);
   }
+
   function openAccountEditor(
     account: NonNullable<typeof data>["accounts"][number]
   ) {
@@ -776,6 +738,7 @@ export default function Home() {
     });
     setAccountOpen(true);
   }
+
   function openBillEditor(row: NonNullable<typeof data>["bills"][number]) {
     setEditingBillId(row.id);
     setBillForm({
@@ -786,6 +749,7 @@ export default function Home() {
     });
     setBillOpen(true);
   }
+
   async function downloadAuditLogs(format: "csv" | "pdf") {
     try {
       setIsAuditExporting(true);
@@ -808,6 +772,7 @@ export default function Home() {
       setIsAuditExporting(false);
     }
   }
+
   async function downloadExport() {
     try {
       const result = await exportData.refetch();
@@ -842,6 +807,7 @@ export default function Home() {
       );
     }
   }
+
   async function getMonthlyReportForExport() {
     if (!requireProject()) return;
     const result = await monthlyReport.refetch();
@@ -919,202 +885,22 @@ export default function Home() {
   return (
     <DashboardLayout>
       <main id="overview" className="space-y-5 pb-12 sm:space-y-7">
-        <section className="flex flex-col justify-between gap-5 rounded-3xl bg-[#edf5ee] p-4 sm:p-7 lg:flex-row lg:items-end">
-          <div>
-            <p className="text-xs font-bold tracking-[.16em] text-[#4f7b67]">
-              Ahmed's Financial Accounting
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#163c32] sm:text-4xl">
-              প্রোফাইল
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-[#5d776b]">
-              {user?.name ?? "আপনার"} প্রোফাইল থেকে প্রকল্প ও ব্যক্তিগত হিসাব
-              পরিচালনা করুন।
-            </p>
-          </div>
-          <div className="grid w-full gap-2 rounded-2xl border border-[#d9e7da] bg-white/80 p-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-end">
-            <label className="grid w-full gap-1 text-xs font-semibold text-[#4f6f61] sm:col-span-2 lg:w-auto">
-              <span>প্রোফাইলের প্রজেক্ট</span>
-              <select
-                aria-label="প্রোফাইলের প্রজেক্ট নির্বাচন"
-                className="finance-input h-11 w-full min-w-0 bg-white lg:min-w-44"
-                value={activeProjectId ?? ""}
-                onChange={event => selectProject(Number(event.target.value))}
-              >
-                {projects.data?.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button
-              onClick={openNewTransaction}
-              className="h-11 w-full rounded-xl bg-[#173f36] font-semibold hover:bg-[#0f3028] lg:w-auto"
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              লেনদেন যোগ করুন
-            </Button>
-            <Button
-              onClick={openVoucherSettings}
-              variant="outline"
-              className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
-            >
-              <ReceiptText className="mr-1.5 h-4 w-4" />
-              ভাউচার সেটিংস
-            </Button>
-            <Dialog open={projectOpen} onOpenChange={setProjectOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  প্রজেক্ট যোগ করুন
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="rounded-2xl">
-                <DialogHeader>
-                  <DialogTitle>নতুন আলাদা প্রজেক্ট</DialogTitle>
-                </DialogHeader>
-                <form
-                  onSubmit={event => {
-                    event.preventDefault();
-                    if (!projectName.trim())
-                      return toast.error("প্রজেক্টের নাম দিন");
-                    createProject.mutate({ name: projectName });
-                  }}
-                  className="grid gap-4"
-                >
-                  <Field label="প্রজেক্টের নাম">
-                    <Input
-                      value={projectName}
-                      onChange={event => setProjectName(event.target.value)}
-                      placeholder="যেমন: নতুন ব্যবসা"
-                    />
-                  </Field>
-                  <Button
-                    type="submit"
-                    disabled={createProject.isPending}
-                    className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-                  >
-                    তৈরি করুন
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-            <Button
-              onClick={downloadExport}
-              disabled={exportData.isFetching}
-              variant="outline"
-              className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
-            >
-              <Download className="mr-1.5 h-4 w-4" />
-              নিজের ডেটা
-            </Button>
-            <Dialog open={monthlyReportOpen} onOpenChange={setMonthlyReportOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
-                >
-                  <Download className="mr-1.5 h-4 w-4" />
-                  মাসিক রিপোর্ট PDF
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="rounded-2xl sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>মাসিক আর্থিক রিপোর্ট</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4">
-                  <p className="text-sm text-[#5d776b]">
-                    আলাদা লাভ-ক্ষতি, আয়, ব্যয়, দেনা, পাওনা ও আর্থিক অবস্থানের
-                    রিপোর্ট PDF হিসেবে ডাউনলোড বা ডিভাইসের শেয়ার স্ক্রিন থেকে
-                    ইমেইল বা WhatsApp-এ পাঠানো যাবে।
-                  </p>
-                  <Field label="রিপোর্টের মাস">
-                    <Input
-                      type="month"
-                      value={reportMonthKey}
-                      onChange={event => setReportMonthKey(event.target.value)}
-                      className="finance-input"
-                    />
-                  </Field>
-                  <Field label="রিপোর্টের ধরন">
-                    <select
-                      value={reportType}
-                      onChange={event =>
-                        setReportType(event.target.value as AccountingReportType)
-                      }
-                      className="finance-input h-10 w-full"
-                    >
-                      {accountingReportOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      onClick={downloadMonthlyReport}
-                      disabled={isReportDownloading || isReportSharing || !activeProjectId}
-                      className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-                    >
-                      {isReportDownloading ? (
-                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="mr-1.5 h-4 w-4" />
-                      )}
-                      {isReportDownloading ? "PDF তৈরি হচ্ছে..." : "PDF ডাউনলোড"}
-                    </Button>
-                    <Button
-                      onClick={shareMonthlyReport}
-                      disabled={isReportDownloading || isReportSharing || !activeProjectId}
-                      variant="outline"
-                      className="rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
-                    >
-                      {isReportSharing ? (
-                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Share2 className="mr-1.5 h-4 w-4" />
-                      )}
-                      {isReportSharing ? "শেয়ার প্রস্তুত হচ্ছে..." : "ইমেইল / WhatsApp-এ শেয়ার"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-            {user?.role === "admin" && (
-              <Button
-                onClick={() => setAdminOpen(true)}
-                variant="outline"
-                className="h-11 w-full rounded-xl border-[#d7c48d] bg-[#fffdf3] text-[#765a14] lg:w-auto"
-              >
-                <ShieldCheck className="mr-1.5 h-4 w-4" />
-                Admin
-              </Button>
-            )}
-          </div>
-        </section>
+        <DashboardHeader
+          userName={user?.name}
+          projects={projects.data}
+          activeProjectId={activeProjectId}
+          selectProject={selectProject}
+          openNewTransaction={openNewTransaction}
+          openVoucherSettings={openVoucherSettings}
+          onOpenProjectDialog={() => setProjectOpen(true)}
+          downloadExport={downloadExport}
+          isExportFetching={exportData.isFetching}
+          onOpenMonthlyReport={() => setMonthlyReportOpen(true)}
+          isAdmin={user?.role === "admin"}
+          onOpenAdmin={() => setAdminOpen(true)}
+        />
 
-        <section className="rounded-2xl border border-[#d9e7da] bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-5">
-          <div>
-            <p className="section-kicker">দ্রুত ডেটা এন্ট্রি</p>
-            <h2 className="section-title">হিসাব লেখা শুরু করুন</h2>
-            <p className="mt-1 text-sm text-[#668076]">
-              আয় বা ব্যয় লিখতে <strong>লেনদেন যোগ করুন</strong> চাপুন।
-              অ্যাকাউন্ট, বাজেট ও বিল যোগ করার বাটন নিচের সংশ্লিষ্ট সেকশনে আছে।
-            </p>
-          </div>
-          <Button
-            onClick={openNewTransaction}
-            className="mt-3 h-11 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028] sm:mt-0 sm:w-auto"
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            এখনই লেনদেন যোগ করুন
-          </Button>
-        </section>
+        <QuickDataEntryBanner openNewTransaction={openNewTransaction} />
 
         {data && (
           <>
@@ -1144,130 +930,18 @@ export default function Home() {
                 value={bdt(data.totals.netAmount)}
               />
             </section>
+
             {accountingSummary.data && (
-              <section className="finance-card p-5 sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="section-kicker">ফিনান্সিয়াল অ্যাকাউন্টিং</p>
-                    <h2 className="section-title">
-                      {monthText(accountingSummary.data.monthKey)} মাসের লাভ-ক্ষতি ও আর্থিক অবস্থান
-                    </h2>
-                    <p className="mt-1 text-sm text-[#668076]">
-                      লাভ-ক্ষতি শুধু নির্বাচিত মাসের আয় ও ব্যয়ের হিসাব। আর্থিক অবস্থানে
-                      অ্যাকাউন্ট ব্যালেন্স, পাওনা ও দেনা অন্তর্ভুক্ত আছে।
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => setMonthlyReportOpen(true)}
-                    variant="outline"
-                    className="w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] sm:w-auto"
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    আলাদা রিপোর্ট
-                  </Button>
-                </div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <AccountingMetric
-                    label="মোট আয়"
-                    value={bdt(accountingSummary.data.profitAndLoss.income)}
-                    tone="green"
-                  />
-                  <AccountingMetric
-                    label="মোট ব্যয়"
-                    value={bdt(accountingSummary.data.profitAndLoss.expense)}
-                    tone="rose"
-                  />
-                  <AccountingMetric
-                    label={
-                      accountingSummary.data.profitAndLoss.profitOrLoss >= 0
-                        ? "নিট লাভ"
-                        : "নিট ক্ষতি"
-                    }
-                    value={bdt(
-                      Math.abs(accountingSummary.data.profitAndLoss.profitOrLoss)
-                    )}
-                    tone={
-                      accountingSummary.data.profitAndLoss.profitOrLoss >= 0
-                        ? "mint"
-                        : "rose"
-                    }
-                  />
-                  <AccountingMetric
-                    label="অ্যাকাউন্ট ব্যালেন্স"
-                    value={bdt(accountingSummary.data.financialPosition.accountBalance)}
-                    tone="sand"
-                  />
-                  <AccountingMetric
-                    label="মোট পাওনা"
-                    value={bdt(accountingSummary.data.financialPosition.receivables)}
-                    tone="mint"
-                  />
-                  <AccountingMetric
-                    label="নিট আর্থিক অবস্থান"
-                    value={bdt(
-                      accountingSummary.data.financialPosition.netFinancialPosition
-                    )}
-                    tone={
-                      accountingSummary.data.financialPosition.netFinancialPosition >= 0
-                        ? "green"
-                        : "rose"
-                    }
-                  />
-                </div>
-                <p className="mt-4 text-sm text-[#668076]">
-                  মোট সম্পদ: {bdt(accountingSummary.data.financialPosition.assets)}
-                  <span aria-hidden="true"> · </span>
-                  মোট দেনা: {bdt(accountingSummary.data.financialPosition.debts)}
-                </p>
-              </section>
+              <AccountingSummarySection
+                summary={accountingSummary.data}
+                profitAndLoss={accountingSummary.data.profitAndLoss}
+                financialPosition={accountingSummary.data.financialPosition}
+                onOpenReport={() => setMonthlyReportOpen(true)}
+              />
             )}
+
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,.85fr)]">
-              <article className="finance-card p-5 sm:p-6">
-                <p className="section-kicker">মাসিক প্রবণতা</p>
-                <h2 className="section-title">গত ৬ মাসের আয় ও ব্যয়</h2>
-                <div className="mt-5 h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.trend}>
-                      <CartesianGrid vertical={false} stroke="#e3ebe5" />
-                      <XAxis
-                        dataKey="monthKey"
-                        tickFormatter={monthText}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        tickFormatter={value => `৳${value}`}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        formatter={value =>
-                          bdt(
-                            Array.isArray(value)
-                              ? (value[0] ?? 0)
-                              : (value ?? 0)
-                          )
-                        }
-                        labelFormatter={label =>
-                          `${monthText(String(label))} মাস`
-                        }
-                      />
-                      <Bar
-                        dataKey="income"
-                        name="আয়"
-                        fill="#1c7c54"
-                        radius={[7, 7, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="expense"
-                        name="ব্যয়"
-                        fill="#ec8c7f"
-                        radius={[7, 7, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </article>
+              <MonthlyTrendChart trend={data.trend} />
               <BillsPanel
                 bills={data.bills}
                 onAdd={() => {
@@ -1288,6 +962,7 @@ export default function Home() {
                 }}
               />
             </section>
+
             <section id="transactions" className="scroll-mt-20 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)]">
               <TransactionsPanel
                 rows={visibleTransactions}
@@ -1304,188 +979,24 @@ export default function Home() {
                 }}
               />
               <aside className="space-y-6">
-                <article id="accounts" className="scroll-mt-20 finance-card p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="section-kicker">অ্যাকাউন্ট</p>
-                      <h2 className="section-title">টাকার উৎস</h2>
-                    </div>
-                    <Button
-                      size="icon"
-                      onClick={() => {
-                        resetAccount();
-                        setAccountOpen(true);
-                      }}
-                      variant="outline"
-                      className="rounded-xl"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {data.accounts.length ? (
-                      data.accounts.map(account => (
-                        <div
-                          key={account.id}
-                          className="rounded-xl bg-[#f5f8f5] p-3"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="font-semibold text-[#183d34]">
-                                {account.name}
-                              </p>
-                              <p className="mt-1 text-sm text-[#668076]">
-                                {account.type === "cash"
-                                  ? "নগদ"
-                                  : account.type === "bank"
-                                    ? "ব্যাংক"
-                                    : "মোবাইল ব্যাংকিং"}{" "}
-                                · {bdt(account.currentBalance)}
-                              </p>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => openAccountEditor(account)}
-                              >
-                                সম্পাদনা
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-[#b64040] hover:text-[#8d2b2b]"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "এই অ্যাকাউন্টটি মুছে ফেলবেন?"
-                                    )
-                                  )
-                                    deleteAccount.mutate({
-                                      projectId: activeProjectId!,
-                                      id: account.id,
-                                    });
-                                }}
-                              >
-                                মুছুন
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <Empty text="এখনও কোনো অ্যাকাউন্ট যোগ করা হয়নি" />
-                    )}
-                  </div>
-                </article>
-                <article id="budgets" className="scroll-mt-20 finance-card p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="section-kicker">মাসিক বাজেট</p>
-                      <h2 className="section-title">খরচের সীমা</h2>
-                    </div>
-                    <Button
-                      size="icon"
-                      onClick={() => setBudgetOpen(true)}
-                      variant="outline"
-                      aria-label="বাজেট যোগ বা সংশোধন করুন"
-                      className="h-11 w-11 rounded-xl"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {data.budgetAlerts.length > 0 && (
-                    <Alert
-                      aria-label="বাজেট সীমা অতিক্রমের সতর্কতা"
-                      className="mt-4 rounded-2xl border border-[#f2c768] bg-[#fff6dc] p-3 text-[#7a4b00]"
-                    >
-                      <BellRing aria-hidden="true" />
-                      <AlertTitle>বাজেট সীমা অতিক্রম হয়েছে</AlertTitle>
-                      <AlertDescription className="text-[#7a4b00]">
-                        <ul className="mt-1 space-y-1 text-sm leading-5">
-                          {data.budgetAlerts.map(alert => (
-                            <li key={alert.categoryId}>
-                              <span className="font-medium">{alert.categoryName}</span>: {bdt(alert.spent)} খরচ হয়েছে; সীমার চেয়ে {bdt(alert.exceededAmount)} বেশি।
-                            </li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {data.budgetEarlyWarnings.length > 0 && (
-                    <Alert
-                      aria-label="বাজেটের ৮০ ও ৯০ শতাংশ খরচের আগাম সতর্কতা"
-                      className="mt-4 rounded-2xl border border-[#e9bb69] bg-[#fff8e7] p-3 text-[#80530d]"
-                    >
-                      <CircleAlert aria-hidden="true" />
-                      <AlertTitle>বাজেটের কাছাকাছি পৌঁছেছে</AlertTitle>
-                      <AlertDescription className="text-[#80530d]">
-                        <ul className="mt-1 space-y-1 text-sm leading-5">
-                          {data.budgetEarlyWarnings.map(warning => (
-                            <li key={warning.categoryId}>
-                              <span className="font-medium">{warning.categoryName}</span>: বাজেটের {warning.threshold}% খরচ হয়েছে; বাকি আছে {bdt(warning.remainingAmount)}।
-                            </li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <div className="mt-4 space-y-4">
-                    {data.budgets.length ? (
-                      data.budgets.map(budget => {
-                        const exceededAlert = data.budgetAlerts.find(
-                          alert => alert.categoryId === budget.categoryId
-                        );
-                        const earlyWarning = data.budgetEarlyWarnings.find(
-                          warning => warning.categoryId === budget.categoryId
-                        );
-                        const progress = Math.min(
-                          100,
-                          Number(budget.amount)
-                            ? (Number(budget.spent) / Number(budget.amount)) * 100
-                            : 0
-                        );
-                        return (
-                          <div key={budget.id}>
-                            <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                              <span className="font-medium text-[#294c42]">
-                                {budget.categoryName}
-                              </span>
-                              <span className="text-[#71867c]">
-                                {bdt(budget.spent)} / {bdt(budget.amount)}
-                              </span>
-                            </div>
-                            {exceededAlert ? (
-                              <p className="mt-1 text-xs font-medium text-[#b46d00]">
-                                সতর্কতা: সীমার চেয়ে {bdt(exceededAlert.exceededAmount)} বেশি খরচ হয়েছে
-                              </p>
-                            ) : earlyWarning ? (
-                              <p className="mt-1 text-xs font-medium text-[#a36400]">
-                                আগাম সতর্কতা: বাজেটের {earlyWarning.threshold}% খরচ হয়েছে
-                              </p>
-                            ) : null}
-                            <Progress
-                              value={progress}
-                              className={`mt-2 h-2 ${
-                                exceededAlert
-                                  ? "[&>div]:bg-[#d86f65]"
-                                  : earlyWarning?.threshold === 90
-                                    ? "[&>div]:bg-[#d89529]"
-                                    : earlyWarning?.threshold === 80
-                                      ? "[&>div]:bg-[#4a9fc5]"
-                                      : ""
-                              }`}
-                            />
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <Empty text="এই মাসে কোনো বাজেট নেই" />
-                    )}
-                  </div>
-                </article>
+                <AccountsPanel
+                  accounts={data.accounts}
+                  onAdd={() => {
+                    resetAccount();
+                    setAccountOpen(true);
+                  }}
+                  onEdit={openAccountEditor}
+                  onDelete={id => deleteAccount.mutate({ projectId: activeProjectId!, id })}
+                />
+                <BudgetsPanel
+                  budgets={data.budgets}
+                  budgetAlerts={data.budgetAlerts}
+                  budgetEarlyWarnings={data.budgetEarlyWarnings}
+                  onOpenAddBudget={() => setBudgetOpen(true)}
+                />
               </aside>
             </section>
+
             <section className="grid gap-6 lg:grid-cols-2">
               <DuesPanel
                 title="দেনার খাতা"
@@ -1512,598 +1023,116 @@ export default function Home() {
         )}
       </main>
 
-      <Dialog
+      {/* Dialogs */}
+      <VoucherSettingsDialog
         open={voucherSettingsOpen}
         onOpenChange={setVoucherSettingsOpen}
-      >
-        <DialogContent className="rounded-2xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>ভাউচার সেটিংস</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitVoucherSettings} className="grid gap-4">
-            <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
-              প্রতিটি নতুন লেনদেন, দেনা/পাওনা ও সমন্বয়ের জন্য নির্ধারিত
-              রেঞ্জ থেকে পরবর্তী ভাউচার নম্বর স্বয়ংক্রিয়ভাবে দেওয়া হবে।
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="ভাউচার প্রিফিক্স">
-                <Input
-                  required
-                  maxLength={20}
-                  value={voucherSettingsForm.prefix}
-                  onChange={event =>
-                    setVoucherSettingsForm({
-                      ...voucherSettingsForm,
-                      prefix: event.target.value,
-                    })
-                  }
-                  placeholder="V"
-                />
-              </Field>
-              <Field label="পরবর্তী নম্বর">
-                <Input
-                  readOnly
-                  value={
-                    voucherSettings.data
-                      ? `${voucherSettings.data.prefix}-${String(voucherSettings.data.nextNumber).padStart(6, "0")}`
-                      : "লোড হচ্ছে…"
-                  }
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="শুরুর নম্বর">
-                <Input
-                  required
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={voucherSettingsForm.startNumber}
-                  onChange={event =>
-                    setVoucherSettingsForm({
-                      ...voucherSettingsForm,
-                      startNumber: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-              <Field label="শেষ নম্বর">
-                <Input
-                  required
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={voucherSettingsForm.endNumber}
-                  onChange={event =>
-                    setVoucherSettingsForm({
-                      ...voucherSettingsForm,
-                      endNumber: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-            </div>
-            <Button
-              type="submit"
-              disabled={saveVoucherSettings.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              {saveVoucherSettings.isPending ? "সংরক্ষণ হচ্ছে…" : "সেটিংস সংরক্ষণ করুন"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+        form={voucherSettingsForm}
+        onChange={setVoucherSettingsForm}
+        onSubmit={submitVoucherSettings}
+        isPending={saveVoucherSettings.isPending}
+        activeVoucherData={voucherSettings.data ?? data?.voucherSettings}
+      />
 
-      <Dialog
+      <TransactionDialog
         open={transactionOpen}
-        onOpenChange={open =>
-          open ? setTransactionOpen(true) : resetTransaction()
-        }
-      >
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTransactionId ? "লেনদেন সম্পাদনা করুন" : "নতুন লেনদেন"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitTransaction} className="grid gap-4">
-            <Tabs
-              value={transactionType}
-              onValueChange={value => {
-                setTransactionType(value as "income" | "expense");
-                setTransactionForm(current => ({ ...current, categoryId: "" }));
-              }}
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="expense">ব্যয়</TabsTrigger>
-                <TabsTrigger value="income">আয়</TabsTrigger>
-              </TabsList>
-            </Tabs>
+        onOpenChange={open => (open ? setTransactionOpen(true) : resetTransaction())}
+        editingTransactionId={editingTransactionId}
+        transactionType={transactionType}
+        setTransactionType={setTransactionType}
+        transactionForm={transactionForm}
+        setTransactionForm={setTransactionForm}
+        categories={categories}
+        accounts={data?.accounts}
+        showSmsHelper={showSmsHelper}
+        setShowSmsHelper={setShowSmsHelper}
+        smsInput={smsInput}
+        setSmsInput={setSmsInput}
+        onApplySMS={handleApplySMS}
+        onSubmit={submitTransaction}
+        isPending={addTransaction.isPending || updateTransaction.isPending}
+      />
 
-            {!editingTransactionId && (
-              <div className="rounded-xl border border-[#cbe4d3] bg-[#f4faf5] p-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-semibold text-[#144434]">
-                    <Sparkles className="h-4 w-4 text-[#166534]" />
-                    <span>ব্যাংক বা বিকাশ/নগদ SMS দিয়ে অটো-পূরণ</span>
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSmsHelper(!showSmsHelper)}
-                    className="h-7 text-xs text-[#166534] hover:bg-[#e2f2e5]"
-                  >
-                    {showSmsHelper ? "লুকান" : "SMS পেস্ট করুন"}
-                  </Button>
-                </div>
-                {showSmsHelper && (
-                  <div className="mt-2 space-y-2 pt-2 border-t border-[#d8ece0]">
-                    <Textarea
-                      placeholder="এখানে বিকাশ, নগদ, রকেট বা ব্যাংকের ট্রানজ্যাকশন SMS পেস্ট করুন..."
-                      value={smsInput}
-                      onChange={e => setSmsInput(e.target.value)}
-                      className="h-16 text-xs bg-white resize-none"
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleApplySMS}
-                        className="h-7 rounded-lg bg-[#166534] hover:bg-[#114f29] text-white text-xs px-3"
-                      >
-                        অটো-বসিয়ে দিন
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Field label="টাকার অঙ্ক">
-              <Input
-                required
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={transactionForm.amount}
-                onChange={event =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    amount: event.target.value,
-                  })
-                }
-              />
-            </Field>
-            <Field label="ক্যাটাগরি">
-              <select
-                required
-                className="finance-input"
-                value={transactionForm.categoryId}
-                onChange={event =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    categoryId: event.target.value,
-                  })
-                }
-              >
-                <option value="">ক্যাটাগরি বাছাই করুন</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">ভাউচার নং সেটিংসের নির্ধারিত রেঞ্জ থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে।</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="তারিখ">
-                <Input
-                  required
-                  type="date"
-                  value={transactionForm.occurredAt}
-                  onChange={event =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      occurredAt: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-              <Field label="পেমেন্ট">
-                <select
-                  className="finance-input"
-                  value={transactionForm.paymentMethod}
-                  onChange={event =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      paymentMethod: event.target.value,
-                    })
-                  }
-                >
-                  <option value="Cash">নগদ</option>
-                  <option value="Bank Transfer">ব্যাংক ট্রান্সফার</option>
-                  <option>bKash</option>
-                  <option>Nagad</option>
-                  <option>Card</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="অ্যাকাউন্ট">
-              <select
-                className="finance-input"
-                value={transactionForm.accountId}
-                onChange={event =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    accountId: event.target.value,
-                  })
-                }
-              >
-                <option value="none">অ্যাকাউন্ট ছাড়া</option>
-                {data?.accounts.map(account => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} — {bdt(account.currentBalance)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="বিবরণ">
-              <Textarea
-                value={transactionForm.note}
-                onChange={event =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    note: event.target.value,
-                  })
-                }
-              />
-            </Field>
-            <Button
-              disabled={addTransaction.isPending || updateTransaction.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              {editingTransactionId ? "আপডেট করুন" : "সংরক্ষণ করুন"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+      <DueDialog
         open={dueOpen}
         onOpenChange={open => {
           setDueOpen(open);
           if (!open) setDueForm(blankDue());
         }}
-      >
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {dueForm.type === "debt" ? "নতুন দেনা" : "নতুন পাওনা"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitDue} className="grid gap-4">
-            <Tabs
-              value={dueForm.type}
-              onValueChange={value =>
-                setDueForm({ ...dueForm, type: value as "debt" | "receivable" })
-              }
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="debt">দেনা</TabsTrigger>
-                <TabsTrigger value="receivable">পাওনা</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Field
-              label={
-                dueForm.type === "debt" ? "দেনাদারের নাম" : "পাওনাদারের নাম"
-              }
-            >
-              <Input
-                required
-                value={dueForm.counterparty}
-                onChange={event =>
-                  setDueForm({ ...dueForm, counterparty: event.target.value })
-                }
-              />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="টাকার অঙ্ক">
-                <Input
-                  required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={dueForm.amount}
-                  onChange={event =>
-                    setDueForm({ ...dueForm, amount: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="তারিখ">
-                <Input
-                  required
-                  type="date"
-                  value={dueForm.openedAt}
-                  onChange={event =>
-                    setDueForm({ ...dueForm, openedAt: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="পরিশোধের শেষ তারিখ (ঐচ্ছিক)">
-                <Input
-                  type="date"
-                  min={dueForm.openedAt}
-                  value={dueForm.dueAt}
-                  onChange={event =>
-                    setDueForm({ ...dueForm, dueAt: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।</p>
-            <Field label="বিবরণ">
-              <Textarea
-                value={dueForm.note}
-                onChange={event =>
-                  setDueForm({ ...dueForm, note: event.target.value })
-                }
-              />
-            </Field>
-            <Button
-              disabled={addDue.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              সংরক্ষণ করুন
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={settlementOpen} onOpenChange={setSettlementOpen}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>দেনা/পাওনা সমন্বয়</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitSettlement} className="grid gap-4">
-            <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
-              এই সমন্বয়টি আয় বা ব্যয় নয়; কেবল বকেয়া পরিমাণ কমাবে।
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="পরিশোধ/প্রাপ্তির তারিখ">
-                <Input
-                  required
-                  type="date"
-                  value={settlementForm.occurredAt}
-                  onChange={event =>
-                    setSettlementForm({
-                      ...settlementForm,
-                      occurredAt: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-              <Field label="টাকার অঙ্ক">
-                <Input
-                  required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={settlementForm.amount}
-                  onChange={event =>
-                    setSettlementForm({
-                      ...settlementForm,
-                      amount: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="যে অ্যাকাউন্টে লেনদেন হয়েছে">
-              <select
-                className="finance-input"
-                value={settlementForm.accountId}
-                onChange={event =>
-                  setSettlementForm({
-                    ...settlementForm,
-                    accountId: event.target.value,
-                  })
-                }
-              >
-                <option value="none">অ্যাকাউন্ট ছাড়া</option>
-                {data?.accounts.map(account => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।</p>
-            <Field label="বিবরণ">
-              <Textarea
-                value={settlementForm.note}
-                onChange={event =>
-                  setSettlementForm({
-                    ...settlementForm,
-                    note: event.target.value,
-                  })
-                }
-              />
-            </Field>
-            <Button
-              disabled={settleDue.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              বকেয়া সমন্বয় করুন
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        form={dueForm}
+        onChange={setDueForm}
+        onSubmit={submitDue}
+        isPending={addDue.isPending}
+      />
+
+      <SettlementDialog
+        open={settlementOpen}
+        onOpenChange={setSettlementOpen}
+        form={settlementForm}
+        onChange={setSettlementForm}
+        accounts={data?.accounts}
+        onSubmit={submitSettlement}
+        isPending={settleDue.isPending}
+      />
+
+      <AccountDialog
         open={accountOpen}
         onOpenChange={open => (open ? setAccountOpen(true) : resetAccount())}
-      >
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingAccountId ? "অ্যাকাউন্ট সম্পাদনা" : "নতুন অ্যাকাউন্ট"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitAccount} className="grid gap-4">
-            <Field label="নাম">
-              <Input
-                required
-                value={accountForm.name}
-                onChange={event =>
-                  setAccountForm({ ...accountForm, name: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="ধরন">
-              <select
-                className="finance-input"
-                value={accountForm.type}
-                onChange={event =>
-                  setAccountForm({
-                    ...accountForm,
-                    type: event.target.value as typeof accountForm.type,
-                  })
-                }
-              >
-                <option value="cash">নগদ</option>
-                <option value="bank">ব্যাংক</option>
-                <option value="mobile">মোবাইল ব্যাংকিং</option>
-              </select>
-            </Field>
-            <Field label="প্রারম্ভিক ব্যালেন্স">
-              <Input
-                required
-                type="number"
-                step="0.01"
-                value={accountForm.openingBalance}
-                onChange={event =>
-                  setAccountForm({
-                    ...accountForm,
-                    openingBalance: event.target.value,
-                  })
-                }
-              />
-            </Field>
-            <Button
-              disabled={addAccount.isPending || updateAccount.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              {editingAccountId ? "আপডেট করুন" : "অ্যাকাউন্ট যোগ করুন"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>মাসিক বাজেট</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitBudget} className="grid gap-4">
-            <Field label="ব্যয় ক্যাটাগরি">
-              <select
-                className="finance-input"
-                value={budgetForm.categoryId}
-                onChange={event =>
-                  setBudgetForm({
-                    ...budgetForm,
-                    categoryId: event.target.value,
-                  })
-                }
-              >
-                <option value="">ক্যাটাগরি বাছাই করুন</option>
-                {expenseCategories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="বাজেটের অঙ্ক">
-              <Input
-                required
-                type="number"
-                min="0.01"
-                value={budgetForm.amount}
-                onChange={event =>
-                  setBudgetForm({ ...budgetForm, amount: event.target.value })
-                }
-              />
-            </Field>
-            <Button
-              disabled={saveBudget.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              বাজেট সংরক্ষণ করুন
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        editingAccountId={editingAccountId}
+        form={accountForm}
+        onChange={setAccountForm}
+        onSubmit={submitAccount}
+        isPending={addAccount.isPending || updateAccount.isPending}
+      />
+
+      <BudgetDialog
+        open={budgetOpen}
+        onOpenChange={setBudgetOpen}
+        form={budgetForm}
+        onChange={setBudgetForm}
+        expenseCategories={expenseCategories}
+        onSubmit={submitBudget}
+        isPending={saveBudget.isPending}
+      />
+
+      <BillDialog
         open={billOpen}
         onOpenChange={open => (open ? setBillOpen(true) : resetBill())}
-      >
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingBillId ? "বিল সম্পাদনা" : "নতুন বিল রিমাইন্ডার"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submitBill} className="grid gap-4">
-            <Field label="বিলের নাম">
-              <Input
-                required
-                value={billForm.title}
-                onChange={event =>
-                  setBillForm({ ...billForm, title: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="টাকার অঙ্ক">
-              <Input
-                required
-                type="number"
-                min="0.01"
-                value={billForm.amount}
-                onChange={event =>
-                  setBillForm({ ...billForm, amount: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="শেষ তারিখ">
-              <Input
-                required
-                type="date"
-                value={billForm.dueAt}
-                onChange={event =>
-                  setBillForm({ ...billForm, dueAt: event.target.value })
-                }
-              />
-            </Field>
-            {editingBillId && (
-              <label className="flex items-center gap-2 text-sm text-[#38594d]">
-                <input
-                  type="checkbox"
-                  checked={billForm.isPaid}
-                  onChange={event =>
-                    setBillForm({ ...billForm, isPaid: event.target.checked })
-                  }
-                />
-                পরিশোধিত
-              </label>
-            )}
-            <Button
-              disabled={addBill.isPending || updateBill.isPending}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-            >
-              সংরক্ষণ করুন
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        editingBillId={editingBillId}
+        form={billForm}
+        onChange={setBillForm}
+        onSubmit={submitBill}
+        isPending={addBill.isPending || updateBill.isPending}
+      />
+
+      <ProjectDialog
+        open={projectOpen}
+        onOpenChange={setProjectOpen}
+        projectName={projectName}
+        setProjectName={setProjectName}
+        onSubmit={event => {
+          event.preventDefault();
+          if (!projectName.trim()) return toast.error("প্রজেক্টের নাম দিন");
+          createProject.mutate({ name: projectName });
+        }}
+        isPending={createProject.isPending}
+      />
+
+      <MonthlyReportDialog
+        open={monthlyReportOpen}
+        onOpenChange={setMonthlyReportOpen}
+        reportMonthKey={reportMonthKey}
+        setReportMonthKey={setReportMonthKey}
+        reportType={reportType}
+        setReportType={setReportType}
+        onDownload={downloadMonthlyReport}
+        onShare={shareMonthlyReport}
+        isDownloading={isReportDownloading}
+        isSharing={isReportSharing}
+        activeProjectId={activeProjectId}
+      />
+
+      <AdminDialog
         open={adminOpen}
         onOpenChange={open => {
           setAdminOpen(open);
@@ -2112,472 +1141,59 @@ export default function Home() {
             setAdminPassword("");
           }
         }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LockKeyhole className="h-5 w-5 text-[#76601d]" />
-              অ্যাডমিন নিয়ন্ত্রণ
-            </DialogTitle>
-          </DialogHeader>
-          {!adminVerified ? (
-            <form
-              onSubmit={event => {
-                event.preventDefault();
-                verifyAdmin.mutate({ password: adminPassword });
-              }}
-              className="grid gap-4"
-            >
-              <p className="text-sm text-[#667f75]">
-                Google/OAuth identity ও server-only password—দুই ধাপে Admin
-                নিয়ন্ত্রণ সুরক্ষিত।
-              </p>
-              <Field label="অ্যাডমিন পাসওয়ার্ড">
-                <Input
-                  required
-                  type="password"
-                  autoComplete="current-password"
-                  value={adminPassword}
-                  onChange={event => setAdminPassword(event.target.value)}
-                />
-              </Field>
-              <Button
-                disabled={verifyAdmin.isPending}
-                className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
-              >
-                যাচাই করুন
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-6">
-              <div className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
-                <Check className="mr-1 inline h-4 w-4" />
-                Admin access সক্রিয়। Audit log কেবল এই সেশনের browser memory-তে
-                থাকা password দিয়ে দেখা যাচ্ছে।
-              </div>
-              <section>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <h3 className="font-semibold text-[#173f36]">
-                    সাম্প্রতিক Audit log
-                  </h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAuditDateRange(undefined);
-                      setAuditSearch("");
-                      setAuditActorUserId("all");
-                      setAuditActorRole("all");
-                    }}
-                    className="w-fit rounded-lg"
-                  >
-                    ফিল্টার পরিষ্কার করুন
-                  </Button>
-                </div>
-                <div className="mt-3 grid gap-3 rounded-xl bg-[#f6faf7] p-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="কাজ বা কিওয়ার্ড খুঁজুন">
-                    <Input
-                      value={auditSearch}
-                      onChange={event => setAuditSearch(event.target.value)}
-                      placeholder="যেমন: transaction, delete"
-                      aria-label="Audit log search"
-                    />
-                  </Field>
-                  <Field label="তারিখের পরিসর">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full justify-start bg-white text-left font-normal"
-                        >
-                          {auditDateRange?.from
-                            ? auditDateRange.to
-                              ? dateText(auditDateRange.from) +
-                                " – " +
-                                dateText(auditDateRange.to)
-                              : dateText(auditDateRange.from)
-                            : "তারিখের পরিসর বাছুন"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="range"
-                          selected={auditDateRange}
-                          onSelect={setAuditDateRange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </Field>
-                  <Field label="ব্যবহারকারী বা ভূমিকা">
-                    <select
-                      className="finance-input"
-                      value={auditActorRole}
-                      onChange={event =>
-                        setAuditActorRole(
-                          event.target.value as "all" | "admin" | "user"
-                        )
-                      }
-                    >
-                      <option value="all">সব ভূমিকা</option>
-                      <option value="admin">Admin</option>
-                      <option value="user">User</option>
-                    </select>
-                  </Field>
-                  {adminUsers.data?.length ? (
-                    <Field label="নির্দিষ্ট ব্যবহারকারী">
-                      <select
-                        className="finance-input"
-                        value={auditActorUserId}
-                        onChange={event =>
-                          setAuditActorUserId(event.target.value)
-                        }
-                      >
-                        <option value="all">সব ব্যবহারকারী</option>
-                        {adminUsers.data.map(adminUser => (
-                          <option key={adminUser.id} value={adminUser.id}>
-                            {adminUser.name ?? "User #" + adminUser.id} ·{" "}
-                            {adminUser.role}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  ) : (
-                    <div className="hidden lg:block" />
-                  )}
-                </div>
-                <div className="mt-3 rounded-xl border border-[#e1ebe3] bg-[#fbfdfb] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold tracking-wide text-[#597567]">
-                        নির্বাচিত সময়ের কার্যক্রম
-                      </p>
-                      <h4 className="text-sm font-semibold text-[#173f36]">
-                        কোন কাজ বেশি হয়েছে
-                      </h4>
-                    </div>
-                    <span className="rounded-full bg-[#edf6ed] px-2 py-1 text-xs text-[#477263]">
-                      {auditActivity.data?.reduce(
-                        (sum, item) => sum + Number(item.count),
-                        0
-                      ) ?? 0}
-                      টি কাজ
-                    </span>
-                  </div>
-                  <div className="mt-2 h-40">
-                    {auditActivity.isLoading ? (
-                      <p className="pt-12 text-center text-sm text-[#70867c]">
-                        সারাংশ লোড হচ্ছে…
-                      </p>
-                    ) : auditActivity.data?.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={auditActivity.data}>
-                          <CartesianGrid vertical={false} stroke="#e3ebe5" />
-                          <XAxis
-                            dataKey="action"
-                            tickFormatter={auditActionText}
-                            tickLine={false}
-                            axisLine={false}
-                            fontSize={12}
-                          />
-                          <YAxis
-                            allowDecimals={false}
-                            tickLine={false}
-                            axisLine={false}
-                            width={28}
-                          />
-                          <Tooltip
-                            labelFormatter={label =>
-                              auditActionText(
-                                typeof label === "string" ? label : ""
-                              )
-                            }
-                            formatter={value => [
-                              String(
-                                Array.isArray(value)
-                                  ? (value[0] ?? 0)
-                                  : (value ?? 0)
-                              ) + "টি কাজ",
-                              "সংখ্যা",
-                            ]}
-                          />
-                          <Bar
-                            dataKey="count"
-                            name="কাজ"
-                            fill="#1c7c54"
-                            radius={[6, 6, 0, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <p className="pt-12 text-center text-sm text-[#70867c]">
-                        এই ফিল্টারে কোনো কার্যক্রম নেই
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-3 max-h-64 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
-                  {adminLogs.isLoading ? (
-                    <p className="p-4 text-sm">লোড হচ্ছে…</p>
-                  ) : adminLogs.isError ? (
-                    <p className="p-4 text-sm text-[#a24d4d]">
-                      Audit log লোড করা যায়নি। আবার চেষ্টা করুন।
-                    </p>
-                  ) : adminLogs.data?.logs.length ? (
-                    adminLogs.data.logs.map(log => (
-                      <div key={log.id} className="p-3 text-sm">
-                        <div className="flex flex-wrap justify-between gap-2">
-                          <span className="font-semibold text-[#25483e]">
-                            {log.summary}
-                          </span>
-                          <span className="text-[#778a80]">
-                            {dateText(log.createdAt)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[#73857c]">
-                          {log.actorName ?? `User #${log.actorUserId}`} ·{" "}
-                          {log.projectName ?? "সিস্টেম"} · {log.action}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <Empty text="এই ফিল্টারে কোনো audit record নেই" />
-                  )}
-                </div>
-                <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#f6faf7] p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-[#60796e]">
-                    {adminLogs.data
-                      ? `মোট ${adminLogs.data.total}টি record · পৃষ্ঠা ${adminLogs.data.page}/${adminLogs.data.totalPages}`
-                      : ""}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isAuditExporting}
-                      onClick={() => downloadAuditLogs("csv")}
-                    >
-                      CSV ডাউনলোড
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isAuditExporting}
-                      onClick={() => downloadAuditLogs("pdf")}
-                    >
-                      PDF ডাউনলোড
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!adminLogs.data || adminLogs.data.page <= 1}
-                      onClick={() =>
-                        setAuditPage(page => Math.max(1, page - 1))
-                      }
-                    >
-                      আগের পৃষ্ঠা
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        !adminLogs.data ||
-                        adminLogs.data.page >= adminLogs.data.totalPages
-                      }
-                      onClick={() => setAuditPage(page => page + 1)}
-                    >
-                      পরের পৃষ্ঠা
-                    </Button>
-                  </div>
-                </div>
-              </section>
-              <section>
-                <h3 className="font-semibold text-[#173f36]">সব প্রজেক্ট</h3>
-                <div className="mt-3 max-h-40 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
-                  {adminProjects.isLoading ? (
-                    <p className="p-4 text-sm">লোড হচ্ছে…</p>
-                  ) : adminProjects.data?.length ? (
-                    adminProjects.data.map(project => (
-                      <div
-                        key={project.id}
-                        className="flex justify-between gap-3 p-3 text-sm"
-                      >
-                        <span className="font-medium text-[#25483e]">
-                          {project.name}
-                        </span>
-                        <span className="text-xs text-[#73857c]">
-                          {project.ownerName ??
-                            project.ownerEmail ??
-                            `User #${project.userId}`}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <Empty text="কোনো প্রজেক্ট নেই" />
-                  )}
-                </div>
-              </section>
-              <section>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[#173f36]">
-                    ব্যবহারকারী অনুমোদন ও পরিচালনা
-                  </h3>
-                  <span className="text-xs text-[#527768]">
-                    মোট: {adminUsers.data?.length ?? 0} জন
-                  </span>
-                </div>
-                <div className="mt-3 max-h-56 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
-                  {adminUsers.data?.length ? (
-                    adminUsers.data.map(member => (
-                      <div
-                        key={member.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm hover:bg-[#fafdfb]"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-[#25483e] truncate">
-                              {member.name || `User #${member.id}`}
-                            </span>
-                            <span className="rounded-full bg-[#eff5ef] px-2 py-0.5 text-[11px] text-[#477263]">
-                              {member.role}
-                            </span>
-                            {member.status === "pending" && (
-                              <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[11px] font-semibold">
-                                অপেক্ষমাণ (Pending)
-                              </span>
-                            )}
-                            {member.status === "active" && (
-                              <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-semibold">
-                                সক্রিয় (Active)
-                              </span>
-                            )}
-                            {member.status === "suspended" && (
-                              <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[11px] font-semibold">
-                                স্থগিত (Suspended)
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-[#73857c] truncate mt-0.5">
-                            {member.email}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
-                          {member.status !== "active" && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={updateUserStatus.isPending}
-                              onClick={() => {
-                                updateUserStatus.mutate({
-                                  password: adminPassword || "",
-                                  targetUserId: member.id,
-                                  status: "active",
-                                });
-                              }}
-                              className="h-8 rounded-lg bg-[#173f36] hover:bg-[#12312a] text-white text-xs px-2.5 flex items-center gap-1"
-                            >
-                              <UserCheck className="h-3.5 w-3.5" />
-                              <span>অনুমোদন দিন</span>
-                            </Button>
-                          )}
-                          {member.status === "active" && member.role !== "admin" && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={updateUserStatus.isPending}
-                              onClick={() => {
-                                updateUserStatus.mutate({
-                                  password: adminPassword || "",
-                                  targetUserId: member.id,
-                                  status: "suspended",
-                                });
-                              }}
-                              className="h-8 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 text-xs px-2.5 flex items-center gap-1"
-                            >
-                              <UserX className="h-3.5 w-3.5" />
-                              <span>স্থগিত করুন</span>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <Empty text="কোনো নিবন্ধিত ব্যবহারকারী নেই" />
-                  )}
-                </div>
-              </section>
-
-              {/* Logo Management Section */}
-              <section className="pt-2 border-t border-[#e1ebe3]">
-                <h3 className="font-semibold text-[#173f36] mb-2">
-                  লোগো আপলোড ও পরিবর্তন
-                </h3>
-                <div className="flex items-center gap-4 p-3 rounded-xl border border-[#e1ebe3] bg-[#fbfdfb]">
-                  <div className="h-14 w-14 rounded-xl border border-[#c9dcd0] bg-white p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
-                    <img
-                      src={logoUrl || "/logo.png"}
-                      alt="App Logo"
-                      className="h-full w-full object-contain"
-                      onError={e => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <p className="text-xs text-[#527768]">
-                      আপনার পছন্দের নতুন লোগো (PNG, SVG, JPG, সর্বোচ্চ 2MB) আপলোড করতে পারেন।
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-[#173f36] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#12312a] transition">
-                        <Upload className="h-3.5 w-3.5" />
-                        <span>নতুন লোগো আপলোড</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async e => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                await uploadLogo(file);
-                                toast.success("নতুন লোগো সফলভাবে আপলোড ও যুক্ত করা হয়েছে!");
-                              } catch (err: any) {
-                                toast.error(err.message || "লোগো আপলোড ব্যর্থ হয়েছে");
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                      {isCustomLogo && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            resetLogo();
-                            toast.success("ডিফল্ট লোগো পুনরুদ্ধার করা হয়েছে");
-                          }}
-                          className="h-8 rounded-lg text-xs"
-                        >
-                          ডিফল্ট লোগো ফিরিয়ে আনুন
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        adminVerified={adminVerified}
+        adminPassword={adminPassword}
+        setAdminPassword={setAdminPassword}
+        onVerify={event => {
+          event.preventDefault();
+          verifyAdmin.mutate({ password: adminPassword });
+        }}
+        isVerifying={verifyAdmin.isPending}
+        auditSearch={auditSearch}
+        setAuditSearch={setAuditSearch}
+        auditDateRange={auditDateRange}
+        setAuditDateRange={setAuditDateRange}
+        auditActorRole={auditActorRole}
+        setAuditActorRole={setAuditActorRole}
+        auditActorUserId={auditActorUserId}
+        setAuditActorUserId={setAuditActorUserId}
+        onClearFilters={() => {
+          setAuditDateRange(undefined);
+          setAuditSearch("");
+          setAuditActorUserId("all");
+          setAuditActorRole("all");
+        }}
+        adminLogs={adminLogs}
+        auditActivity={auditActivity}
+        adminUsers={adminUsers}
+        adminProjects={adminProjects}
+        auditPage={auditPage}
+        setAuditPage={setAuditPage}
+        onDownloadAuditLogs={downloadAuditLogs}
+        isAuditExporting={isAuditExporting}
+        onUpdateUserStatus={(targetUserId, status) => {
+          updateUserStatus.mutate({
+            password: adminPassword || "",
+            targetUserId,
+            status,
+          });
+        }}
+        isUpdatingUserStatus={updateUserStatus.isPending}
+        logoUrl={logoUrl}
+        onUploadLogo={async file => {
+          try {
+            await uploadLogo(file);
+            toast.success("নতুন লোগো সফলভাবে আপলোড ও যুক্ত করা হয়েছে!");
+          } catch (err: any) {
+            toast.error(err.message || "লোগো আপলোড ব্যর্থ হয়েছে");
+          }
+        }}
+        onResetLogo={() => {
+          resetLogo();
+          toast.success("ডিফল্ট লোগো পুনরুদ্ধার করা হয়েছে");
+        }}
+        isCustomLogo={isCustomLogo}
+      />
     </DashboardLayout>
   );
 }
-

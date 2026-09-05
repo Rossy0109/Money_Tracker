@@ -22,7 +22,6 @@ import {
   Search,
   Plus,
 } from "lucide-react";
-import { generatePayslipPdf } from "@/lib/payslipPdf";
 
 const formatBdt = (val: number | string | null | undefined) =>
   "৳ " + Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -557,26 +556,33 @@ export default function Payroll() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                generatePayslipPdf({
-                                  voucherNo: p.voucherNo,
-                                  monthKey: p.monthKey,
-                                  paymentDate: p.paymentDate,
-                                  employeeName: p.employeeName,
-                                  employeeDesignation: p.employeeDesignation,
-                                  employeeDepartment: p.employeeDepartment,
-                                  employeePhone: p.employeePhone,
-                                  baseSalary: p.baseSalary,
-                                  bonusAmount: p.bonusAmount,
-                                  allowanceAmount: p.allowanceAmount,
-                                  advanceDeduction: p.advanceDeduction,
-                                  otherDeduction: p.otherDeduction,
-                                  netPayable: p.netPayable,
-                                  paidAmount: p.paidAmount,
-                                  status: p.status,
-                                  notes: p.notes,
-                                })
-                              }
+                              onClick={async () => {
+                                try {
+                                  toast.info("পে-স্লিপ তৈরি হচ্ছে...");
+                                  const { generatePayslipPdf } = await import("@/lib/payslipPdf");
+                                  await generatePayslipPdf({
+                                    voucherNo: p.voucherNo,
+                                    monthKey: p.monthKey,
+                                    paymentDate: p.paymentDate,
+                                    employeeName: p.employeeName,
+                                    employeeDesignation: p.employeeDesignation,
+                                    employeeDepartment: p.employeeDepartment,
+                                    employeePhone: p.employeePhone,
+                                    baseSalary: p.baseSalary,
+                                    bonusAmount: p.bonusAmount,
+                                    allowanceAmount: p.allowanceAmount,
+                                    advanceDeduction: p.advanceDeduction,
+                                    otherDeduction: p.otherDeduction,
+                                    netPayable: p.netPayable,
+                                    paidAmount: p.paidAmount,
+                                    status: p.status,
+                                    notes: p.notes,
+                                  });
+                                  toast.success("পে-স্লিপ ডাউনলোড সম্পন্ন হয়েছে");
+                                } catch (err) {
+                                  toast.error("পে-স্লিপ তৈরি করা যায়নি");
+                                }
+                              }}
                               className="h-8 rounded-xl border-[#c9dcd0] text-[#1b5e20] hover:bg-[#eaf4ed] text-xs font-semibold gap-1.5"
                             >
                               <Download className="h-3.5 w-3.5" />

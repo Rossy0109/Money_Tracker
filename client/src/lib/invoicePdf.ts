@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import type { jsPDF } from "jspdf";
 
 export interface InvoiceData {
   invoiceNumber: string;
@@ -29,6 +29,7 @@ const bdt = (val?: number | string | null) =>
   `৳ ${Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export async function generateInvoicePdf(invoice: InvoiceData): Promise<void> {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",

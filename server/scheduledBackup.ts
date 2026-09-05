@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { createCipheriv, randomBytes, createHash } from "node:crypto";
 import * as financeDb from "./db";
+import { executeCloudBackup } from "./cloudBackupService";
 
 export function encryptPayload(data: string, secretKey: string): { iv: string; encrypted: string; tag: string } {
   const key = createHash("sha256").update(secretKey).digest();
@@ -24,23 +25,13 @@ export async function runScheduledBackup(_req: Request, res: Response): Promise<
     const activeUsers = adminUsers.filter(u => u.status === "active");
 
     let totalProjectsBackedUp = 0;
+    const backupResults = [];
 
     for (const user of activeUsers) {
       const projects = await financeDb.listProjects(user.id);
       for (const project of projects) {
-        const backupData = await financeDb.exportProjectBackup(user.id, project.id);
-        const jsonStr = JSON.stringify(backupData);
-        const checksum = createHash("sha256").update(jsonStr).digest("hex");
-
-        // Log the automated backup success
-        await financeDb.logAudit({
-          actorUserId: user.id,
-          projectId: project.id,
-          action: "create",
-          entityType: "scheduled_backup",
-          summary: `Automated encrypted daily snapshot created (SHA-256: ${checksum.slice(0, 12)}...)`,
-        });
-
+        const cloudResult = await executeCloudBackup(user.id, project.id);
+        backupResults.push(cloudResult);
         totalProjectsBackedUp++;
       }
     }
@@ -49,6 +40,7 @@ export async function runScheduledBackup(_req: Request, res: Response): Promise<
       success: true,
       timestamp: new Date().toISOString(),
       backedUpProjectsCount: totalProjectsBackedUp,
+      details: backupResults,
     });
   } catch (error) {
     res.status(500).json({

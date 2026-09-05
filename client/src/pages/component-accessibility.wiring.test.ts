@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const homeSource = readFileSync(
-  resolve(process.cwd(), "client/src/pages/Home.tsx"),
-  "utf8"
-);
-const metricsPath = resolve(process.cwd(), "client/src/components/dashboard/DashboardMetrics.tsx");
-const metricsSource = existsSync(metricsPath) ? readFileSync(metricsPath, "utf8") : "";
-const source = homeSource + "\n" + metricsSource;
+const getCombinedSource = () => {
+  const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
+  const dashboardDir = resolve(process.cwd(), "client/src/components/dashboard");
+  const dialogsDir = resolve(dashboardDir, "dialogs");
+  let combined = home;
+  for (const dir of [dashboardDir, dialogsDir]) {
+    try {
+      for (const file of readdirSync(dir)) {
+        if (file.endsWith(".tsx") || file.endsWith(".ts")) {
+          combined += "\n" + readFileSync(resolve(dir, file), "utf8");
+        }
+      }
+    } catch {}
+  }
+  return combined;
+};
+
+const source = getCombinedSource();
 
 describe("dashboard component accessibility wiring", () => {
   it("associates native form controls with their labels", () => {

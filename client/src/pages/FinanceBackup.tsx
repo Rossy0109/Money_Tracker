@@ -4,15 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { readActiveProjectId, resolveActiveProjectId, saveActiveProjectId } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Download, FileUp, HardDriveDownload, Loader2, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Cloud,
+  CloudUpload,
+  Download,
+  FileUp,
+  HardDriveDownload,
+  Loader2,
+  Lock,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+} from "lucide-react";
 import { ChangeEvent, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-const formatDate = (value: Date | string) => new Intl.DateTimeFormat("bn-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+const formatDate = (value: Date | string) =>
+  new Intl.DateTimeFormat("bn-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 
 function downloadJson(payload: unknown, filename: string) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -34,6 +49,8 @@ export default function FinanceBackup() {
   const [preview, setPreview] = useState<any>(null);
   const [restoreName, setRestoreName] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [cloudBackupResult, setCloudBackupResult] = useState<any>(null);
+
   const projectId = activeProjectId ?? 0;
   const exportBackup = trpc.finance.exportProjectBackup.useQuery({ projectId }, { enabled: false, retry: false });
   const previewBackup = trpc.finance.previewProjectBackup.useMutation();
@@ -45,6 +62,18 @@ export default function FinanceBackup() {
       setLocation("/");
     },
     onError: error => toast.error(error.message || "পুনরুদ্ধার করা যায়নি"),
+  });
+
+  const cloudStorageStatus = trpc.finance.cloudBackupStatus.useQuery(undefined, {
+    enabled: user?.role === "admin",
+  });
+
+  const triggerCloudBackup = trpc.finance.triggerCloudBackup.useMutation({
+    onSuccess: result => {
+      setCloudBackupResult(result);
+      toast.success(result.message || "ক্লাউড ব্যাকআপ সম্পন্ন হয়েছে");
+    },
+    onError: error => toast.error(error.message || "ক্লাউড ব্যাকআপ ব্যর্থ হয়েছে"),
   });
 
   useEffect(() => {
@@ -90,6 +119,14 @@ export default function FinanceBackup() {
     toast.success("প্রজেক্ট ব্যাকআপ ডাউনলোড হয়েছে");
   };
 
+  const handleTriggerCloudBackup = () => {
+    if (!projectId) {
+      toast.error("প্রথমে একটি প্রজেক্ট নির্বাচন করুন");
+      return;
+    }
+    triggerCloudBackup.mutate({ projectId });
+  };
+
   const readBackupFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -118,14 +155,16 @@ export default function FinanceBackup() {
     restoreBackup.mutate({ projectName: restoreName.trim(), confirmation: "RESTORE_NEW_PROJECT", backup });
   };
 
+  const storageConfig = cloudStorageStatus.data;
+
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
         <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#123c32] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">নিরাপদ ব্যাকআপ</p>
-            <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">নিজের হিসাব সংরক্ষণ ও পুনরুদ্ধার</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#d6e9dc]">ব্যাকআপ আপনার ডিভাইসে JSON ফাইল হিসেবে থাকবে। পুনরুদ্ধার সবসময় নতুন হিসাবখাতায় হবে; আগের কোনো তথ্য মুছবে না।</p>
+            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">নিরাপদ ব্যাকআপ ও ক্লাউড সিঙ্ক</p>
+            <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">হিসাব সংরক্ষণ, ক্লাউড ব্যাকআপ ও পুনরুদ্ধার</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#d6e9dc]">স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (S3 / Google Drive / Supabase) এবং এনক্রিপ্টেড অফলাইন স্ন্যাপশট। পুনরুদ্ধার সবসময় নতুন হিসাবখাতায় হবে; বিদ্যমান কোনো তথ্য মুছবে না।</p>
           </div>
           <label className="grid gap-1.5 text-sm font-medium text-[#e3f3e7]">হিসাবখাতা
             <select aria-label="ব্যাকআপের হিসাবখাতা নির্বাচন" value={activeProjectId ?? ""} onChange={event => chooseProject(event.target.value)} className="h-11 min-w-0 rounded-xl border border-white/25 bg-white px-3 text-sm font-semibold text-[#123c32] focus:outline-none focus:ring-2 focus:ring-[#bcecc6] sm:min-w-60">
@@ -133,6 +172,87 @@ export default function FinanceBackup() {
             </select>
           </label>
         </header>
+
+        {/* Automated Cloud Storage Card */}
+        <Card className="border-[#c9e2d3] bg-[#f8fdf9] shadow-sm">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-[#154637]">
+                  <Cloud className="h-5 w-5 text-[#1b704d]" />
+                  স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (Automated Cloud Storage)
+                </CardTitle>
+                <CardDescription className="text-[#4e7465]">
+                  AWS S3 / R2, Google Drive এবং Supabase Storage-এ AES-256-GCM এনক্রিপ্টেড দৈনিক শিডিউলড ব্যাকআপ।
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={`gap-1.5 px-3 py-1 text-xs ${storageConfig?.supabase?.enabled ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-gray-50 text-gray-600"}`}>
+                  <Server className="h-3 w-3" />
+                  Supabase: {storageConfig?.supabase?.enabled ? "সক্রিয়" : "প্রস্তুত"}
+                </Badge>
+                <Badge variant="outline" className={`gap-1.5 px-3 py-1 text-xs ${storageConfig?.s3?.enabled ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-gray-50 text-gray-600"}`}>
+                  <Cloud className="h-3 w-3" />
+                  S3 / R2: {storageConfig?.s3?.enabled ? "সক্রিয়" : "প্রস্তুত"}
+                </Badge>
+                <Badge variant="outline" className={`gap-1.5 px-3 py-1 text-xs ${storageConfig?.googleDrive?.enabled ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-gray-50 text-gray-600"}`}>
+                  <Lock className="h-3 w-3" />
+                  Drive: {storageConfig?.googleDrive?.enabled ? "সক্রিয়" : "প্রস্তুত"}
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
+                <p className="text-xs font-semibold text-[#5a7f6f]">এনক্রিপশন নিরাপত্তা</p>
+                <p className="mt-1 font-bold text-sm text-[#143e30]">AES-256-GCM</p>
+                <p className="mt-0.5 text-[11px] text-[#719283]">SHA-256 ইন্টিগ্রিটি চেকসাম সহ</p>
+              </div>
+              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
+                <p className="text-xs font-semibold text-[#5a7f6f]">অটোমেটেড শিডিউল</p>
+                <p className="mt-1 font-bold text-sm text-[#143e30]">প্রতিদিন রাত ১২:০০</p>
+                <p className="mt-0.5 text-[11px] text-[#719283]">ক্রন জব দ্বারা স্বয়ংক্রিয় ব্যাকআপ</p>
+              </div>
+              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
+                <p className="text-xs font-semibold text-[#5a7f6f]">ক্লাউড প্রোভাইডার</p>
+                <p className="mt-1 font-bold text-sm text-[#143e30]">
+                  {storageConfig?.supabase?.enabled ? "Supabase Storage" : storageConfig?.s3?.enabled ? "AWS S3 / R2" : storageConfig?.googleDrive?.enabled ? "Google Drive" : "এনক্রিপ্টেড স্ন্যাপশট"}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#719283]">অফ-সাইট ব্যাকআপ সিঙ্ক</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <p className="text-xs text-[#527768]">
+                এখনই নির্বাচিত হিসাবখাতার একটি এনক্রিপ্টেড ব্যাকআপ ক্লাউড স্টোরেজে পাঠাতে পারেন।
+              </p>
+              <Button
+                onClick={handleTriggerCloudBackup}
+                disabled={!projectId || triggerCloudBackup.isPending}
+                className="h-11 rounded-xl bg-[#173f36] hover:bg-[#0f2e27] text-white font-semibold flex items-center gap-2 px-5 shrink-0"
+              >
+                {triggerCloudBackup.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CloudUpload className="h-4 w-4" />
+                )}
+                {triggerCloudBackup.isPending ? "ক্লাউডে আপলোড হচ্ছে..." : "এখনই ক্লাউড ব্যাকআপ নিন"}
+              </Button>
+            </div>
+
+            {cloudBackupResult && (
+              <Alert className="border-[#cce5d4] bg-white text-[#184637]">
+                <CheckCircle2 className="h-4 w-4 text-[#1a7a4c]" />
+                <AlertTitle>ক্লাউড ব্যাকআপ সফল</AlertTitle>
+                <AlertDescription className="text-xs space-y-1 mt-1 text-[#436758]">
+                  <p><strong>ফাইল:</strong> {cloudBackupResult.fileName}</p>
+                  <p><strong>প্রোভাইডার:</strong> {cloudBackupResult.provider} · <strong>আকার:</strong> {Math.round(cloudBackupResult.byteSize / 1024)} KB · <strong>চেকসাম:</strong> {cloudBackupResult.checksum.slice(0, 16)}...</p>
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
 
         <section className="grid gap-5 lg:grid-cols-2">
           <Card className="border-[#dbe7dd] shadow-sm">

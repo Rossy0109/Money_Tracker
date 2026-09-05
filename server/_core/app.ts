@@ -45,6 +45,7 @@ export function createApiApp() {
   app.use("/api/oauth", authLimiter);
   app.use("/api/trpc/auth.login", authLimiter);
   app.use("/api/trpc/auth.register", authLimiter);
+  app.use(/^\/api\/trpc\/auth\./, authLimiter);
 
   registerOAuthRoutes(app);
   app.post("/api/scheduled/finance-recurring", runScheduledRecurring);

@@ -8,6 +8,8 @@ import { ENV } from "./_core/env";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { sdk } from "./_core/sdk";
 import { hashPassword, verifyPassword } from "./_core/passwordAuth";
+import { checkRateLimit, resetRateLimit } from "./_core/rateLimiter";
+import { getCloudStorageConfig, executeCloudBackup } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -93,6 +95,14 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        const clientIp = ctx.req.ip || (ctx.req.headers["x-forwarded-for"] as string) || "client-ip";
+        checkRateLimit(String(clientIp), {
+          windowMs: 15 * 60 * 1000,
+          max: 20,
+          keyPrefix: "auth-register",
+          message: "খুব বেশি চেষ্টার কারণে সাময়িকভাবে রেজিস্ট্রেশন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+        });
+
         try {
           const passwordHash = hashPassword(input.password);
           const user = await financeDb.createPasswordUser({
@@ -146,6 +156,14 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        const clientIp = ctx.req.ip || (ctx.req.headers["x-forwarded-for"] as string) || "client-ip";
+        checkRateLimit(String(clientIp), {
+          windowMs: 15 * 60 * 1000,
+          max: 15,
+          keyPrefix: "auth-login",
+          message: "খুব বেশি চেষ্টার কারণে সাময়িকভাবে লগইন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+        });
+
         const user = await financeDb.getUserByEmail(input.email);
         if (!user || !user.passwordHash || !verifyPassword(input.password, user.passwordHash)) {
           throw new TRPCError({
@@ -168,6 +186,7 @@ export const appRouter = router({
           });
         }
 
+        resetRateLimit(String(clientIp), "auth-login");
         await financeDb.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name || user.email || "",
@@ -430,6 +449,15 @@ export const appRouter = router({
       accountId: z.number().int().positive().nullable().optional(),
       notes: z.string().max(500).optional(),
     })).mutation(({ ctx, input }) => financeDb.createEmployeeAdvance(ctx.user.id, input)),
+    cloudBackupStatus: protectedProcedure.query(() => {
+      return getCloudStorageConfig();
+    }),
+    triggerCloudBackup: protectedProcedure.input(z.object({
+      projectId,
+      encryptionKey: z.string().min(6).max(128).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      return executeCloudBackup(ctx.user.id, input.projectId, input.encryptionKey);
+    }),
   }),
 });
 

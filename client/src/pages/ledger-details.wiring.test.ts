@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const homeSource = readFileSync(resolve(import.meta.dirname, "Home.tsx"), "utf8");
-const duesPanelPath = resolve(import.meta.dirname, "../components/dashboard/DuesPanel.tsx");
-const duesPanelSource = existsSync(duesPanelPath) ? readFileSync(duesPanelPath, "utf8") : "";
-const combinedSource = homeSource + "\n" + duesPanelSource;
+const getCombinedSource = () => {
+  const home = readFileSync(resolve(import.meta.dirname, "Home.tsx"), "utf8");
+  const dashboardDir = resolve(import.meta.dirname, "../components/dashboard");
+  const dialogsDir = resolve(dashboardDir, "dialogs");
+  let combined = home;
+  for (const dir of [dashboardDir, dialogsDir]) {
+    try {
+      for (const file of readdirSync(dir)) {
+        if (file.endsWith(".tsx") || file.endsWith(".ts")) {
+          combined += "\n" + readFileSync(resolve(dir, file), "utf8");
+        }
+      }
+    } catch {}
+  }
+  return combined;
+};
+
+const combinedSource = getCombinedSource();
 
 describe("voucher ledger and settlement history presentation", () => {
   it("uses automatic voucher settings and a description-only ledger interface", () => {

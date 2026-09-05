@@ -14,10 +14,21 @@ describe("export lazy-loading wiring", () => {
     expect(source).not.toContain('from "@/lib/monthlyReportPdf"');
   });
 
-  it("loads household chart capture and PDF code only after an authorized export click", () => {
-    const source = readClientFile("pages/FamilyHousehold.tsx");
-    expect(source).toContain('await import("@/lib/householdChartExport")');
-    expect(source).not.toContain('from "@/lib/householdChartExport"');
-    expect(source).toContain("if (!monthlyChartExportRef.current || monthlyContributors.length === 0) return");
+  it("loads invoice PDF generation code only when the user requests an invoice export", () => {
+    const source = readClientFile("pages/Invoices.tsx");
+    expect(source).toContain('await import("@/lib/invoicePdf")');
+    expect(source).not.toContain('from "@/lib/invoicePdf"');
+  });
+
+  it("loads payslip PDF generation code only when an employee payslip export is clicked", () => {
+    const source = readClientFile("pages/Payroll.tsx");
+    expect(source).toContain('await import("@/lib/payslipPdf")');
+    expect(source).not.toContain('from "@/lib/payslipPdf"');
+  });
+
+  it("loads party ledger PDF generation on-demand inside PartyLedger page", () => {
+    const source = readClientFile("pages/PartyLedger.tsx");
+    expect(source).toContain('await import("jspdf")');
+    expect(source).not.toContain('from "jspdf"');
   });
 });

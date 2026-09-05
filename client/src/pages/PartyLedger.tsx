@@ -31,14 +31,13 @@ import {
   ArrowRight,
   HandCoins,
 } from "lucide-react";
-import { jsPDF } from "jspdf";
 
 const bdt = (val: number | string | null | undefined) =>
   `৳ ${Number(val || 0).toLocaleString("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 
-async function addBengaliFont(doc: jsPDF) {
+async function addBengaliFont(doc: any) {
   try {
     const response = await window.fetch(BENGALI_FONT_URL);
     if (!response.ok) return;
@@ -303,6 +302,7 @@ export default function PartyLedger() {
     if (!activeParty) return;
 
     try {
+      const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       await addBengaliFont(doc);
 
