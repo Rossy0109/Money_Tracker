@@ -11,6 +11,7 @@ type E2eUser = {
   name: string | null;
   loginMethod: string | null;
   role: "admin" | "user";
+  status: "pending" | "active" | "suspended";
   createdAt: Date;
   updatedAt: Date;
   lastSignedIn: Date;
@@ -48,11 +49,11 @@ beforeAll(async () => {
   if (!db) throw new Error("বিচ্ছিন্ন পরীক্ষামূলক ডেটাবেস সংযোগ পাওয়া যায়নি");
 
   await db.insert(users).values([
-    { openId: "e2e-owner", name: "E2E Owner", email: "owner@e2e.test", loginMethod: "e2e", role: "user" },
-    { openId: "e2e-editor", name: "E2E Editor", email: "editor@e2e.test", loginMethod: "e2e", role: "user" },
-    { openId: "e2e-viewer", name: "E2E Viewer", email: "viewer@e2e.test", loginMethod: "e2e", role: "user" },
-    { openId: "e2e-outsider", name: "E2E Outsider", email: "outsider@e2e.test", loginMethod: "e2e", role: "user" },
-    { openId: "e2e-admin", name: "E2E Administrator", email: "administrator@e2e.test", loginMethod: "e2e", role: "admin" },
+    { openId: "e2e-owner", name: "E2E Owner", email: "owner@e2e.test", loginMethod: "e2e", role: "user", status: "active" },
+    { openId: "e2e-editor", name: "E2E Editor", email: "editor@e2e.test", loginMethod: "e2e", role: "user", status: "active" },
+    { openId: "e2e-viewer", name: "E2E Viewer", email: "viewer@e2e.test", loginMethod: "e2e", role: "user", status: "active" },
+    { openId: "e2e-outsider", name: "E2E Outsider", email: "outsider@e2e.test", loginMethod: "e2e", role: "user", status: "active" },
+    { openId: "e2e-admin", name: "E2E Administrator", email: "administrator@e2e.test", loginMethod: "e2e", role: "admin", status: "active" },
   ]);
 
   const rows = await db.select().from(users).where(inArray(users.openId, [...OPEN_IDS]));
