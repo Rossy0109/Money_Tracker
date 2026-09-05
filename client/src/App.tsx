@@ -17,6 +17,7 @@ const FinancialStatements = lazy(() => import("./pages/FinancialStatements"));
 const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const PartyLedger = lazy(() => import("./pages/PartyLedger"));
+const Payroll = lazy(() => import("./pages/Payroll"));
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Home} />
         <Route path={"/party-ledger"} component={PartyLedger} />
+        <Route path={"/payroll"} component={Payroll} />
         <Route path={"/invoices"} component={Invoices} />
         <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />

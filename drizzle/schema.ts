@@ -436,6 +436,88 @@ export const financeInventoryItems = mysqlTable(
   ],
 );
 
+/** Employee payroll profiles and base compensation. */
+export const financeEmployees = mysqlTable(
+  "finance_employees",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 180 }).notNull(),
+    phone: varchar("phone", { length: 40 }),
+    email: varchar("email", { length: 320 }),
+    designation: varchar("designation", { length: 120 }),
+    department: varchar("department", { length: 120 }),
+    joiningDate: timestamp("joiningDate"),
+    baseSalary: decimal("baseSalary", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    status: mysqlEnum("status", ["active", "inactive", "terminated"]).default("active").notNull(),
+    paymentMethod: mysqlEnum("paymentMethod", ["cash", "bank", "mobile"]).default("cash").notNull(),
+    bankAccountDetails: text("bankAccountDetails"),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("finance_employees_user_project_idx").on(table.userId, table.projectId),
+    index("finance_employees_status_idx").on(table.projectId, table.status),
+  ],
+);
+
+/** Monthly salary calculation and payment records. */
+export const financeSalaryPayments = mysqlTable(
+  "finance_salary_payments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "cascade" }),
+    monthKey: varchar("monthKey", { length: 7 }).notNull(), // YYYY-MM
+    baseSalary: decimal("baseSalary", { precision: 15, scale: 2 }).notNull(),
+    bonusAmount: decimal("bonusAmount", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    allowanceAmount: decimal("allowanceAmount", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    advanceDeduction: decimal("advanceDeduction", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    otherDeduction: decimal("otherDeduction", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    netPayable: decimal("netPayable", { precision: 15, scale: 2 }).notNull(),
+    paidAmount: decimal("paidAmount", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    paymentDate: timestamp("paymentDate"),
+    accountId: int("accountId").references(() => financeAccounts.id, { onDelete: "set null" }),
+    voucherNo: varchar("voucherNo", { length: 80 }),
+    status: mysqlEnum("status", ["pending", "paid", "partially_paid"]).default("pending").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_salary_employee_month_unique").on(table.projectId, table.employeeId, table.monthKey),
+    index("finance_salary_project_month_idx").on(table.projectId, table.monthKey),
+    index("finance_salary_employee_idx").on(table.employeeId),
+  ],
+);
+
+/** Advance salary and loan disbursements to employees. */
+export const financeEmployeeAdvances = mysqlTable(
+  "finance_employee_advances",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+    repaidAmount: decimal("repaidAmount", { precision: 15, scale: 2 }).notNull().default("0.00"),
+    disbursedDate: timestamp("disbursedDate").notNull(),
+    accountId: int("accountId").references(() => financeAccounts.id, { onDelete: "set null" }),
+    voucherNo: varchar("voucherNo", { length: 80 }),
+    status: mysqlEnum("status", ["open", "settled"]).default("open").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("finance_employee_advances_project_employee_idx").on(table.projectId, table.employeeId),
+    index("finance_employee_advances_status_idx").on(table.projectId, table.status),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type FinanceProject = typeof financeProjects.$inferSelect;
@@ -456,4 +538,8 @@ export type FinanceInvoice = typeof financeInvoices.$inferSelect;
 export type FinanceInvoiceItem = typeof financeInvoiceItems.$inferSelect;
 export type FinanceInventoryItem = typeof financeInventoryItems.$inferSelect;
 export type InsertFinanceInventoryItem = typeof financeInventoryItems.$inferInsert;
+export type FinanceEmployee = typeof financeEmployees.$inferSelect;
+export type InsertFinanceEmployee = typeof financeEmployees.$inferInsert;
+export type FinanceSalaryPayment = typeof financeSalaryPayments.$inferSelect;
+export type FinanceEmployeeAdvance = typeof financeEmployeeAdvances.$inferSelect;
 

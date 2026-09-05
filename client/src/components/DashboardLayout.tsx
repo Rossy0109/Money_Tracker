@@ -7,12 +7,13 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
   { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger" },
+  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll" },
   { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },
   { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory" },
   { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements" },

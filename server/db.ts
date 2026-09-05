@@ -13,6 +13,9 @@ import {
   financeInvoices,
   financeInvoiceItems,
   financeInventoryItems,
+  financeEmployees,
+  financeSalaryPayments,
+  financeEmployeeAdvances,
   financeProjects,
   financePrivateStorageObjects,
   financeRecurringTransactions,
@@ -1718,6 +1721,408 @@ export async function deleteInventoryItem(userId: number, projectId: number, id:
   });
 
   return { success: true };
+}
+
+export type CreateEmployeeInput = {
+  projectId: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+  joiningDate?: Date;
+  baseSalary: number | string;
+  status?: "active" | "inactive" | "terminated";
+  paymentMethod?: "cash" | "bank" | "mobile";
+  bankAccountDetails?: string;
+  notes?: string;
+};
+
+export async function getEmployees(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  return db
+    .select()
+    .from(financeEmployees)
+    .where(and(eq(financeEmployees.userId, userId), eq(financeEmployees.projectId, projectId)))
+    .orderBy(asc(financeEmployees.name));
+}
+
+export async function createEmployee(userId: number, input: CreateEmployeeInput) {
+  await assertOwnedProject(userId, input.projectId);
+  if (!input.name.trim()) throw new Error("কর্মচারীর নাম প্রদান করুন");
+  const db = databaseRequired(await getDb());
+
+  const result = await db.insert(financeEmployees).values({
+    userId,
+    projectId: input.projectId,
+    name: input.name.trim(),
+    phone: input.phone?.trim() || null,
+    email: input.email?.trim() || null,
+    designation: input.designation?.trim() || null,
+    department: input.department?.trim() || null,
+    joiningDate: input.joiningDate || new Date(),
+    baseSalary: decimal(Number(input.baseSalary) || 0),
+    status: input.status || "active",
+    paymentMethod: input.paymentMethod || "cash",
+    bankAccountDetails: input.bankAccountDetails?.trim() || null,
+    notes: input.notes?.trim() || null,
+  });
+
+  const employeeId = Number(result[0].insertId);
+
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "employee",
+    entityId: employeeId,
+    summary: `Added employee profile: ${input.name} (${input.designation || "Staff"}, Salary: ৳${input.baseSalary})`,
+  });
+
+  return { id: employeeId, success: true };
+}
+
+export async function updateEmployee(
+  userId: number,
+  projectId: number,
+  id: number,
+  input: Partial<CreateEmployeeInput>
+) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [existing] = await db
+    .select()
+    .from(financeEmployees)
+    .where(and(eq(financeEmployees.id, id), eq(financeEmployees.userId, userId), eq(financeEmployees.projectId, projectId)))
+    .limit(1);
+
+  if (!existing) throw new Error("কর্মচারীর তথ্য পাওয়া যায়নি");
+
+  const updateData: Record<string, unknown> = {};
+  if (input.name !== undefined) updateData.name = input.name.trim();
+  if (input.phone !== undefined) updateData.phone = input.phone?.trim() || null;
+  if (input.email !== undefined) updateData.email = input.email?.trim() || null;
+  if (input.designation !== undefined) updateData.designation = input.designation?.trim() || null;
+  if (input.department !== undefined) updateData.department = input.department?.trim() || null;
+  if (input.joiningDate !== undefined) updateData.joiningDate = input.joiningDate;
+  if (input.baseSalary !== undefined) updateData.baseSalary = decimal(Number(input.baseSalary) || 0);
+  if (input.status !== undefined) updateData.status = input.status;
+  if (input.paymentMethod !== undefined) updateData.paymentMethod = input.paymentMethod;
+  if (input.bankAccountDetails !== undefined) updateData.bankAccountDetails = input.bankAccountDetails?.trim() || null;
+  if (input.notes !== undefined) updateData.notes = input.notes?.trim() || null;
+
+  await db.update(financeEmployees).set(updateData).where(eq(financeEmployees.id, id));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "employee",
+    entityId: id,
+    summary: `Updated employee profile: ${input.name || existing.name}`,
+  });
+
+  return { success: true };
+}
+
+export async function deleteEmployee(userId: number, projectId: number, id: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const [existing] = await db
+    .select()
+    .from(financeEmployees)
+    .where(and(eq(financeEmployees.id, id), eq(financeEmployees.userId, userId), eq(financeEmployees.projectId, projectId)))
+    .limit(1);
+
+  if (!existing) throw new Error("কর্মচারীর তথ্য পাওয়া যায়নি");
+
+  await db.delete(financeEmployees).where(eq(financeEmployees.id, id));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "delete",
+    entityType: "employee",
+    entityId: id,
+    summary: `Deleted employee profile: ${existing.name}`,
+  });
+
+  return { success: true };
+}
+
+export type DisburseSalaryInput = {
+  projectId: number;
+  employeeId: number;
+  monthKey: string; // YYYY-MM
+  baseSalary: number | string;
+  bonusAmount?: number | string;
+  allowanceAmount?: number | string;
+  advanceDeduction?: number | string;
+  otherDeduction?: number | string;
+  paidAmount?: number | string;
+  paymentDate?: Date;
+  accountId?: number | null;
+  notes?: string;
+};
+
+export async function getSalaryPayments(userId: number, projectId: number, monthKey?: string) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const conditions = [eq(financeSalaryPayments.userId, userId), eq(financeSalaryPayments.projectId, projectId)];
+  if (monthKey) conditions.push(eq(financeSalaryPayments.monthKey, monthKey));
+
+  const payments = await db
+    .select({
+      payment: financeSalaryPayments,
+      employee: financeEmployees,
+    })
+    .from(financeSalaryPayments)
+    .innerJoin(financeEmployees, eq(financeSalaryPayments.employeeId, financeEmployees.id))
+    .where(and(...conditions))
+    .orderBy(desc(financeSalaryPayments.createdAt));
+
+  return payments.map(p => ({
+    ...p.payment,
+    employeeName: p.employee.name,
+    employeeDesignation: p.employee.designation,
+    employeePhone: p.employee.phone,
+    employeeDepartment: p.employee.department,
+  }));
+}
+
+export async function disburseSalary(userId: number, input: DisburseSalaryInput) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+
+  const [employee] = await db
+    .select()
+    .from(financeEmployees)
+    .where(and(eq(financeEmployees.id, input.employeeId), eq(financeEmployees.userId, userId), eq(financeEmployees.projectId, input.projectId)))
+    .limit(1);
+
+  if (!employee) throw new Error("কর্মচারী পাওয়া যায়নি");
+
+  const base = Number(input.baseSalary) || Number(employee.baseSalary) || 0;
+  const bonus = Math.max(0, Number(input.bonusAmount) || 0);
+  const allowance = Math.max(0, Number(input.allowanceAmount) || 0);
+  const advanceDed = Math.max(0, Number(input.advanceDeduction) || 0);
+  const otherDed = Math.max(0, Number(input.otherDeduction) || 0);
+
+  const netPayable = Math.max(0, base + bonus + allowance - advanceDed - otherDed);
+  const paid = input.paidAmount !== undefined ? Math.max(0, Number(input.paidAmount)) : netPayable;
+  const status: "paid" | "partially_paid" | "pending" =
+    paid >= netPayable ? "paid" : paid > 0 ? "partially_paid" : "pending";
+
+  const voucherNo = await claimNextVoucher(db, userId, input.projectId);
+
+  // If advance was deducted, update open advance records
+  if (advanceDed > 0) {
+    const openAdvances = await db
+      .select()
+      .from(financeEmployeeAdvances)
+      .where(and(eq(financeEmployeeAdvances.employeeId, input.employeeId), eq(financeEmployeeAdvances.status, "open")))
+      .orderBy(asc(financeEmployeeAdvances.disbursedDate));
+
+    let remainingDed = advanceDed;
+    for (const adv of openAdvances) {
+      if (remainingDed <= 0) break;
+      const advTotal = Number(adv.amount);
+      const advRepaid = Number(adv.repaidAmount);
+      const advOutstanding = advTotal - advRepaid;
+
+      const toDeduct = Math.min(remainingDed, advOutstanding);
+      const newRepaid = advRepaid + toDeduct;
+      const newStatus = newRepaid >= advTotal ? "settled" : "open";
+
+      await db
+        .update(financeEmployeeAdvances)
+        .set({ repaidAmount: decimal(newRepaid), status: newStatus })
+        .where(eq(financeEmployeeAdvances.id, adv.id));
+
+      remainingDed -= toDeduct;
+    }
+  }
+
+  // Create salary payment record
+  const result = await db
+    .insert(financeSalaryPayments)
+    .values({
+      userId,
+      projectId: input.projectId,
+      employeeId: input.employeeId,
+      monthKey: input.monthKey,
+      baseSalary: decimal(base),
+      bonusAmount: decimal(bonus),
+      allowanceAmount: decimal(allowance),
+      advanceDeduction: decimal(advanceDed),
+      otherDeduction: decimal(otherDed),
+      netPayable: decimal(netPayable),
+      paidAmount: decimal(paid),
+      paymentDate: input.paymentDate || new Date(),
+      accountId: input.accountId || null,
+      voucherNo,
+      status,
+      notes: input.notes?.trim() || null,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        baseSalary: decimal(base),
+        bonusAmount: decimal(bonus),
+        allowanceAmount: decimal(allowance),
+        advanceDeduction: decimal(advanceDed),
+        otherDeduction: decimal(otherDed),
+        netPayable: decimal(netPayable),
+        paidAmount: decimal(paid),
+        paymentDate: input.paymentDate || new Date(),
+        accountId: input.accountId || null,
+        status,
+        notes: input.notes?.trim() || null,
+      },
+    });
+
+  // If salary paid > 0 and account specified, adjust account balance and log transaction
+  if (paid > 0 && input.accountId) {
+    const [salaryCat] = await db
+      .select()
+      .from(financeCategories)
+      .where(and(eq(financeCategories.projectId, input.projectId), eq(financeCategories.name, "বেতন ও সম্মানী"), eq(financeCategories.type, "expense")))
+      .limit(1);
+
+    let categoryId = salaryCat?.id;
+    if (!categoryId) {
+      const insertCat = await db.insert(financeCategories).values({
+        userId,
+        projectId: input.projectId,
+        name: "বেতন ও সম্মানী",
+        type: "expense",
+        isDefault: false,
+      });
+      categoryId = Number(insertCat[0].insertId);
+    }
+
+    await db.insert(financeTransactions).values({
+      userId,
+      projectId: input.projectId,
+      accountId: input.accountId,
+      categoryId,
+      type: "expense",
+      amount: decimal(paid),
+      voucherNo,
+      paymentMethod: "bank",
+      note: `বেতন প্রদান (${input.monthKey}): ${employee.name} (${employee.designation || "Staff"})`,
+      occurredAt: input.paymentDate || new Date(),
+    });
+
+    const [account] = await db
+      .select()
+      .from(financeAccounts)
+      .where(eq(financeAccounts.id, input.accountId))
+      .limit(1);
+
+    if (account) {
+      const nextBal = Number(account.currentBalance) - paid;
+      await db.update(financeAccounts).set({ currentBalance: decimal(nextBal) }).where(eq(financeAccounts.id, input.accountId));
+    }
+  }
+
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "salary_payment",
+    entityId: Number(result[0].insertId || 0),
+    summary: `Processed salary payment for ${employee.name} (${input.monthKey}): ৳${paid} (Net: ৳${netPayable})`,
+  });
+
+  return { success: true, voucherNo };
+}
+
+export type CreateEmployeeAdvanceInput = {
+  projectId: number;
+  employeeId: number;
+  amount: number | string;
+  disbursedDate?: Date;
+  accountId?: number | null;
+  notes?: string;
+};
+
+export async function getEmployeeAdvances(userId: number, projectId: number, employeeId?: number) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+
+  const conditions = [eq(financeEmployeeAdvances.userId, userId), eq(financeEmployeeAdvances.projectId, projectId)];
+  if (employeeId) conditions.push(eq(financeEmployeeAdvances.employeeId, employeeId));
+
+  const advances = await db
+    .select({
+      advance: financeEmployeeAdvances,
+      employee: financeEmployees,
+    })
+    .from(financeEmployeeAdvances)
+    .innerJoin(financeEmployees, eq(financeEmployeeAdvances.employeeId, financeEmployees.id))
+    .where(and(...conditions))
+    .orderBy(desc(financeEmployeeAdvances.disbursedDate));
+
+  return advances.map(a => ({
+    ...a.advance,
+    employeeName: a.employee.name,
+    employeeDesignation: a.employee.designation,
+  }));
+}
+
+export async function createEmployeeAdvance(userId: number, input: CreateEmployeeAdvanceInput) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+
+  const [employee] = await db
+    .select()
+    .from(financeEmployees)
+    .where(and(eq(financeEmployees.id, input.employeeId), eq(financeEmployees.userId, userId), eq(financeEmployees.projectId, input.projectId)))
+    .limit(1);
+
+  if (!employee) throw new Error("কর্মচারী পাওয়া যায়নি");
+
+  const amount = Number(input.amount) || 0;
+  if (amount <= 0) throw new Error("অগ্রিমের পরিমাণ সঠিক দিন");
+
+  const voucherNo = await claimNextVoucher(db, userId, input.projectId);
+
+  const result = await db.insert(financeEmployeeAdvances).values({
+    userId,
+    projectId: input.projectId,
+    employeeId: input.employeeId,
+    amount: decimal(amount),
+    repaidAmount: "0.00",
+    disbursedDate: input.disbursedDate || new Date(),
+    accountId: input.accountId || null,
+    voucherNo,
+    status: "open",
+    notes: input.notes?.trim() || null,
+  });
+
+  // Adjust linked account if specified
+  if (input.accountId) {
+    const [account] = await db.select().from(financeAccounts).where(eq(financeAccounts.id, input.accountId)).limit(1);
+    if (account) {
+      const nextBal = Number(account.currentBalance) - amount;
+      await db.update(financeAccounts).set({ currentBalance: decimal(nextBal) }).where(eq(financeAccounts.id, input.accountId));
+    }
+  }
+
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "employee_advance",
+    entityId: Number(result[0].insertId),
+    summary: `Disbursed salary advance to ${employee.name}: ৳${amount}`,
+  });
+
+  return { id: Number(result[0].insertId), success: true, voucherNo };
 }
 
 
