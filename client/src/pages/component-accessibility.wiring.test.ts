@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const source = readFileSync(
+const homeSource = readFileSync(
   resolve(process.cwd(), "client/src/pages/Home.tsx"),
   "utf8"
 );
+const metricsPath = resolve(process.cwd(), "client/src/components/dashboard/DashboardMetrics.tsx");
+const metricsSource = existsSync(metricsPath) ? readFileSync(metricsPath, "utf8") : "";
+const source = homeSource + "\n" + metricsSource;
 
 describe("dashboard component accessibility wiring", () => {
   it("associates native form controls with their labels", () => {
