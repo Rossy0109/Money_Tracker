@@ -9,7 +9,14 @@ import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
 import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
 
-const menuItems = [
+interface MenuItem {
+  icon: any;
+  label: string;
+  href: string;
+  adminOnly?: boolean;
+}
+
+const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
   { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger" },
@@ -23,7 +30,7 @@ const menuItems = [
   { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
   { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
   { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
-  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup" },
+  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", adminOnly: true },
   { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
 ];
 
@@ -37,6 +44,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।
     return <AuthCard pendingUser={user?.status === "pending" ? user : null} />;
   }
+
+  if (user.status === "suspended") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#f7f8f4] p-4 text-center">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-red-100 space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+            <LogOut className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-rose-700">অ্যাকাউন্ট স্থগিত (Suspended)</h2>
+          <p className="text-sm text-[#5c7a6e]">
+            আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন কর্তৃক স্থগিত করা হয়েছে। বিস্তারিত জানতে বা পুনরায় সচল করতে অ্যাডমিনের সাথে যোগাযোগ করুন।
+          </p>
+          <Button onClick={logout} className="w-full rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] h-11 font-semibold">
+            সাইন আউট করুন
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || user.role === "admin");
 
   return (
     <SidebarProvider defaultOpen>
@@ -54,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <a href="/#transactions"><Plus className="h-4.5 w-4.5" /><span>লেনদেন যোগ করুন</span></a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {menuItems.map(item => <SidebarMenuItem key={item.href}>
+            {visibleMenuItems.map(item => <SidebarMenuItem key={item.href}>
               <SidebarMenuButton asChild tooltip={item.label} className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-[#d8f2dd] data-[active=true]:text-[#113a30]">
                 <a href={item.href}><item.icon className="h-4.5 w-4.5" /><span>{item.label}</span></a>
               </SidebarMenuButton>
@@ -65,7 +93,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5 space-y-2">
             <div className="flex items-center gap-2.5">
               <Avatar className="h-8 w-8 border border-white/20"><AvatarFallback className="bg-[#285d4e] text-xs text-white">{(user.name || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden"><p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p><p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p></div>
+              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${user.role === "admin" ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30" : "bg-white/15 text-[#b9d2c2]"}`}>
+                    {user.role === "admin" ? "Admin" : "User"}
+                  </span>
+                </div>
+                <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
+              </div>
               <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
             </div>
           </div>

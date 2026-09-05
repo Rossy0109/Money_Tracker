@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, Download, FileUp, HardDriveDownload, Loade
 import { ChangeEvent, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const formatDate = (value: Date | string) => new Intl.DateTimeFormat("bn-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 
@@ -24,9 +25,10 @@ function downloadJson(payload: unknown, filename: string) {
 }
 
 export default function FinanceBackup() {
+  const { user } = useAuth();
   const utils = trpc.useUtils();
   const [, setLocation] = useLocation();
-  const { data: projects = [] } = trpc.projects.list.useQuery();
+  const { data: projects = [] } = trpc.projects.list.useQuery(undefined, { enabled: user?.role === "admin" });
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [backup, setBackup] = useState<any>(null);
   const [preview, setPreview] = useState<any>(null);
@@ -48,6 +50,27 @@ export default function FinanceBackup() {
   useEffect(() => {
     if (projects.length) setActiveProjectId(current => resolveActiveProjectId(projects.map(project => project.id), current, readActiveProjectId()));
   }, [projects]);
+
+  if (user && user.role !== "admin") {
+    return (
+      <DashboardLayout>
+        <div className="max-w-xl mx-auto py-12 px-4 text-center">
+          <div className="bg-white rounded-3xl p-8 border border-amber-200 shadow-sm space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+              <ShieldCheck className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-[#173f36]">অ্যাডমিন অনুমতি প্রয়োজন</h2>
+            <p className="text-sm text-[#5c7a6e] leading-relaxed">
+              সিস্টেম ব্যাকআপ ও ডেটা রিস্টোর করার ক্ষমতা শুধুমাত্র অনুমোদিত প্রধান অ্যাডমিনিস্ট্রেটরের জন্য সংরক্ষিত। সাধারণ ব্যবহারকারী বা এডিটরদের এই সেকশনে অনুমতি নেই।
+            </p>
+            <Button onClick={() => setLocation("/")} className="rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] px-6">
+              ড্যাশবোর্ডে ফিরে যান
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const chooseProject = (value: string) => {
     const id = Number(value);

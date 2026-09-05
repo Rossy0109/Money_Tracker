@@ -17,6 +17,20 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
+  if (ctx.user.status === "pending") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+    });
+  }
+
+  if (ctx.user.status === "suspended") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+    });
+  }
+
   return next({
     ctx: {
       ...ctx,
