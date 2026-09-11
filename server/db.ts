@@ -632,11 +632,25 @@ async function assertOwnedDue(userId: number, projectId: number, dueId: number) 
   return due;
 }
 
-async function adjustAccountBalance(userId: number, projectId: number, accountId: number | null, delta: number) {
+async function adjustAccountBalance(
+  userId: number,
+  projectId: number,
+  accountId: number | null,
+  delta: number,
+  tx?: any
+) {
   if (!accountId || delta === 0) return;
-  const db = databaseRequired(await getDb());
-  await assertOwnedAccount(userId, projectId, accountId);
-  await db.update(financeAccounts).set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(delta)}` }).where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)));
+  const executor = tx || databaseRequired(await getDb());
+  const [account] = await executor
+    .select()
+    .from(financeAccounts)
+    .where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)))
+    .limit(1);
+  if (!account) throw new Error("Account not found or access denied");
+  await executor
+    .update(financeAccounts)
+    .set({ currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(delta)}` })
+    .where(and(eq(financeAccounts.id, accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)));
 }
 
 export async function logAudit(input: {
@@ -945,32 +959,68 @@ export async function createTransaction(userId: number, input: { projectId: numb
   const db = databaseRequired(await getDb());
   const id = await db.transaction(async tx => {
     const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
-    const result = await tx.insert(financeTransactions).values({ userId, projectId: input.projectId, categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), voucherNo, paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt });
-    return Number(result[0].insertId);
+    const result = await tx.insert(financeTransactions).values({
+      userId,
+      projectId: input.projectId,
+      categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
+      type: input.type,
+      amount: decimal(input.amount),
+      voucherNo,
+      paymentMethod: input.paymentMethod.trim(),
+      note: input.note?.trim() || null,
+      occurredAt: input.occurredAt
+    });
+    const insertId = Number(result[0].insertId);
+    await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount), tx);
+    return insertId;
   });
-  await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount));
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "create", entityType: "transaction", entityId: id, summary: `${input.type === "income" ? "Income" : "Expense"} transaction created` });
+  return id;
 }
 
 export async function updateTransaction(userId: number, id: number, input: { projectId: number; categoryId: number; accountId?: number; type: "income" | "expense"; amount: number; paymentMethod: string; note?: string; occurredAt: Date }) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  const [existing] = await db.select().from(financeTransactions).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, input.projectId))).limit(1);
-  if (!existing) throw new Error("Transaction not found or access denied");
-  await assertOwnedCategory(userId, input.projectId, input.categoryId, input.type);
-  if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
-  await adjustAccountBalance(userId, input.projectId, existing.accountId, -signedAmount(existing.type, existing.amount));
-  await db.update(financeTransactions).set({ categoryId: input.categoryId, accountId: input.accountId ?? null, type: input.type, amount: decimal(input.amount), paymentMethod: input.paymentMethod.trim(), note: input.note?.trim() || null, occurredAt: input.occurredAt }).where(eq(financeTransactions.id, id));
-  await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount));
+  await db.transaction(async tx => {
+    const [existing] = await tx
+      .select()
+      .from(financeTransactions)
+      .where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, input.projectId)))
+      .limit(1);
+    if (!existing) throw new Error("Transaction not found or access denied");
+    await assertOwnedCategory(userId, input.projectId, input.categoryId, input.type);
+    if (input.accountId) await assertOwnedAccount(userId, input.projectId, input.accountId);
+    await adjustAccountBalance(userId, input.projectId, existing.accountId, -signedAmount(existing.type, existing.amount), tx);
+    await tx
+      .update(financeTransactions)
+      .set({
+        categoryId: input.categoryId,
+        accountId: input.accountId ?? null,
+        type: input.type,
+        amount: decimal(input.amount),
+        paymentMethod: input.paymentMethod.trim(),
+        note: input.note?.trim() || null,
+        occurredAt: input.occurredAt,
+      })
+      .where(eq(financeTransactions.id, id));
+    await adjustAccountBalance(userId, input.projectId, input.accountId ?? null, signedAmount(input.type, input.amount), tx);
+  });
   await logAudit({ actorUserId: userId, projectId: input.projectId, action: "update", entityType: "transaction", entityId: id, summary: "Transaction updated" });
 }
 
 export async function deleteTransaction(userId: number, projectId: number, id: number) {
   const db = databaseRequired(await getDb());
-  const [transaction] = await db.select().from(financeTransactions).where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId))).limit(1);
-  if (!transaction) throw new Error("Transaction not found or access denied");
-  await adjustAccountBalance(userId, projectId, transaction.accountId, -signedAmount(transaction.type, transaction.amount));
-  await db.delete(financeTransactions).where(eq(financeTransactions.id, id));
+  await db.transaction(async tx => {
+    const [transaction] = await tx
+      .select()
+      .from(financeTransactions)
+      .where(and(eq(financeTransactions.id, id), eq(financeTransactions.userId, userId), eq(financeTransactions.projectId, projectId)))
+      .limit(1);
+    if (!transaction) throw new Error("Transaction not found or access denied");
+    await adjustAccountBalance(userId, projectId, transaction.accountId, -signedAmount(transaction.type, transaction.amount), tx);
+    await tx.delete(financeTransactions).where(eq(financeTransactions.id, id));
+  });
   await logAudit({ actorUserId: userId, projectId, action: "delete", entityType: "transaction", entityId: id, summary: "Transaction deleted" });
 }
 
@@ -1354,6 +1404,28 @@ export type CreateInvoiceInput = {
   }>;
 };
 
+async function generateNextInvoiceNumber(tx: any, projectId: number): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const prefix = `INV-${currentYear}-`;
+
+  const matchingInvoices = await tx
+    .select({ invoiceNumber: financeInvoices.invoiceNumber })
+    .from(financeInvoices)
+    .where(and(eq(financeInvoices.projectId, projectId), like(financeInvoices.invoiceNumber, `${prefix}%`)));
+
+  let maxSeq = 0;
+  for (const inv of matchingInvoices) {
+    const parts = (inv.invoiceNumber || "").split("-");
+    const num = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(num) && num > maxSeq) {
+      maxSeq = num;
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `${prefix}${String(nextSeq).padStart(4, "0")}`;
+}
+
 export async function createInvoice(userId: number, input: CreateInvoiceInput) {
   await assertOwnedProject(userId, input.projectId);
   if (!input.clientName.trim()) throw new Error("গ্রাহকের নাম প্রদান করুন");
@@ -1386,43 +1458,45 @@ export async function createInvoice(userId: number, input: CreateInvoiceInput) {
   const discount = Math.max(0, Number(input.discountAmount) || 0);
   const grandTotal = Math.max(0, subtotal + vatAmount - discount);
 
-  let invNumber = input.invoiceNumber?.trim();
-  if (!invNumber) {
-    const count = await db.select({ count: sql<number>`count(*)` }).from(financeInvoices).where(eq(financeInvoices.projectId, input.projectId));
-    const nextSeq = (Number(count[0]?.count) || 0) + 1;
-    invNumber = `INV-${new Date().getFullYear()}-${String(nextSeq).padStart(4, "0")}`;
-  }
+  const { invoiceId, finalInvoiceNumber } = await db.transaction(async tx => {
+    let invNumber = input.invoiceNumber?.trim();
+    if (!invNumber) {
+      invNumber = await generateNextInvoiceNumber(tx, input.projectId);
+    }
 
-  const result = await db.insert(financeInvoices).values({
-    userId,
-    projectId: input.projectId,
-    invoiceNumber: invNumber,
-    clientName: input.clientName.trim(),
-    clientPhone: input.clientPhone?.trim() || null,
-    clientEmail: input.clientEmail?.trim() || null,
-    clientAddress: input.clientAddress?.trim() || null,
-    clientBinTin: input.clientBinTin?.trim() || null,
-    issueDate: input.issueDate,
-    dueDate: input.dueDate,
-    subtotal: decimal(subtotal),
-    discountAmount: decimal(discount),
-    vatAmount: decimal(vatAmount),
-    grandTotal: decimal(grandTotal),
-    paidAmount: "0.00",
-    status: "unpaid",
-    notesTerms: input.notesTerms?.trim() || null,
+    const result = await tx.insert(financeInvoices).values({
+      userId,
+      projectId: input.projectId,
+      invoiceNumber: invNumber,
+      clientName: input.clientName.trim(),
+      clientPhone: input.clientPhone?.trim() || null,
+      clientEmail: input.clientEmail?.trim() || null,
+      clientAddress: input.clientAddress?.trim() || null,
+      clientBinTin: input.clientBinTin?.trim() || null,
+      issueDate: input.issueDate,
+      dueDate: input.dueDate,
+      subtotal: decimal(subtotal),
+      discountAmount: decimal(discount),
+      vatAmount: decimal(vatAmount),
+      grandTotal: decimal(grandTotal),
+      paidAmount: "0.00",
+      status: "unpaid",
+      notesTerms: input.notesTerms?.trim() || null,
+    });
+
+    const invId = Number(result[0].insertId);
+
+    if (processedItems.length > 0) {
+      await tx.insert(financeInvoiceItems).values(
+        processedItems.map(item => ({
+          invoiceId: invId,
+          ...item,
+        }))
+      );
+    }
+
+    return { invoiceId: invId, finalInvoiceNumber: invNumber };
   });
-
-  const invoiceId = Number(result[0].insertId);
-
-  if (processedItems.length > 0) {
-    await db.insert(financeInvoiceItems).values(
-      processedItems.map(item => ({
-        invoiceId,
-        ...item,
-      }))
-    );
-  }
 
   await logAudit({
     actorUserId: userId,
@@ -1430,7 +1504,7 @@ export async function createInvoice(userId: number, input: CreateInvoiceInput) {
     action: "create",
     entityType: "invoice",
     entityId: invoiceId,
-    summary: `Invoice created: ${invNumber} for ${input.clientName} (৳${grandTotal.toFixed(2)})`,
+    summary: `Invoice created: ${finalInvoiceNumber} for ${input.clientName} (৳${grandTotal.toFixed(2)})`,
   });
 
   return getInvoiceById(userId, input.projectId, invoiceId);
@@ -1917,59 +1991,45 @@ export async function disburseSalary(userId: number, input: DisburseSalaryInput)
   const status: "paid" | "partially_paid" | "pending" =
     paid >= netPayable ? "paid" : paid > 0 ? "partially_paid" : "pending";
 
-  const voucherNo = await claimNextVoucher(db, userId, input.projectId);
+  const { voucherNo, insertId } = await db.transaction(async tx => {
+    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
 
-  // If advance was deducted, update open advance records
-  if (advanceDed > 0) {
-    const openAdvances = await db
-      .select()
-      .from(financeEmployeeAdvances)
-      .where(and(eq(financeEmployeeAdvances.employeeId, input.employeeId), eq(financeEmployeeAdvances.status, "open")))
-      .orderBy(asc(financeEmployeeAdvances.disbursedDate));
+    // If advance was deducted, update open advance records
+    if (advanceDed > 0) {
+      const openAdvances = await tx
+        .select()
+        .from(financeEmployeeAdvances)
+        .where(and(eq(financeEmployeeAdvances.employeeId, input.employeeId), eq(financeEmployeeAdvances.status, "open")))
+        .orderBy(asc(financeEmployeeAdvances.disbursedDate));
 
-    let remainingDed = advanceDed;
-    for (const adv of openAdvances) {
-      if (remainingDed <= 0) break;
-      const advTotal = Number(adv.amount);
-      const advRepaid = Number(adv.repaidAmount);
-      const advOutstanding = advTotal - advRepaid;
+      let remainingDed = advanceDed;
+      for (const adv of openAdvances) {
+        if (remainingDed <= 0) break;
+        const advTotal = Number(adv.amount);
+        const advRepaid = Number(adv.repaidAmount);
+        const advOutstanding = advTotal - advRepaid;
 
-      const toDeduct = Math.min(remainingDed, advOutstanding);
-      const newRepaid = advRepaid + toDeduct;
-      const newStatus = newRepaid >= advTotal ? "settled" : "open";
+        const toDeduct = Math.min(remainingDed, advOutstanding);
+        const newRepaid = advRepaid + toDeduct;
+        const newStatus = newRepaid >= advTotal ? "settled" : "open";
 
-      await db
-        .update(financeEmployeeAdvances)
-        .set({ repaidAmount: decimal(newRepaid), status: newStatus })
-        .where(eq(financeEmployeeAdvances.id, adv.id));
+        await tx
+          .update(financeEmployeeAdvances)
+          .set({ repaidAmount: decimal(newRepaid), status: newStatus })
+          .where(eq(financeEmployeeAdvances.id, adv.id));
 
-      remainingDed -= toDeduct;
+        remainingDed -= toDeduct;
+      }
     }
-  }
 
-  // Create salary payment record
-  const result = await db
-    .insert(financeSalaryPayments)
-    .values({
-      userId,
-      projectId: input.projectId,
-      employeeId: input.employeeId,
-      monthKey: input.monthKey,
-      baseSalary: decimal(base),
-      bonusAmount: decimal(bonus),
-      allowanceAmount: decimal(allowance),
-      advanceDeduction: decimal(advanceDed),
-      otherDeduction: decimal(otherDed),
-      netPayable: decimal(netPayable),
-      paidAmount: decimal(paid),
-      paymentDate: input.paymentDate || new Date(),
-      accountId: input.accountId || null,
-      voucherNo,
-      status,
-      notes: input.notes?.trim() || null,
-    })
-    .onDuplicateKeyUpdate({
-      set: {
+    // Create salary payment record
+    const result = await tx
+      .insert(financeSalaryPayments)
+      .values({
+        userId,
+        projectId: input.projectId,
+        employeeId: input.employeeId,
+        monthKey: input.monthKey,
         baseSalary: decimal(base),
         bonusAmount: decimal(bonus),
         allowanceAmount: decimal(allowance),
@@ -1979,62 +2039,73 @@ export async function disburseSalary(userId: number, input: DisburseSalaryInput)
         paidAmount: decimal(paid),
         paymentDate: input.paymentDate || new Date(),
         accountId: input.accountId || null,
+        voucherNo,
         status,
         notes: input.notes?.trim() || null,
-      },
-    });
+      })
+      .onDuplicateKeyUpdate({
+        set: {
+          baseSalary: decimal(base),
+          bonusAmount: decimal(bonus),
+          allowanceAmount: decimal(allowance),
+          advanceDeduction: decimal(advanceDed),
+          otherDeduction: decimal(otherDed),
+          netPayable: decimal(netPayable),
+          paidAmount: decimal(paid),
+          paymentDate: input.paymentDate || new Date(),
+          accountId: input.accountId || null,
+          status,
+          notes: input.notes?.trim() || null,
+        },
+      });
 
-  // If salary paid > 0 and account specified, adjust account balance and log transaction
-  if (paid > 0 && input.accountId) {
-    const [salaryCat] = await db
-      .select()
-      .from(financeCategories)
-      .where(and(eq(financeCategories.projectId, input.projectId), eq(financeCategories.name, "বেতন ও সম্মানী"), eq(financeCategories.type, "expense")))
-      .limit(1);
+    const paymentInsertId = Number(result[0].insertId || 0);
 
-    let categoryId = salaryCat?.id;
-    if (!categoryId) {
-      const insertCat = await db.insert(financeCategories).values({
+    // If salary paid > 0 and account specified, adjust account balance and log transaction
+    if (paid > 0 && input.accountId) {
+      const [salaryCat] = await tx
+        .select()
+        .from(financeCategories)
+        .where(and(eq(financeCategories.projectId, input.projectId), eq(financeCategories.name, "বেতন ও সম্মানী"), eq(financeCategories.type, "expense")))
+        .limit(1);
+
+      let categoryId = salaryCat?.id;
+      if (!categoryId) {
+        const insertCat = await tx.insert(financeCategories).values({
+          userId,
+          projectId: input.projectId,
+          name: "বেতন ও সম্মানী",
+          type: "expense",
+          isDefault: false,
+        });
+        categoryId = Number(insertCat[0].insertId);
+      }
+
+      await tx.insert(financeTransactions).values({
         userId,
         projectId: input.projectId,
-        name: "বেতন ও সম্মানী",
+        accountId: input.accountId,
+        categoryId,
         type: "expense",
-        isDefault: false,
+        amount: decimal(paid),
+        voucherNo,
+        paymentMethod: "bank",
+        note: `বেতন প্রদান (${input.monthKey}): ${employee.name} (${employee.designation || "Staff"})`,
+        occurredAt: input.paymentDate || new Date(),
       });
-      categoryId = Number(insertCat[0].insertId);
+
+      await adjustAccountBalance(userId, input.projectId, input.accountId, -paid, tx);
     }
 
-    await db.insert(financeTransactions).values({
-      userId,
-      projectId: input.projectId,
-      accountId: input.accountId,
-      categoryId,
-      type: "expense",
-      amount: decimal(paid),
-      voucherNo,
-      paymentMethod: "bank",
-      note: `বেতন প্রদান (${input.monthKey}): ${employee.name} (${employee.designation || "Staff"})`,
-      occurredAt: input.paymentDate || new Date(),
-    });
-
-    const [account] = await db
-      .select()
-      .from(financeAccounts)
-      .where(eq(financeAccounts.id, input.accountId))
-      .limit(1);
-
-    if (account) {
-      const nextBal = Number(account.currentBalance) - paid;
-      await db.update(financeAccounts).set({ currentBalance: decimal(nextBal) }).where(eq(financeAccounts.id, input.accountId));
-    }
-  }
+    return { voucherNo, insertId: paymentInsertId };
+  });
 
   await logAudit({
     actorUserId: userId,
     projectId: input.projectId,
     action: "create",
     entityType: "salary_payment",
-    entityId: Number(result[0].insertId || 0),
+    entityId: insertId,
     summary: `Processed salary payment for ${employee.name} (${input.monthKey}): ৳${paid} (Net: ৳${netPayable})`,
   });
 
@@ -2089,40 +2160,42 @@ export async function createEmployeeAdvance(userId: number, input: CreateEmploye
   const amount = Number(input.amount) || 0;
   if (amount <= 0) throw new Error("অগ্রিমের পরিমাণ সঠিক দিন");
 
-  const voucherNo = await claimNextVoucher(db, userId, input.projectId);
+  const { voucherNo, id } = await db.transaction(async tx => {
+    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
 
-  const result = await db.insert(financeEmployeeAdvances).values({
-    userId,
-    projectId: input.projectId,
-    employeeId: input.employeeId,
-    amount: decimal(amount),
-    repaidAmount: "0.00",
-    disbursedDate: input.disbursedDate || new Date(),
-    accountId: input.accountId || null,
-    voucherNo,
-    status: "open",
-    notes: input.notes?.trim() || null,
-  });
+    const result = await tx.insert(financeEmployeeAdvances).values({
+      userId,
+      projectId: input.projectId,
+      employeeId: input.employeeId,
+      amount: decimal(amount),
+      repaidAmount: "0.00",
+      disbursedDate: input.disbursedDate || new Date(),
+      accountId: input.accountId || null,
+      voucherNo,
+      status: "open",
+      notes: input.notes?.trim() || null,
+    });
 
-  // Adjust linked account if specified
-  if (input.accountId) {
-    const [account] = await db.select().from(financeAccounts).where(eq(financeAccounts.id, input.accountId)).limit(1);
-    if (account) {
-      const nextBal = Number(account.currentBalance) - amount;
-      await db.update(financeAccounts).set({ currentBalance: decimal(nextBal) }).where(eq(financeAccounts.id, input.accountId));
+    const advanceId = Number(result[0].insertId);
+
+    // Adjust linked account if specified atomically
+    if (input.accountId) {
+      await adjustAccountBalance(userId, input.projectId, input.accountId, -amount, tx);
     }
-  }
+
+    return { voucherNo, id: advanceId };
+  });
 
   await logAudit({
     actorUserId: userId,
     projectId: input.projectId,
     action: "create",
     entityType: "employee_advance",
-    entityId: Number(result[0].insertId),
+    entityId: id,
     summary: `Disbursed salary advance to ${employee.name}: ৳${amount}`,
   });
 
-  return { id: Number(result[0].insertId), success: true, voucherNo };
+  return { id, success: true, voucherNo };
 }
 
 

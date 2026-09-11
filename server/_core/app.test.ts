@@ -68,4 +68,25 @@ describe("Vercel-compatible Express application", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Google OAuth is not enabled" });
   });
+
+  it("rejects unauthorized access to /api/scheduled/finance-backup", async () => {
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(response.status).toBe(403);
+    const data = await response.json();
+    expect(data.success).toBe(false);
+  });
 });
