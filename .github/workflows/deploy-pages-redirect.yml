@@ -24,7 +24,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
       - name: Upload redirect artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: pages-redirect
 
