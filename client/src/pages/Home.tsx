@@ -52,6 +52,11 @@ import {
   accountingReportOptions,
   type AccountingReportType,
 } from "@/lib/accountingReportDefinitions";
+import {
+  queueOfflineTransaction,
+  getQueuedOfflineTransactions,
+  removeQueuedOfflineTransaction,
+} from "@/lib/offlineQueue";
 import { toast } from "sonner";
 import {
   Banknote,
@@ -587,7 +592,49 @@ export default function Home() {
     });
   }
 
-  function submitTransaction(event: FormEvent) {
+  // Auto-sync queued offline transactions when connection restores
+  useEffect(() => {
+    async function syncOfflineQueue() {
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      try {
+        const queued = await getQueuedOfflineTransactions();
+        if (!queued.length) return;
+
+        let syncedCount = 0;
+        for (const item of queued) {
+          try {
+            await addTransaction.mutateAsync({
+              projectId: item.projectId,
+              categoryId: item.categoryId,
+              accountId: item.accountId,
+              type: item.type,
+              amount: item.amount,
+              paymentMethod: item.paymentMethod,
+              note: item.note,
+              occurredAt: new Date(item.occurredAt),
+            });
+            await removeQueuedOfflineTransaction(item.id);
+            syncedCount++;
+          } catch {
+            // Keep in queue to retry later
+            break;
+          }
+        }
+        if (syncedCount > 0) {
+          toast.success(`অফলাইনে সংরক্ষিত ${syncedCount}টি লেনদেন সার্ভারে সিঙ্ক হয়েছে!`);
+          await refresh();
+        }
+      } catch {
+        // Ignore background sync errors
+      }
+    }
+
+    syncOfflineQueue();
+    window.addEventListener("online", syncOfflineQueue);
+    return () => window.removeEventListener("online", syncOfflineQueue);
+  }, []);
+
+  async function submitTransaction(event: FormEvent) {
     event.preventDefault();
     if (!requireProject()) return;
     const categoryId = Number(transactionForm.categoryId || categories[0]?.id);
@@ -606,9 +653,34 @@ export default function Home() {
       note: transactionForm.note || undefined,
       occurredAt: new Date(`${transactionForm.occurredAt}T12:00:00Z`),
     };
-    if (editingTransactionId)
+
+    if (editingTransactionId) {
       updateTransaction.mutate({ id: editingTransactionId, ...payload });
-    else addTransaction.mutate(payload);
+      return;
+    }
+
+    // Check if offline
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      try {
+        await queueOfflineTransaction({
+          projectId: payload.projectId,
+          categoryId: payload.categoryId,
+          accountId: payload.accountId,
+          type: payload.type,
+          amount: payload.amount,
+          paymentMethod: payload.paymentMethod,
+          note: payload.note,
+          occurredAt: payload.occurredAt.toISOString(),
+        });
+        resetTransaction();
+        toast.info("ইন্টারনেট সংযোগ নেই। লেনদেনটি লোকাল অফলাইন ড্রাফটে সংরক্ষিত হয়েছে এবং ইন্টারনেট এলে স্বয়ংক্রিয়ভাবে সিঙ্ক হবে।");
+        return;
+      } catch {
+        // Fall back to normal mutate if IndexedDB fails
+      }
+    }
+
+    addTransaction.mutate(payload);
   }
 
   function submitAccount(event: FormEvent) {

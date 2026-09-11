@@ -257,6 +257,21 @@ describe("finance router", () => {
     expect(financeDb.createTransaction).toHaveBeenCalledWith(42, expenseInput);
   });
 
+  it("rejects transactions dated more than 30 days into the future", async () => {
+    const farFutureDate = new Date();
+    farFutureDate.setDate(farFutureDate.getDate() + 45);
+
+    const caller = appRouter.createCaller(authenticatedContext);
+    await expect(
+      caller.finance.addTransaction({
+        ...expenseInput,
+        occurredAt: farFutureDate,
+      })
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  });
+
   it("gets and saves voucher settings only within the authenticated user's project", async () => {
     const settings = { id: 1, projectId: 88, prefix: "V", startNumber: 1, endNumber: 999999, nextNumber: 23 };
     financeDb.getVoucherSettings.mockResolvedValue(settings);

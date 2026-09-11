@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { Field } from "@/components/dashboard/DashboardMetrics";
-import { bdt } from "../types";
+import { bdt, maxTransactionDate } from "../types";
 import type { TransactionDraft } from "../types";
 
 interface TransactionDialogProps {
@@ -154,6 +154,7 @@ export function TransactionDialog({
               <Input
                 required
                 type="date"
+                max={maxTransactionDate(30)}
                 value={transactionForm.occurredAt}
                 onChange={event =>
                   setTransactionForm({

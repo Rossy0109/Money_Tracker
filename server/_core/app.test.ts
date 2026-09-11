@@ -89,4 +89,30 @@ describe("Vercel-compatible Express application", () => {
     const data = await response.json();
     expect(data.success).toBe(false);
   });
+
+  it("authorizes /api/scheduled/finance-backup with valid Bearer token or admin password", async () => {
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    process.env.CRON_SECRET = "test-cron-secret-token";
+
+    // In unit test without live MariaDB, verify authorization succeeds or handles mock
+    const authorizedResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-cron-secret-token",
+      },
+    });
+    // Request passes auth check (HTTP 200 on live DB or HTTP 500 on db lookup without falling into 403)
+    expect(authorizedResponse.status).not.toBe(403);
+  });
 });

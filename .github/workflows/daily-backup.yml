@@ -1,0 +1,39 @@
+name: Daily Automated Finance Backup
+
+on:
+  schedule:
+    # Runs at 18:00 UTC (00:00 AM Bangladesh Standard Time) every day
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Trigger Scheduled Encrypted Backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Remote Backup Endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://moneytrackerbd.vercel.app' }}
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.ADMIN_ACCESS_PASSWORD }}
+        run: |
+          if [ -z "$BACKUP_SECRET" ]; then
+            echo "Skipping trigger: CRON_SECRET or ADMIN_ACCESS_PASSWORD secret not set on GitHub."
+            exit 0
+          fi
+
+          TARGET_URL="${APP_URL%/}/api/scheduled/finance-backup"
+          echo "Triggering backup at: $TARGET_URL"
+
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST "$TARGET_URL" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $BACKUP_SECRET")
+
+          cat response.json
+          echo ""
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Backup trigger failed with status code $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Automated daily backup completed successfully."

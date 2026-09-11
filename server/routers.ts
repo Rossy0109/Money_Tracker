@@ -24,6 +24,12 @@ function hasValidAdminPassword(candidate: string) {
   return expected.length > 0 && expected.length === received.length && timingSafeEqual(expected, received);
 }
 
+const transactionDate = z.coerce.date().refine(d => {
+  const maxAllowedDate = new Date();
+  maxAllowedDate.setDate(maxAllowedDate.getDate() + 30);
+  return d <= maxAllowedDate;
+}, "ভবিষ্যতের ৩০ দিনের বেশি পরের তারিখ ইনপুট করা যাবে না");
+
 const transactionInput = z.object({
   projectId,
   accountId: z.number().int().positive().optional(),
@@ -32,7 +38,7 @@ const transactionInput = z.object({
   amount,
   paymentMethod: z.string().trim().min(1).max(100),
   note: z.string().max(500).optional(),
-  occurredAt: z.coerce.date(),
+  occurredAt: transactionDate,
 });
 
 const transactionSearchInput = z.object({

@@ -21,26 +21,55 @@ export function encryptPayload(data: string, secretKey: string): { iv: string; e
   };
 }
 
-function hasValidAdminPassword(candidate: string) {
-  if (!candidate || !ENV.adminAccessPassword) return false;
-  const expected = Buffer.from(ENV.adminAccessPassword);
+function hasValidSecret(candidate: string, expectedSecret?: string) {
+  if (!candidate || !expectedSecret) return false;
+  const expected = Buffer.from(expectedSecret);
   const received = Buffer.from(candidate);
   return expected.length > 0 && expected.length === received.length && timingSafeEqual(expected, received);
 }
 
+function hasValidAdminPassword(candidate: string) {
+  return hasValidSecret(candidate, ENV.adminAccessPassword);
+}
+
+function hasValidCronSecret(candidate: string) {
+  const cronSecret = process.env.CRON_SECRET || process.env.BACKUP_CRON_SECRET;
+  return hasValidSecret(candidate, cronSecret);
+}
+
 async function verifyBackupAuthorization(req: Request): Promise<boolean> {
-  // 1. Check if admin password provided in header
+  // 1. Check Authorization Bearer token (standard Vercel Cron / GitHub Actions header)
+  const authHeader = req.headers["authorization"];
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7).trim();
+    if (hasValidCronSecret(token) || hasValidAdminPassword(token)) {
+      return true;
+    }
+  }
+
+  // 2. Check dedicated Cron Secret header (X-Cron-Secret)
+  const cronSecretHeader = req.headers["x-cron-secret"];
+  if (typeof cronSecretHeader === "string" && hasValidCronSecret(cronSecretHeader)) {
+    return true;
+  }
+
+  // 3. Check if admin password provided in header
   const adminPasswordHeader = req.headers["x-admin-password"];
   if (typeof adminPasswordHeader === "string" && hasValidAdminPassword(adminPasswordHeader)) {
     return true;
   }
 
-  // 2. Check if admin password provided in JSON body
-  if (req.body && typeof req.body.adminPassword === "string" && hasValidAdminPassword(req.body.adminPassword)) {
-    return true;
+  // 4. Check if admin password or cron secret provided in JSON body
+  if (req.body) {
+    if (typeof req.body.adminPassword === "string" && hasValidAdminPassword(req.body.adminPassword)) {
+      return true;
+    }
+    if (typeof req.body.cronSecret === "string" && hasValidCronSecret(req.body.cronSecret)) {
+      return true;
+    }
   }
 
-  // 3. Check authenticated session / cron
+  // 5. Check authenticated session / cron
   try {
     const user = await sdk.authenticateRequest(req);
     if (user.isCron) {

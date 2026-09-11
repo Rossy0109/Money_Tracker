@@ -53,6 +53,12 @@ export const bdt = (value: number | string) =>
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
+export const maxTransactionDate = (daysAhead: number = 30) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString().slice(0, 10);
+};
+
 export const monthText = (key: string) =>
   new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(
     new Date(`${key}-01T12:00:00Z`)

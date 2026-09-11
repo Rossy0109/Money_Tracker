@@ -44,5 +44,11 @@
       "source": "/((?!api/|manus-storage/).*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/scheduled/finance-backup",
+      "schedule": "0 18 * * *"
+    }
   ]
 }
