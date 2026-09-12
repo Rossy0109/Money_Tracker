@@ -14,16 +14,20 @@ const adminContext = {
     lastSignedIn: new Date(),
   },
   req: { protocol: "https", headers: {} },
-  res: { clearCookie: vi.fn() },
+  res: { clearCookie: vi.fn(), cookie: vi.fn() },
 } as any;
 
 describe("admin.verifyAccess", () => {
-  it("accepts the configured server-only administrator password", async () => {
+  it("accepts the configured server-only administrator password and returns an elevation token", async () => {
     const configuredPassword = process.env.ADMIN_ACCESS_PASSWORD;
     if (!configuredPassword) throw new Error("ADMIN_ACCESS_PASSWORD must be configured for administrator verification");
 
     const caller = appRouter.createCaller(adminContext);
-    await expect(caller.admin.verifyAccess({ password: configuredPassword })).resolves.toEqual({ verified: true });
+    const result = await caller.admin.verifyAccess({ password: configuredPassword });
+    expect(result.verified).toBe(true);
+    expect(result.token).toBeDefined();
+    expect(result.expiresInMs).toBe(15 * 60 * 1000);
+    expect(adminContext.res.cookie).toHaveBeenCalled();
   });
 
   it("rejects an incorrect administrator password", async () => {

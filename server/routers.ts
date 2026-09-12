@@ -10,7 +10,9 @@ import { hashPassword, verifyPassword } from "./_core/passwordAuth";
 import { checkRateLimit, resetRateLimit } from "./_core/rateLimiter";
 import { getCloudStorageConfig, executeCloudBackup } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, elevatedAdminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { issueAdminToken, setAdminElevationCookie, clearAdminElevationCookie } from "./_core/adminSession";
+import { ADMIN_SESSION_TTL_MS } from "../shared/const";
 
 const amount = z.number().finite().positive().max(999999999999.99);
 const projectId = z.number().int().positive();
@@ -220,33 +222,57 @@ export const appRouter = router({
     }),
   }),
   admin: router({
-    verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      return { verified: true } as const;
+    verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {
+      const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket.remoteAddress || "admin-verify";
+      const rateLimitKey = `${ctx.user.id}:${clientIp}`;
+
+      checkRateLimit(String(rateLimitKey), {
+        windowMs: 15 * 60 * 1000,
+        max: 5,
+        keyPrefix: "admin-verify",
+        message: "অ্যাডমিন পাসওয়ার্ড একাধিকবার ভুল দেওয়ার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+      });
+
+      if (!hasValidAdminPassword(input.password)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+      }
+
+      resetRateLimit(String(rateLimitKey), "admin-verify");
+      const token = issueAdminToken(ctx.user.id, ctx.user.openId, ADMIN_SESSION_TTL_MS);
+      setAdminElevationCookie(ctx.req, ctx.res, token);
+      return {
+        verified: true,
+        token,
+        expiresInMs: ADMIN_SESSION_TTL_MS,
+      } as const;
     }),
-    users: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).query(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    elevationStatus: adminProcedure.query(({ ctx }) => {
+      return {
+        elevated: Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id),
+        expiresAt: ctx.adminElevation?.expiresAt ?? null,
+      };
+    }),
+    revokeAccess: adminProcedure.mutation(({ ctx }) => {
+      clearAdminElevationCookie(ctx.req, ctx.res);
+      return { revoked: true } as const;
+    }),
+    users: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {
       return financeDb.listUsersForAdmin();
     }),
-    updateUserStatus: adminProcedure.input(z.object({ password: z.string().min(1).max(128), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    updateUserStatus: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional(), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ input }) => {
       const updated = await financeDb.updateUserStatus(input.targetUserId, input.status);
       return { success: true, user: updated };
     }),
-    projects: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).query(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    projects: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {
       return financeDb.listProjectsForAdmin();
     }),
-    auditLogs: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    auditLogs: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional(), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
       return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search, page: input.page, pageSize: input.pageSize });
     }),
-    auditLogExport: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128) })).query(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    auditLogExport: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional() })).query(({ input }) => {
       return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
     }),
-    auditActivity: adminProcedure.input(auditFilters.extend({ password: z.string().min(1).max(128) })).query(({ input }) => {
-      if (!hasValidAdminPassword(input.password)) throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
+    auditActivity: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional() })).query(({ input }) => {
       return financeDb.getAuditLogActivity({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
     }),
   }),

@@ -61,3 +61,19 @@ export function getOAuthTransactionCookieOptions(
     secure: isSecureRequest(req),
   };
 }
+
+/**
+ * Admin elevation tokens are strictly bound to first-party administrator actions.
+ * SameSite=Strict ensures no cross-site contexts can trigger elevated requests.
+ */
+export function getAdminSessionCookieOptions(
+  req: Request
+): Pick<CookieOptions, "httpOnly" | "path" | "sameSite" | "secure"> {
+  return {
+    httpOnly: true,
+    path: "/",
+    sameSite: "strict",
+    secure: isSecureRequest(req),
+  };
+}
+

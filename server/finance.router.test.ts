@@ -30,6 +30,14 @@ const authenticatedContext = {
 const administratorContext = {
   ...authenticatedContext,
   user: { ...authenticatedContext.user, id: 1, openId: "system-owner", role: "admin" as const },
+  adminElevation: {
+    userId: 1,
+    openId: "system-owner",
+    role: "admin" as const,
+    issuedAt: Date.now(),
+    expiresAt: Date.now() + 15 * 60 * 1000,
+  },
+  res: { clearCookie: vi.fn(), cookie: vi.fn() },
 } as any;
 
 const expenseInput = { projectId: 88, categoryId: 7, accountId: 3, type: "expense" as const, amount: 1500, paymentMethod: "bKash", note: "Groceries", occurredAt: new Date("2026-08-19T12:00:00.000Z") };
@@ -337,7 +345,7 @@ describe("finance router", () => {
     financeDb.listAuditLogsPage.mockResolvedValue({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25, total: 1, totalPages: 1 });
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toEqual({ verified: true });
+    await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ verified: true });
     await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
     expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, actorRole: undefined, search: undefined, page: 1, pageSize: 25 });
   });

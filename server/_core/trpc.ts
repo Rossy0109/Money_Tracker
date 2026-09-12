@@ -57,3 +57,29 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+export const elevatedAdminProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || ctx.user.role !== 'admin') {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+
+    if (!ctx.adminElevation || ctx.adminElevation.userId !== ctx.user.id) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Administrator elevation session required or expired. Please re-verify password.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+        adminElevation: ctx.adminElevation,
+      },
+    });
+  }),
+);
+
