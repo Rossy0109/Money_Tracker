@@ -3,7 +3,7 @@ name: Daily Automated Finance Backup
 on:
   schedule:
     # Runs at 18:00 UTC (00:00 AM Bangladesh Standard Time) every day
-    - cron: '0 18 * * *'
+    - cron: "0 18 * * *"
   workflow_dispatch:
 
 jobs:
