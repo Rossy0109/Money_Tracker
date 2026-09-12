@@ -8,10 +8,11 @@ function isIpAddress(host: string) {
   return host.includes(":");
 }
 
-export function isSecureRequest(req: Request) {
+export function isSecureRequest(req?: Request) {
+  if (!req) return false;
   if (req.protocol === "https") return true;
 
-  const forwardedProto = req.headers["x-forwarded-proto"];
+  const forwardedProto = req.headers?.["x-forwarded-proto"];
   if (!forwardedProto) return false;
 
   const protoList = Array.isArray(forwardedProto)

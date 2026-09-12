@@ -223,7 +223,7 @@ export const appRouter = router({
   }),
   admin: router({
     verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {
-      const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket.remoteAddress || "admin-verify";
+      const clientIp = ctx.req?.headers?.["x-forwarded-for"] || ctx.req?.socket?.remoteAddress || ctx.req?.ip || "admin-verify";
       const rateLimitKey = `${ctx.user.id}:${clientIp}`;
 
       checkRateLimit(String(rateLimitKey), {
@@ -239,7 +239,9 @@ export const appRouter = router({
 
       resetRateLimit(String(rateLimitKey), "admin-verify");
       const token = issueAdminToken(ctx.user.id, ctx.user.openId, ADMIN_SESSION_TTL_MS);
-      setAdminElevationCookie(ctx.req, ctx.res, token);
+      if (ctx.req && ctx.res) {
+        setAdminElevationCookie(ctx.req, ctx.res, token);
+      }
       return {
         verified: true,
         token,
@@ -253,7 +255,9 @@ export const appRouter = router({
       };
     }),
     revokeAccess: adminProcedure.mutation(({ ctx }) => {
-      clearAdminElevationCookie(ctx.req, ctx.res);
+      if (ctx.req && ctx.res) {
+        clearAdminElevationCookie(ctx.req, ctx.res);
+      }
       return { revoked: true } as const;
     }),
     users: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {

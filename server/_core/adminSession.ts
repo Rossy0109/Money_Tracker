@@ -126,6 +126,9 @@ export function extractAdminTokenFromRequest(req: Request): string | null {
  * Sets the admin elevation token cookie with HttpOnly; SameSite=Strict; Secure
  */
 export function setAdminElevationCookie(req: Request, res: Response, token: string): void {
+  if (!res || typeof res.cookie !== "function") {
+    return;
+  }
   const options = getAdminSessionCookieOptions(req);
   res.cookie(ADMIN_SESSION_COOKIE, token, {
     ...options,
@@ -137,6 +140,9 @@ export function setAdminElevationCookie(req: Request, res: Response, token: stri
  * Clears the admin elevation token cookie
  */
 export function clearAdminElevationCookie(req: Request, res: Response): void {
+  if (!res || typeof res.clearCookie !== "function") {
+    return;
+  }
   const options = getAdminSessionCookieOptions(req);
   res.clearCookie(ADMIN_SESSION_COOKIE, {
     ...options,
