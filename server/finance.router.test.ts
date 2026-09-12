@@ -9,7 +9,7 @@ import { ENV } from "./_core/env";
 
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
-    getOverview: vi.fn(), getBudgetPlan: vi.fn(), getFinanceAnalytics: vi.fn(), searchTransactions: vi.fn(), getMonthlyReport: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), exportProjectBackup: vi.fn(), previewProjectBackup: vi.fn(), restoreProjectBackup: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
+    getOverview: vi.fn(), getBudgetPlan: vi.fn(), getFinanceAnalytics: vi.fn(), searchTransactions: vi.fn(), listTransactionsPaginated: vi.fn(), getMonthlyReport: vi.fn(), getVoucherSettings: vi.fn(), updateVoucherSettings: vi.fn(), exportUserData: vi.fn(), exportProjectBackup: vi.fn(), previewProjectBackup: vi.fn(), restoreProjectBackup: vi.fn(), listProjects: vi.fn(), createProject: vi.fn(),
     createTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(), createDue: vi.fn(), settleDue: vi.fn(), createAccount: vi.fn(), updateAccount: vi.fn(), deleteAccount: vi.fn(),
     upsertBudget: vi.fn(), createBill: vi.fn(), updateBill: vi.fn(), setBillPaid: vi.fn(), deleteBill: vi.fn(), getAutomationOverview: vi.fn(), createRecurringTemplate: vi.fn(), updateRecurringTemplate: vi.fn(), generateRecurringNow: vi.fn(), setRecurringScheduleTask: vi.fn(), setBillReminderSettings: vi.fn(), setBillScheduleTask: vi.fn(),
     listUsersForAdmin: vi.fn(), listProjectsForAdmin: vi.fn(), listAuditLogs: vi.fn(), listAuditLogsPage: vi.fn(), listAuditLogsForExport: vi.fn(), getAuditLogActivity: vi.fn(),
@@ -232,6 +232,19 @@ describe("finance router", () => {
     await expect(appRouter.createCaller(authenticatedContext).finance.searchTransactions(input)).resolves.toEqual(results);
     expect(financeDb.searchTransactions).toHaveBeenCalledWith(42, input);
     await expect(appRouter.createCaller(authenticatedContext).finance.searchTransactions({ ...input, from: to, to: from })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("passes validated paginated transaction filters and returns SQL aggregations", async () => {
+    const paginatedResult = {
+      items: [{ id: 91, categoryName: "বাজার", amount: 1200 }],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+      aggregations: { totalCount: 1, totalIncome: 0, totalExpense: 1200, netAmount: -1200 },
+    };
+    financeDb.listTransactionsPaginated.mockResolvedValue(paginatedResult);
+    const input = { projectId: 88, page: 1, pageSize: 15, type: "expense" as const };
+
+    await expect(appRouter.createCaller(authenticatedContext).finance.paginatedTransactions(input)).resolves.toEqual(paginatedResult);
+    expect(financeDb.listTransactionsPaginated).toHaveBeenCalledWith(42, input);
   });
 
   it("scopes a monthly financial report to the authenticated user, project, and validated month", async () => {
