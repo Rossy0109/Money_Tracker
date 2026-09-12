@@ -1,5 +1,4 @@
 import { TRPCError } from "@trpc/server";
-import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import * as financeDb from "./db";
@@ -18,10 +17,10 @@ const projectId = z.number().int().positive();
 const monthKey = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM format");
 const auditFilters = z.object({ from: z.coerce.date().optional(), to: z.coerce.date().optional(), actorUserId: z.number().int().positive().optional(), actorRole: z.enum(["admin", "user"]).optional(), search: z.string().trim().min(1).max(120).optional() });
 
+import { timingSafeCompare } from "./timingSafe";
+
 function hasValidAdminPassword(candidate: string) {
-  const expected = Buffer.from(ENV.adminAccessPassword);
-  const received = Buffer.from(candidate);
-  return expected.length > 0 && expected.length === received.length && timingSafeEqual(expected, received);
+  return timingSafeCompare(candidate, ENV.adminAccessPassword);
 }
 
 const transactionDate = z.coerce.date().refine(d => {
