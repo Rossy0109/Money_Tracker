@@ -1667,6 +1667,125 @@ export async function searchTransactions(
   }));
 }
 
+export async function listTransactionsPaginated(
+  userId: number,
+  input: {
+    projectId: number;
+    query?: string;
+    categoryId?: number;
+    type?: "income" | "expense";
+    from?: Date;
+    to?: Date;
+    minAmount?: number;
+    maxAmount?: number;
+    page: number;
+    pageSize: number;
+  }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+  const conditions = [
+    eq(financeTransactions.userId, userId),
+    eq(financeTransactions.projectId, input.projectId),
+  ];
+  if (input.categoryId)
+    conditions.push(eq(financeTransactions.categoryId, input.categoryId));
+  if (input.type) conditions.push(eq(financeTransactions.type, input.type));
+  if (input.from)
+    conditions.push(gte(financeTransactions.occurredAt, input.from));
+  if (input.to) conditions.push(lte(financeTransactions.occurredAt, input.to));
+  if (input.minAmount !== undefined)
+    conditions.push(gte(financeTransactions.amount, decimal(input.minAmount)));
+  if (input.maxAmount !== undefined)
+    conditions.push(lte(financeTransactions.amount, decimal(input.maxAmount)));
+
+  const query = input.query?.trim();
+  if (query) {
+    const term = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+    conditions.push(
+      or(
+        like(financeTransactions.note, term),
+        like(financeTransactions.voucherNo, term)
+      )!
+    );
+  }
+
+  const whereClause = and(...conditions);
+  const page = Math.max(1, input.page);
+  const pageSize = Math.min(100, Math.max(1, input.pageSize));
+  const offset = (page - 1) * pageSize;
+
+  const [transactions, categories, accounts, [aggregations]] = await Promise.all([
+    db
+      .select()
+      .from(financeTransactions)
+      .where(whereClause)
+      .orderBy(
+        desc(financeTransactions.occurredAt),
+        desc(financeTransactions.id)
+      )
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select()
+      .from(financeCategories)
+      .where(
+        and(
+          eq(financeCategories.userId, userId),
+          eq(financeCategories.projectId, input.projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, input.projectId)
+        )
+      ),
+    db
+      .select({
+        totalCount: sql<number>`count(*)`,
+        totalIncome: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'income' then ${financeTransactions.amount} else 0 end), 0)`,
+        totalExpense: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'expense' then ${financeTransactions.amount} else 0 end), 0)`,
+      })
+      .from(financeTransactions)
+      .where(whereClause),
+  ]);
+
+  const total = Number(aggregations?.totalCount ?? 0);
+  const totalIncome = Number(aggregations?.totalIncome ?? 0);
+  const totalExpense = Number(aggregations?.totalExpense ?? 0);
+
+  const items = transactions.map(transaction => ({
+    ...transaction,
+    categoryName:
+      categories.find(category => category.id === transaction.categoryId)
+        ?.name ?? "অনির্ধারিত",
+    accountName: transaction.accountId
+      ? (accounts.find(account => account.id === transaction.accountId)?.name ??
+        null)
+      : null,
+  }));
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    aggregations: {
+      totalCount: total,
+      totalIncome,
+      totalExpense,
+      netAmount: totalIncome - totalExpense,
+    },
+  };
+}
+
 export async function getMonthlyReport(
   userId: number,
   projectId: number,
