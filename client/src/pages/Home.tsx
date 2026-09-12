@@ -52,18 +52,9 @@ import {
   accountingReportOptions,
   type AccountingReportType,
 } from "@/lib/accountingReportDefinitions";
-import {
-  queueOfflineTransaction,
-  getQueuedOfflineTransactions,
-  removeQueuedOfflineTransaction,
-} from "@/lib/offlineQueue";
+import { queueOfflineTransaction } from "@/lib/offlineQueue";
 import { toast } from "sonner";
-import {
-  Banknote,
-  TrendingDown,
-  TrendingUp,
-  WalletCards,
-} from "lucide-react";
+import { Banknote, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { parseTransactionSMS } from "@/lib/smsParser";
 import {
@@ -154,7 +145,10 @@ export default function Home() {
 
   // Budgets & Bills
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetForm, setBudgetForm] = useState<BudgetDraft>({ categoryId: "", amount: "" });
+  const [budgetForm, setBudgetForm] = useState<BudgetDraft>({
+    categoryId: "",
+    amount: "",
+  });
   const [billOpen, setBillOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState<number | null>(null);
   const [billForm, setBillForm] = useState<BillDraft>({
@@ -166,11 +160,12 @@ export default function Home() {
 
   // Voucher Settings
   const [voucherSettingsOpen, setVoucherSettingsOpen] = useState(false);
-  const [voucherSettingsForm, setVoucherSettingsForm] = useState<VoucherSettingsDraft>({
-    prefix: "V",
-    startNumber: "1",
-    endNumber: "999999",
-  });
+  const [voucherSettingsForm, setVoucherSettingsForm] =
+    useState<VoucherSettingsDraft>({
+      prefix: "V",
+      startNumber: "1",
+      endNumber: "999999",
+    });
 
   // Projects
   const [projectOpen, setProjectOpen] = useState(false);
@@ -284,10 +279,13 @@ export default function Home() {
         item => item.categoryId === categoryId
       );
       if (alert) {
-        toast.warning(`${alert.categoryName} ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে`, {
-          description: `${bdt(alert.spent)} খরচ হয়েছে; নির্ধারিত সীমার চেয়ে ${bdt(alert.exceededAmount)} বেশি।`,
-          duration: 7000,
-        });
+        toast.warning(
+          `${alert.categoryName} ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে`,
+          {
+            description: `${bdt(alert.spent)} খরচ হয়েছে; নির্ধারিত সীমার চেয়ে ${bdt(alert.exceededAmount)} বেশি।`,
+            duration: 7000,
+          }
+        );
         return "exceeded";
       }
       const earlyWarning = updatedOverview.budgetEarlyWarnings.find(
@@ -306,7 +304,8 @@ export default function Home() {
       return "clear";
     } catch {
       toast.warning("বাজেট সতর্কতা যাচাই করা যায়নি", {
-        description: "লেনদেনটি সংরক্ষিত হয়েছে। বর্তমান বাজেটের অবস্থা দেখতে ড্যাশবোর্ড রিফ্রেশ করুন।",
+        description:
+          "লেনদেনটি সংরক্ষিত হয়েছে। বর্তমান বাজেটের অবস্থা দেখতে ড্যাশবোর্ড রিফ্রেশ করুন।",
         duration: 7000,
       });
       return "unavailable";
@@ -334,7 +333,8 @@ export default function Home() {
         input.type
       );
       resetTransaction();
-      if (budgetAlertStatus === "clear") toast.success("লেনদেন সংরক্ষণ করা হয়েছে");
+      if (budgetAlertStatus === "clear")
+        toast.success("লেনদেন সংরক্ষণ করা হয়েছে");
     },
     onError: error => toast.error(error.message),
   });
@@ -348,7 +348,8 @@ export default function Home() {
         input.type
       );
       resetTransaction();
-      if (budgetAlertStatus === "clear") toast.success("লেনদেন আপডেট করা হয়েছে");
+      if (budgetAlertStatus === "clear")
+        toast.success("লেনদেন আপডেট করা হয়েছে");
     },
     onError: error => toast.error(error.message),
   });
@@ -464,7 +465,12 @@ export default function Home() {
     },
   });
 
-  const { logoUrl, uploadLogo, resetLogo, isCustom: isCustomLogo } = useAppLogo();
+  const {
+    logoUrl,
+    uploadLogo,
+    resetLogo,
+    isCustom: isCustomLogo,
+  } = useAppLogo();
   const updateUserStatus = trpc.admin.updateUserStatus.useMutation({
     onSuccess: () => {
       toast.success("ব্যবহারকারীর অনুমোদনের অবস্থা আপডেট হয়েছে");
@@ -521,17 +527,22 @@ export default function Home() {
       setTransactionForm(current => ({
         ...current,
         amount: String(parsed.amount),
-        paymentMethod: providerPaymentMap[parsed.provider] || current.paymentMethod,
+        paymentMethod:
+          providerPaymentMap[parsed.provider] || current.paymentMethod,
         note: parsed.suggestedNote || current.note,
       }));
       if (parsed.type) {
         setTransactionType(parsed.type);
       }
-      toast.success("SMS থেকে টাকার অঙ্ক ও বিবরণ স্বয়ংক্রিয়ভাবে বসানো হয়েছে!");
+      toast.success(
+        "SMS থেকে টাকার অঙ্ক ও বিবরণ স্বয়ংক্রিয়ভাবে বসানো হয়েছে!"
+      );
       setSmsInput("");
       setShowSmsHelper(false);
     } else {
-      toast.error("SMS থেকে টাকার পরিমাণ শনাক্ত করা যায়নি। অনুগ্রহ করে ম্যানুয়ালি ইনপুট দিন।");
+      toast.error(
+        "SMS থেকে টাকার পরিমাণ শনাক্ত করা যায়নি। অনুগ্রহ করে ম্যানুয়ালি ইনপুট দিন।"
+      );
     }
   }
 
@@ -592,48 +603,6 @@ export default function Home() {
     });
   }
 
-  // Auto-sync queued offline transactions when connection restores
-  useEffect(() => {
-    async function syncOfflineQueue() {
-      if (typeof navigator !== "undefined" && !navigator.onLine) return;
-      try {
-        const queued = await getQueuedOfflineTransactions();
-        if (!queued.length) return;
-
-        let syncedCount = 0;
-        for (const item of queued) {
-          try {
-            await addTransaction.mutateAsync({
-              projectId: item.projectId,
-              categoryId: item.categoryId,
-              accountId: item.accountId,
-              type: item.type,
-              amount: item.amount,
-              paymentMethod: item.paymentMethod,
-              note: item.note,
-              occurredAt: new Date(item.occurredAt),
-            });
-            await removeQueuedOfflineTransaction(item.id);
-            syncedCount++;
-          } catch {
-            // Keep in queue to retry later
-            break;
-          }
-        }
-        if (syncedCount > 0) {
-          toast.success(`অফলাইনে সংরক্ষিত ${syncedCount}টি লেনদেন সার্ভারে সিঙ্ক হয়েছে!`);
-          await refresh();
-        }
-      } catch {
-        // Ignore background sync errors
-      }
-    }
-
-    syncOfflineQueue();
-    window.addEventListener("online", syncOfflineQueue);
-    return () => window.removeEventListener("online", syncOfflineQueue);
-  }, []);
-
   async function submitTransaction(event: FormEvent) {
     event.preventDefault();
     if (!requireProject()) return;
@@ -673,7 +642,9 @@ export default function Home() {
           occurredAt: payload.occurredAt.toISOString(),
         });
         resetTransaction();
-        toast.info("ইন্টারনেট সংযোগ নেই। লেনদেনটি লোকাল অফলাইন ড্রাফটে সংরক্ষিত হয়েছে এবং ইন্টারনেট এলে স্বয়ংক্রিয়ভাবে সিঙ্ক হবে।");
+        toast.info(
+          "ইন্টারনেট সংযোগ নেই। লেনদেনটি লোকাল অফলাইন ড্রাফটে সংরক্ষিত হয়েছে এবং ইন্টারনেট এলে স্বয়ংক্রিয়ভাবে সিঙ্ক হবে।"
+        );
         return;
       } catch {
         // Fall back to normal mutate if IndexedDB fails
@@ -828,7 +799,8 @@ export default function Home() {
       const result = await auditLogExport.refetch();
       if (!result.data?.length)
         throw new Error("এই ফিল্টারে কোনো audit record নেই");
-      const { downloadAuditCsv, downloadAuditPdf } = await import("@/lib/auditLogExports");
+      const { downloadAuditCsv, downloadAuditPdf } =
+        await import("@/lib/auditLogExports");
       if (format === "csv") downloadAuditCsv(result.data);
       else await downloadAuditPdf(result.data);
       toast.success(
@@ -892,15 +864,16 @@ export default function Home() {
       setIsReportDownloading(true);
       const report = await getMonthlyReportForExport();
       if (!report) return;
-      const { downloadMonthlyReportPdf } = await import("@/lib/monthlyReportPdf");
+      const { downloadMonthlyReportPdf } =
+        await import("@/lib/monthlyReportPdf");
       await downloadMonthlyReportPdf(report, reportType);
-      const selectedReport = accountingReportOptions.find(option => option.value === reportType);
+      const selectedReport = accountingReportOptions.find(
+        option => option.value === reportType
+      );
       toast.success(`${selectedReport?.label ?? "রিপোর্ট"} PDF ডাউনলোড হয়েছে`);
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "মাসিক রিপোর্ট তৈরি করা যায়নি"
+        error instanceof Error ? error.message : "মাসিক রিপোর্ট তৈরি করা যায়নি"
       );
     } finally {
       setIsReportDownloading(false);
@@ -912,7 +885,8 @@ export default function Home() {
       setIsReportSharing(true);
       const report = await getMonthlyReportForExport();
       if (!report) return;
-      const { downloadMonthlyReportPdf, shareMonthlyReportPdf } = await import("@/lib/monthlyReportPdf");
+      const { downloadMonthlyReportPdf, shareMonthlyReportPdf } =
+        await import("@/lib/monthlyReportPdf");
       const shareResult = await shareMonthlyReportPdf(report, reportType);
       if (shareResult === "unavailable") {
         await downloadMonthlyReportPdf(report, reportType);
@@ -922,7 +896,10 @@ export default function Home() {
         );
         return;
       }
-      toast.success("ডিভাইসের শেয়ার স্ক্রিন খোলা হয়েছে—ইমেইল বা WhatsApp বেছে নিন।", { duration: 6000 });
+      toast.success(
+        "ডিভাইসের শেয়ার স্ক্রিন খোলা হয়েছে—ইমেইল বা WhatsApp বেছে নিন।",
+        { duration: 6000 }
+      );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error(
@@ -1035,7 +1012,10 @@ export default function Home() {
               />
             </section>
 
-            <section id="transactions" className="scroll-mt-20 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)]">
+            <section
+              id="transactions"
+              className="scroll-mt-20 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)]"
+            >
               <TransactionsPanel
                 rows={visibleTransactions}
                 filter={transactionFilter}
@@ -1058,7 +1038,9 @@ export default function Home() {
                     setAccountOpen(true);
                   }}
                   onEdit={openAccountEditor}
-                  onDelete={id => deleteAccount.mutate({ projectId: activeProjectId!, id })}
+                  onDelete={id =>
+                    deleteAccount.mutate({ projectId: activeProjectId!, id })
+                  }
                 />
                 <BudgetsPanel
                   budgets={data.budgets}
@@ -1108,7 +1090,9 @@ export default function Home() {
 
       <TransactionDialog
         open={transactionOpen}
-        onOpenChange={open => (open ? setTransactionOpen(true) : resetTransaction())}
+        onOpenChange={open =>
+          open ? setTransactionOpen(true) : resetTransaction()
+        }
         editingTransactionId={editingTransactionId}
         transactionType={transactionType}
         setTransactionType={setTransactionType}

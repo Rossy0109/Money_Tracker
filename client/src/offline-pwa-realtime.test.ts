@@ -27,7 +27,29 @@ class MockCache {
 
 class MockServiceWorkerGlobalScope {
   caches = new Map<string, MockCache>();
-  activeCacheName = "amar-hisab-shell-v2";
+  activeCacheName = "amar-hisab-shell-v2.1.0";
+  skipWaitingCalled = false;
+
+  skipWaiting() {
+    this.skipWaitingCalled = true;
+  }
+
+  handleMessage(event: { data?: { type?: string } }) {
+    if (event.data?.type === "SKIP_WAITING") {
+      this.skipWaiting();
+    }
+  }
+
+  async activate(): Promise<string[]> {
+    const deleted: string[] = [];
+    for (const key of Array.from(this.caches.keys())) {
+      if (key.startsWith("amar-hisab-shell-") && key !== this.activeCacheName) {
+        this.caches.delete(key);
+        deleted.push(key);
+      }
+    }
+    return deleted;
+  }
 
   getCache(name = this.activeCacheName): MockCache {
     if (!this.caches.has(name)) {
@@ -59,7 +81,9 @@ class MockServiceWorkerGlobalScope {
     }
 
     // Static assets (script, style, image) cache-first then network
-    if (["script", "style", "image", "font"].includes(request.destination || "")) {
+    if (
+      ["script", "style", "image", "font"].includes(request.destination || "")
+    ) {
       const cached = await cache.match(url.pathname);
       if (cached) return cached;
 
@@ -83,7 +107,10 @@ class BrowserNotificationManager {
     return this.permission;
   }
 
-  static createNotification(title: string, options?: NotificationOptions): { title: string; options?: NotificationOptions } {
+  static createNotification(
+    title: string,
+    options?: NotificationOptions
+  ): { title: string; options?: NotificationOptions } {
     if (this.permission !== "granted") {
       throw new Error("Notification permission not granted");
     }
@@ -173,19 +200,30 @@ describe("Offline, PWA & Realtime Infrastructure Tests", () => {
       const cache = sw.getCache();
 
       // Simulate pre-caching APP_SHELL
-      await cache.addAll(["/", "/offline.html", "/manifest.webmanifest", "/app-icon.svg"]);
+      await cache.addAll([
+        "/",
+        "/offline.html",
+        "/manifest.webmanifest",
+        "/app-icon.svg",
+      ]);
       expect(cache.size()).toBe(4);
 
       // Online navigation returns network
-      const onlineNav = await sw.handleFetch({ url: "/dashboard", mode: "navigate" }, async () => {
-        return new Response("Dashboard Page HTML", { status: 200 });
-      });
+      const onlineNav = await sw.handleFetch(
+        { url: "/dashboard", mode: "navigate" },
+        async () => {
+          return new Response("Dashboard Page HTML", { status: 200 });
+        }
+      );
       expect(await onlineNav.text()).toBe("Dashboard Page HTML");
 
       // Offline navigation falls back to /offline.html
-      const offlineNav = await sw.handleFetch({ url: "/dashboard", mode: "navigate" }, async () => {
-        throw new TypeError("Failed to fetch");
-      });
+      const offlineNav = await sw.handleFetch(
+        { url: "/dashboard", mode: "navigate" },
+        async () => {
+          throw new TypeError("Failed to fetch");
+        }
+      );
       expect(offlineNav.status).toBe(200);
       expect(await offlineNav.text()).toBe("OK");
     });
@@ -194,13 +232,38 @@ describe("Offline, PWA & Realtime Infrastructure Tests", () => {
       const sw = new MockServiceWorkerGlobalScope();
       let networkHit = false;
 
-      const response = await sw.handleFetch({ url: "/api/trpc/overview" }, async () => {
-        networkHit = true;
-        return new Response(JSON.stringify({ data: "api" }), { status: 200 });
-      });
+      const response = await sw.handleFetch(
+        { url: "/api/trpc/overview" },
+        async () => {
+          networkHit = true;
+          return new Response(JSON.stringify({ data: "api" }), { status: 200 });
+        }
+      );
 
       expect(networkHit).toBe(true);
       expect(response.status).toBe(200);
+    });
+
+    it("purges stale cache versions upon activation while preserving active version", async () => {
+      const sw = new MockServiceWorkerGlobalScope();
+      sw.getCache("amar-hisab-shell-v1");
+      sw.getCache("amar-hisab-shell-v2");
+      sw.getCache("amar-hisab-shell-v2.1.0");
+
+      expect(sw.caches.size).toBe(3);
+      const purged = await sw.activate();
+
+      expect(purged).toEqual(["amar-hisab-shell-v1", "amar-hisab-shell-v2"]);
+      expect(sw.caches.has("amar-hisab-shell-v2.1.0")).toBe(true);
+      expect(sw.caches.size).toBe(1);
+    });
+
+    it("triggers skipWaiting upon receiving SKIP_WAITING message", () => {
+      const sw = new MockServiceWorkerGlobalScope();
+      expect(sw.skipWaitingCalled).toBe(false);
+
+      sw.handleMessage({ data: { type: "SKIP_WAITING" } });
+      expect(sw.skipWaitingCalled).toBe(true);
     });
   });
 
@@ -213,10 +276,13 @@ describe("Offline, PWA & Realtime Infrastructure Tests", () => {
       expect(status).toBe("granted");
 
       // Dispatch transaction threshold notification
-      const notification = BrowserNotificationManager.createNotification("বাজেট সীমা অতিক্রম!", {
-        body: "আপনার মাসিক খাদ্য বাজেট ৯০% খরচ হয়েছে।",
-        icon: "/app-icon.svg",
-      });
+      const notification = BrowserNotificationManager.createNotification(
+        "বাজেট সীমা অতিক্রম!",
+        {
+          body: "আপনার মাসিক খাদ্য বাজেট ৯০% খরচ হয়েছে।",
+          icon: "/app-icon.svg",
+        }
+      );
 
       expect(notification.title).toBe("বাজেট সীমা অতিক্রম!");
       expect(notification.options?.body).toContain("খাদ্য বাজেট ৯০%");
@@ -232,7 +298,9 @@ describe("Offline, PWA & Realtime Infrastructure Tests", () => {
 
   describe("3. Real WebSocket Realtime Communication", () => {
     it("connects, sends heartbeats, and automatically reconnects on dropped connection", async () => {
-      const client = new ResilientWebSocketClient("wss://stream.moneytracker.local/socket");
+      const client = new ResilientWebSocketClient(
+        "wss://stream.moneytracker.local/socket"
+      );
       await client.connect();
       expect(client.isOpen).toBe(true);
 

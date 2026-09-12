@@ -1,4 +1,5 @@
-const CACHE_NAME = "amar-hisab-shell-v2";
+const SW_VERSION = "2.1.0";
+const CACHE_NAME = `amar-hisab-shell-v${SW_VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = ["/", OFFLINE_URL, "/manifest.webmanifest", "/app-icon.svg"];
 
@@ -9,9 +10,19 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(keys => Promise.all(
+        keys
+          .filter(key => key.startsWith("amar-hisab-shell-") && key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      ))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", event => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", event => {
