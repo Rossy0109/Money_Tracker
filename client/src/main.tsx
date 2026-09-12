@@ -7,6 +7,14 @@ import superjson from "superjson";
 import App from "./App";
 import "./index.css";
 
+import { toast } from "sonner";
+import {
+  fetchWithTimeout,
+  getRetryDelay,
+  notifyNetworkError,
+  shouldRetryQuery,
+} from "./lib/networkErrorHandler";
+
 const shouldRegisterServiceWorker = import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true";
 
 if (shouldRegisterServiceWorker && "serviceWorker" in navigator) {
@@ -17,12 +25,32 @@ if (shouldRegisterServiceWorker && "serviceWorker" in navigator) {
   });
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => shouldRetryQuery(failureCount, error),
+      retryDelay: (attemptIndex, error) => getRetryDelay(attemptIndex, error),
+      networkMode: "offlineFirst",
+    },
+    mutations: {
+      retry: (failureCount, error) => shouldRetryQuery(failureCount, error),
+      retryDelay: (attemptIndex, error) => getRetryDelay(attemptIndex, error),
+      networkMode: "offlineFirst",
+    },
+  },
+});
+
+const dispatchToast = (msg: string, type: "error" | "warning" | "info") => {
+  if (type === "error") toast.error(msg);
+  else if (type === "warning") toast.warning(msg);
+  else toast.info(msg);
+};
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     console.error("[API Query Error]", error);
+    notifyNetworkError(error, dispatchToast);
   }
 });
 
@@ -30,6 +58,7 @@ queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     console.error("[API Mutation Error]", error);
+    notifyNetworkError(error, dispatchToast);
   }
 });
 
@@ -59,10 +88,14 @@ const trpcClient = trpc.createClient({
         return {};
       },
       fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
+        return fetchWithTimeout(
+          input,
+          {
+            ...(init ?? {}),
+            credentials: "include",
+          },
+          30000
+        );
       },
     }),
   ],
