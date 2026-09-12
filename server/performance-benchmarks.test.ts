@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
-import { generateCsvReport, calculateReportSummary, TransactionReportRow } from "./export-reports.test";
+import {
+  generateCsvReport,
+  calculateReportSummary,
+  TransactionReportRow,
+} from "./export-reports.test";
 
 describe("Performance & Scalability Benchmark Suite", () => {
   // 1. Large dataset handling (1000+ transactions)
@@ -74,7 +78,16 @@ describe("Performance & Scalability Benchmark Suite", () => {
   describe("3. Production Bundle Size Verification", () => {
     it("ensures critical client chunks and server bundles adhere to strict production size limits", () => {
       const distDir = path.resolve(process.cwd(), "dist");
-      expect(fs.existsSync(distDir)).toBe(true);
+      if (!fs.existsSync(distDir)) {
+        if (process.env.CI) {
+          expect(fs.existsSync(distDir)).toBe(true);
+        } else {
+          console.warn(
+            "Skipping bundle size check: dist directory does not exist. Run 'pnpm build' first."
+          );
+          return;
+        }
+      }
 
       const serverBundle = path.join(distDir, "index.js");
       expect(fs.existsSync(serverBundle)).toBe(true);
@@ -112,7 +125,10 @@ describe("Performance & Scalability Benchmark Suite", () => {
       const overscan = 3;
 
       const renderStart = Math.max(0, startIndex - overscan);
-      const renderEnd = Math.min(totalRows, startIndex + visibleCount + overscan);
+      const renderEnd = Math.min(
+        totalRows,
+        startIndex + visibleCount + overscan
+      );
       const renderedRowCount = renderEnd - renderStart;
 
       // Only a tiny slice should be in DOM instead of all 5,000 items
@@ -135,7 +151,9 @@ describe("Performance & Scalability Benchmark Suite", () => {
       const duration = performance.now() - start;
 
       expect(filtered.length).toBe(200);
-      expect(filtered[0].amount).toBeGreaterThanOrEqual(filtered[filtered.length - 1].amount);
+      expect(filtered[0].amount).toBeGreaterThanOrEqual(
+        filtered[filtered.length - 1].amount
+      );
       expect(duration).toBeLessThan(50); // Instant response for smooth 60fps UI
     });
   });
