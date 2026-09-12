@@ -81,10 +81,7 @@ describe("Performance & Scalability Benchmark Suite", () => {
       if (!fs.existsSync(distDir)) {
         if (process.env.CI) {
           expect(fs.existsSync(distDir)).toBe(true);
-        } else {
-          console.warn(
-            "Skipping bundle size check: dist directory does not exist. Run 'pnpm build' first."
-          );
+          console.warn("Skipping bundle size check: dist directory does not exist. Run 'pnpm build' first.");
           return;
         }
       }

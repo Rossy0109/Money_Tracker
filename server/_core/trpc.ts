@@ -2,6 +2,8 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { ENV } from "./env";
+import { timingSafeCompare } from "../timingSafe";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -57,3 +59,47 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+export const elevatedAdminProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || ctx.user.role !== 'admin') {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+
+    const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);
+    let rawInput: any;
+    if (typeof (opts as any).getRawInput === "function") {
+      try {
+        rawInput = await (opts as any).getRawInput();
+      } catch {
+        rawInput = (opts as any).rawInput;
+      }
+    } else {
+      rawInput = (opts as any).rawInput;
+    }
+
+    const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof rawInput.password === "string")
+      ? rawInput.password
+      : undefined;
+    const expectedPassword = ENV.adminAccessPassword || process.env.ADMIN_ACCESS_PASSWORD || "";
+    const hasInlinePassword = Boolean(inputPassword && expectedPassword && timingSafeCompare(inputPassword, expectedPassword));
+
+    if (!hasActiveSession && !hasInlinePassword) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Administrator elevation session required or expired. Please re-verify password.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+        adminElevation: ctx.adminElevation,
+      },
+    });
+  }),
+);
+

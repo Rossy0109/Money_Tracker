@@ -1,9 +1,10 @@
 import type { Request, Response } from "express";
-import { createCipheriv, randomBytes, createHash, timingSafeEqual } from "node:crypto";
+import { createCipheriv, randomBytes, createHash } from "node:crypto";
 import * as financeDb from "./db";
 import { executeCloudBackup } from "./cloudBackupService";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
+import { timingSafeCompare } from "./timingSafe";
 
 export function encryptPayload(data: string, secretKey: string): { iv: string; encrypted: string; tag: string } {
   const key = createHash("sha256").update(secretKey).digest();
@@ -23,9 +24,7 @@ export function encryptPayload(data: string, secretKey: string): { iv: string; e
 
 function hasValidSecret(candidate: string, expectedSecret?: string) {
   if (!candidate || !expectedSecret) return false;
-  const expected = Buffer.from(expectedSecret);
-  const received = Buffer.from(candidate);
-  return expected.length > 0 && expected.length === received.length && timingSafeEqual(expected, received);
+  return timingSafeCompare(candidate, expectedSecret);
 }
 
 function hasValidAdminPassword(candidate: string) {
