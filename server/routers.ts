@@ -103,6 +103,48 @@ const transactionSearchInput = z
       });
   });
 
+const paginatedTransactionInput = z
+  .object({
+    projectId,
+    query: z.string().trim().min(1).max(180).optional(),
+    categoryId: z.number().int().positive().optional(),
+    type: z.enum(["income", "expense"]).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+    minAmount: z
+      .number()
+      .finite()
+      .nonnegative()
+      .max(999999999999.99)
+      .optional(),
+    maxAmount: z
+      .number()
+      .finite()
+      .nonnegative()
+      .max(999999999999.99)
+      .optional(),
+    page: z.number().int().positive().default(1),
+    pageSize: z.number().int().min(1).max(100).default(15),
+  })
+  .superRefine((input, context) => {
+    if (input.from && input.to && input.from > input.to)
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message: "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না",
+      });
+    if (
+      input.minAmount !== undefined &&
+      input.maxAmount !== undefined &&
+      input.minAmount > input.maxAmount
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxAmount"],
+        message: "সর্বোচ্চ পরিমাণ সর্বনিম্ন পরিমাণের চেয়ে কম হতে পারে না",
+      });
+  });
+
 const backupAmount = z.union([
   z.number().finite(),
   z.string().regex(/^-?\d+(\.\d{1,2})?$/),
@@ -528,6 +570,11 @@ export const appRouter = router({
       .input(transactionSearchInput)
       .query(({ ctx, input }) =>
         financeDb.searchTransactions(ctx.user.id, input)
+      ),
+    paginatedTransactions: protectedProcedure
+      .input(paginatedTransactionInput)
+      .query(({ ctx, input }) =>
+        financeDb.listTransactionsPaginated(ctx.user.id, input)
       ),
     automationOverview: protectedProcedure
       .input(z.object({ projectId }))
