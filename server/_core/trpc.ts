@@ -69,11 +69,22 @@ export const elevatedAdminProcedure = t.procedure.use(
     }
 
     const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);
-    const rawInput = (opts as any).rawInput;
+    let rawInput: any;
+    if (typeof (opts as any).getRawInput === "function") {
+      try {
+        rawInput = await (opts as any).getRawInput();
+      } catch {
+        rawInput = (opts as any).rawInput;
+      }
+    } else {
+      rawInput = (opts as any).rawInput;
+    }
+
     const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof rawInput.password === "string")
       ? rawInput.password
       : undefined;
-    const hasInlinePassword = Boolean(inputPassword && timingSafeCompare(inputPassword, ENV.adminAccessPassword));
+    const expectedPassword = ENV.adminAccessPassword || process.env.ADMIN_ACCESS_PASSWORD || "";
+    const hasInlinePassword = Boolean(inputPassword && expectedPassword && timingSafeCompare(inputPassword, expectedPassword));
 
     if (!hasActiveSession && !hasInlinePassword) {
       throw new TRPCError({
