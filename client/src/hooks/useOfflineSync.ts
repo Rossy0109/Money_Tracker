@@ -1,28 +1,42 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
-import { getQueuedOfflineTransactions, removeQueuedOfflineTransaction } from "@/lib/offlineQueue";
+import {
+  getQueuedOfflineTransactions,
+  removeQueuedOfflineTransaction,
+} from "@/lib/offlineQueue";
 import { toast } from "sonner";
 
 export function useOfflineSync() {
   const { activeProjectId } = useActiveProject();
-  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
   const [pendingCount, setPendingCount] = useState(0);
+  const isSyncingRef = useRef(false);
 
   const utils = trpc.useUtils();
   const syncMutation = trpc.finance.syncOfflineTransactions.useMutation();
 
   const syncQueue = async () => {
-    if (!activeProjectId || !navigator.onLine) return;
+    if (!activeProjectId || !navigator.onLine || isSyncingRef.current) return;
+    isSyncingRef.current = true;
 
     try {
       const items = await getQueuedOfflineTransactions();
-      const projectItems = items.filter(item => item.projectId === activeProjectId);
+      const projectItems = items.filter(
+        item => item.projectId === activeProjectId
+      );
       setPendingCount(projectItems.length);
 
-      if (projectItems.length === 0) return;
+      if (projectItems.length === 0) {
+        isSyncingRef.current = false;
+        return;
+      }
 
-      toast.info(`অফলাইন সংরক্ষিত ${projectItems.length}টি লেনদেন সিঙ্ক হচ্ছে...`);
+      toast.info(
+        `অফলাইন সংরক্ষিত ${projectItems.length}টি লেনদেন সিঙ্ক হচ্ছে...`
+      );
 
       const payload = projectItems.map(item => ({
         projectId: item.projectId,
@@ -33,6 +47,7 @@ export function useOfflineSync() {
         paymentMethod: item.paymentMethod,
         note: item.note,
         occurredAt: new Date(item.occurredAt),
+        idempotencyKey: item.id,
       }));
 
       await syncMutation.mutateAsync({
@@ -45,10 +60,14 @@ export function useOfflineSync() {
       }
 
       setPendingCount(0);
-      toast.success(`${projectItems.length}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক সম্পন্ন হয়েছে!`);
+      toast.success(
+        `${projectItems.length}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক সম্পন্ন হয়েছে!`
+      );
       utils.finance.overview.invalidate();
     } catch {
       // Sync failed, keep in queue for next reconnect
+    } finally {
+      isSyncingRef.current = false;
     }
   };
 
@@ -69,7 +88,9 @@ export function useOfflineSync() {
     // Initial check
     getQueuedOfflineTransactions().then(items => {
       if (activeProjectId) {
-        setPendingCount(items.filter(i => i.projectId === activeProjectId).length);
+        setPendingCount(
+          items.filter(i => i.projectId === activeProjectId).length
+        );
       }
     });
 
