@@ -1,0 +1,13 @@
+.git
+node_modules
+.pnpm-store
+.cache
+.npm
+coverage
+playwright-report
+test-results
+.manus-logs
+.gemini
+*.log
+dist
+public
