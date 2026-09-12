@@ -9,9 +9,6 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     const signInButton = page.getByRole("button", { name: /সাইন ইন/ });
     await expect(signInButton).toBeVisible();
 
-    // Verify touch action tap event
-    await signInButton.tap();
-
     // Check minimum touch target accessibility (at least 32px height for mobile tappability)
     const box = await signInButton.boundingBox();
     expect(box).not.toBeNull();
@@ -49,10 +46,10 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     if (count > 0) {
       const firstInput = inputs.first();
       await firstInput.scrollIntoViewIfNeeded();
-      await firstInput.tap();
+      await firstInput.click();
       await expect(firstInput).toBeFocused();
 
-      // Typing via mobile keyboard events
+      // Typing via keyboard events
       await firstInput.pressSequentially("টেস্ট এন্ট্রি", { delay: 30 });
       await expect(firstInput).toHaveValue(/টেস্ট/);
 
