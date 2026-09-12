@@ -1215,7 +1215,8 @@ async function adjustAccountBalance(
         eq(financeAccounts.projectId, projectId)
       )
     )
-    .limit(1);
+    .limit(1)
+    .for("update");
   if (!account) throw new Error("Account not found or access denied");
   await executor
     .update(financeAccounts)
@@ -3479,6 +3480,14 @@ async function generateNextInvoiceNumber(
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
   const prefix = `INV-${currentYear}-`;
+
+  // Pessimistically lock project row to serialize invoice number generation
+  await tx
+    .select({ id: financeProjects.id })
+    .from(financeProjects)
+    .where(eq(financeProjects.id, projectId))
+    .limit(1)
+    .for("update");
 
   const matchingInvoices = await tx
     .select({ invoiceNumber: financeInvoices.invoiceNumber })
