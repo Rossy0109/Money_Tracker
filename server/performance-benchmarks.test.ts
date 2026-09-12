@@ -74,7 +74,14 @@ describe("Performance & Scalability Benchmark Suite", () => {
   describe("3. Production Bundle Size Verification", () => {
     it("ensures critical client chunks and server bundles adhere to strict production size limits", () => {
       const distDir = path.resolve(process.cwd(), "dist");
-      expect(fs.existsSync(distDir)).toBe(true);
+      if (!fs.existsSync(distDir)) {
+        if (process.env.CI) {
+          expect(fs.existsSync(distDir)).toBe(true);
+        } else {
+          console.warn("Skipping bundle size check: dist directory does not exist. Run 'pnpm build' first.");
+          return;
+        }
+      }
 
       const serverBundle = path.join(distDir, "index.js");
       expect(fs.existsSync(serverBundle)).toBe(true);
