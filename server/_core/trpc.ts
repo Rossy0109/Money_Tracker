@@ -2,6 +2,8 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { ENV } from "./env";
+import { timingSafeCompare } from "../timingSafe";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -66,7 +68,14 @@ export const elevatedAdminProcedure = t.procedure.use(
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    if (!ctx.adminElevation || ctx.adminElevation.userId !== ctx.user.id) {
+    const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);
+    const rawInput = (opts as any).rawInput;
+    const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof rawInput.password === "string")
+      ? rawInput.password
+      : undefined;
+    const hasInlinePassword = Boolean(inputPassword && timingSafeCompare(inputPassword, ENV.adminAccessPassword));
+
+    if (!hasActiveSession && !hasInlinePassword) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Administrator elevation session required or expired. Please re-verify password.",
