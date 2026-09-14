@@ -19,7 +19,8 @@ import {
 } from "./googleOAuth";
 import { ENV } from "./env";
 import { sdk } from "./sdk";
-import { hashPassword, verifyPassword } from "./passwordAuth";
+import { hashPassword, verifyPasswordConstantTime } from "./passwordAuth";
+import { timingSafeCompare } from "../timingSafe";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -95,7 +96,8 @@ export function registerOAuthRoutes(app: Express) {
       }
 
       const user = await db.getUserByEmail(email);
-      if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      const credentialsValid = verifyPasswordConstantTime(password, user?.passwordHash);
+      if (!user || !credentialsValid) {
         res.status(401).json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
         return;
       }
@@ -191,7 +193,8 @@ export function registerOAuthRoutes(app: Express) {
       const idToken = await exchangeGoogleAuthorizationCode(code, transaction, discovery);
       const identity = await verifyGoogleIdToken(idToken, transaction, discovery);
       const bootstrapEmail = ENV.adminBootstrapEmail.trim().toLowerCase();
-      const role = bootstrapEmail && identity.email === bootstrapEmail ? "admin" : undefined;
+      const normalizedEmail = (identity.email || "").trim().toLowerCase();
+      const role = bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail) ? "admin" : undefined;
 
       await db.upsertUser({
         openId: identity.openId,

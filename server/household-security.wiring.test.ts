@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { dirnameFromMetaUrl } from "../dirname";
 
-const dbSource = readFileSync(resolve(import.meta.dirname, "db.ts"), "utf8");
+const dbSource = readFileSync(resolve(dirnameFromMetaUrl(import.meta.url), "db.ts"), "utf8");
 
 function functionSource(name: string) {
   const start = dbSource.indexOf(`export async function ${name}`);

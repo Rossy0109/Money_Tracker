@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { dirnameFromMetaUrl } from "../../dirname";
 
-const appRoot = resolve(import.meta.dirname, "../..");
+const appRoot = resolve(dirnameFromMetaUrl(import.meta.url), "../..");
 
 describe("OAuth login safety", () => {
   it("only begins OAuth from explicit auth flows, not global API error observers", () => {

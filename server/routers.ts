@@ -6,7 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
 import { createHeartbeatJob } from "./_core/heartbeat";
 import { sdk } from "./_core/sdk";
-import { hashPassword, verifyPassword } from "./_core/passwordAuth";
+import { hashPassword, verifyPasswordConstantTime } from "./_core/passwordAuth";
 import { checkRateLimit, resetRateLimit } from "./_core/rateLimiter";
 import {
   getCloudStorageConfig,
@@ -357,11 +357,11 @@ export const appRouter = router({
         });
 
         const user = await financeDb.getUserByEmail(input.email);
-        if (
-          !user ||
-          !user.passwordHash ||
-          !verifyPassword(input.password, user.passwordHash)
-        ) {
+        const credentialsValid = verifyPasswordConstantTime(
+          input.password,
+          user?.passwordHash
+        );
+        if (!user || !credentialsValid) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।",

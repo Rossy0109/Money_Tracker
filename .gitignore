@@ -31,6 +31,10 @@ public/
 ehthumbs.db
 Thumbs.db
 
+# Manus debug collector logs
+.manus-logs/
+.manus-logs
+
 # Logs
 logs
 *.log
