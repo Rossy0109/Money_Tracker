@@ -41,6 +41,14 @@ jobs:
           fi
 
           npm i -g vercel@latest
+
+          # Project-scoped (vcp_) tokens cannot read project settings, so the
+          # deploy flow needs a regular account access token here.
+          if ! vercel whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
+            echo "::error title=Invalid VERCEL_TOKEN::Vercel rejected the token. Use a regular account access token (vercel.com/account/settings/tokens), not a project-scoped token."
+            exit 1
+          fi
+
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel build --prod --token="$VERCEL_TOKEN"
           vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
