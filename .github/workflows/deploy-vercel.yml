@@ -40,15 +40,6 @@ jobs:
             exit 0
           fi
 
-          # Link the checkout to the Vercel project. If org/project ids are not
-          # provided as secrets, Vercel resolves the linked project from the
-          # token's scope instead.
-          if [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
-            mkdir -p .vercel
-            printf '{"projectId":"%s","orgId":"%s","projectName":"money-tracker"}' \
-              "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/project.json
-          fi
-
           npm i -g vercel@latest
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel build --prod --token="$VERCEL_TOKEN"
