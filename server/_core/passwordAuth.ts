@@ -30,3 +30,26 @@ export function verifyPassword(password: string, storedHash: string | null | und
 
   return originalKey.length === derivedKey.length && timingSafeEqual(originalKey, derivedKey);
 }
+
+/**
+ * A well-formed scrypt hash of a throwaway password used only to keep login
+ * timing uniform when a user does not exist or has no password hash.
+ *
+ * The dummy verify exercises the exact same scrypt + timingSafeEqual path as a
+ * real password check, so the response latency (and therefore the API) does not
+ * reveal whether an email address is registered or whether the account is
+ * OAuth-only. This mitigates account-enumeration and timing side channels.
+ */
+const DUMMY_PASSWORD_HASH = hashPassword("dummy-password-for-timing-mitigation-2026");
+
+/**
+ * Verify credentials in (near) constant time regardless of whether the account
+ * exists or holds a password hash. When no hash is available, verification runs
+ * against the dummy hash so callers cannot be distinguished by timing alone.
+ */
+export function verifyPasswordConstantTime(
+  password: string,
+  storedHash: string | null | undefined
+): boolean {
+  return verifyPassword(password, storedHash ?? DUMMY_PASSWORD_HASH);
+}

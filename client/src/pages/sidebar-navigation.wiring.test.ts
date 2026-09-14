@@ -1,15 +1,18 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { dirnameFromMetaUrl } from "../../../dirname";
+
+const __dirname = dirnameFromMetaUrl(import.meta.url);
 
 const dashboardLayout = readFileSync(
-  resolve(import.meta.dirname, "../components/DashboardLayout.tsx"),
+  resolve(__dirname, "../components/DashboardLayout.tsx"),
   "utf8"
 );
 
 const getCombinedHomeSource = () => {
-  const home = readFileSync(resolve(import.meta.dirname, "Home.tsx"), "utf8");
-  const dashboardDir = resolve(import.meta.dirname, "../components/dashboard");
+  const home = readFileSync(resolve(__dirname, "Home.tsx"), "utf8");
+  const dashboardDir = resolve(__dirname, "../components/dashboard");
   let combined = home;
   try {
     for (const file of readdirSync(dashboardDir)) {
@@ -22,7 +25,7 @@ const getCombinedHomeSource = () => {
 };
 
 const homeSource = getCombinedHomeSource();
-const categoriesSource = readFileSync(resolve(import.meta.dirname, "Categories.tsx"), "utf8");
+const categoriesSource = readFileSync(resolve(__dirname, "Categories.tsx"), "utf8");
 
 describe("sidebar dashboard navigation", () => {
   it("maps each Bengali sidebar hash link to an in-page dashboard target", () => {

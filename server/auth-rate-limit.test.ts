@@ -57,4 +57,24 @@ describe("Authentication rate limiter", () => {
       process.env.NODE_ENV = originalEnv;
     }
   });
+
+  it("locks out admin verification attempts exceeding 5 failed tries", () => {
+    const key = "admin-1:127.0.0.1";
+    resetRateLimit(key, "admin-verify");
+
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        checkRateLimit(key, { windowMs: 15 * 60 * 1000, max: 5, keyPrefix: "admin-verify" });
+      }
+
+      expect(() => {
+        checkRateLimit(key, { windowMs: 15 * 60 * 1000, max: 5, keyPrefix: "admin-verify" });
+      }).toThrow(/সাময়িকভাবে বন্ধ রাখা হয়েছে/);
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
+  });
 });

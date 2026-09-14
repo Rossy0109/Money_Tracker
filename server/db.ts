@@ -27,6 +27,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { timingSafeCompare } from "./timingSafe";
 import { calculateDueSettlement } from "./dueAccounting";
 import {
   calculateBudgetAlerts,
@@ -110,9 +111,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
   const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
   const normalizedEmail = (user.email || "").trim().toLowerCase();
+  const ownerOpenId = ENV.ownerOpenId;
   const isBootstrapAdmin =
-    (bootstrapEmail && normalizedEmail === bootstrapEmail) ||
-    user.openId === ENV.ownerOpenId ||
+    (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
+    (ownerOpenId ? timingSafeCompare(user.openId, ownerOpenId) : user.openId === ownerOpenId) ||
     user.role === "admin";
 
   const shouldSetRole = isBootstrapAdmin || user.role !== undefined;
@@ -170,9 +172,10 @@ export async function createPasswordUser(input: {
 
   const openId = `local:${normalizedEmail}`;
   const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
+  const ownerOpenId = ENV.ownerOpenId;
   const isBootstrapAdmin =
-    (bootstrapEmail && normalizedEmail === bootstrapEmail) ||
-    openId === ENV.ownerOpenId;
+    (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
+    (ownerOpenId ? timingSafeCompare(openId, ownerOpenId) : openId === ownerOpenId);
   const role = isBootstrapAdmin ? ("admin" as const) : ("user" as const);
   const status = isBootstrapAdmin ? ("active" as const) : ("pending" as const);
 

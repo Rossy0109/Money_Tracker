@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { dirnameFromMetaUrl } from "../../../dirname";
+
+const __dirname = dirnameFromMetaUrl(import.meta.url);
 
 const getCombinedSource = () => {
-  const home = readFileSync(resolve(import.meta.dirname, "Home.tsx"), "utf8");
-  const dashboardDir = resolve(import.meta.dirname, "../components/dashboard");
+  const home = readFileSync(resolve(__dirname, "Home.tsx"), "utf8");
+  const dashboardDir = resolve(__dirname, "../components/dashboard");
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { dirnameFromMetaUrl } from "../../../../dirname";
 
-const root = resolve(import.meta.dirname, "../../../..");
+const __dirname = dirnameFromMetaUrl(import.meta.url);
+const root = resolve(__dirname, "../../../..");
 const authHook = readFileSync(resolve(root, "client/src/_core/hooks/useAuth.ts"), "utf8");
 const layout = readFileSync(resolve(root, "client/src/components/DashboardLayout.tsx"), "utf8");
 

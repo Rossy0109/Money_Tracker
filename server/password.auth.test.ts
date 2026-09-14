@@ -2,6 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
 
+vi.mock("./_core/passwordAuth", async importOriginal => {
+  const actual = await importOriginal<typeof import("./_core/passwordAuth")>();
+  return {
+    ...actual,
+    verifyPasswordConstantTime: vi.fn(
+      (password: string, storedHash: string | null | undefined) =>
+        actual.verifyPasswordConstantTime(password, storedHash)
+    ),
+  };
+});
+
 const { financeDb } = vi.hoisted(() => {
   const usersTable = new Map<string, any>();
 
@@ -48,6 +59,7 @@ const { financeDb } = vi.hoisted(() => {
 vi.mock("./db", () => financeDb);
 
 import { appRouter } from "./routers";
+import { verifyPasswordConstantTime } from "./_core/passwordAuth";
 
 type CookieCall = {
   name: string;
@@ -170,6 +182,74 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
         password: "wrongPassword999",
       })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
+  });
+
+  it("runs the constant-time verification even for an unknown email", async () => {
+    const spy = vi.mocked(verifyPasswordConstantTime);
+    spy.mockClear();
+
+    const { ctx } = createMockContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.auth.login({ email: "ghost@example.com", password: "randomPassword123" })
+    ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith("randomPassword123", undefined);
+  });
+
+  it("runs the constant-time verification for an OAuth-only account without a password hash", async () => {
+    financeDb.usersTable.set(
+      "oauth@example.com",
+      {
+        id: 41,
+        openId: "google:usr_oauth",
+        name: "OAuth User",
+        email: "oauth@example.com",
+        passwordHash: null,
+        role: "user",
+        status: "active",
+        loginMethod: "google",
+      },
+    );
+
+    const spy = vi.mocked(verifyPasswordConstantTime);
+    spy.mockClear();
+
+    const { ctx } = createMockContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.auth.login({ email: "oauth@example.com", password: "somePassword123" })
+    ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith("somePassword123", null);
+  });
+
+  it("runs the constant-time verification exactly once for a wrong password", async () => {
+    const testEmail = "timing@example.com";
+    const { ctx: regCtx } = createMockContext();
+    const regCaller = appRouter.createCaller(regCtx);
+
+    await regCaller.auth.register({
+      name: "টাইমিং টেস্ট",
+      email: testEmail,
+      password: "correctPassword123",
+    });
+
+    const spy = vi.mocked(verifyPasswordConstantTime);
+    spy.mockClear();
+
+    const { ctx: loginCtx } = createMockContext();
+    const loginCaller = appRouter.createCaller(loginCtx);
+
+    await expect(
+      loginCaller.auth.login({ email: testEmail, password: "wrongPassword999" })
+    ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
+
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("rejects duplicate registration with same email", async () => {

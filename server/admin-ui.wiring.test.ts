@@ -1,10 +1,11 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { dirnameFromMetaUrl } from "../dirname";
 
 const getCombinedHomeSource = () => {
   const home = readFileSync(new URL("../client/src/pages/Home.tsx", import.meta.url), "utf8");
-  const dashboardDir = resolve(import.meta.dirname, "../client/src/components/dashboard");
+  const dashboardDir = resolve(dirnameFromMetaUrl(import.meta.url), "../client/src/components/dashboard");
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {
