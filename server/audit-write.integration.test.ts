@@ -19,7 +19,22 @@ const state = vi.hoisted(() => {
     occurredAt: new Date("2026-08-19T12:00:00.000Z"),
   };
   const client = {
-    select: vi.fn(() => ({ from: () => ({ where: () => ({ limit: async () => [record], orderBy: async () => [record] }) }) })),
+    select: vi.fn(() => {
+      const rows = () => Promise.resolve([record]);
+      const awaited = {
+        for: () => rows(),
+        then: (resolve: (value: typeof record) => unknown, reject?: (reason?: unknown) => unknown) =>
+          rows().then(resolve, reject),
+      };
+      return {
+        from: () => ({
+          where: () => ({
+            limit: () => awaited,
+            orderBy: () => awaited,
+          }),
+        }),
+      };
+    }),
     insert: vi.fn((table: unknown) => ({
       values: (values: unknown) => {
         inserts.push({ table, values });
