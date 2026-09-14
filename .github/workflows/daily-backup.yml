@@ -6,6 +6,12 @@ on:
     - cron: "0 18 * * *"
   workflow_dispatch:
 
+permissions: {}
+
+concurrency:
+  group: daily-finance-backup
+  cancel-in-progress: false
+
 jobs:
   backup:
     name: Trigger Scheduled Encrypted Backup

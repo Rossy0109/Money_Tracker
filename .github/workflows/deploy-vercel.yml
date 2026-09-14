@@ -1,0 +1,49 @@
+name: Deploy to Vercel (CD)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-cd
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Deploy with Vercel CLI
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning title=CD inactive::VERCEL_TOKEN secret is not set. Add VERCEL_TOKEN (and optionally VERCEL_ORG_ID / VERCEL_PROJECT_ID) to enable auto-deploy on push."
+            exit 0
+          fi
+
+          # Link the checkout to the Vercel project. If org/project ids are not
+          # provided as secrets, Vercel resolves the linked project from the
+          # token's scope instead.
+          if [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            mkdir -p .vercel
+            printf '{"projectId":"%s","orgId":"%s","projectName":"money-tracker"}' \
+              "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/project.json
+          fi
+
+          npm i -g vercel@latest
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
