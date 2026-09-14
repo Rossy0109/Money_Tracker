@@ -1,8 +1,5 @@
 packages:
   - "."
 
-patchedDependencies:
-  wouter@3.7.1: patches/wouter@3.7.1.patch
-
 overrides:
   lodash: 4.17.23
