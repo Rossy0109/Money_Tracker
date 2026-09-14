@@ -41,9 +41,13 @@ describe("sidebar dashboard navigation", () => {
     }
     expect(dashboardLayout).toContain('href: "/"');
     expect(homeSource).toContain('id="overview"');
-    expect(homeSource).toContain('id="transactions" className="scroll-mt-20');
     expect(homeSource).toContain('id="accounts" className="scroll-mt-20');
     expect(homeSource).toContain('id="budgets" className="scroll-mt-20');
+    const transactionsSection = homeSource.slice(
+      homeSource.indexOf('id="transactions"'),
+      homeSource.indexOf('id="transactions"') + 400
+    );
+    expect(transactionsSection).toContain('scroll-mt-20');
     expect(dashboardLayout).toContain('href: "/categories"');
     expect(categoriesSource).toContain('href={`/categories/${type}`}');
     expect(categoriesSource).toContain('href="/categories"');

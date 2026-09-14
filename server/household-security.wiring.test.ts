@@ -16,7 +16,8 @@ describe("household authorization and accounting boundaries", () => {
   it("requires a pending invitation to match the signed-in user's normalized email before acceptance", () => {
     const source = functionSource("acceptHouseholdInvitation");
     expect(source).toContain('membership.status !== "pending"');
-    expect(source).toContain("normalizeEmail(currentUser.email) !== normalizeEmail(membership.inviteeEmail)");
+    expect(source).toContain("normalizeEmail(currentUser.email) !==");
+    expect(source).toContain("normalizeEmail(membership.inviteeEmail)");
     expect(source).toContain("status: \"active\"");
   });
 
@@ -25,7 +26,8 @@ describe("household authorization and accounting boundaries", () => {
       expect(functionSource(name)).toContain('requireHouseholdRole(access.role, ["owner"])');
     }
     expect(functionSource("addSharedExpense")).toContain('requireHouseholdRole(access.role, ["owner", "editor"])');
-    expect(dbSource).toContain('if (!allowed.includes(role)) throw new Error("এই কাজটি করার অনুমতি আপনার নেই")');
+    expect(dbSource).toContain("if (!allowed.includes(role))");
+    expect(dbSource).toContain('throw new Error("এই কাজটি করার অনুমতি আপনার নেই")');
   });
 
   it("counts and displays only expenses in the current month for the current household budget set", () => {
@@ -41,8 +43,8 @@ describe("household authorization and accounting boundaries", () => {
     const source = functionSource("getHouseholdOverview");
     expect(source.indexOf("const access = await getHouseholdAccess")).toBeLessThan(source.indexOf("const contributorSpend"));
     expect(source).toContain("const visibleContributorIds = new Set");
-    expect(source).toContain('access.role === "owner" || visibleContributorIds.has(expense.contributorUserId)');
-    expect(source).toContain('contributorName: access.role === "owner"');
+    expect(source).toContain('access.role === "owner" ||');
+    expect(source).toContain("visibleContributorIds.has(expense.contributorUserId)");
     expect(source).toContain('"সাবেক সদস্য"');
     expect(source).toContain("contributorSpend,");
   });

@@ -12,7 +12,9 @@ describe("debt and receivable accounting treatment", () => {
 
     expect(settlementSource).toContain("outstandingAmount");
     expect(settlementSource).toContain("financeDueSettlements");
-    expect(settlementSource).toContain("calculateDueSettlement(due.type, Number(due.outstandingAmount), input.amount)");
+    expect(settlementSource).toMatch(
+      /calculateDueSettlement\(\s*due\.type,\s*Number\(due\.outstandingAmount\),\s*input\.amount\s*\)/
+    );
     expect(settlementSource).toContain("effect.accountBalanceDelta");
     expect(settlementSource).not.toContain("financeTransactions");
   });
