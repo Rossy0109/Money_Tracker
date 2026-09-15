@@ -21,6 +21,12 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
       - name: Deploy with Vercel CLI
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -34,16 +40,15 @@ jobs:
             exit 0
           fi
 
-          # Link the checkout to the Vercel project. If org/project ids are not
-          # provided as secrets, Vercel resolves the linked project from the
-          # token's scope instead.
-          if [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
-            mkdir -p .vercel
-            printf '{"projectId":"%s","orgId":"%s","projectName":"money-tracker"}' \
-              "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/project.json
+          npm i -g vercel@latest
+
+          # Project-scoped (vcp_) tokens cannot read project settings, so the
+          # deploy flow needs a regular account access token here.
+          if ! vercel whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
+            echo "::error title=Invalid VERCEL_TOKEN::Vercel rejected the token. Use a regular account access token (vercel.com/account/settings/tokens), not a project-scoped token."
+            exit 1
           fi
 
-          npm i -g vercel@latest
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel build --prod --token="$VERCEL_TOKEN"
           vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
