@@ -7,7 +7,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
 
 interface MenuItem {
   icon: any;
@@ -32,6 +32,7 @@ const menuItems: MenuItem[] = [
   { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
   { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", adminOnly: true },
   { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

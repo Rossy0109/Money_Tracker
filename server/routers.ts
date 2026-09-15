@@ -414,6 +414,36 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    setPassword: protectedProcedure
+      .input(
+        z.object({
+          password: z
+            .string()
+            .min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে")
+            .max(100),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const clientIp =
+          ctx.req.ip ||
+          (ctx.req.headers["x-forwarded-for"] as string) ||
+          "client-ip";
+        checkRateLimit(String(clientIp), {
+          windowMs: 15 * 60 * 1000,
+          max: 5,
+          keyPrefix: "auth-set-password",
+          message:
+            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড পরিবর্তন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+        });
+
+        const passwordHash = hashPassword(input.password);
+        await financeDb.setUserPassword(ctx.user.openId, passwordHash);
+        resetRateLimit(String(clientIp), "auth-set-password");
+        return {
+          success: true,
+          message: "পাসওয়ার্ড সফলভাবে সেট করা হয়েছে। এখন ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
+        } as const;
+      }),
   }),
   admin: router({
     verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {

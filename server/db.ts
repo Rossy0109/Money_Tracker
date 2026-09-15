@@ -201,6 +201,12 @@ export async function createPasswordUser(input: {
   return user;
 }
 
+export async function setUserPassword(openId: string, passwordHash: string) {
+  const db = databaseRequired(await getDb());
+  const result = await db.update(users).set({ passwordHash }).where(eq(users.openId, openId));
+  return result;
+}
+
 export async function updateUserStatus(
   userId: number,
   status: "pending" | "active" | "suspended"
