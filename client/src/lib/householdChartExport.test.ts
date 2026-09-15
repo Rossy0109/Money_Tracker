@@ -17,7 +17,9 @@ const mocks = vi.hoisted(() => {
   return {
     canvas,
     capture: vi.fn(async () => canvas),
-    jsPDF: vi.fn(() => pdfDocument),
+    jsPDF: vi.fn(function JsPdfMock() {
+      return pdfDocument;
+    }),
     pdfDocument,
   };
 });

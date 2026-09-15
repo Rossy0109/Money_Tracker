@@ -177,10 +177,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "wouter"],
-          "vendor-charts": ["recharts"],
-          "vendor-query": ["@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
+        manualChunks(id) {
+          const path = id.replace(/\\/g, "/");
+          if (!path.includes("node_modules")) return undefined;
+          if (/node_modules\/(react|react-dom|wouter)\//.test(path)) return "vendor-react";
+          if (/node_modules\/recharts\//.test(path)) return "vendor-charts";
+          if (/node_modules\/(@tanstack|@trpc)\//.test(path)) return "vendor-query";
+          return undefined;
         },
       },
     },
