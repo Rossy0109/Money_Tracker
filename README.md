@@ -39,6 +39,10 @@ The application uses the provided Manus OAuth flow. Users sign in through the ac
 
 This source tree is designed for the Manus full-stack environment, which provides the required OAuth and managed database configuration. Before making a deployment public, create a checkpoint, then use the project interface's **Publish** control. Keep this repository as the portable source-code backup for future changes.
 
+## Continuous deployment
+
+Pushes to `main` trigger GitHub Actions (`Verify money tracker`), and when those checks pass the `Deploy to Vercel (CD)` workflow deploys the production build to Vercel. The `main` branch is protected: direct pushes are rejected, so changes land through pull requests with at least one approval and green CI checks.
+
 ## Test coverage
 
 The test suite verifies the fixed category contract, budget percentage behavior, authenticated ownership scoping for finance operations, unauthenticated rejection, and bill/budget mutation routing.
