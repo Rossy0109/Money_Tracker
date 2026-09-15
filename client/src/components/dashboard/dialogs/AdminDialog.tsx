@@ -223,7 +223,7 @@ export function AdminDialog({
                         mode="range"
                         selected={auditDateRange}
                         onSelect={setAuditDateRange}
-                        initialFocus
+                        autoFocus
                       />
                     </PopoverContent>
                   </Popover>

@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { parseCookie as parseCookieHeader } from "cookie";
+import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { ENV } from "./env";

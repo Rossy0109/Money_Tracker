@@ -81,7 +81,7 @@ export function registerStorageProxy(app: Express) {
   });
 
   app.get("/manus-storage/*splat", async (req, res) => {
-    const key = (req.params as Record<string, string>)["splat"];
+    const key = (req.params as unknown as Record<string, string>)["splat"];
     if (!key) {
       res.status(400).send("Missing storage key");
       return;

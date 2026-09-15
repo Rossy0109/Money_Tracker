@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { Request, Response } from "express";
-import { parseCookie as parseCookieHeader } from "cookie";
+import { parse as parseCookieHeader } from "cookie";
 import { ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS } from "../../shared/const";
 import { ENV } from "./env";
 import { getAdminSessionCookieOptions } from "./cookies";
