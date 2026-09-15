@@ -18,7 +18,11 @@ const documentApi = {
   output: vi.fn(() => new Blob(["pdf"])),
 };
 
-vi.mock("jspdf", () => ({ jsPDF: vi.fn(() => documentApi) }));
+vi.mock("jspdf", () => ({
+  jsPDF: vi.fn(function JsPdfMock() {
+    return documentApi;
+  }),
+}));
 
 describe("monthly report PDF", () => {
   beforeEach(() => {
