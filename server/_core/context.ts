@@ -13,6 +13,7 @@ export type TrpcContext = {
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
+  // eslint-disable-next-line no-useless-assignment -- initial null is used as fallback in catch
   let user: User | null = null;
 
   try {

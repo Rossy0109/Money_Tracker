@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 const SW_VERSION = "2.1.0";
 const CACHE_NAME = `amar-hisab-shell-v${SW_VERSION}`;
 const OFFLINE_URL = "/offline.html";

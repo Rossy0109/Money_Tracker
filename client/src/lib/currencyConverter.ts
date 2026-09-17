@@ -38,8 +38,7 @@ async function loadRatesFromCache(): Promise<Record<string, number> | null> {
         return parsed.rates;
       }
     }
-  } catch {
-  }
+  } catch { /* localStorage unavailable */ }
   return null;
 }
 
@@ -57,8 +56,7 @@ async function fetchLiveRates(): Promise<Record<string, number> | null> {
       }
       return rates;
     }
-  } catch {
-  }
+  } catch { /* network or parsing error */ }
   return null;
 }
 
@@ -76,8 +74,7 @@ export async function getCurrencyRates(): Promise<Record<string, CurrencyRate>> 
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: live, timestamp: Date.now() }));
       ratesCache = { rates: live, timestamp: Date.now() };
-    } catch {
-    }
+    } catch { /* storage quota exceeded */ }
     return Object.entries(live).reduce((acc, [code, rateToBdt]) => {
       const def = DEFAULT_RATES[code];
       if (def) acc[code] = { ...def, rateToBdt };

@@ -216,6 +216,7 @@ export default function Home() {
       activeProjectId,
       readActiveProjectId()
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active project from storage
     if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
   }, [activeProjectId, projects.data]);
 
@@ -225,6 +226,7 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset page when audit filters change
     setAuditPage(1);
   }, [
     auditDateRange?.from?.getTime(),

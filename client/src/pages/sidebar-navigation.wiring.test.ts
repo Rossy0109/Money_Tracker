@@ -20,7 +20,7 @@ const getCombinedHomeSource = () => {
         combined += "\n" + readFileSync(resolve(dashboardDir, file), "utf8");
       }
     }
-  } catch {}
+  } catch { /* dir read ignored */ }
   return combined;
 };
 

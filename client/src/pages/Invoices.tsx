@@ -48,6 +48,7 @@ export default function Invoices() {
   const [clientBinTin, setClientBinTin] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(
+    // eslint-disable-next-line react-hooks/purity -- stable default for new invoice
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
   const [discountAmount, setDiscountAmount] = useState("0");

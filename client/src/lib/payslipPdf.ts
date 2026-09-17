@@ -33,7 +33,6 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
-  let y = 18;
 
   // Header Background
   doc.setFillColor(20, 56, 47); // #14382f
@@ -62,7 +61,7 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   doc.setTextColor(220, 240, 230);
   doc.text(`Voucher: ${data.voucherNo || "N/A"}`, pageWidth - margin, 21, { align: "right" });
 
-  y = 36;
+  let y = 36;
 
   // Employee Information Box
   doc.setFillColor(245, 248, 246);
@@ -179,7 +178,6 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
     doc.setFontSize(8.5);
     doc.setTextColor(100, 110, 105);
     doc.text(`Notes: ${data.notes}`, margin, y);
-    y += 10;
   }
 
   // Official 3-Column Signatures

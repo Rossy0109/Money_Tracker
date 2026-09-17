@@ -60,6 +60,7 @@ export function TransactionsPanel({
 
   const visibleVirtualRows = useMemo(() => {
     if (!isVirtualMode) return paginatedRows;
+    // eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual exposes startIndex/endIndex as refs
     return filteredRows.slice(virtualizer.startIndex, virtualizer.endIndex + 1);
   }, [isVirtualMode, filteredRows, paginatedRows, virtualizer.startIndex, virtualizer.endIndex]);
 
@@ -124,7 +125,9 @@ export function TransactionsPanel({
         </div>
       </div>
 
+      {/* eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual container ref is required here */}
       <div
+        // eslint-disable-next-line react-hooks/refs
         ref={virtualizer.containerRef}
         className={`mt-5 overflow-x-auto ${isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}`}
       >

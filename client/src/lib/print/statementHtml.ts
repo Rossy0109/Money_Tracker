@@ -278,7 +278,7 @@ export function buildStatementHtml(
         { label: "মোট ব্যয়/খরচ", value: moneyBn(totals.expense), tone: "grand" },
       ]);
       break;
-    case "category":
+    case "category": {
       bodyHtml = categoryTableHtml(categoryAgg);
       const categoryTotal = categoryAgg.reduce((sum, row) => sum + row.total, 0);
       totalsHtml = totalsTableHtml([
@@ -289,6 +289,7 @@ export function buildStatementHtml(
         },
       ]);
       break;
+    }
     case "cashbook":
       bodyHtml = cashBookTableHtml(runningRows);
       totalsHtml = totalsTableHtml([

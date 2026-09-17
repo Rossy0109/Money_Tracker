@@ -63,7 +63,7 @@ export function useAppLogo() {
       localStorage.removeItem(LOGO_STORAGE_KEY);
       setLogoUrl(DEFAULT_LOGO_URL);
       window.dispatchEvent(new CustomEvent(LOGO_CHANGE_EVENT));
-    } catch {}
+    } catch { /* storage may be unavailable */ }
   }, []);
 
   const isCustom = logoUrl !== DEFAULT_LOGO_URL;

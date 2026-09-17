@@ -61,7 +61,7 @@ export function generateDueReminderMessage(due: {
   const amount = Number(due.outstandingAmount) || 0;
   const formattedAmount = formatBdtAmount(amount);
 
-  let voucherStr = due.voucherNo ? ` (ভাউচার: ${due.voucherNo})` : "";
+  const voucherStr = due.voucherNo ? ` (ভাউচার: ${due.voucherNo})` : "";
   let dateStr = "";
   if (due.dueAt) {
     const d = new Date(due.dueAt);

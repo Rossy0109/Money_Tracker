@@ -36,8 +36,8 @@ export default function FamilyHousehold() {
   const [pdfTitle, setPdfTitle] = useState(defaultPdfTitle);
   const monthlyChartExportRef = useRef<HTMLDivElement>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, needs refactor
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- select first household on initial load
     if (householdId === null && households.length) setHouseholdId(households[0].id);
   }, [households, householdId]);
 

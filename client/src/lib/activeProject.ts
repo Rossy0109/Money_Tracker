@@ -40,6 +40,7 @@ export function useActiveProject() {
 
   useEffect(() => {
     if (projects.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active project ID from storage/projects
       setActiveProjectId((current) => {
         const next = resolveActiveProjectId(
           projects.map((p) => p.id),

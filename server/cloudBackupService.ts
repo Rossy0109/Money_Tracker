@@ -215,7 +215,9 @@ export async function executeCloudBackup(
   const fileName = `${safeProjectName}-backup-${timestamp.slice(0, 10)}-${checksum.slice(0, 8)}.enc.json`;
   const config = getCloudStorageConfig();
 
+  // eslint-disable-next-line no-useless-assignment -- default values set before if/else chain
   let targetProvider: "supabase" | "s3" | "google_drive" | "local_encrypted" = "local_encrypted";
+  // eslint-disable-next-line no-useless-assignment -- default value set before if/else chain
   let uploadSuccess = false;
 
   if (config.supabase?.enabled) {

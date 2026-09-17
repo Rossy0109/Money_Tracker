@@ -84,6 +84,7 @@ export default function ReportsAndPrint() {
 
   const [projectId, setProjectId] = useState<number | null>(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- select first project on load
     if (projectId == null && projects.data?.[0]) setProjectId(projects.data[0].id);
   }, [projects.data, projectId]);
 
@@ -152,6 +153,7 @@ export default function ReportsAndPrint() {
   useEffect(() => {
     const firm = firmProfile.data;
     if (firm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync firm profile from server to local draft
       setFirmDraft({
         name: firm.name,
         tagline: firm.tagline,
