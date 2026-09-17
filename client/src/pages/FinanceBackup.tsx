@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { readActiveProjectId, resolveActiveProjectId, saveActiveProjectId } from "@/lib/activeProject";
+import { useActiveProject } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -17,11 +17,10 @@ import {
   HardDriveDownload,
   Loader2,
   Lock,
-  RefreshCw,
   Server,
   ShieldCheck,
 } from "lucide-react";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -43,13 +42,14 @@ export default function FinanceBackup() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
   const [, setLocation] = useLocation();
-  const { data: projects = [] } = trpc.projects.list.useQuery(undefined, { enabled: user?.role === "admin" });
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const { activeProjectId, projects, selectProject } = useActiveProject();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [backup, setBackup] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [preview, setPreview] = useState<any>(null);
   const [restoreName, setRestoreName] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [cloudBackupResult, setCloudBackupResult] = useState<any>(null);
+  const [cloudBackupResult, setCloudBackupResult] = useState<{ fileName?: string; provider?: string; byteSize?: number; checksum?: string; message?: string } | null>(null);
 
   const projectId = activeProjectId ?? 0;
   const exportBackup = trpc.finance.exportProjectBackup.useQuery({ projectId }, { enabled: false, retry: false });
@@ -57,8 +57,8 @@ export default function FinanceBackup() {
   const restoreBackup = trpc.finance.restoreProjectBackup.useMutation({
     onSuccess: async result => {
       await utils.projects.list.invalidate();
-      saveActiveProjectId(result.projectId);
-      toast.success("নতুন হিসাবখাতায় ব্যাকআপ পুনরুদ্ধার হয়েছে");
+      selectProject(result.projectId);
+      toast.success("নতুন হিসাবখাতায় ব্যাকআপ পুনরুদ্ধার হয়েছে");
       setLocation("/");
     },
     onError: error => toast.error(error.message || "পুনরুদ্ধার করা যায়নি"),
@@ -71,14 +71,10 @@ export default function FinanceBackup() {
   const triggerCloudBackup = trpc.finance.triggerCloudBackup.useMutation({
     onSuccess: result => {
       setCloudBackupResult(result);
-      toast.success(result.message || "ক্লাউড ব্যাকআপ সম্পন্ন হয়েছে");
+      toast.success(result.message || "ক্লাউড ব্যাকআপ সম্পন্ন হয়েছে");
     },
-    onError: error => toast.error(error.message || "ক্লাউড ব্যাকআপ ব্যর্থ হয়েছে"),
+    onError: error => toast.error(error.message || "ক্লাউড ব্যাকআপ ব্যর্থ হয়েছে"),
   });
-
-  useEffect(() => {
-    if (projects.length) setActiveProjectId(current => resolveActiveProjectId(projects.map(project => project.id), current, readActiveProjectId()));
-  }, [projects]);
 
   if (user && user.role !== "admin") {
     return (
@@ -103,8 +99,7 @@ export default function FinanceBackup() {
 
   const chooseProject = (value: string) => {
     const id = Number(value);
-    setActiveProjectId(id);
-    saveActiveProjectId(id);
+    selectProject(id);
   };
 
   const downloadBackup = async () => {
@@ -247,7 +242,7 @@ export default function FinanceBackup() {
                 <AlertTitle>ক্লাউড ব্যাকআপ সফল</AlertTitle>
                 <AlertDescription className="text-xs space-y-1 mt-1 text-[#436758]">
                   <p><strong>ফাইল:</strong> {cloudBackupResult.fileName}</p>
-                  <p><strong>প্রোভাইডার:</strong> {cloudBackupResult.provider} · <strong>আকার:</strong> {Math.round(cloudBackupResult.byteSize / 1024)} KB · <strong>চেকসাম:</strong> {cloudBackupResult.checksum.slice(0, 16)}...</p>
+                  <p><strong>প্রোভাইডার:</strong> {cloudBackupResult.provider} · <strong>আকার:</strong> {cloudBackupResult.byteSize != null ? Math.round(cloudBackupResult.byteSize / 1024) : "—"} KB · <strong>চেকসাম:</strong> {cloudBackupResult.checksum?.slice(0, 16) ?? "—"}...</p>
                 </AlertDescription>
               </Alert>
             )}

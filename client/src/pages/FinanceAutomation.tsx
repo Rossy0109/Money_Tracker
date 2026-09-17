@@ -3,10 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { readActiveProjectId, resolveActiveProjectId, saveActiveProjectId } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
-import { AlarmClock, CalendarClock, CheckCircle2, CircleDollarSign, Loader2, Play, ReceiptText } from "lucide-react";
+import { AlarmClock, CalendarClock, CircleDollarSign, Loader2, Play, ReceiptText } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,6 +28,7 @@ export default function FinanceAutomation() {
   const { data: projects = [], isLoading: projectsLoading } = trpc.projects.list.useQuery();
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [form, setForm] = useState<RecurringForm>(initialRecurring);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, needs refactor
   useEffect(() => { if (projects.length) setActiveProjectId(current => resolveActiveProjectId(projects.map(project => project.id), current, readActiveProjectId())); }, [projects]);
   const projectId = activeProjectId ?? 0;
   const { data: overview } = trpc.finance.overview.useQuery({ projectId }, { enabled: projectId > 0 });

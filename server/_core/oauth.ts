@@ -1,7 +1,8 @@
 import { COOKIE_NAME, ONE_YEAR_MS, OAUTH_STATE_COOKIE, decodeOAuthState } from "@shared/const";
-import { parse as parseCookieHeader } from "cookie";
+import { parseCookie as parseCookieHeader } from "cookie";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
+import { timingSafeCompare } from "../timingSafe";
 import { getOAuthTransactionCookieOptions, getSessionCookieOptions } from "./cookies";
 import {
   GOOGLE_CALLBACK_PATH,
@@ -20,7 +21,6 @@ import {
 import { ENV } from "./env";
 import { sdk } from "./sdk";
 import { hashPassword, verifyPasswordConstantTime } from "./passwordAuth";
-import { timingSafeCompare } from "../timingSafe";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -41,7 +41,7 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
-      const passwordHash = hashPassword(password);
+      const passwordHash = await hashPassword(password);
       const user = await db.createPasswordUser({
         name: typeof name === "string" ? name : "",
         email,
@@ -96,7 +96,7 @@ export function registerOAuthRoutes(app: Express) {
       }
 
       const user = await db.getUserByEmail(email);
-      const credentialsValid = verifyPasswordConstantTime(password, user?.passwordHash);
+      const credentialsValid = await verifyPasswordConstantTime(password, user?.passwordHash);
       if (!user || !credentialsValid) {
         res.status(401).json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
         return;
@@ -233,7 +233,7 @@ export function registerOAuthRoutes(app: Express) {
     // forge `state`, but cannot plant this cookie in the victim's browser.
     const { nonce } = decodeOAuthState(state);
     const expectedNonce = parseCookieHeader(req.headers.cookie ?? "")[OAUTH_STATE_COOKIE];
-    if (!nonce || nonce !== expectedNonce) {
+    if (!nonce || !expectedNonce || !timingSafeCompare(nonce, expectedNonce)) {
       res.status(403).json({ error: "invalid oauth state" });
       return;
     }

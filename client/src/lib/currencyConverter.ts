@@ -2,11 +2,11 @@ export interface CurrencyRate {
   code: string;
   name: string;
   symbol: string;
-  rateToBdt: number; // 1 Unit of Foreign Currency = X BDT
+  rateToBdt: number;
   flag: string;
 }
 
-export const SUPPORTED_CURRENCIES: Record<string, CurrencyRate> = {
+const DEFAULT_RATES: Record<string, CurrencyRate> = {
   BDT: { code: "BDT", name: "Bangladeshi Taka", symbol: "৳", rateToBdt: 1.0, flag: "🇧🇩" },
   USD: { code: "USD", name: "US Dollar", symbol: "$", rateToBdt: 118.5, flag: "🇺🇸" },
   EUR: { code: "EUR", name: "Euro", symbol: "€", rateToBdt: 129.2, flag: "🇪🇺" },
@@ -19,24 +19,94 @@ export const SUPPORTED_CURRENCIES: Record<string, CurrencyRate> = {
   SGD: { code: "SGD", name: "Singapore Dollar", symbol: "S$", rateToBdt: 91.2, flag: "🇸🇬" },
 };
 
-export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string = "BDT"): number {
-  const from = SUPPORTED_CURRENCIES[fromCurrency] || SUPPORTED_CURRENCIES.BDT;
-  const to = SUPPORTED_CURRENCIES[toCurrency] || SUPPORTED_CURRENCIES.BDT;
+const CACHE_KEY = "currency_rates_cache";
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000;
+const API_URL = "https://api.exchangerate-api.com/v4/latest/BDT";
 
-  // Convert to BDT first, then to target currency
+let ratesCache: { rates: Record<string, number>; timestamp: number } | null = null;
+
+async function loadRatesFromCache(): Promise<Record<string, number> | null> {
+  if (ratesCache && Date.now() - ratesCache.timestamp < CACHE_DURATION_MS) {
+    return ratesCache.rates;
+  }
+  try {
+    const stored = localStorage.getItem(CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Date.now() - parsed.timestamp < CACHE_DURATION_MS) {
+        ratesCache = parsed;
+        return parsed.rates;
+      }
+    }
+  } catch {
+  }
+  return null;
+}
+
+async function fetchLiveRates(): Promise<Record<string, number> | null> {
+  try {
+    const response = await fetch(API_URL, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.rates && typeof data.rates === "object") {
+      const rates: Record<string, number> = { BDT: 1 };
+      for (const [code, rate] of Object.entries(data.rates)) {
+        if (typeof rate === "number" && rate > 0) {
+          rates[code] = rate;
+        }
+      }
+      return rates;
+    }
+  } catch {
+  }
+  return null;
+}
+
+export async function getCurrencyRates(): Promise<Record<string, CurrencyRate>> {
+  const cached = await loadRatesFromCache();
+  if (cached) {
+    return Object.entries(cached).reduce((acc, [code, rateToBdt]) => {
+      const def = DEFAULT_RATES[code];
+      if (def) acc[code] = { ...def, rateToBdt };
+      return acc;
+    }, {} as Record<string, CurrencyRate>);
+  }
+  const live = await fetchLiveRates();
+  if (live) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: live, timestamp: Date.now() }));
+      ratesCache = { rates: live, timestamp: Date.now() };
+    } catch {
+    }
+    return Object.entries(live).reduce((acc, [code, rateToBdt]) => {
+      const def = DEFAULT_RATES[code];
+      if (def) acc[code] = { ...def, rateToBdt };
+      return acc;
+    }, {} as Record<string, CurrencyRate>);
+  }
+  return DEFAULT_RATES;
+}
+
+export async function convertCurrency(amount: number, fromCurrency: string, toCurrency: string = "BDT"): Promise<number> {
+  const rates = await getCurrencyRates();
+  const from = rates[fromCurrency] || rates.BDT;
+  const to = rates[toCurrency] || rates.BDT;
   const inBdt = amount * from.rateToBdt;
   return inBdt / to.rateToBdt;
 }
 
-export function formatCurrencyValue(amount: number, currencyCode: string = "BDT"): string {
-  const curr = SUPPORTED_CURRENCIES[currencyCode] || SUPPORTED_CURRENCIES.BDT;
+export async function formatCurrencyValue(amount: number, currencyCode: string = "BDT"): Promise<string> {
+  const rates = await getCurrencyRates();
+  const curr = rates[currencyCode] || rates.BDT;
   return `${curr.symbol} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function formatDualCurrency(amount: number, currencyCode: string = "USD"): string {
+export async function formatDualCurrency(amount: number, currencyCode: string = "USD"): Promise<string> {
   if (currencyCode === "BDT") {
     return formatCurrencyValue(amount, "BDT");
   }
-  const inBdt = convertCurrency(amount, currencyCode, "BDT");
-  return `${formatCurrencyValue(amount, currencyCode)} (${formatCurrencyValue(inBdt, "BDT")})`;
+  const inBdt = await convertCurrency(amount, currencyCode, "BDT");
+  const from = await formatCurrencyValue(amount, currencyCode);
+  const to = await formatCurrencyValue(inBdt, "BDT");
+  return `${from} (${to})`;
 }

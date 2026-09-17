@@ -291,7 +291,7 @@ export const appRouter = router({
         });
 
         try {
-          const passwordHash = hashPassword(input.password);
+          const passwordHash = await hashPassword(input.password);
           const user = await financeDb.createPasswordUser({
             name: input.name,
             email: input.email,
@@ -357,7 +357,7 @@ export const appRouter = router({
         });
 
         const user = await financeDb.getUserByEmail(input.email);
-        const credentialsValid = verifyPasswordConstantTime(
+        const credentialsValid = await verifyPasswordConstantTime(
           input.password,
           user?.passwordHash
         );
@@ -436,7 +436,7 @@ export const appRouter = router({
             "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড পরিবর্তন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
         });
 
-        const passwordHash = hashPassword(input.password);
+        const passwordHash = await hashPassword(input.password);
         await financeDb.setUserPassword(ctx.user.openId, passwordHash);
         resetRateLimit(String(clientIp), "auth-set-password");
         return {
@@ -563,6 +563,58 @@ export const appRouter = router({
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
         financeDb.getVoucherSettings(ctx.user.id, input.projectId)
+      ),
+    statementData: protectedProcedure
+      .input(
+        z
+          .object({
+            projectId,
+            categoryId: z.number().int().positive().optional(),
+            accountId: z.number().int().positive().optional(),
+            type: z.enum(["income", "expense"]).optional(),
+            from: z.coerce.date().optional(),
+            to: z.coerce.date().optional(),
+          })
+          .superRefine((input, context) => {
+            if (input.from && input.to && input.from > input.to)
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["to"],
+                message: "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না",
+              });
+          })
+      )
+      .query(({ ctx, input }) =>
+        financeDb.getStatementData(ctx.user.id, input)
+      ),
+    voucherPrint: protectedProcedure
+      .input(
+        z.object({
+          projectId,
+          transactionId: z.number().int().positive(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        financeDb.getVoucherPrintData(ctx.user.id, input)
+      ),
+    firmProfile: protectedProcedure
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getFirmProfile(ctx.user.id, input.projectId)
+      ),
+    saveFirmProfile: protectedProcedure
+      .input(
+        z.object({
+          projectId,
+          name: z.string().trim().min(1).max(160).optional(),
+          tagline: z.string().trim().max(160).optional(),
+          phone: z.string().trim().max(40).optional(),
+          email: z.string().trim().max(160).optional(),
+          address: z.string().trim().max(255).optional(),
+        })
+      )
+      .mutation(({ ctx, input }) =>
+        financeDb.saveFirmProfile(ctx.user.id, input.projectId, input)
       ),
     saveVoucherSettings: protectedProcedure
       .input(

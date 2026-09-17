@@ -20,6 +20,8 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     name: "Sample User",
     loginMethod: "manus",
     role: "user",
+    status: "active",
+    passwordHash: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -27,6 +29,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
 
   const ctx: TrpcContext = {
     user,
+    adminElevation: null,
     req: {
       protocol: "https",
       headers: {},

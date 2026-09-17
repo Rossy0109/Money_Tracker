@@ -67,3 +67,5 @@ export function MonthlyTrendChart({ trend }: MonthlyTrendChartProps) {
     </article>
   );
 }
+
+export default MonthlyTrendChart;

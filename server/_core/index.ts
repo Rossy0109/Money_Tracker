@@ -1,7 +1,8 @@
-import "dotenv/config";
+import "./loadEnv";
 import { createServer } from "http";
 import net from "net";
 import { createApiApp } from "./app";
+import { ensureAuthModeConsistency, validateCriticalEnv } from "./env";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -24,6 +25,21 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  const missingEnv = validateCriticalEnv();
+  if (missingEnv.length > 0) {
+    throw new Error(
+      `FATAL: Missing critical environment variables: ${missingEnv.join(", ")}. ` +
+        "Set them in .env or your deployment environment.",
+    );
+  }
+
+  const consistency = ensureAuthModeConsistency();
+  if (!consistency.ok) {
+    throw new Error(
+      `AUTH_MODE=${consistency.serverMode} and VITE_AUTH_MODE=${consistency.clientMode} must match. ` +
+        "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel).",
+    );
+  }
   const app = createApiApp();
   const server = createServer(app);
   // development mode uses Vite, production mode uses static files

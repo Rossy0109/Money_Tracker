@@ -7,7 +7,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
 
 interface MenuItem {
   icon: any;
@@ -24,6 +24,7 @@ const menuItems: MenuItem[] = [
   { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },
   { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory" },
   { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements" },
+  { icon: Printer, label: "রিপোর্ট ও প্রিন্ট", href: "/reports" },
   { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator" },
   { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
   { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },

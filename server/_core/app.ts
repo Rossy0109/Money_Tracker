@@ -7,6 +7,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
+import { ensureAuthModeConsistency } from "./env";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

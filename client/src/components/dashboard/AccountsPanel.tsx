@@ -2,6 +2,15 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Empty } from "@/components/dashboard/DashboardMetrics";
 import { bdt } from "./types";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface AccountItem {
   id: number;
@@ -25,6 +34,8 @@ export function AccountsPanel({
   onEdit,
   onDelete,
 }: AccountsPanelProps) {
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+
   return (
     <article id="accounts" className="scroll-mt-20 finance-card p-5">
       <div className="flex items-center justify-between">
@@ -74,11 +85,7 @@ export function AccountsPanel({
                     size="sm"
                     variant="ghost"
                     className="text-[#b64040] hover:text-[#8d2b2b]"
-                    onClick={() => {
-                      if (window.confirm("এই অ্যাকাউন্টটি মুছে ফেলবেন?")) {
-                        onDelete(account.id);
-                      }
-                    }}
+                    onClick={() => setDeleteTarget(account.id)}
                   >
                     মুছুন
                   </Button>
@@ -90,6 +97,25 @@ export function AccountsPanel({
           <Empty text="এখনও কোনো অ্যাকাউন্ট যোগ করা হয়নি" />
         )}
       </div>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>অ্যাকাউন্ট মুছুন</DialogTitle>
+            <DialogDescription>
+              কি আপনি নিশ্চিতভাবে এই অ্যাকাউন্টটি মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              বাতিল
+            </Button>
+            <Button variant="destructive" onClick={() => { onDelete(deleteTarget!); setDeleteTarget(null); }}>
+              মুছুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }

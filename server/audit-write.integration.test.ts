@@ -23,7 +23,7 @@ const state = vi.hoisted(() => {
       const rows = () => Promise.resolve([record]);
       const awaited = {
         for: () => rows(),
-        then: (resolve: (value: typeof record) => unknown, reject?: (reason?: unknown) => unknown) =>
+        then: (resolve: (value: typeof record[]) => unknown, reject?: (reason?: unknown) => unknown) =>
           rows().then(resolve, reject),
       };
       return {

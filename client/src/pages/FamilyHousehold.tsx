@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CheckCircle2, ChartColumnIncreasing, Clock3, FileDown, House, ImageDown, Plus, ShieldCheck, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { ChartColumnIncreasing, Clock3, FileDown, House, ImageDown, Plus, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,6 +36,7 @@ export default function FamilyHousehold() {
   const [pdfTitle, setPdfTitle] = useState(defaultPdfTitle);
   const monthlyChartExportRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, needs refactor
   useEffect(() => {
     if (householdId === null && households.length) setHouseholdId(households[0].id);
   }, [households, householdId]);
@@ -47,7 +48,7 @@ export default function FamilyHousehold() {
   const overview = overviewQuery.data;
   const canManage = overview?.currentRole === "owner";
   const canContribute = overview?.currentRole === "owner" || overview?.currentRole === "editor";
-  const currentMonth = useMemo(thisMonth, []);
+  const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const contributorSpend = overview?.contributorSpend ?? [];
   const contributorTotal = contributorSpend.reduce((total, item) => total + item.amount, 0);
   const monthlyContributorSpend = overview?.monthlyContributorSpend;

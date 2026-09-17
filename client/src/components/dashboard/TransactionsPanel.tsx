@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ListFilter } from "lucide-react";
+import { Plus, Pencil, Printer, Trash2, ChevronLeft, ChevronRight, Search, ListFilter } from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
@@ -15,6 +15,7 @@ export function TransactionsPanel({
   onAdd,
   onEdit,
   onDelete,
+  onVoucher,
 }: {
   rows: any[];
   filter: "all" | "income" | "expense";
@@ -22,6 +23,7 @@ export function TransactionsPanel({
   onAdd: () => void;
   onEdit: (row: any) => void;
   onDelete: (id: number) => void;
+  onVoucher?: (row: any) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -177,6 +179,16 @@ export function TransactionsPanel({
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex justify-end gap-2">
+                      {onVoucher && (
+                        <button
+                          onClick={() => onVoucher(row)}
+                          aria-label="ভাউচার প্রিন্ট"
+                          title="ভাউচার দেখুন ও প্রিন্ট করুন"
+                          className="text-[#577d6e] hover:text-[#184438] p-1"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(row)}
                         aria-label="সম্পাদনা"

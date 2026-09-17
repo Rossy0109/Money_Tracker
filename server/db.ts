@@ -4591,3 +4591,147 @@ export async function createEmployeeAdvance(
 
   return { id, success: true, voucherNo };
 }
+
+export async function getStatementData(
+  userId: number,
+  input: { projectId: number; categoryId?: number; accountId?: number; type?: "income" | "expense"; from?: Date; to?: Date }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+
+  const firmProfile = await getFirmProfile(userId, input.projectId);
+
+  const whereConditions = [
+    eq(financeTransactions.projectId, input.projectId),
+  ];
+  if (input.categoryId) whereConditions.push(eq(financeTransactions.categoryId, input.categoryId));
+  if (input.accountId) whereConditions.push(eq(financeTransactions.accountId, input.accountId));
+  if (input.type) whereConditions.push(eq(financeTransactions.type, input.type));
+  if (input.from) whereConditions.push(gte(financeTransactions.occurredAt, input.from));
+  if (input.to) whereConditions.push(lte(financeTransactions.occurredAt, input.to));
+
+  const rows = await db
+    .select({
+      id: financeTransactions.id,
+      projectId: financeTransactions.projectId,
+      accountId: financeTransactions.accountId,
+      categoryId: financeTransactions.categoryId,
+      type: financeTransactions.type,
+      amount: financeTransactions.amount,
+      voucherNo: financeTransactions.voucherNo,
+      reason: financeTransactions.reason,
+      paymentMethod: financeTransactions.paymentMethod,
+      note: financeTransactions.note,
+      occurredAt: financeTransactions.occurredAt,
+      createdAt: financeTransactions.createdAt,
+      categoryName: financeCategories.name,
+      accountName: financeAccounts.name,
+    })
+    .from(financeTransactions)
+    .leftJoin(financeCategories, eq(financeTransactions.categoryId, financeCategories.id))
+    .leftJoin(financeAccounts, eq(financeTransactions.accountId, financeAccounts.id))
+    .where(and(...whereConditions))
+    .orderBy(desc(financeTransactions.occurredAt));
+
+  const project = (await db.select().from(financeProjects).where(eq(financeProjects.id, input.projectId)).limit(1))[0];
+  const accounts = await db
+    .select({ id: financeAccounts.id, name: financeAccounts.name, type: financeAccounts.type, openingBalance: financeAccounts.openingBalance, currentBalance: financeAccounts.currentBalance })
+    .from(financeAccounts)
+    .where(eq(financeAccounts.projectId, input.projectId));
+
+  const items = rows.map(r => ({
+    ...r,
+    amount: r.amount,
+    categoryName: r.categoryName ?? "",
+    accountName: r.accountName ?? null,
+  }));
+
+  const income = items.filter(i => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
+  const expense = items.filter(i => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
+  const openingBalance = accounts.reduce((s, a) => s + Number(a.openingBalance), 0);
+  const closingBalance = accounts.reduce((s, a) => s + Number(a.currentBalance), 0);
+
+  return {
+    project: { id: project?.id ?? input.projectId, name: project?.name ?? "" },
+    firm: firmProfile,
+    items,
+    accounts: accounts.map(a => ({ ...a, openingBalance: Number(a.openingBalance), currentBalance: Number(a.currentBalance) })),
+    totals: { count: items.length, income, expense, netAmount: income - expense, openingBalance, closingBalance },
+  };
+}
+
+export async function getVoucherPrintData(
+  userId: number,
+  input: { projectId: number; transactionId: number }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+
+  const firmProfile = await getFirmProfile(userId, input.projectId);
+
+  const row = await db
+    .select({
+      id: financeTransactions.id,
+      projectId: financeTransactions.projectId,
+      accountId: financeTransactions.accountId,
+      categoryId: financeTransactions.categoryId,
+      type: financeTransactions.type,
+      amount: financeTransactions.amount,
+      voucherNo: financeTransactions.voucherNo,
+      reason: financeTransactions.reason,
+      paymentMethod: financeTransactions.paymentMethod,
+      note: financeTransactions.note,
+      occurredAt: financeTransactions.occurredAt,
+      createdAt: financeTransactions.createdAt,
+      categoryName: financeCategories.name,
+      accountName: financeAccounts.name,
+    })
+    .from(financeTransactions)
+    .leftJoin(financeCategories, eq(financeTransactions.categoryId, financeCategories.id))
+    .leftJoin(financeAccounts, eq(financeTransactions.accountId, financeAccounts.id))
+    .where(and(eq(financeTransactions.id, input.transactionId), eq(financeTransactions.projectId, input.projectId)))
+    .limit(1);
+
+  const project = (await db.select().from(financeProjects).where(eq(financeProjects.id, input.projectId)).limit(1))[0];
+  const tx = row[0];
+
+  return {
+    project: { id: project?.id ?? input.projectId, name: project?.name ?? "" },
+    firm: firmProfile,
+    transaction: {
+      ...tx!,
+      amount: tx!.amount,
+      categoryName: tx!.categoryName ?? "",
+      accountName: tx!.accountName ?? null,
+    },
+  };
+}
+
+const firmProfileCache = new Map<string, { name: string; tagline: string; phone: string; email: string; address: string }>();
+
+function firmProfileKey(userId: number, projectId: number) {
+  return `${userId}:${projectId}`;
+}
+
+export async function getFirmProfile(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
+  return firmProfileCache.get(firmProfileKey(userId, projectId)) ?? { name: "", tagline: "", phone: "", email: "", address: "" };
+}
+
+export async function saveFirmProfile(
+  userId: number,
+  projectId: number,
+  input: { name?: string; tagline?: string; phone?: string; email?: string; address?: string }
+) {
+  await assertOwnedProject(userId, projectId);
+  const existing = firmProfileCache.get(firmProfileKey(userId, projectId)) ?? { name: "", tagline: "", phone: "", email: "", address: "" };
+  const updated = {
+    name: input.name ?? existing.name,
+    tagline: input.tagline ?? existing.tagline,
+    phone: input.phone ?? existing.phone,
+    email: input.email ?? existing.email,
+    address: input.address ?? existing.address,
+  };
+  firmProfileCache.set(firmProfileKey(userId, projectId), updated);
+  return updated;
+}

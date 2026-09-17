@@ -13,13 +13,21 @@ export function isSecureRequest(req?: Request) {
   if (req.protocol === "https") return true;
 
   const forwardedProto = req.headers?.["x-forwarded-proto"];
-  if (!forwardedProto) return false;
+  if (forwardedProto) {
+    const protoList = Array.isArray(forwardedProto)
+      ? forwardedProto
+      : forwardedProto.split(",");
+    if (protoList.some(proto => proto.trim().toLowerCase() === "https")) {
+      return true;
+    }
+  }
 
-  const protoList = Array.isArray(forwardedProto)
-    ? forwardedProto
-    : forwardedProto.split(",");
-
-  return protoList.some(proto => proto.trim().toLowerCase() === "https");
+  // Loopback origins are trustworthy transport. Browsers permit Secure cookies
+  // (including `__Host-` prefixed ones) on http://localhost, so the dev server
+  // must mark them Secure for the OAuth transaction cookie to survive the
+  // provider round trip locally.
+  const hostname = typeof req.hostname === "string" ? req.hostname.toLowerCase() : "";
+  return LOCAL_HOSTS.has(hostname) || LOCAL_HOSTS.has(hostname.replace(/^\[|\]$/g, ""));
 }
 
 export function getSessionCookieOptions(

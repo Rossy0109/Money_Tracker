@@ -3,6 +3,7 @@ import {
   accountingReportOptions,
   type AccountingReportType,
 } from "./accountingReportDefinitions";
+import { bdt } from "./utils";
 
 export { accountingReportOptions, type AccountingReportType } from "./accountingReportDefinitions";
 
@@ -47,11 +48,6 @@ type MonthlyReport = {
 };
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
-const bdt = (value: number) =>
-  `৳ ${new Intl.NumberFormat("bn-BD", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value)}`;
 const monthText = (monthKey: string) =>
   new Intl.DateTimeFormat("bn-BD", { month: "long", year: "numeric" }).format(
     new Date(`${monthKey}-01T12:00:00Z`)

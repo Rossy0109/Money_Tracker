@@ -72,6 +72,7 @@ function createMockContext(): { ctx: TrpcContext; setCookies: CookieCall[] } {
 
   const ctx: TrpcContext = {
     user: null,
+    adminElevation: null,
     req: {
       protocol: "https",
       headers: {},

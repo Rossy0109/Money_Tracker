@@ -51,6 +51,20 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
+    if (ctx.user.status === "pending") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+      });
+    }
+
+    if (ctx.user.status === "suspended") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+      });
+    }
+
     return next({
       ctx: {
         ...ctx,
@@ -66,6 +80,20 @@ export const elevatedAdminProcedure = t.procedure.use(
 
     if (!ctx.user || ctx.user.role !== 'admin') {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+
+    if (ctx.user.status === "pending") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+      });
+    }
+
+    if (ctx.user.status === "suspended") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+      });
     }
 
     const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);

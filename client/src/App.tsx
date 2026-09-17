@@ -15,6 +15,7 @@ const FamilyHousehold = lazy(() => import("./pages/FamilyHousehold"));
 const Categories = lazy(() => import("./pages/Categories"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const FinancialStatements = lazy(() => import("./pages/FinancialStatements"));
+const ReportsAndPrint = lazy(() => import("./pages/ReportsAndPrint"));
 const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const PartyLedger = lazy(() => import("./pages/PartyLedger"));
@@ -31,6 +32,7 @@ function Router() {
         <Route path={"/invoices"} component={Invoices} />
         <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />
+        <Route path={"/reports"} component={ReportsAndPrint} />
         <Route path={"/tax-calculator"} component={TaxCalculator} />
         <Route path={"/insights"} component={FinanceInsights} />
         <Route path={"/automation"} component={FinanceAutomation} />

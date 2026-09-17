@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
+import { bdt } from "@/lib/utils";
 import { useActiveProject } from "@/lib/activeProject";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,9 +32,6 @@ import {
   ArrowRight,
   HandCoins,
 } from "lucide-react";
-
-const bdt = (val: number | string | null | undefined) =>
-  `৳ ${Number(val || 0).toLocaleString("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 

@@ -2,13 +2,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
-  readActiveProjectId,
-  resolveActiveProjectId,
-  saveActiveProjectId,
+  useActiveProject,
 } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, CircleDollarSign, Tags, TrendingDown, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Tags, TrendingDown, TrendingUp } from "lucide-react";
 import { useRoute } from "wouter";
 
 type CategoryType = "income" | "expense";
@@ -38,32 +35,17 @@ export default function Categories() {
   const { isAuthenticated } = useAuth();
   const [, params] = useRoute("/categories/:type");
   const selectedType = params?.type === "income" || params?.type === "expense" ? params.type : null;
-  const projects = trpc.projects.list.useQuery(undefined, { enabled: isAuthenticated });
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
   const overview = trpc.finance.overview.useQuery(
     { projectId: activeProjectId ?? 0 },
     { enabled: isAuthenticated && activeProjectId !== null }
   );
 
-  useEffect(() => {
-    const projectIds = projects.data?.map(project => project.id) ?? [];
-    const nextProjectId = resolveActiveProjectId(
-      projectIds,
-      activeProjectId,
-      readActiveProjectId()
-    );
-    if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
-  }, [activeProjectId, projects.data]);
-  function selectProject(projectId: number) {
-    saveActiveProjectId(projectId);
-    setActiveProjectId(projectId);
-  }
-
   const categories = overview.data?.categories ?? [];
   const incomeCategories = categories.filter(category => category.type === "income");
   const expenseCategories = categories.filter(category => category.type === "expense");
 
-  const projectSelector = projects.data?.length ? (
+  const projectSelector = projects.length ? (
     <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
       <span>প্রকল্প</span>
       <select
@@ -72,7 +54,7 @@ export default function Categories() {
         onChange={event => selectProject(Number(event.target.value))}
         className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
       >
-        {projects.data.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+        {projects.map((project: { id: number; name: string }) => <option key={project.id} value={project.id}>{project.name}</option>)}
       </select>
     </label>
   ) : null;
@@ -88,7 +70,7 @@ export default function Categories() {
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">সবকিছু একসঙ্গে না রেখে আয়ের ও ব্যয়ের ক্যাটাগরিগুলো আলাদা পৃষ্ঠায় সাজানো হয়েছে।</p>
             <div className="mt-5">{projectSelector}</div>
           </header>
-          {overview.isLoading || projects.isLoading ? <LoadingState /> : (
+          {overview.isLoading || projectsLoading ? <LoadingState /> : (
             <section className="grid gap-5 md:grid-cols-2">
               <CategoryLink type="income" count={incomeCategories.length} />
               <CategoryLink type="expense" count={expenseCategories.length} />
@@ -122,7 +104,7 @@ export default function Categories() {
           </div>
         </header>
 
-        {overview.isLoading || projects.isLoading ? <LoadingState /> : selectedCategories.length ? (
+        {overview.isLoading || projectsLoading ? <LoadingState /> : selectedCategories.length ? (
           <section aria-label={details.title} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {selectedCategories.map(category => (
               <article key={category.id} className="finance-card flex min-h-32 items-center gap-4 p-5">

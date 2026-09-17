@@ -12,9 +12,8 @@ import {
   DollarSign,
   Building,
   CheckCircle2,
-  AlertCircle,
-  HelpCircle,
 } from "lucide-react";
+import { openPrintWindow } from "@/lib/print/printWindow";
 
 export default function FinancialStatements() {
   const { activeProjectId } = useActiveProject();
@@ -28,7 +27,14 @@ export default function FinancialStatements() {
   const data = statementsQuery.data;
 
   const handlePrint = () => {
-    window.print();
+    if (!data) return;
+    const html = document.querySelector('[data-print-target="financial-statements"]')?.outerHTML;
+    if (html) {
+      openPrintWindow({
+        title: "আর্থিক বিবরণী ও লেজার",
+        bodyHtml: html,
+      });
+    }
   };
 
   return (
@@ -68,7 +74,7 @@ export default function FinancialStatements() {
             বিবরণী লোড করা সম্ভব হয়নি।
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-print-target="financial-statements">
             <TabsList className="bg-white p-1.5 rounded-2xl border border-[#dce7df] grid grid-cols-3 max-w-md h-auto shadow-sm">
               <TabsTrigger
                 value="pnl"
