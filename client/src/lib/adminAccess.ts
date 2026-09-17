@@ -1,5 +1,5 @@
 export type AdminAccessState = {
-  role?: "admin" | "user";
+  role?: "admin" | "user" | "input_only";
   verified: boolean;
   password: string;
 };

@@ -13,7 +13,7 @@ import {
   executeCloudBackup,
 } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, elevatedAdminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { issueAdminToken, setAdminElevationCookie, clearAdminElevationCookie } from "./_core/adminSession";
 import { ADMIN_SESSION_TTL_MS } from "../shared/const";
 
@@ -414,7 +414,7 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
-    setPassword: protectedProcedure
+    setPassword: inputOnlyProcedure
       .input(
         z.object({
           password: z
@@ -508,11 +508,19 @@ export const appRouter = router({
     list: protectedProcedure.query(({ ctx }) =>
       financeDb.listProjects(ctx.user.id)
     ),
-    create: protectedProcedure
+    create: inputOnlyProcedure
       .input(z.object({ name: z.string().trim().min(1).max(120) }))
       .mutation(({ ctx, input }) =>
         financeDb.createProject(ctx.user.id, input.name)
       ),
+    active: inputOnlyProcedure.query(async ({ ctx }) => {
+      const projects = await financeDb.listProjects(ctx.user.id);
+      if (projects.length > 0) {
+        return { id: projects[0].id, name: projects[0].name } as const;
+      }
+      const created = await financeDb.createProject(ctx.user.id, "Default");
+      return { id: created.id, name: created.name } as const;
+    }),
   }),
   finance: router({
     overview: protectedProcedure
@@ -728,7 +736,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.addSharedExpense(ctx.user.id, input)
       ),
-    addTransaction: protectedProcedure
+    addTransaction: inputOnlyProcedure
       .input(transactionInput)
       .mutation(({ ctx, input }) =>
         financeDb.createTransaction(ctx.user.id, input)
@@ -744,7 +752,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.deleteTransaction(ctx.user.id, input.projectId, input.id)
       ),
-    addDue: protectedProcedure
+    addDue: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -769,7 +777,7 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) => financeDb.settleDue(ctx.user.id, input)),
-    addAccount: protectedProcedure
+    addAccount: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -808,7 +816,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.deleteAccount(ctx.user.id, input.projectId, input.id)
       ),
-    saveBudget: protectedProcedure
+    saveBudget: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -818,7 +826,7 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) => financeDb.upsertBudget(ctx.user.id, input)),
-    addBill: protectedProcedure
+    addBill: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -866,7 +874,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.deleteBill(ctx.user.id, input.projectId, input.id)
       ),
-    addRecurringTemplate: protectedProcedure
+    addRecurringTemplate: inputOnlyProcedure
       .input(
         transactionInput
           .extend({
@@ -876,9 +884,10 @@ export const appRouter = router({
           })
           .omit({ occurredAt: true })
       )
-      .mutation(({ ctx, input }) =>
-        financeDb.createRecurringTemplate(ctx.user.id, input)
-      ),
+      .mutation(async ({ ctx, input }) => {
+        const id = await financeDb.createRecurringTemplate(ctx.user.id, input);
+        return id;
+      }),
     setRecurringActive: protectedProcedure
       .input(
         z.object({
@@ -1066,7 +1075,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.deleteInventoryItem(ctx.user.id, input.projectId, input.id)
       ),
-    syncOfflineTransactions: protectedProcedure
+    syncOfflineTransactions: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -1184,7 +1193,7 @@ export const appRouter = router({
           input.monthKey
         )
       ),
-    disburseSalary: protectedProcedure
+    disburseSalary: inputOnlyProcedure
       .input(
         z.object({
           projectId,
@@ -1218,7 +1227,7 @@ export const appRouter = router({
           input.employeeId
         )
       ),
-    createEmployeeAdvance: protectedProcedure
+    createEmployeeAdvance: inputOnlyProcedure
       .input(
         z.object({
           projectId,

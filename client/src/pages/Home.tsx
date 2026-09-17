@@ -979,6 +979,15 @@ export default function Home() {
       </DashboardLayout>
     );
 
+  if (user?.role === "input_only" && !window.location.hash) {
+    window.location.replace("#transactions");
+    return (
+      <DashboardLayout>
+        <LoadingState />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <main id="overview" className="space-y-5 pb-12 sm:space-y-7">

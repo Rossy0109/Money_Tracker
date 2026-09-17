@@ -14,6 +14,7 @@ interface MenuItem {
   label: string;
   href: string;
   adminOnly?: boolean;
+  inputOnlyAllowed?: boolean;
 }
 
 const menuItems: MenuItem[] = [
@@ -30,9 +31,16 @@ const menuItems: MenuItem[] = [
   { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
   { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
   { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
-  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
+  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
   { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", adminOnly: true },
   { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
+];
+
+const inputOnlyMenuItems: MenuItem[] = [
+  { icon: ReceiptText, label: "লেনদেন যোগ করুন", href: "/#transactions", inputOnlyAllowed: true },
+  { icon: WalletCards, label: "অ্যাকাউন্ট যোগ করুন", href: "/#accounts", inputOnlyAllowed: true },
+  { icon: ChartNoAxesCombined, label: "বাজেট যোগ করুন", href: "/#budgets", inputOnlyAllowed: true },
   { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
 ];
 
@@ -66,7 +74,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || user.role === "admin");
+  const isInputOnly = user.role === "input_only";
+  const visibleMenuItems = isInputOnly
+    ? inputOnlyMenuItems
+    : menuItems.filter(item => !item.adminOnly || user.role === "admin");
 
   return (
     <SidebarProvider defaultOpen>
@@ -98,8 +109,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <div className="flex items-center gap-1.5">
                   <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${user.role === "admin" ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30" : "bg-white/15 text-[#b9d2c2]"}`}>
-                    {user.role === "admin" ? "Admin" : "User"}
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${user.role === "admin" ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30" : user.role === "input_only" ? "bg-amber-400/25 text-amber-200 border border-amber-400/30" : "bg-white/15 text-[#b9d2c2]"}`}>
+                    {user.role === "admin" ? "Admin" : user.role === "input_only" ? "Input Only" : "User"}
                   </span>
                 </div>
                 <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
