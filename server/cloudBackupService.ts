@@ -3,6 +3,7 @@ import * as financeDb from "./db";
 import { encryptPayload } from "./scheduledBackup";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import { ENV } from "./_core/env";
+import logger from "./_core/logger";
 
 export interface CloudStorageConfig {
   supabase?: {
@@ -94,7 +95,7 @@ async function uploadToSupabase(
     });
     return response.ok;
   } catch (err) {
-    console.warn("[CloudBackup] Supabase upload error:", err);
+    logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Supabase upload error");
     return false;
   }
 }
@@ -133,7 +134,7 @@ async function uploadToS3(
       );
       return true;
     } catch (err) {
-      console.warn("[CloudBackup] Direct S3 upload error:", err);
+      logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Direct S3 upload error");
     }
   }
 
@@ -201,7 +202,12 @@ export async function executeCloudBackup(
   const timestamp = new Date().toISOString();
   const safeProjectName = backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) || "project";
 
-  const secret = encryptionKey || ENV.adminAccessPassword || "secure-cloud-backup-key";
+  const secret = encryptionKey || ENV.backupEncryptionKey;
+  if (!secret) {
+    throw new Error(
+      "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি। BACKUP_ENCRYPTION_KEY এনভায়রনমেন্ট ভ্যারিয়েবল সেট করুন।"
+    );
+  }
   const encryptedPayload = encryptPayload(rawJson, secret);
   const finalPayload = JSON.stringify({
     formatVersion: "finance-encrypted-cloud-backup-v1",

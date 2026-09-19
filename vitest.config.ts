@@ -22,5 +22,17 @@ export default defineConfig({
       SESSION_SECRET: "test-session-secret-minimum-32-chars-long",
       ADMIN_BOOTSTRAP_EMAIL: "admin@example.com",
     },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      include: ["server/**/*.ts", "client/src/**/*.ts"],
+      exclude: ["**/*.test.ts", "**/*.e2e.ts", "**/*.spec.ts"],
+      thresholds: {
+        statements: 70,
+        branches: 60,
+        functions: 70,
+        lines: 70,
+      },
+    },
   },
 });

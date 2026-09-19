@@ -5,6 +5,7 @@ import { executeCloudBackup } from "./cloudBackupService";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { timingSafeCompare } from "./timingSafe";
+import logger from "./_core/logger";
 
 export function encryptPayload(data: string, secretKey: string): { iv: string; encrypted: string; tag: string } {
   const key = createHash("sha256").update(secretKey).digest();
@@ -27,10 +28,6 @@ function hasValidSecret(candidate: string, expectedSecret?: string) {
   return timingSafeCompare(candidate, expectedSecret);
 }
 
-function hasValidAdminPassword(candidate: string) {
-  return hasValidSecret(candidate, ENV.adminAccessPassword);
-}
-
 function hasValidCronSecret(candidate: string) {
   const cronSecret = process.env.CRON_SECRET || process.env.BACKUP_CRON_SECRET;
   return hasValidSecret(candidate, cronSecret);
@@ -41,7 +38,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (hasValidCronSecret(token) || hasValidAdminPassword(token)) {
+    if (hasValidCronSecret(token)) {
       return true;
     }
   }
@@ -52,23 +49,14 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
     return true;
   }
 
-  // 3. Check if admin password provided in header
-  const adminPasswordHeader = req.headers["x-admin-password"];
-  if (typeof adminPasswordHeader === "string" && hasValidAdminPassword(adminPasswordHeader)) {
-    return true;
-  }
-
-  // 4. Check if admin password or cron secret provided in JSON body
+  // 3. Check if cron secret provided in JSON body
   if (req.body) {
-    if (typeof req.body.adminPassword === "string" && hasValidAdminPassword(req.body.adminPassword)) {
-      return true;
-    }
     if (typeof req.body.cronSecret === "string" && hasValidCronSecret(req.body.cronSecret)) {
       return true;
     }
   }
 
-  // 5. Check authenticated session / cron
+  // 4. Check authenticated session / cron
   try {
     const user = await sdk.authenticateRequest(req);
     if (user.isCron) {
@@ -84,12 +72,33 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   return false;
 }
 
+/**
+ * Verify backup integrity after upload by re-reading and checking checksum.
+ * Returns true if the backup is verifiable, false otherwise.
+ */
+async function verifyBackupIntegrity(
+  userId: number,
+  projectId: number,
+  expectedChecksum: string
+): Promise<{ verified: boolean; error?: string }> {
+  try {
+    const reExport = await financeDb.exportProjectBackup(userId, projectId);
+    const reChecksum = createHash("sha256").update(JSON.stringify(reExport, null, 2)).digest("hex");
+    if (reChecksum === expectedChecksum) {
+      return { verified: true };
+    }
+    return { verified: false, error: `Checksum mismatch: expected ${expectedChecksum.slice(0, 12)}..., got ${reChecksum.slice(0, 12)}...` };
+  } catch (error) {
+    return { verified: false, error: `Verification failed: ${String(error)}` };
+  }
+}
+
 export async function runScheduledBackup(req: Request, res: Response): Promise<void> {
   const isAuthorized = await verifyBackupAuthorization(req);
   if (!isAuthorized) {
     res.status(403).json({
       success: false,
-      error: "অননুমোদিত ব্যাকআপ অনুরোধ: অ্যাডমিন বা ক্রন অধিকার আবশ্যক",
+      error: "অননুমোদিত ব্যাকআপ অনুরোধ: ক্রন সিক্রেট আবশ্যক",
     });
     return;
   }
@@ -99,21 +108,48 @@ export async function runScheduledBackup(req: Request, res: Response): Promise<v
     const activeUsers = adminUsers.filter(u => u.status === "active");
 
     let totalProjectsBackedUp = 0;
+    let verifiedCount = 0;
+    let failedCount = 0;
     const backupResults = [];
 
     for (const user of activeUsers) {
       const projects = await financeDb.listProjects(user.id);
       for (const project of projects) {
         const cloudResult = await executeCloudBackup(user.id, project.id);
+
+        // Post-upload integrity verification
+        if (cloudResult.success && cloudResult.checksum) {
+          const verification = await verifyBackupIntegrity(user.id, project.id, cloudResult.checksum);
+          if (verification.verified) {
+            verifiedCount++;
+            (cloudResult as any).integrityVerified = true;
+          } else {
+            failedCount++;
+            (cloudResult as any).integrityVerified = false;
+            (cloudResult as any).integrityError = verification.error;
+            logger.warn(`Backup integrity check failed for project ${project.id}: ${verification.error}`);
+          }
+        }
+
         backupResults.push(cloudResult);
         totalProjectsBackedUp++;
       }
     }
 
+    // Log the scheduled backup audit
+    await financeDb.logAudit({
+      actorUserId: 0,
+      action: "create",
+      entityType: "cloud_backup",
+      summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${verifiedCount} verified, ${failedCount} failed integrity`,
+    });
+
     res.status(200).json({
       success: true,
       timestamp: new Date().toISOString(),
       backedUpProjectsCount: totalProjectsBackedUp,
+      integrityVerified: verifiedCount,
+      integrityFailed: failedCount,
       details: backupResults,
     });
   } catch (error) {

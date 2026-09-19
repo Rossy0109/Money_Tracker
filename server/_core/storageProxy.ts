@@ -3,6 +3,7 @@ import { get as getBlob } from "@vercel/blob";
 import { Readable } from "node:stream";
 import { ENV } from "./env";
 import { selectStorageBackend } from "./storageBackend";
+import logger from "./logger";
 import { sdk } from "./sdk";
 import { getPrivateStorageObjectForDownload } from "../db";
 
@@ -75,7 +76,7 @@ export function registerStorageProxy(app: Express) {
 
       await streamPrivateBlobObject(object, res);
     } catch (error) {
-      console.error("[StorageProxy] private object delivery failed:", error);
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[StorageProxy] private object delivery failed");
       res.status(502).send("Storage proxy error");
     }
   });
@@ -111,7 +112,7 @@ export function registerStorageProxy(app: Express) {
 
       if (!forgeResp.ok) {
         const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
+        logger.error({ forgeStatus: forgeResp.status, body }, "[StorageProxy] forge error");
         res.status(502).send("Storage backend error");
         return;
       }
@@ -125,7 +126,7 @@ export function registerStorageProxy(app: Express) {
       res.set("Cache-Control", "no-store");
       res.redirect(307, url);
     } catch (err) {
-      console.error("[StorageProxy] failed:", err);
+      logger.error({ err: err instanceof Error ? err : new Error(String(err)) }, "[StorageProxy] failed");
       res.status(502).send("Storage proxy error");
     }
   });

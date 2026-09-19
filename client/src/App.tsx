@@ -20,6 +20,9 @@ const TaxCalculator = lazy(() => import("./pages/TaxCalculator"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const PartyLedger = lazy(() => import("./pages/PartyLedger"));
 const Payroll = lazy(() => import("./pages/Payroll"));
+const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
+const PeriodLock = lazy(() => import("./pages/PeriodLock"));
+const VoucherReversal = lazy(() => import("./pages/VoucherReversal"));
 
 function Router() {
   return (
@@ -27,8 +30,11 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Home} />
         <Route path={"/account"} component={Account} />
-        <Route path={"/party-ledger"} component={PartyLedger} />
-        <Route path={"/payroll"} component={Payroll} />
+<Route path={"/party-ledger"} component={PartyLedger} />
+<Route path={"/payroll"} component={Payroll} />
+<Route path={"/chart-of-accounts"} component={ChartOfAccounts} />
+<Route path={"/period-lock"} component={PeriodLock} />
+<Route path={"/voucher-reversal"} component={VoucherReversal} />
         <Route path={"/invoices"} component={Invoices} />
         <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />

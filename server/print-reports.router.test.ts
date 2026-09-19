@@ -4,6 +4,11 @@ import { appRouter } from "./routers";
 
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
+    getDb: vi.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) }),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([{ insertId: 1 }]) }),
+    }),
+    databaseRequired: vi.fn((db: any) => db),
     getStatementData: vi.fn(async () => ({
       project: { id: 5, name: "খাতা" },
       firm: {
@@ -70,6 +75,27 @@ const { financeDb } = vi.hoisted(() => ({
 
 vi.mock("./db", () => financeDb);
 
+vi.mock("./accounting-core", () => ({
+  assertPeriodNotLocked: vi.fn().mockResolvedValue(undefined),
+  generateTrialBalance: vi.fn(),
+  generateIncomeStatement: vi.fn(),
+  generateBalanceSheet: vi.fn(),
+  generateAccountingReport: vi.fn(),
+  createFiscalPeriod: vi.fn(),
+  listFiscalPeriods: vi.fn(),
+  closeFiscalPeriod: vi.fn(),
+}));
+
+vi.mock("./_core/rbac", () => ({
+  initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  hasPermission: vi.fn().mockResolvedValue(true),
+  hasAnyPermission: vi.fn().mockResolvedValue(true),
+  hasAllPermissions: vi.fn().mockResolvedValue(true),
+  hasRole: vi.fn().mockResolvedValue(true),
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+  getUserRoles: vi.fn().mockResolvedValue([]),
+}));
+
 function createUserContext(): TrpcContext {
   return {
     user: {
@@ -81,6 +107,10 @@ function createUserContext(): TrpcContext {
       loginMethod: "password",
       role: "user",
       status: "active",
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      resetToken: null,
+      resetTokenExpiresAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),

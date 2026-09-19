@@ -19,6 +19,27 @@ const { financeDb } = vi.hoisted(() => ({
 
 vi.mock("./db", () => financeDb);
 
+vi.mock("./accounting-core", () => ({
+  assertPeriodNotLocked: vi.fn().mockResolvedValue(undefined),
+  generateTrialBalance: vi.fn(),
+  generateIncomeStatement: vi.fn(),
+  generateBalanceSheet: vi.fn(),
+  generateAccountingReport: vi.fn(),
+  createFiscalPeriod: vi.fn(),
+  listFiscalPeriods: vi.fn(),
+  closeFiscalPeriod: vi.fn(),
+}));
+
+vi.mock("./_core/rbac", () => ({
+  initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  hasPermission: vi.fn().mockResolvedValue(true),
+  hasAnyPermission: vi.fn().mockResolvedValue(true),
+  hasAllPermissions: vi.fn().mockResolvedValue(true),
+  hasRole: vi.fn().mockResolvedValue(true),
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+  getUserRoles: vi.fn().mockResolvedValue([]),
+}));
+
 import { appRouter } from "./routers";
 
 const authenticatedContext = {

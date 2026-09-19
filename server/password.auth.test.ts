@@ -102,7 +102,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     const result = await caller.auth.register({
       name: "কামরুল হাসান",
       email: testEmail,
-      password: "securePassword123",
+      password: "SecureP@ss123",
     });
 
     expect(result.success).toBe(true);
@@ -119,7 +119,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await regCaller.auth.register({
       name: "অপেক্ষারত ইউজার",
       email: testEmail,
-      password: "mySecretPassword123",
+      password: "MySecret@123",
     });
 
     const { ctx: loginCtx } = createMockContext();
@@ -128,7 +128,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await expect(
       loginCaller.auth.login({
         email: testEmail,
-        password: "mySecretPassword123",
+        password: "MySecret@123",
       })
     ).rejects.toThrow("অনুমোদিত হয়নি");
   });
@@ -141,7 +141,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await regCaller.auth.register({
       name: "অনুমোদিত ইউজার",
       email: testEmail,
-      password: "mySecretPassword123",
+      password: "MySecret@123",
     });
 
     // Admin approves user
@@ -154,7 +154,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
 
     const result = await loginCaller.auth.login({
       email: testEmail,
-      password: "mySecretPassword123",
+      password: "MySecret@123",
     });
 
     expect(result.success).toBe(true);
@@ -171,7 +171,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await regCaller.auth.register({
       name: "পাসওয়ার্ড টেস্ট",
       email: testEmail,
-      password: "correctPassword123",
+      password: "CorrectP@ss123",
     });
 
     const { ctx: loginCtx } = createMockContext();
@@ -180,7 +180,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await expect(
       loginCaller.auth.login({
         email: testEmail,
-        password: "wrongPassword999",
+        password: "WrongP@ss999",
       })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
   });
@@ -193,11 +193,11 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     const caller = appRouter.createCaller(ctx);
 
     await expect(
-      caller.auth.login({ email: "ghost@example.com", password: "randomPassword123" })
+      caller.auth.login({ email: "ghost@example.com", password: "RandomP@ss123" })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith("randomPassword123", undefined);
+    expect(spy).toHaveBeenCalledWith("RandomP@ss123", undefined);
   });
 
   it("runs the constant-time verification for an OAuth-only account without a password hash", async () => {
@@ -222,11 +222,11 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     const caller = appRouter.createCaller(ctx);
 
     await expect(
-      caller.auth.login({ email: "oauth@example.com", password: "somePassword123" })
+      caller.auth.login({ email: "oauth@example.com", password: "SomeP@ss123" })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith("somePassword123", null);
+    expect(spy).toHaveBeenCalledWith("SomeP@ss123", null);
   });
 
   it("runs the constant-time verification exactly once for a wrong password", async () => {
@@ -237,7 +237,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await regCaller.auth.register({
       name: "টাইমিং টেস্ট",
       email: testEmail,
-      password: "correctPassword123",
+      password: "CorrectP@ss123",
     });
 
     const spy = vi.mocked(verifyPasswordConstantTime);
@@ -247,10 +247,12 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     const loginCaller = appRouter.createCaller(loginCtx);
 
     await expect(
-      loginCaller.auth.login({ email: testEmail, password: "wrongPassword999" })
+      loginCaller.auth.login({ email: testEmail, password: "WrongP@ss999" })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
 
     expect(spy).toHaveBeenCalledTimes(1);
+    // The second argument is the stored hash from the database
+    expect(spy).toHaveBeenCalledWith("WrongP@ss999", expect.any(String));
   });
 
   it("rejects duplicate registration with same email", async () => {
@@ -261,7 +263,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     await regCaller1.auth.register({
       name: "প্রথম রেজিস্টার",
       email: testEmail,
-      password: "password123",
+      password: "Password@123",
     });
 
     const { ctx: regCtx2 } = createMockContext();
@@ -271,7 +273,7 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
       regCaller2.auth.register({
         name: "দ্বিতীয় রেজিস্টার",
         email: testEmail,
-        password: "password456",
+        password: "UniqueP@ss789",
       })
     ).rejects.toThrow("ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে");
   });

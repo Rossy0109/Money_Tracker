@@ -2,7 +2,7 @@ import type { jsPDF } from "jspdf";
 
 export type AuditLogExportRecord = {
   id: number;
-  action: "create" | "update" | "delete";
+  action: "create" | "update" | "delete" | "delete_attempt" | "approve" | "reject" | "post" | "reverse" | "login" | "logout" | "login_failed" | "permission_denied" | "user_suspended" | "backup_created" | "backup_restored";
   entityType: string;
   entityId: number | null;
   summary: string;

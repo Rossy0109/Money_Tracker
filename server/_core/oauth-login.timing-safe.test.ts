@@ -139,7 +139,7 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
       body: JSON.stringify({
         name: "Registered",
         email: "registered@example.com",
-        password: "correctPassword123",
+        password: "correctPassword123!",
       }),
     });
 
@@ -151,7 +151,7 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: "registered@example.com",
-        password: "wrongPassword999",
+        password: "wrongPassword999!",
       }),
     });
 

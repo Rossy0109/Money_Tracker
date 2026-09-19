@@ -7,7 +7,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
 
 interface MenuItem {
   icon: any;
@@ -20,6 +20,9 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
+  { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts" },
+  { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock" },
+  { icon: RotateCcw, label: "ভাউচার রিভার্সাল", href: "/voucher-reversal" },
   { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger" },
   { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll" },
   { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },

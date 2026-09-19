@@ -15,8 +15,44 @@ const { financeDb } = vi.hoisted(() => ({
     getInventoryList: vi.fn(), createInventoryItem: vi.fn(), updateInventoryItem: vi.fn(), adjustInventoryStock: vi.fn(), deleteInventoryItem: vi.fn(),
     getBills: vi.fn(),
     setUserPassword: vi.fn(),
+    listInvoices: vi.fn(), getFinancialStatements: vi.fn(),
+    getVoucherList: vi.fn(), getVoucherReversals: vi.fn(),
+    getPeriodLocks: vi.fn(), lockPeriod: vi.fn(), unlockPeriod: vi.fn(),
+    getChartOfAccounts: vi.fn(), getChartOfAccountsTree: vi.fn(), getAccountTypes: vi.fn(),
+    createChartOfAccount: vi.fn(), updateChartOfAccount: vi.fn(), deleteChartOfAccount: vi.fn(), seedDefaultChartOfAccounts: vi.fn(),
+    createVoucherWithEntries: vi.fn(), reverseVoucher: vi.fn(),
+    createBankReconciliation: vi.fn(), getBankReconciliationById: vi.fn(), getBankReconciliations: vi.fn(),
+    addBankReconciliationItem: vi.fn(), matchBankReconciliationItem: vi.fn(), unmatchBankReconciliationItem: vi.fn(),
+    completeBankReconciliation: vi.fn(), getBankReconciliationItems: vi.fn(), getLedgerEntriesForReconciliation: vi.fn(),
   },
 }));
+
+// Mock RBAC module — admin gets all permissions, input_only gets only entry perms
+const ALL_PERMISSIONS = [
+  "auth.login", "auth.logout",
+  "accounting.read", "accounting.create", "accounting.update", "accounting.delete",
+  "budget.read", "budget.create", "budget.update", "budget.approve",
+  "payroll.read", "payroll.create", "payroll.update", "payroll.approve",
+  "voucher.read", "voucher.create", "voucher.submit", "voucher.approve", "voucher.post", "voucher.reverse",
+  "ledger.read", "ledger.export",
+  "audit.read", "audit.export",
+  "user.read", "user.create", "user.update", "user.suspend",
+  "backup.create", "backup.restore",
+  "settings.manage", "role.manage", "permission.manage",
+];
+const INPUT_ONLY_PERMISSIONS = ["auth.login", "auth.logout", "accounting.create", "payroll.create", "voucher.create", "budget.create"];
+
+const rbacMock = vi.hoisted(() => ({
+  hasPermission: vi.fn(),
+  hasAnyPermission: vi.fn(),
+  hasAllPermissions: vi.fn(),
+  hasRole: vi.fn(),
+  getUserPermissions: vi.fn(),
+  getUserRoles: vi.fn(),
+  initializeRBAC: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("./_core/rbac", () => rbacMock);
 
 vi.mock("./db", () => financeDb);
 
@@ -74,7 +110,32 @@ const expenseInput = {
 };
 
 describe("Input-Only User Permission Model", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // RBAC mock: admin (id=1) and normal user (id=99) get all permissions;
+    // input_only user (id=42) gets only entry permissions.
+    rbacMock.hasPermission.mockImplementation(async (userId: number, perm: string) => {
+      if (userId === 42) return INPUT_ONLY_PERMISSIONS.includes(perm);
+      return ALL_PERMISSIONS.includes(perm);
+    });
+    rbacMock.hasAnyPermission.mockImplementation(async (userId: number, perms: string[]) => {
+      if (userId === 42) return perms.some(p => INPUT_ONLY_PERMISSIONS.includes(p));
+      return perms.some(p => ALL_PERMISSIONS.includes(p));
+    });
+    rbacMock.hasAllPermissions.mockImplementation(async (userId: number, perms: string[]) => {
+      if (userId === 42) return perms.every(p => INPUT_ONLY_PERMISSIONS.includes(p));
+      return perms.every(p => ALL_PERMISSIONS.includes(p));
+    });
+    rbacMock.getUserPermissions.mockImplementation(async (userId: number) => {
+      if (userId === 42) return INPUT_ONLY_PERMISSIONS;
+      return ALL_PERMISSIONS;
+    });
+    rbacMock.getUserRoles.mockImplementation(async (userId: number) => {
+      if (userId === 42) return ["INPUT_OPERATOR"];
+      return ["SUPER_ADMIN"];
+    });
+    rbacMock.hasRole.mockResolvedValue(true);
+  });
 
   // ─────────────────────────────────────────────
   // ADMIN REGRESSION (Tests 1–10)
@@ -263,7 +324,7 @@ describe("Input-Only User Permission Model", () => {
     it("Can set own password (auth.setPassword)", async () => {
       financeDb.setUserPassword.mockResolvedValue(undefined);
       const caller = appRouter.createCaller(inputOnlyContext);
-      const result = await caller.auth.setPassword({ password: "newpass123" });
+      const result = await caller.auth.setPassword({ password: "NewPass@123" });
       expect(result).toHaveProperty("success", true);
     });
   });
@@ -666,18 +727,15 @@ describe("Input-Only User Permission Model", () => {
   // ─────────────────────────────────────────────
   describe("Security — Client-supplied role/userId cannot elevate", () => {
     it("44. Client-supplied role cannot elevate privileges", async () => {
-      // Even if the context claims role is admin, the server uses the session role
+      // Even if the context claims role is admin, RBAC checks permissions by userId.
+      // userId=42 has INPUT_ONLY_PERMISSIONS which don't include accounting.read,
+      // so finance.overview is correctly denied regardless of the legacy role field.
       const fakeAdminContext = {
         ...inputOnlyContext,
         user: { ...inputOnlyUser, role: "admin" as const },
       };
-      // The server still respects the session-derived role from the JWT
-      // This test verifies the middleware doesn't trust client-supplied role
       const caller = appRouter.createCaller(fakeAdminContext);
-      // Since the context user object IS the server-verified user, this tests
-      // that the middleware chain works correctly
-      const result = await caller.finance.overview({ projectId: 88 });
-      expect(result).toBeDefined();
+      await expect(caller.finance.overview({ projectId: 88 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
 
     it("45. Client-supplied userId cannot access another user's data", async () => {

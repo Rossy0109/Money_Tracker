@@ -1,0 +1,166 @@
+import { TRPCError } from "@trpc/server";
+import { hasPermission, hasAnyPermission, hasAllPermissions, hasRole } from "./rbac";
+import type { TrpcContext } from "./context";
+
+/**
+ * Middleware to check if user has a specific permission.
+ * Throws TRPCError if user doesn't have the permission.
+ */
+export function requirePermission(permissionName: string) {
+  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+    const { ctx, next } = opts;
+    
+    if (!ctx.user) {
+      throw new TRPCError({ 
+        code: "UNAUTHORIZED", 
+        message: "Authentication required" 
+      });
+    }
+    
+    const hasPerm = await hasPermission(ctx.user.id, permissionName);
+    if (!hasPerm) {
+      throw new TRPCError({ 
+        code: "FORBIDDEN", 
+        message: `অনুমতি নেই: ${permissionName}` 
+      });
+    }
+    
+    return next({ ctx });
+  };
+}
+
+/**
+ * Middleware to check if user has any of the given permissions (OR logic).
+ */
+export function requireAnyPermission(permissionNames: string[]) {
+  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+    const { ctx, next } = opts;
+    
+    if (!ctx.user) {
+      throw new TRPCError({ 
+        code: "UNAUTHORIZED", 
+        message: "Authentication required" 
+      });
+    }
+    
+    const { hasAnyPermission } = await import("./rbac");
+    const hasPerm = await hasAnyPermission(ctx.user.id, permissionNames);
+    if (!hasPerm) {
+      throw new TRPCError({ 
+        code: "FORBIDDEN", 
+        message: `নিম্নলিখিত অনুমতির যেকোনো একটি থাকতে হবে: ${permissionNames.join(", ")}` 
+      });
+    }
+    
+    return next({ ctx });
+  };
+}
+
+/**
+ * Middleware to check if user has all of the given permissions (AND logic).
+ */
+export function requireAllPermissions(permissionNames: string[]) {
+  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+    const { ctx, next } = opts;
+    
+    if (!ctx.user) {
+      throw new TRPCError({ 
+        code: "UNAUTHORIZED", 
+        message: "Authentication required" 
+      });
+    }
+    
+    const { hasAllPermissions } = await import("./rbac");
+    const hasPerm = await hasAllPermissions(ctx.user.id, permissionNames);
+    if (!hasPerm) {
+      throw new TRPCError({ 
+        code: "FORBIDDEN", 
+        message: `নিম্নলিখিত সব অনুমতির থাকতে হবে: ${permissionNames.join(", ")}` 
+      });
+    }
+    
+    return next({ ctx });
+  };
+}
+
+/**
+ * Middleware to check if user has a specific role.
+ */
+export function requireRole(roleName: string) {
+  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+    const { ctx, next } = opts;
+    
+    if (!ctx.user) {
+      throw new TRPCError({ 
+        code: "UNAUTHORIZED", 
+        message: "Authentication required" 
+      });
+    }
+    
+    const { hasRole } = await import("./rbac");
+    const hasRolePerm = await hasRole(ctx.user.id, roleName);
+    if (!hasRolePerm) {
+      throw new TRPCError({ 
+        code: "FORBIDDEN", 
+        message: `ভূমিকা প্রয়োজন: ${roleName}` 
+      });
+    }
+    
+    return next({ ctx });
+  };
+}
+
+/**
+ * Middleware to check if user has any of the given roles (OR logic).
+ */
+export function requireAnyRole(roleNames: string[]) {
+  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+    const { ctx, next } = opts;
+    
+    if (!ctx.user) {
+      throw new TRPCError({ 
+        code: "UNAUTHORIZED", 
+        message: "Authentication required" 
+      });
+    }
+    
+    const { hasAnyPermission } = await import("./rbac");
+    // For roles, we check if user has any of the roles
+    const { getUserRoles } = await import("./rbac");
+    const userRoles = await getUserRoles((opts as any).ctx.user.id);
+    const hasRole = roleNames.some(r => userRoles.includes(r));
+    
+    if (!hasRole) {
+      throw new TRPCError({ 
+        code: "FORBIDDEN", 
+        message: `নিম্নলিখিত ভূমিকার যেকোনো একটি থাকতে হবে: ${roleNames.join(", ")}` 
+      });
+    }
+    
+    return next({ ctx });
+  };
+}
+
+/**
+ * Helper to create a permission-checking middleware for a specific resource and action.
+ * Usage: requireResourcePermission("accounting", "create")
+ */
+export function requireResourcePermission(resource: string, action: string) {
+  return requirePermission(`${resource}.${action}`);
+}
+
+/**
+ * Helper to create a middleware requiring any of multiple resource permissions.
+ * Usage: requireAnyResourcePermission("voucher", ["create", "read"])
+ */
+export function requireAnyResourcePermission(resource: string, actions: string[]) {
+  return requireAnyPermission(actions.map(a => `${resource}.${a}`));
+}
+
+/**
+ * Helper to create a middleware requiring all resource permissions.
+ * Usage: requireAllResourcePermissions("budget", ["read", "create", "update"])
+ */
+export function requireAllResourcePermissions(resource: string, actions: string[]) {
+  return requireAllPermissions(actions.map(a => `${resource}.${a}`));
+}

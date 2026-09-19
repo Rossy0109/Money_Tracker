@@ -22,6 +22,10 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     role: "user",
     status: "active",
     passwordHash: null,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    resetToken: null,
+    resetTokenExpiresAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -56,10 +60,9 @@ describe("auth.logout", () => {
     expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
     expect(clearedCookies[0]?.options).toMatchObject({
       maxAge: -1,
-      secure: true,
-      sameSite: "none",
       httpOnly: true,
       path: "/",
+      sameSite: "lax",
     });
   });
 });

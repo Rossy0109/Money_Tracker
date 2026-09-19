@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
+import { permissionProcedure } from "./trpc";
 
 export const systemRouter = router({
   health: publicProcedure
@@ -14,6 +15,7 @@ export const systemRouter = router({
     })),
 
   notifyOwner: adminProcedure
+    .use(permissionProcedure.resource("settings", "manage"))
     .input(
       z.object({
         title: z.string().min(1, "title is required"),

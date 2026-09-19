@@ -1,5 +1,7 @@
+export type AuthMode = "google" | "password" | "manus";
+
 export const ENV = {
-  authMode: process.env.AUTH_MODE === "google" ? "google" : "manus",
+  authMode: (process.env.AUTH_MODE as AuthMode) ?? "password",
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   sessionSecret: process.env.SESSION_SECRET ?? "",
@@ -19,10 +21,12 @@ export const ENV = {
   googleDriveClientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET ?? "",
   googleDriveRedirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI ?? "",
   backupCronSecret: process.env.CRON_SECRET ?? process.env.BACKUP_CRON_SECRET ?? "",
+  backupEncryptionKey: process.env.BACKUP_ENCRYPTION_KEY ?? "",
+  backupRetentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS ?? "30", 10),
   adminBootstrapEmail: process.env.ADMIN_BOOTSTRAP_EMAIL ?? "",
 };
 
-export type AuthModeConsistency = { ok: boolean; serverMode?: string; clientMode?: string };
+export type AuthModeConsistency = { ok: boolean; serverMode?: AuthMode; clientMode?: AuthMode };
 
 /**
  * Validates that critical environment variables are present at startup.
@@ -41,9 +45,29 @@ export function validateCriticalEnv(): string[] {
   }
   
   // At least one auth secret must be set
-  const hasAuthSecret = authRequired.some(key => process.env[key]);
+  const hasAuthSecret = ["SESSION_SECRET", "JWT_SECRET"].some(key => process.env[key]);
   if (!hasAuthSecret) {
-    missing.push(...authRequired);
+    missing.push("SESSION_SECRET", "JWT_SECRET");
+  }
+  
+  // If using Google OAuth, check required Google OAuth env vars
+  if (process.env.AUTH_MODE === "google") {
+    const googleRequired = ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_REDIRECT_URI"];
+    for (const key of googleRequired) {
+      if (!process.env[key]) {
+        missing.push(key);
+      }
+    }
+  }
+  
+  // If using Manus OAuth, check required Manus OAuth env vars
+  if (process.env.AUTH_MODE === "manus") {
+    const manusRequired = ["OAUTH_SERVER_URL"];
+    for (const key of manusRequired) {
+      if (!process.env[key]) {
+        missing.push(key);
+      }
+    }
   }
   
   return missing;
@@ -58,10 +82,10 @@ export function validateCriticalEnv(): string[] {
  * `ensure` reads current process.env so tests can control it with vi.stubEnv.
  */
 export function ensureAuthModeConsistency(): AuthModeConsistency {
-  const serverMode = process.env.AUTH_MODE;
-  const clientMode = process.env.VITE_AUTH_MODE;
-  if (!serverMode || !clientMode) {
-    return { ok: true, serverMode, clientMode };
+  const serverMode = (process.env.AUTH_MODE as "google" | "password" | "manus") ?? "password";
+  const clientMode = (process.env.VITE_AUTH_MODE as "google" | "password" | "manus" | undefined);
+  if (!clientMode) {
+    return { ok: true, serverMode, clientMode: serverMode };
   }
   const ok = serverMode === clientMode;
   return { ok, serverMode, clientMode };

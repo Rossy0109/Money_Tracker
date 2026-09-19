@@ -1,5 +1,73 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 
+export interface PasswordStrengthResult {
+  valid: boolean;
+  errors: string[];
+  score: number; // 0-4
+}
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+
+export function validatePasswordStrength(password: string): PasswordStrengthResult {
+  const errors: string[] = [];
+  let score = 0;
+
+  if (!password) {
+    return { valid: false, errors: ["Password is required"], score: 0 };
+  }
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    errors.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long`);
+  } else {
+    score += 1;
+  }
+
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    errors.push(`Password must not exceed ${MAX_PASSWORD_LENGTH} characters`);
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push("Password must contain at least one lowercase letter");
+  } else {
+    score += 1;
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push("Password must contain at least one uppercase letter");
+  } else {
+    score += 1;
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push("Password must contain at least one number");
+  } else {
+    score += 1;
+  }
+
+  if (!/[^a-zA-Z0-9]/.test(password)) {
+    errors.push("Password must contain at least one special character");
+  } else {
+    score += 1;
+  }
+
+  // Check for common patterns
+  if (/(.)\1{2,}/.test(password)) {
+    errors.push("Password should not contain repeated characters");
+  }
+
+  const commonPatterns = ["123456", "password", "qwerty", "abc123", "admin", "letmein"];
+  if (commonPatterns.some(pattern => password.includes(pattern))) {
+    errors.push("Password contains a commonly used pattern");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    score: Math.min(score, 4),
+  };
+}
+
 const KEY_LENGTH = 64;
 
 /**
@@ -7,8 +75,9 @@ const KEY_LENGTH = 64;
  * Format: `scrypt:<hex-salt>:<hex-key>`
  */
 export async function hashPassword(password: string): Promise<string> {
-  if (!password || password.length < 6) {
-    throw new Error("Password must be at least 6 characters long");
+  const validation = validatePasswordStrength(password);
+  if (!validation.valid) {
+    throw new Error(validation.errors.join(", "));
   }
   const salt = randomBytes(16).toString("hex");
   const derivedKey = await new Promise<Buffer>((resolve, reject) => {
@@ -54,7 +123,8 @@ let DUMMY_PASSWORD_HASH: string | null = null;
 
 async function getDummyPasswordHash(): Promise<string> {
   if (!DUMMY_PASSWORD_HASH) {
-    DUMMY_PASSWORD_HASH = await hashPassword("dummy-password-for-timing-mitigation-2026");
+    // Use a password that meets the strength requirements for the dummy hash
+    DUMMY_PASSWORD_HASH = await hashPassword("DummyP@ss2026!");
   }
   return DUMMY_PASSWORD_HASH;
 }

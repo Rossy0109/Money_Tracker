@@ -1,0 +1,11 @@
+node_modules
+dist
+*.log
+.env*
+.git
+*.md
+*.test.ts
+*.spec.ts
+*.e2e.ts
+Dockerfile
+.dockerignore

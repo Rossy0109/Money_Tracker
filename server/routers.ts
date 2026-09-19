@@ -13,7 +13,13 @@ import {
   executeCloudBackup,
 } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import * as accountingCore from "./accounting-core";
+import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, protectedProcedure, publicProcedure, router, idempotent } from "./_core/trpc";
+import { permissionProcedure } from "./_core/trpc";
+import {
+  protectedWithPermission,
+  inputOnlyWithPermission,
+} from "./_core/rbac-procedures";
 import { issueAdminToken, setAdminElevationCookie, clearAdminElevationCookie } from "./_core/adminSession";
 import { ADMIN_SESSION_TTL_MS } from "../shared/const";
 
@@ -52,6 +58,94 @@ const transactionInput = z.object({
   note: z.string().max(500).optional(),
   occurredAt: transactionDate,
   idempotencyKey: z.string().trim().max(120).optional(),
+});
+
+const voucherEntry = z.object({
+  accountId: z.number().int().positive(),
+  amount: amount,
+  narration: z.string().max(300).optional(),
+});
+
+const voucherInput = z.object({
+  projectId,
+  idempotencyKey: z.string().min(8).max(255).optional(),
+  date: transactionDate,
+  narration: z.string().max(500).optional(),
+  debits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ডেবিট এন্ট্রি দরকার"),
+  credits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ক্রেডিট এন্ট্রি দরকার"),
+  references: z.array(z.object({
+    refType: z.enum(["cheque", "bill", "invoice", "challan", "other"]),
+    refNumber: z.string().trim().min(1).max(120),
+    refDate: z.coerce.date().optional(),
+    relatedEntityType: z.string().max(50).optional(),
+    relatedEntityId: z.number().int().positive().optional(),
+  })).optional(),
+}).superRefine((input, ctx) => {
+  const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
+  const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["credits"],
+      message: "ডেবিট ও ক্রেডিটের মোট সমান হতে হবে",
+    });
+  }
+});
+
+const coaAccountInput = z.object({
+  projectId,
+  accountTypeId: z.number().int().positive(),
+  parentId: z.number().int().positive().optional(),
+  code: z.string().trim().min(1).max(30),
+  name: z.string().trim().min(1).max(120),
+  nameBn: z.string().max(120).optional(),
+  description: z.string().max(500).optional(),
+  isDetail: z.boolean().optional(),
+  openingBalance: z.number().finite().optional(),
+});
+
+const coaAccountUpdateInput = z.object({
+  projectId,
+  accountTypeId: z.number().int().positive().optional(),
+  parentId: z.number().int().positive().nullable().optional(),
+  code: z.string().trim().min(1).max(30).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  nameBn: z.string().max(120).optional(),
+  description: z.string().max(500).optional(),
+  isActive: z.boolean().optional(),
+  isDetail: z.boolean().optional(),
+});
+
+const periodLockInput = z.object({
+  projectId,
+  monthKey,
+  reason: z.string().max(300).optional(),
+});
+
+const reversalInput = z.object({
+  projectId,
+  originalVoucherId: z.number().int().positive(),
+  reason: z.string().trim().min(1).max(500),
+  date: transactionDate,
+  idempotencyKey: z.string().min(8).max(255).optional(),
+});
+
+const bankReconciliationInput = z.object({
+  projectId,
+  accountId: z.number().int().positive(),
+  statementDate: transactionDate,
+  statementBalance: amount,
+  notes: z.string().max(500).optional(),
+});
+
+const bankReconciliationItemInput = z.object({
+  projectId,
+  reconciliationId: z.number().int().positive(),
+  ledgerEntryId: z.number().int().positive().optional(),
+  statementRef: z.string().trim().min(1).max(120),
+  statementDate: transactionDate,
+  statementAmount: amount,
+  statementType: z.enum(["debit", "credit"]),
 });
 
 const transactionSearchInput = z
@@ -437,18 +531,77 @@ export const appRouter = router({
         });
 
         const passwordHash = await hashPassword(input.password);
-        await financeDb.setUserPassword(ctx.user.openId, passwordHash);
+        await financeDb.setUserPassword(ctx.user!.openId, passwordHash);
         resetRateLimit(String(clientIp), "auth-set-password");
         return {
           success: true,
           message: "পাসওয়ার্ড সফলভাবে সেট করা হয়েছে। এখন ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
         } as const;
       }),
+    forgotPassword: publicProcedure
+      .input(
+        z.object({
+          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const clientIp =
+          ctx.req.ip ||
+          (ctx.req.headers["x-forwarded-for"] as string) ||
+          "client-ip";
+        checkRateLimit(String(clientIp), {
+          windowMs: 60 * 60 * 1000,
+          max: 5,
+          keyPrefix: "auth-forgot-password",
+          message:
+            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড রিসেট বন্ধ রাখা হয়েছে। ১ ঘণ্টা পর আবার চেষ্টা করুন।",
+        });
+
+        const { success, resetToken } = await financeDb.createPasswordResetToken(input.email);
+
+        // In production, you would send the resetToken via email
+        // For now, we return it in development for testing
+        const isDev = process.env.NODE_ENV === "development";
+        
+        return {
+          success: true,
+          message: "যদি ইমেইলটি রেজিস্টার্ড থাকে, পাসওয়ার্ড রিসেট লিংকটি পাঠানো হবে।",
+          resetToken: isDev ? resetToken : undefined,
+        } as const;
+      }),
+    resetPassword: publicProcedure
+      .input(
+        z.object({
+          token: z.string().min(1, "টোকেন প্রয়োজন"),
+          password: z
+            .string()
+            .min(8, "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে")
+            .max(100),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { valid, user } = await financeDb.validatePasswordResetToken(input.token);
+        
+        if (!valid || !user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "অবৈধ বা মেয়াদোত্তীর্ণ রিসেট টোকেন।",
+          });
+        }
+        
+        const passwordHash = await hashPassword(input.password);
+        await financeDb.consumePasswordResetToken(user.openId, passwordHash);
+        
+        return {
+          success: true,
+          message: "পাসওয়ার্ড সফলভাবে রিসেট করা হয়েছে। এখন নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
+        } as const;
+      }),
   }),
   admin: router({
     verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {
       const clientIp = ctx.req?.headers?.["x-forwarded-for"] || ctx.req?.socket?.remoteAddress || ctx.req?.ip || "admin-verify";
-      const rateLimitKey = `${ctx.user.id}:${clientIp}`;
+      const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
 
       checkRateLimit(String(rateLimitKey), {
         windowMs: 15 * 60 * 1000,
@@ -462,7 +615,7 @@ export const appRouter = router({
       }
 
       resetRateLimit(String(rateLimitKey), "admin-verify");
-      const token = issueAdminToken(ctx.user.id, ctx.user.openId, ADMIN_SESSION_TTL_MS);
+      const token = issueAdminToken(ctx.user!.id, ctx.user!.openId, ADMIN_SESSION_TTL_MS);
       if (ctx.req && ctx.res) {
         setAdminElevationCookie(ctx.req, ctx.res, token);
       }
@@ -474,7 +627,7 @@ export const appRouter = router({
     }),
     elevationStatus: adminProcedure.query(({ ctx }) => {
       return {
-        elevated: Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id),
+        elevated: Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user!.id),
         expiresAt: ctx.adminElevation?.expiresAt ?? null,
       };
     }),
@@ -505,35 +658,35 @@ export const appRouter = router({
     }),
   }),
   projects: router({
-    list: protectedProcedure.query(({ ctx }) =>
-      financeDb.listProjects(ctx.user.id)
+    list: protectedWithPermission("accounting", "read").query(({ ctx }) =>
+      financeDb.listProjects(ctx.user!.id)
     ),
-    create: inputOnlyProcedure
+    create: inputOnlyWithPermission("accounting", "create")
       .input(z.object({ name: z.string().trim().min(1).max(120) }))
       .mutation(({ ctx, input }) =>
-        financeDb.createProject(ctx.user.id, input.name)
+        financeDb.createProject(ctx.user!.id, input.name)
       ),
-    active: inputOnlyProcedure.query(async ({ ctx }) => {
-      const projects = await financeDb.listProjects(ctx.user.id);
+    active: inputOnlyWithPermission("accounting", "create").query(async ({ ctx }) => {
+      const projects = await financeDb.listProjects(ctx.user!.id);
       if (projects.length > 0) {
         return { id: projects[0].id, name: projects[0].name } as const;
       }
-      const created = await financeDb.createProject(ctx.user.id, "Default");
+      const created = await financeDb.createProject(ctx.user!.id, "Default");
       return { id: created.id, name: created.name } as const;
     }),
   }),
   finance: router({
-    overview: protectedProcedure
+    overview: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getOverview(ctx.user.id, input.projectId)
+        financeDb.getOverview(ctx.user!.id, input.projectId)
       ),
-    budgetPlan: protectedProcedure
+    budgetPlan: protectedWithPermission("budget", "read")
       .input(z.object({ projectId, monthKey }))
       .query(({ ctx, input }) =>
-        financeDb.getBudgetPlan(ctx.user.id, input.projectId, input.monthKey)
+        financeDb.getBudgetPlan(ctx.user!.id, input.projectId, input.monthKey)
       ),
-    analytics: protectedProcedure
+    analytics: protectedWithPermission("accounting", "read")
       .input(
         z.object({
           projectId,
@@ -542,37 +695,37 @@ export const appRouter = router({
       )
       .query(({ ctx, input }) =>
         financeDb.getFinanceAnalytics(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.months
         )
       ),
-    searchTransactions: protectedProcedure
+    searchTransactions: protectedWithPermission("accounting", "read")
       .input(transactionSearchInput)
       .query(({ ctx, input }) =>
-        financeDb.searchTransactions(ctx.user.id, input)
+        financeDb.searchTransactions(ctx.user!.id, input)
       ),
-    paginatedTransactions: protectedProcedure
+    paginatedTransactions: protectedWithPermission("accounting", "read")
       .input(paginatedTransactionInput)
       .query(({ ctx, input }) =>
-        financeDb.listTransactionsPaginated(ctx.user.id, input)
+        financeDb.listTransactionsPaginated(ctx.user!.id, input)
       ),
-    automationOverview: protectedProcedure
+    automationOverview: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getAutomationOverview(ctx.user.id, input.projectId)
+        financeDb.getAutomationOverview(ctx.user!.id, input.projectId)
       ),
-    monthlyReport: protectedProcedure
+    monthlyReport: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId, monthKey }))
       .query(({ ctx, input }) =>
-        financeDb.getMonthlyReport(ctx.user.id, input.projectId, input.monthKey)
+        financeDb.getMonthlyReport(ctx.user!.id, input.projectId, input.monthKey)
       ),
-    voucherSettings: protectedProcedure
+    voucherSettings: protectedWithPermission("voucher", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getVoucherSettings(ctx.user.id, input.projectId)
+        financeDb.getVoucherSettings(ctx.user!.id, input.projectId)
       ),
-    statementData: protectedProcedure
+    statementData: protectedWithPermission("accounting", "read")
       .input(
         z
           .object({
@@ -593,9 +746,9 @@ export const appRouter = router({
           })
       )
       .query(({ ctx, input }) =>
-        financeDb.getStatementData(ctx.user.id, input)
+        financeDb.getStatementData(ctx.user!.id, input)
       ),
-    voucherPrint: protectedProcedure
+    voucherPrint: protectedWithPermission("voucher", "read")
       .input(
         z.object({
           projectId,
@@ -603,14 +756,54 @@ export const appRouter = router({
         })
       )
       .query(({ ctx, input }) =>
-        financeDb.getVoucherPrintData(ctx.user.id, input)
+        financeDb.getVoucherPrintData(ctx.user!.id, input)
       ),
-    firmProfile: protectedProcedure
+    voucherList: protectedWithPermission("voucher", "read")
+      .input(
+        z.object({
+          projectId,
+          status: z.enum(["draft", "submitted", "approved", "posted", "reversed"]).optional(),
+          limit: z.number().int().positive().max(500).optional(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        financeDb.getVoucherList(ctx.user!.id, input.projectId, input)
+      ),
+    // Voucher Lifecycle
+    submitVoucher: inputOnlyWithPermission("voucher", "update")
+      .use(idempotent)
+      .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.submitVoucher(ctx.user!.id, input.projectId, input.voucherId)
+      ),
+    approveVoucher: inputOnlyWithPermission("voucher", "update")
+      .use(idempotent)
+      .input(z.object({
+        projectId,
+        voucherId: z.number().int().positive(),
+        action: z.enum(["approve", "return"]).default("approve"),
+        idempotencyKey: z.string().min(8).max(255).optional(),
+      }))
+      .mutation(({ ctx, input }) =>
+        financeDb.approveVoucher(ctx.user!.id, input.projectId, input.voucherId, input.action)
+      ),
+    postVoucher: inputOnlyWithPermission("voucher", "update")
+      .use(idempotent)
+      .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:voucher-post`, {
+          windowMs: 15 * 60 * 1000,
+          max: 30,
+          keyPrefix: "user",
+        });
+        return financeDb.postVoucher(ctx.user!.id, input.projectId, input.voucherId);
+      }),
+    firmProfile: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getFirmProfile(ctx.user.id, input.projectId)
+        financeDb.getFirmProfile(ctx.user!.id, input.projectId)
       ),
-    saveFirmProfile: protectedProcedure
+    saveFirmProfile: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -622,9 +815,9 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.saveFirmProfile(ctx.user.id, input.projectId, input)
+        financeDb.saveFirmProfile(ctx.user!.id, input.projectId, input)
       ),
-    saveVoucherSettings: protectedProcedure
+    saveVoucherSettings: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -634,20 +827,20 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.updateVoucherSettings(ctx.user.id, input)
+        financeDb.updateVoucherSettings(ctx.user!.id, input)
       ),
-    exportData: protectedProcedure.query(({ ctx }) =>
-      financeDb.exportUserData(ctx.user.id)
+    exportData: protectedWithPermission("ledger", "export").query(({ ctx }) =>
+      financeDb.exportUserData(ctx.user!.id)
     ),
-    exportProjectBackup: protectedProcedure
+    exportProjectBackup: protectedWithPermission("backup", "create")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.exportProjectBackup(ctx.user.id, input.projectId)
+        financeDb.exportProjectBackup(ctx.user!.id, input.projectId)
       ),
-    previewProjectBackup: protectedProcedure
+    previewProjectBackup: protectedWithPermission("backup", "restore")
       .input(z.object({ backup: projectBackupInput }))
       .mutation(({ input }) => financeDb.previewProjectBackup(input.backup)),
-    restoreProjectBackup: protectedProcedure
+    restoreProjectBackup: protectedWithPermission("backup", "restore")
       .input(
         z.object({
           projectName: z.string().trim().min(1).max(120),
@@ -656,28 +849,28 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.restoreProjectBackup(ctx.user.id, {
+        financeDb.restoreProjectBackup(ctx.user!.id, {
           projectName: input.projectName,
           backup: input.backup,
         })
       ),
-    households: protectedProcedure.query(({ ctx }) =>
-      financeDb.listHouseholds(ctx.user.id)
+    households: protectedWithPermission("accounting", "read").query(({ ctx }) =>
+      financeDb.listHouseholds(ctx.user!.id)
     ),
-    householdInvitations: protectedProcedure.query(({ ctx }) =>
-      financeDb.listHouseholdInvitations(ctx.user.id)
+    householdInvitations: protectedWithPermission("accounting", "read").query(({ ctx }) =>
+      financeDb.listHouseholdInvitations(ctx.user!.id)
     ),
-    createHousehold: protectedProcedure
+    createHousehold: protectedWithPermission("accounting", "create")
       .input(z.object({ name: z.string().trim().min(1).max(120) }))
       .mutation(({ ctx, input }) =>
-        financeDb.createHousehold(ctx.user.id, input.name)
+        financeDb.createHousehold(ctx.user!.id, input.name)
       ),
-    householdOverview: protectedProcedure
+    householdOverview: protectedWithPermission("accounting", "read")
       .input(z.object({ householdId: z.number().int().positive() }))
       .query(({ ctx, input }) =>
-        financeDb.getHouseholdOverview(ctx.user.id, input.householdId)
+        financeDb.getHouseholdOverview(ctx.user!.id, input.householdId)
       ),
-    inviteHouseholdMember: protectedProcedure
+    inviteHouseholdMember: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           householdId: z.number().int().positive(),
@@ -687,14 +880,14 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.inviteHouseholdMember(ctx.user.id, input)
+        financeDb.inviteHouseholdMember(ctx.user!.id, input)
       ),
-    acceptHouseholdInvitation: protectedProcedure
+    acceptHouseholdInvitation: protectedWithPermission("accounting", "read")
       .input(z.object({ membershipId: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.acceptHouseholdInvitation(ctx.user.id, input.membershipId)
+        financeDb.acceptHouseholdInvitation(ctx.user!.id, input.membershipId)
       ),
-    updateHouseholdMember: protectedProcedure
+    updateHouseholdMember: protectedWithPermission("accounting", "update")
       .input(
         z
           .object({
@@ -709,9 +902,9 @@ export const appRouter = router({
           )
       )
       .mutation(({ ctx, input }) =>
-        financeDb.updateHouseholdMember(ctx.user.id, input)
+        financeDb.updateHouseholdMember(ctx.user!.id, input)
       ),
-    saveSharedHouseholdBudget: protectedProcedure
+    saveSharedHouseholdBudget: protectedWithPermission("budget", "create")
       .input(
         z.object({
           householdId: z.number().int().positive(),
@@ -721,9 +914,9 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.saveSharedBudget(ctx.user.id, input)
+        financeDb.saveSharedBudget(ctx.user!.id, input)
       ),
-    addSharedHouseholdExpense: protectedProcedure
+    addSharedHouseholdExpense: protectedWithPermission("accounting", "create")
       .input(
         z.object({
           householdId: z.number().int().positive(),
@@ -734,25 +927,310 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.addSharedExpense(ctx.user.id, input)
+        financeDb.addSharedExpense(ctx.user!.id, input)
       ),
-    addTransaction: inputOnlyProcedure
-      .input(transactionInput)
+    createVoucher: inputOnlyWithPermission("voucher", "create")
+      .use(idempotent)
+      .input(voucherInput)
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:voucher`, {
+          windowMs: 15 * 60 * 1000,
+          max: 50,
+          keyPrefix: "user",
+        });
+        return financeDb.createVoucherWithEntries(ctx.user!.id, input);
+      }),
+    // Chart of Accounts
+    getAccountTypes: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getAccountTypes()
+      ),
+    getChartOfAccounts: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getChartOfAccounts(ctx.user!.id, input.projectId)
+      ),
+    getChartOfAccountsTree: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getChartOfAccountsTree(ctx.user!.id, input.projectId)
+      ),
+    createChartOfAccount: inputOnlyWithPermission("accounting", "create")
+      .input(coaAccountInput)
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:coa`, {
+          windowMs: 15 * 60 * 1000,
+          max: 50,
+          keyPrefix: "user",
+        });
+        return financeDb.createChartOfAccount(ctx.user!.id, input);
+      }),
+    updateChartOfAccount: protectedWithPermission("accounting", "update")
+      .input(coaAccountUpdateInput.extend({ accountId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) => {
+        const { accountId, projectId, ...values } = input;
+        return financeDb.updateChartOfAccount(ctx.user!.id, projectId, accountId, values);
+      }),
+    deleteChartOfAccount: protectedWithPermission("accounting", "delete")
+      .input(z.object({ projectId, accountId: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.createTransaction(ctx.user.id, input)
+        financeDb.deleteChartOfAccount(ctx.user!.id, input.projectId, input.accountId)
       ),
-    updateTransaction: protectedProcedure
+    seedChartOfAccounts: inputOnlyWithPermission("accounting", "create")
+      .input(z.object({ projectId }))
+      .mutation(({ ctx, input }) =>
+        financeDb.seedDefaultChartOfAccounts(ctx.user!.id, input.projectId)
+      ),
+    // Period Lock
+    lockPeriod: inputOnlyWithPermission("accounting", "update")
+      .input(periodLockInput)
+      .mutation(({ ctx, input }) =>
+        financeDb.lockPeriod(ctx.user!.id, input.projectId, input.monthKey, input.reason)
+      ),
+    unlockPeriod: inputOnlyWithPermission("accounting", "update")
+      .input(z.object({ projectId, monthKey }))
+      .mutation(({ ctx, input }) =>
+        financeDb.unlockPeriod(ctx.user!.id, input.projectId, input.monthKey)
+      ),
+    getPeriodLocks: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getPeriodLocks(ctx.user!.id, input.projectId)
+      ),
+    // Account Groups
+    listAccountGroups: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.listAccountGroups(ctx.user!.id, input.projectId)
+      ),
+    createAccountGroup: inputOnlyWithPermission("accounting", "create")
+      .input(z.object({
+        projectId,
+        accountTypeId: z.number().int().positive(),
+        parentId: z.number().int().positive().optional(),
+        code: z.string().min(1).max(20),
+        name: z.string().min(1).max(120),
+        nameBn: z.string().max(120).optional(),
+        description: z.string().max(500).optional(),
+        sortOrder: z.number().int().optional(),
+      }))
+      .mutation(({ ctx, input }) =>
+        financeDb.createAccountGroup(ctx.user!.id, input)
+      ),
+    updateAccountGroup: protectedWithPermission("accounting", "update")
+      .input(z.object({
+        projectId,
+        groupId: z.number().int().positive(),
+        name: z.string().min(1).max(120).optional(),
+        nameBn: z.string().max(120).nullable().optional(),
+        description: z.string().max(500).nullable().optional(),
+        sortOrder: z.number().int().optional(),
+      }))
+      .mutation(({ ctx, input }) => {
+        const { projectId, groupId, ...values } = input;
+        return financeDb.updateAccountGroup(ctx.user!.id, projectId, groupId, values);
+      }),
+    deleteAccountGroup: protectedWithPermission("accounting", "delete")
+      .input(z.object({ projectId, groupId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.deleteAccountGroup(ctx.user!.id, input.projectId, input.groupId)
+      ),
+    // Fiscal Periods
+    listFiscalPeriods: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        accountingCore.listFiscalPeriods(ctx.user!.id, input.projectId)
+      ),
+    createFiscalPeriod: inputOnlyWithPermission("accounting", "create")
+      .input(z.object({
+        projectId,
+        name: z.string().min(1).max(120),
+        startDate: z.coerce.date(),
+        endDate: z.coerce.date(),
+      }))
+      .mutation(({ ctx, input }) =>
+        accountingCore.createFiscalPeriod(ctx.user!.id, input.projectId, {
+          name: input.name,
+          startDate: input.startDate,
+          endDate: input.endDate,
+        })
+      ),
+    closeFiscalPeriod: protectedWithPermission("accounting", "update")
+      .input(z.object({
+        projectId,
+        periodId: z.number().int().positive(),
+      }))
+      .mutation(({ ctx, input }) =>
+        accountingCore.closeFiscalPeriod(ctx.user!.id, input.projectId, input.periodId)
+      ),
+    // Accounting Statements (Ledger-based)
+    trialBalance: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateTrialBalance(ctx.user!.id, input.projectId, input.from, input.to)
+      ),
+    incomeStatement: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateIncomeStatement(ctx.user!.id, input.projectId, input.from, input.to)
+      ),
+    balanceSheet: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        asOf: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateBalanceSheet(ctx.user!.id, input.projectId, input.asOf)
+      ),
+    accountingReport: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateAccountingReport(ctx.user!.id, input.projectId, {
+          from: input.from,
+          to: input.to,
+        })
+      ),
+    // Phase 7: Account Ledger & Reports
+    accountLedger: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        accountId: z.number().int().positive(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateAccountLedger(ctx.user!.id, input.projectId, input.accountId, input.from, input.to)
+      ),
+    cashFlowStatement: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateCashFlowStatement(ctx.user!.id, input.projectId, input.from, input.to)
+      ),
+    dailyTransactions: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateDailyTransactions(ctx.user!.id, input.projectId, input.from, input.to)
+      ),
+    monthlyTransactions: protectedWithPermission("accounting", "read")
+      .input(z.object({
+        projectId,
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }))
+      .query(({ ctx, input }) =>
+        accountingCore.generateMonthlyTransactions(ctx.user!.id, input.projectId, input.from, input.to)
+      ),
+    // Voucher Reversal
+    reverseVoucher: inputOnlyWithPermission("voucher", "reverse")
+      .use(idempotent)
+      .input(reversalInput)
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:reversal`, {
+          windowMs: 15 * 60 * 1000,
+          max: 20,
+          keyPrefix: "user",
+        });
+        return financeDb.reverseVoucher(ctx.user!.id, input.projectId, input);
+      }),
+    getVoucherReversals: protectedWithPermission("voucher", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getVoucherReversals(ctx.user!.id, input.projectId)
+      ),
+    // Bank Reconciliation
+    createBankReconciliation: inputOnlyWithPermission("accounting", "create")
+      .input(bankReconciliationInput)
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:bankrec`, {
+          windowMs: 15 * 60 * 1000,
+          max: 20,
+          keyPrefix: "user",
+        });
+        return financeDb.createBankReconciliation(ctx.user!.id, input);
+      }),
+    getBankReconciliation: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId, reconciliationId: z.number().int().positive() }))
+      .query(({ ctx, input }) =>
+        financeDb.getBankReconciliationById(ctx.user!.id, input.projectId, input.reconciliationId)
+      ),
+    getBankReconciliations: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
+      .query(({ ctx, input }) =>
+        financeDb.getBankReconciliations(ctx.user!.id, input.projectId)
+      ),
+    addBankReconciliationItem: protectedWithPermission("accounting", "create")
+      .input(bankReconciliationItemInput)
+      .mutation(({ ctx, input }) =>
+        financeDb.addBankReconciliationItem(ctx.user!.id, input.projectId, input)
+      ),
+    matchBankReconciliationItem: protectedWithPermission("accounting", "update")
+      .input(z.object({ projectId, itemId: z.number().int().positive(), ledgerEntryId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.matchBankReconciliationItem(ctx.user!.id, input.projectId, input.itemId, input.ledgerEntryId)
+      ),
+    unmatchBankReconciliationItem: protectedWithPermission("accounting", "update")
+      .input(z.object({ projectId, itemId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.unmatchBankReconciliationItem(ctx.user!.id, input.projectId, input.itemId)
+      ),
+    completeBankReconciliation: protectedWithPermission("accounting", "update")
+      .input(z.object({ projectId, reconciliationId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.completeBankReconciliation(ctx.user!.id, input.projectId, input.reconciliationId)
+      ),
+    getBankReconciliationItems: protectedWithPermission("accounting", "read")
+      .input(z.object({ reconciliationId: z.number().int().positive() }))
+      .query(({ ctx, input }) =>
+        financeDb.getBankReconciliationItems(ctx.user!.id, input.reconciliationId)
+      ),
+    getLedgerEntriesForReconciliation: protectedWithPermission("ledger", "read")
+      .input(z.object({ projectId, accountId: z.number().int().positive() }))
+      .query(({ ctx, input }) =>
+        financeDb.getLedgerEntriesForReconciliation(ctx.user!.id, input.projectId, input.accountId)
+      ),
+    addTransaction: inputOnlyWithPermission("accounting", "create")
+      .input(transactionInput)
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:transactions`, {
+          windowMs: 15 * 60 * 1000,
+          max: 100,
+          keyPrefix: "user",
+        });
+        return financeDb.createTransaction(ctx.user!.id, input);
+      }),
+    updateTransaction: protectedWithPermission("accounting", "update")
       .input(transactionInput.extend({ id: z.number().int().positive() }))
       .mutation(({ ctx, input }) => {
         const { id, ...values } = input;
-        return financeDb.updateTransaction(ctx.user.id, id, values);
+        return financeDb.updateTransaction(ctx.user!.id, id, values);
       }),
-    deleteTransaction: protectedProcedure
+    deleteTransaction: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteTransaction(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteTransaction(ctx.user!.id, input.projectId, input.id)
       ),
-    addDue: inputOnlyProcedure
+    addDue: inputOnlyWithPermission("accounting", "create")
       .input(
         z.object({
           projectId,
@@ -764,8 +1242,16 @@ export const appRouter = router({
           dueAt: z.coerce.date().optional(),
         })
       )
-      .mutation(({ ctx, input }) => financeDb.createDue(ctx.user.id, input)),
-    settleDue: protectedProcedure
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:due`, {
+          windowMs: 15 * 60 * 1000,
+          max: 50,
+          keyPrefix: "user",
+        });
+        return financeDb.createDue(ctx.user!.id, input);
+      }),
+    settleDue: protectedWithPermission("accounting", "update")
+      .use(idempotent)
       .input(
         z.object({
           projectId,
@@ -774,10 +1260,11 @@ export const appRouter = router({
           amount,
           note: z.string().trim().max(500).optional(),
           occurredAt: z.coerce.date(),
+          idempotencyKey: z.string().min(8).max(255).optional(),
         })
       )
-      .mutation(({ ctx, input }) => financeDb.settleDue(ctx.user.id, input)),
-    addAccount: inputOnlyProcedure
+      .mutation(({ ctx, input }) => financeDb.settleDue(ctx.user!.id, input)),
+    addAccount: inputOnlyWithPermission("accounting", "create")
       .input(
         z.object({
           projectId,
@@ -790,10 +1277,15 @@ export const appRouter = router({
             .max(999999999999.99),
         })
       )
-      .mutation(({ ctx, input }) =>
-        financeDb.createAccount(ctx.user.id, input)
-      ),
-    updateAccount: protectedProcedure
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:account`, {
+          windowMs: 15 * 60 * 1000,
+          max: 50,
+          keyPrefix: "user",
+        });
+        return financeDb.createAccount(ctx.user!.id, input);
+      }),
+    updateAccount: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           id: z.number().int().positive(),
@@ -809,14 +1301,14 @@ export const appRouter = router({
       )
       .mutation(({ ctx, input }) => {
         const { id, ...values } = input;
-        return financeDb.updateAccount(ctx.user.id, id, values);
+        return financeDb.updateAccount(ctx.user!.id, id, values);
       }),
-    deleteAccount: protectedProcedure
+    deleteAccount: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteAccount(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteAccount(ctx.user!.id, input.projectId, input.id)
       ),
-    saveBudget: inputOnlyProcedure
+    saveBudget: inputOnlyWithPermission("budget", "create")
       .input(
         z.object({
           projectId,
@@ -825,8 +1317,8 @@ export const appRouter = router({
           amount,
         })
       )
-      .mutation(({ ctx, input }) => financeDb.upsertBudget(ctx.user.id, input)),
-    addBill: inputOnlyProcedure
+      .mutation(({ ctx, input }) => financeDb.upsertBudget(ctx.user!.id, input)),
+    addBill: inputOnlyWithPermission("accounting", "create")
       .input(
         z.object({
           projectId,
@@ -836,8 +1328,8 @@ export const appRouter = router({
           reminderDaysBefore: z.number().int().min(0).max(90).default(3),
         })
       )
-      .mutation(({ ctx, input }) => financeDb.createBill(ctx.user.id, input)),
-    updateBill: protectedProcedure
+      .mutation(({ ctx, input }) => financeDb.createBill(ctx.user!.id, input)),
+    updateBill: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -851,9 +1343,9 @@ export const appRouter = router({
       )
       .mutation(({ ctx, input }) => {
         const { id, projectId: scopedProjectId, ...values } = input;
-        return financeDb.updateBill(ctx.user.id, scopedProjectId, id, values);
+        return financeDb.updateBill(ctx.user!.id, scopedProjectId, id, values);
       }),
-    setBillPaid: protectedProcedure
+    setBillPaid: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -863,18 +1355,18 @@ export const appRouter = router({
       )
       .mutation(({ ctx, input }) =>
         financeDb.setBillPaid(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           input.isPaid
         )
       ),
-    deleteBill: protectedProcedure
+    deleteBill: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteBill(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteBill(ctx.user!.id, input.projectId, input.id)
       ),
-    addRecurringTemplate: inputOnlyProcedure
+    addRecurringTemplate: inputOnlyWithPermission("accounting", "create")
       .input(
         transactionInput
           .extend({
@@ -885,10 +1377,10 @@ export const appRouter = router({
           .omit({ occurredAt: true })
       )
       .mutation(async ({ ctx, input }) => {
-        const id = await financeDb.createRecurringTemplate(ctx.user.id, input);
+        const id = await financeDb.createRecurringTemplate(ctx.user!.id, input);
         return id;
       }),
-    setRecurringActive: protectedProcedure
+    setRecurringActive: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -897,19 +1389,19 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.updateRecurringTemplate(ctx.user.id, input)
+        financeDb.updateRecurringTemplate(ctx.user!.id, input)
       ),
-    generateRecurringNow: protectedProcedure
+    generateRecurringNow: protectedWithPermission("accounting", "update")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.generateRecurringNow(ctx.user.id, input.projectId, input.id)
+        financeDb.generateRecurringNow(ctx.user!.id, input.projectId, input.id)
       ),
-    enableRecurringSchedule: protectedProcedure
+    enableRecurringSchedule: protectedWithPermission("accounting", "update")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(async ({ ctx, input }) => {
         const job = await createHeartbeatJob(
           {
-            name: `finance-recurring-${ctx.user.id}-${input.id}`,
+            name: `finance-recurring-${ctx.user!.id}-${input.id}`,
             cron: "0 5 0 * * *",
             path: "/api/scheduled/finance-recurring",
             description:
@@ -918,27 +1410,29 @@ export const appRouter = router({
           userSessionFromRequest(ctx.req)
         );
         await financeDb.setRecurringScheduleTask(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           job.taskUid
         );
         return job;
       }),
-    invoices: protectedProcedure
+    invoices: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.listInvoices(ctx.user.id, input.projectId)
+        financeDb.listInvoices(ctx.user!.id, input.projectId)
       ),
-    invoiceById: protectedProcedure
+    invoiceById: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .query(({ ctx, input }) =>
-        financeDb.getInvoiceById(ctx.user.id, input.projectId, input.id)
+        financeDb.getInvoiceById(ctx.user!.id, input.projectId, input.id)
       ),
-    createInvoice: protectedProcedure
+    createInvoice: protectedWithPermission("accounting", "create")
+      .use(idempotent)
       .input(
         z.object({
           projectId,
+          idempotencyKey: z.string().min(8).max(255).optional(),
           invoiceNumber: z.string().trim().max(64).optional(),
           clientName: z.string().trim().min(1).max(160),
           clientPhone: z.string().trim().max(40).optional(),
@@ -968,12 +1462,12 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.createInvoice(ctx.user.id, {
+        financeDb.createInvoice(ctx.user!.id, {
           ...input,
           clientEmail: input.clientEmail || undefined,
         })
       ),
-    updateInvoiceStatus: protectedProcedure
+    updateInvoiceStatus: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -990,27 +1484,27 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.updateInvoiceStatus(ctx.user.id, input.projectId, input.id, {
+        financeDb.updateInvoiceStatus(ctx.user!.id, input.projectId, input.id, {
           status: input.status,
           paidAmount: input.paidAmount,
         })
       ),
-    deleteInvoice: protectedProcedure
+    deleteInvoice: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteInvoice(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteInvoice(ctx.user!.id, input.projectId, input.id)
       ),
-    financialStatements: protectedProcedure
+    financialStatements: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getFinancialStatements(ctx.user.id, input.projectId)
+        financeDb.getFinancialStatements(ctx.user!.id, input.projectId)
       ),
-    inventoryList: protectedProcedure
+    inventoryList: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.listInventoryItems(ctx.user.id, input.projectId)
+        financeDb.listInventoryItems(ctx.user!.id, input.projectId)
       ),
-    createInventoryItem: protectedProcedure
+    createInventoryItem: protectedWithPermission("accounting", "create")
       .input(
         z.object({
           projectId,
@@ -1026,9 +1520,9 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.createInventoryItem({ ...input, userId: ctx.user.id })
+        financeDb.createInventoryItem({ ...input, userId: ctx.user!.id })
       ),
-    updateInventoryItem: protectedProcedure
+    updateInventoryItem: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -1046,13 +1540,13 @@ export const appRouter = router({
       )
       .mutation(({ ctx, input }) =>
         financeDb.updateInventoryItem(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           input
         )
       ),
-    adjustInventoryStock: protectedProcedure
+    adjustInventoryStock: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -1063,19 +1557,19 @@ export const appRouter = router({
       )
       .mutation(({ ctx, input }) =>
         financeDb.adjustInventoryStock(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           input.quantityChange,
           input.reason
         )
       ),
-    deleteInventoryItem: protectedProcedure
+    deleteInventoryItem: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteInventoryItem(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteInventoryItem(ctx.user!.id, input.projectId, input.id)
       ),
-    syncOfflineTransactions: inputOnlyProcedure
+    syncOfflineTransactions: inputOnlyWithPermission("accounting", "create")
       .input(
         z.object({
           projectId,
@@ -1083,14 +1577,19 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:sync`, {
+          windowMs: 15 * 60 * 1000,
+          max: 10,
+          keyPrefix: "user",
+        });
         const results = [];
         for (const item of input.items) {
-          const created = await financeDb.createTransaction(ctx.user.id, item);
+          const created = await financeDb.createTransaction(ctx.user!.id, item);
           results.push(created);
         }
         return { syncedCount: results.length, transactions: results };
       }),
-    enableBillReminder: protectedProcedure
+    enableBillReminder: protectedWithPermission("accounting", "update")
       .input(
         z.object({
           projectId,
@@ -1100,14 +1599,14 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         await financeDb.setBillReminderSettings(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           input.reminderDaysBefore
         );
         const job = await createHeartbeatJob(
           {
-            name: `finance-bill-reminder-${ctx.user.id}-${input.id}`,
+            name: `finance-bill-reminder-${ctx.user!.id}-${input.id}`,
             cron: "0 0 8 * * *",
             path: "/api/scheduled/finance-bill-reminder",
             description:
@@ -1116,19 +1615,19 @@ export const appRouter = router({
           userSessionFromRequest(ctx.req)
         );
         await financeDb.setBillScheduleTask(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.id,
           job.taskUid
         );
         return job;
       }),
-    employeesList: protectedProcedure
+    employeesList: protectedWithPermission("payroll", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        financeDb.getEmployees(ctx.user.id, input.projectId)
+        financeDb.getEmployees(ctx.user!.id, input.projectId)
       ),
-    createEmployee: protectedProcedure
+    createEmployee: protectedWithPermission("payroll", "create")
       .input(
         z.object({
           projectId,
@@ -1148,9 +1647,9 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.createEmployee(ctx.user.id, input)
+        financeDb.createEmployee(ctx.user!.id, input)
       ),
-    updateEmployee: protectedProcedure
+    updateEmployee: protectedWithPermission("payroll", "update")
       .input(
         z.object({
           projectId,
@@ -1169,14 +1668,14 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.updateEmployee(ctx.user.id, input.projectId, input.id, input)
+        financeDb.updateEmployee(ctx.user!.id, input.projectId, input.id, input)
       ),
-    deleteEmployee: protectedProcedure
+    deleteEmployee: protectedWithPermission("payroll", "delete")
       .input(z.object({ projectId, id: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteEmployee(ctx.user.id, input.projectId, input.id)
+        financeDb.deleteEmployee(ctx.user!.id, input.projectId, input.id)
       ),
-    salaryPaymentsList: protectedProcedure
+    salaryPaymentsList: protectedWithPermission("payroll", "read")
       .input(
         z.object({
           projectId,
@@ -1188,12 +1687,12 @@ export const appRouter = router({
       )
       .query(({ ctx, input }) =>
         financeDb.getSalaryPayments(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.monthKey
         )
       ),
-    disburseSalary: inputOnlyProcedure
+    disburseSalary: inputOnlyWithPermission("payroll", "create")
       .input(
         z.object({
           projectId,
@@ -1211,9 +1710,9 @@ export const appRouter = router({
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.disburseSalary(ctx.user.id, input)
+        financeDb.disburseSalary(ctx.user!.id, input)
       ),
-    employeeAdvancesList: protectedProcedure
+    employeeAdvancesList: protectedWithPermission("payroll", "read")
       .input(
         z.object({
           projectId,
@@ -1222,12 +1721,13 @@ export const appRouter = router({
       )
       .query(({ ctx, input }) =>
         financeDb.getEmployeeAdvances(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.employeeId
         )
       ),
-    createEmployeeAdvance: inputOnlyProcedure
+    createEmployeeAdvance: inputOnlyWithPermission("payroll", "create")
+      .use(idempotent)
       .input(
         z.object({
           projectId,
@@ -1236,15 +1736,16 @@ export const appRouter = router({
           disbursedDate: z.coerce.date().optional(),
           accountId: z.number().int().positive().nullable().optional(),
           notes: z.string().max(500).optional(),
+          idempotencyKey: z.string().min(8).max(255).optional(),
         })
       )
       .mutation(({ ctx, input }) =>
-        financeDb.createEmployeeAdvance(ctx.user.id, input)
+        financeDb.createEmployeeAdvance(ctx.user!.id, input)
       ),
-    cloudBackupStatus: protectedProcedure.query(() => {
+    cloudBackupStatus: protectedWithPermission("backup", "create").query(() => {
       return getCloudStorageConfig();
     }),
-    triggerCloudBackup: protectedProcedure
+    triggerCloudBackup: inputOnlyWithPermission("backup", "create")
       .input(
         z.object({
           projectId,
@@ -1253,7 +1754,7 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         return executeCloudBackup(
-          ctx.user.id,
+          ctx.user!.id,
           input.projectId,
           input.encryptionKey
         );

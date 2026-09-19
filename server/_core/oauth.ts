@@ -21,6 +21,7 @@ import {
 import { ENV } from "./env";
 import { sdk } from "./sdk";
 import { hashPassword, verifyPasswordConstantTime } from "./passwordAuth";
+import logger from "./logger";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -81,8 +82,8 @@ export function registerOAuthRoutes(app: Express) {
         },
       });
     } catch (error: any) {
-      console.error("[Auth Register] Failed:", error);
-      res.status(400).json({ error: error.message || "রেজিস্ট্রেশন সম্পন্ন করা যায়নি" });
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Register] Failed");
+      res.status(400).json({ error: "রেজিস্ট্রেশন সম্পন্ন করা যায়নি" });
     }
   });
 
@@ -140,7 +141,7 @@ export function registerOAuthRoutes(app: Express) {
         },
       });
     } catch (error: any) {
-      console.error("[Auth Login] Failed:", error);
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Login] Failed");
       res.status(500).json({ error: "লগইন প্রক্রিয়া ব্যর্থ হয়েছে" });
     }
   });
@@ -167,7 +168,7 @@ export function registerOAuthRoutes(app: Express) {
       });
       res.redirect(302, createGoogleAuthorizationUrl(discovery, transaction));
     } catch (error) {
-      console.error("[Google OAuth] Login initialization failed", String(error));
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Login initialization failed");
       res.status(503).json({ error: "Google sign-in is temporarily unavailable" });
     }
   });
@@ -214,7 +215,7 @@ export function registerOAuthRoutes(app: Express) {
       });
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[Google OAuth] Callback failed", String(error));
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Callback failed");
       res.status(401).json({ error: "Google sign-in could not be verified" });
     }
   });
@@ -266,7 +267,7 @@ export function registerOAuthRoutes(app: Express) {
 
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[OAuth] Callback failed", error);
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[OAuth] Callback failed");
       res.status(500).json({ error: "OAuth callback failed" });
     }
   });

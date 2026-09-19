@@ -3,6 +3,7 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
+import logger from "./logger";
 import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
 import { resolveProjectRoot } from "../../dirname";
@@ -54,9 +55,7 @@ export function serveStatic(app: Express) {
     "public"
   );
   if (!fs.existsSync(distPath)) {
-    console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
-    );
+    logger.error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
   }
 
   app.use(express.static(distPath));

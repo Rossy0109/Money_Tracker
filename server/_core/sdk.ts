@@ -7,16 +7,20 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
+import logger from "./logger";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
   GetUserInfoResponse,
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
+} from "./types/oauthTypes";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
+
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 export type SessionPayload = {
   openId: string;
@@ -28,14 +32,52 @@ const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
 
+interface OAuthProviderConfig {
+  name: string;
+  baseURL: string;
+  exchangeTokenPath: string;
+  getUserInfoPath: string;
+  getUserInfoWithJwtPath?: string;
+  clientId: string;
+  clientSecret?: string;
+  tokenEndpoint?: string;
+  authorizationEndpoint?: string;
+  jwksUri?: string;
+  issuer?: string[];
+}
+
 class OAuthService {
-  constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
+  private providers: Map<string, OAuthProviderConfig> = new Map();
+  private defaultProvider: string;
+
+  constructor(providers: OAuthProviderConfig[], defaultProvider: string) {
+    this.providers = new Map(providers.map(p => [p.name, p]));
+    this.defaultProvider = defaultProvider;
+    
+    for (const provider of providers) {
+      logger.info({ name: provider.name, baseURL: provider.baseURL }, `[OAuth] Provider ${provider.name} initialized`);
     }
+    
+    if (!this.providers.has(defaultProvider)) {
+      throw new Error(`Default provider "${defaultProvider}" not found in providers`);
+    }
+  }
+
+  getProvider(name?: string): OAuthProviderConfig {
+    const providerName = name || this.defaultProvider;
+    const provider = this.providers.get(providerName);
+    if (!provider) {
+      throw new Error(`OAuth provider "${providerName}" not configured`);
+    }
+    return provider;
+  }
+
+  hasProvider(name: string): boolean {
+    return this.providers.has(name);
+  }
+
+  listProviders(): string[] {
+    return Array.from(this.providers.keys());
   }
 
   private decodeState(state: string): string {
@@ -44,17 +86,23 @@ class OAuthService {
 
   async getTokenByCode(
     code: string,
-    state: string
+    state: string,
+    providerName?: string
   ): Promise<ExchangeTokenResponse> {
+    const provider = this.getProvider(providerName);
     const payload: ExchangeTokenRequest = {
-      clientId: ENV.appId,
+      clientId: provider.clientId,
       grantType: "authorization_code",
       code,
       redirectUri: this.decodeState(state),
     };
 
-    const { data } = await this.client.post<ExchangeTokenResponse>(
-      EXCHANGE_TOKEN_PATH,
+    if (provider.clientSecret) {
+      (payload as any).clientSecret = provider.clientSecret;
+    }
+
+    const { data } = await this.getClient(provider).post<ExchangeTokenResponse>(
+      provider.exchangeTokenPath,
       payload
     );
 
@@ -62,16 +110,30 @@ class OAuthService {
   }
 
   async getUserInfoByToken(
-    token: ExchangeTokenResponse
+    token: ExchangeTokenResponse,
+    providerName?: string
   ): Promise<GetUserInfoResponse> {
-    const { data } = await this.client.post<GetUserInfoResponse>(
-      GET_USER_INFO_PATH,
+    const provider = this.getProvider(providerName);
+    const { data } = await this.getClient(provider).post<GetUserInfoResponse>(
+      provider.getUserInfoPath,
       {
         accessToken: token.accessToken,
       }
     );
 
     return data;
+  }
+
+  private getClient(provider: OAuthProviderConfig): AxiosInstance {
+    return axios.create({
+      baseURL: provider.baseURL,
+      timeout: AXIOS_TIMEOUT_MS,
+    });
+  }
+
+  public getClientForProvider(providerName: string): AxiosInstance {
+    const provider = this.getProvider(providerName);
+    return this.getClient(provider);
   }
 }
 
@@ -81,13 +143,58 @@ const createOAuthHttpClient = (): AxiosInstance =>
     timeout: AXIOS_TIMEOUT_MS,
   });
 
+function createOAuthService(): OAuthService {
+  const providers: OAuthProviderConfig[] = [];
+  
+  // Google OAuth provider
+  if (ENV.googleOAuthClientId && ENV.googleOAuthClientSecret && ENV.googleOAuthRedirectUri) {
+    providers.push({
+      name: "google",
+      baseURL: "https://oauth2.googleapis.com",
+      exchangeTokenPath: "/token",
+      getUserInfoPath: "/oauth2/v2/userinfo",
+      clientId: ENV.googleOAuthClientId,
+      clientSecret: ENV.googleOAuthClientSecret,
+    });
+  }
+  
+  // Manus OAuth provider (optional)
+  if (ENV.oAuthServerUrl) {
+    providers.push({
+      name: "manus",
+      baseURL: ENV.oAuthServerUrl,
+      exchangeTokenPath: EXCHANGE_TOKEN_PATH,
+      getUserInfoPath: GET_USER_INFO_PATH,
+      getUserInfoWithJwtPath: GET_USER_INFO_WITH_JWT_PATH,
+      clientId: ENV.appId,
+    });
+  }
+  
+  // If no providers configured, create a mock provider for testing
+  if (providers.length === 0) {
+    providers.push({
+      name: "mock",
+      baseURL: "http://localhost",
+      exchangeTokenPath: "/token",
+      getUserInfoPath: "/userinfo",
+      clientId: "mock-client-id",
+    });
+  }
+  
+  const defaultProvider = providers.find(p => p.name === "google") ? "google" : 
+                          providers.find(p => p.name === "manus") ? "manus" : 
+                          providers[0]?.name || "mock";
+  
+  return new OAuthService(providers, defaultProvider);
+}
+
 class SDKServer {
   private readonly client: AxiosInstance;
   private readonly oauthService: OAuthService;
 
   constructor(client: AxiosInstance = createOAuthHttpClient()) {
     this.client = client;
-    this.oauthService = new OAuthService(this.client);
+    this.oauthService = createOAuthService();
   }
 
   private deriveLoginMethod(
@@ -115,24 +222,25 @@ class SDKServer {
   /**
    * Exchange OAuth authorization code for access token
    * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+   * const tokenResponse = await sdk.exchangeCodeForToken(code, state, "google");
    */
   async exchangeCodeForToken(
     code: string,
-    state: string
+    state: string,
+    providerName?: string
   ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
+    return this.oauthService.getTokenByCode(code, state, providerName);
   }
 
   /**
    * Get user information using access token
    * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken, "google");
    */
-  async getUserInfo(accessToken: string): Promise<GetUserInfoResponse> {
+  async getUserInfo(accessToken: string, providerName?: string): Promise<GetUserInfoResponse> {
     const data = await this.oauthService.getUserInfoByToken({
       accessToken,
-    } as ExchangeTokenResponse);
+    } as ExchangeTokenResponse, providerName);
     const loginMethod = this.deriveLoginMethod(
       (data as any)?.platforms,
       (data as any)?.platform ?? data.platform ?? null
@@ -166,21 +274,65 @@ class SDKServer {
   }
 
   /**
-   * Create a session token for a Manus user openId
+   * Create a session token for a user openId
    * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
+   * const sessionToken = await sdk.createSessionToken(userInfo.openId, { providerName: "google" });
    */
   async createSessionToken(
     openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
+    options: { expiresInMs?: number; name?: string; providerName?: string } = {}
   ): Promise<string> {
+    // Determine the provider to use - prefer the one specified, then check authMode, then fall back to available providers
+    let providerName = options.providerName;
+    if (!providerName) {
+      // Check which providers are available and use an appropriate default
+      const availableProviders = this.oauthService.listProviders();
+      if (ENV.authMode === "google" && availableProviders.includes("google")) {
+        providerName = "google";
+      } else if (ENV.authMode === "manus" && availableProviders.includes("manus")) {
+        providerName = "manus";
+      } else if (availableProviders.length > 0) {
+        providerName = availableProviders[0];
+      } else {
+        throw new Error("No OAuth providers configured");
+      }
+    }
+    const provider = this.oauthService.getProvider(providerName);
     return this.signSession(
       {
         openId,
-        appId: ENV.authMode === "google" ? "google" : ENV.appId,
+        appId: provider.clientId,
         name: options.name || "",
       },
-      options
+      { expiresInMs: ACCESS_TOKEN_TTL_MS }
+    );
+  }
+
+  async createRefreshToken(
+    openId: string,
+    options: { name?: string; providerName?: string } = {}
+  ): Promise<string> {
+    let providerName = options.providerName;
+    if (!providerName) {
+      const availableProviders = this.oauthService.listProviders();
+      if (ENV.authMode === "google" && availableProviders.includes("google")) {
+        providerName = "google";
+      } else if (ENV.authMode === "manus" && availableProviders.includes("manus")) {
+        providerName = "manus";
+      } else if (availableProviders.length > 0) {
+        providerName = availableProviders[0];
+      } else {
+        throw new Error("No OAuth providers configured");
+      }
+    }
+    const provider = this.oauthService.getProvider(providerName);
+    return this.signSession(
+      {
+        openId,
+        appId: provider.clientId,
+        name: options.name || "",
+      },
+      { expiresInMs: REFRESH_TOKEN_TTL_MS }
     );
   }
 
@@ -189,7 +341,7 @@ class SDKServer {
     options: { expiresInMs?: number } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = options.expiresInMs ?? ACCESS_TOKEN_TTL_MS;
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
@@ -207,7 +359,7 @@ class SDKServer {
     cookieValue: string | undefined | null
   ): Promise<{ openId: string; appId: string; name: string } | null> {
     if (!cookieValue) {
-      console.warn("[Auth] Missing session cookie");
+      logger.warn("[Auth] Missing session cookie");
       return null;
     }
 
@@ -223,7 +375,7 @@ class SDKServer {
         !isNonEmptyString(appId) ||
         !isNonEmptyString(name)
       ) {
-        console.warn("[Auth] Session payload missing required fields");
+        logger.warn("[Auth] Session payload missing required fields");
         return null;
       }
 
@@ -233,21 +385,26 @@ class SDKServer {
         name,
       };
     } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+      logger.warn({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth] Session verification failed");
       return null;
     }
   }
 
   async getUserInfoWithJwt(
-    jwtToken: string
+    jwtToken: string,
+    providerName?: string
   ): Promise<GetUserInfoWithJwtResponse> {
     const payload: GetUserInfoWithJwtRequest = {
       jwtToken,
       projectId: ENV.appId,
     };
 
-    const { data } = await this.client.post<GetUserInfoWithJwtResponse>(
-      GET_USER_INFO_WITH_JWT_PATH,
+    const providerNameResolved = providerName ?? "google";
+    const provider = this.oauthService.getProvider(providerName ?? "google");
+    const client = this.oauthService.getClientForProvider(providerName ?? "google");
+    const getUserInfoWithJwtPath = provider.getUserInfoWithJwtPath ?? GET_USER_INFO_WITH_JWT_PATH;
+    const { data } = await client.post<GetUserInfoWithJwtResponse>(
+      getUserInfoWithJwtPath,
       payload
     );
 
@@ -296,21 +453,15 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // A Google-mode session is created only after the server verifies its
-    // Google ID token and upserts the local principal. Never send a Google
-    // session to the Manus identity API as a fallback.
-    if (ENV.authMode === "google") {
-      if (!user) {
-        throw ForbiddenError("Google session user not found");
-      }
-      await db.upsertUser({ openId: user.openId, lastSignedIn: signedInAt });
-      return user;
-    }
+    // Determine which OAuth provider was used based on user's login method or auth mode
+    const providerName = user?.loginMethod === "google" ? "google" : 
+                         user?.loginMethod === "manus" ? "manus" :
+                         ENV.authMode;
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
-        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
+        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "", providerName);
         await db.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || null,
@@ -320,7 +471,7 @@ class SDKServer {
         });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
+        logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth] Failed to sync user from OAuth");
         throw ForbiddenError("Failed to sync user info");
       }
     }

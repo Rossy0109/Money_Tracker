@@ -1,9 +1,23 @@
 import "./loadEnv";
 import { createServer } from "http";
 import net from "net";
+import * as Sentry from "@sentry/node";
 import { createApiApp } from "./app";
 import { ensureAuthModeConsistency, validateCriticalEnv } from "./env";
 import { serveStatic, setupVite } from "./vite";
+import logger from "./logger";
+import { seedDefaultRBAC } from "./seed-rbac";
+import { initializeRBAC } from "./rbac";
+import { migrateExistingUsersToRBAC } from "./migrate-existing-users-rbac";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+    enabled: process.env.NODE_ENV !== "test",
+  });
+}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -40,6 +54,16 @@ async function startServer() {
         "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel).",
     );
   }
+  // Initialize RBAC: seed roles/permissions, migrate existing users, populate cache
+  try {
+    await seedDefaultRBAC();
+    await migrateExistingUsersToRBAC();
+    await initializeRBAC();
+    logger.info("RBAC system initialized");
+  } catch (err) {
+    logger.error({ err }, "RBAC initialization failed — permission checks will be skipped");
+  }
+
   const app = createApiApp();
   const server = createServer(app);
   // development mode uses Vite, production mode uses static files
@@ -53,12 +77,30 @@ async function startServer() {
   const port = await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    logger.info(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
   server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+    logger.info(`Server running on http://localhost:${port}/`);
   });
 }
 
-startServer().catch(console.error);
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "Uncaught exception — shutting down");
+  Sentry.captureException(err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, "Unhandled promise rejection");
+  if (reason instanceof Error) {
+    Sentry.captureException(reason);
+  } else {
+    Sentry.captureException(new Error(String(reason)));
+  }
+});
+
+startServer().catch((err) => {
+  logger.fatal({ err }, "Failed to start server");
+  process.exit(1);
+});
