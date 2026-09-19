@@ -5,6 +5,7 @@ import type { TrpcContext } from "./context";
 import { ENV } from "./env";
 import { timingSafeCompare } from "../timingSafe";
 import { requirePermission, requireAnyPermission, requireAllPermissions, requireRole, requireAnyRole, requireResourcePermission, requireAnyResourcePermission, requireAllResourcePermissions } from "./authz";
+import { hasAnyPermission } from "./rbac";
 import { checkIdempotency, storeIdempotency, hashRequest } from "./idempotency";
 
 const t = initTRPC.context<TrpcContext>().create({
@@ -35,10 +36,6 @@ const requireUser = t.middleware(async opts => {
     });
   }
 
-  if (ctx.user.role === "input_only") {
-    throw new TRPCError({ code: "FORBIDDEN", message: INPUT_ONLY_ERR_MSG });
-  }
-
   return next({
     ctx: {
       ...ctx,
@@ -49,7 +46,7 @@ const requireUser = t.middleware(async opts => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
-const requireInputOnlyOrAdmin = t.middleware(async opts => {
+const requireCreatePermission = t.middleware(async opts => {
   const { ctx, next } = opts;
 
   if (!ctx.user) {
@@ -70,7 +67,15 @@ const requireInputOnlyOrAdmin = t.middleware(async opts => {
     });
   }
 
-  if (ctx.user.role !== "input_only" && ctx.user.role !== "admin" && ctx.user.role !== "user") {
+  // Check if user has any create permission (accounting, budget, payroll, voucher)
+  const hasCreatePerm = await hasAnyPermission(ctx.user.id, [
+    "accounting.create",
+    "budget.create",
+    "payroll.create",
+    "voucher.create",
+  ]);
+
+  if (!hasCreatePerm) {
     throw new TRPCError({ code: "FORBIDDEN", message: INPUT_ONLY_ERR_MSG });
   }
 
@@ -82,7 +87,7 @@ const requireInputOnlyOrAdmin = t.middleware(async opts => {
   });
 });
 
-export const inputOnlyProcedure = t.procedure.use(requireInputOnlyOrAdmin);
+export const inputOnlyProcedure = t.procedure.use(requireCreatePermission);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {

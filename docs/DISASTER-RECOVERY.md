@@ -4,6 +4,15 @@
 
 This document describes the backup and disaster recovery procedures for the Money Tracker application.
 
+## Recovery Objectives
+
+| Metric | Target | Rationale |
+|---|---|---|
+| **RPO (Recovery Point Objective)** | 24 hours | Daily automated backups at 18:00 UTC; maximum data loss is one day of transactions |
+| **RTO (Recovery Time Objective)** | 4 hours | Manual restore procedure: download (30 min) + decrypt (5 min) + preview (5 min) + restore (15 min) + verification (30 min) + buffer for cloud provider latency |
+
+**Note:** RPO of 24 hours means transactions entered after the last successful backup may be lost in a disaster scenario. RTO of 4 hours assumes the backup encryption key is available and the cloud provider is responsive. If the cloud provider is unavailable, RTO may extend by the provider's recovery time.
+
 ---
 
 ## Backup Frequency

@@ -43,7 +43,7 @@ export function useAuth(options?: UseAuthOptions) {
       // header-based sessions (Safari ITP / WebView) are logged out too. The
       // backend cookie is cleared by the logout mutation.
       try {
-        sessionStorage.removeItem("manus-cookie");
+        sessionStorage.removeItem("auth-session-cookie");
       } catch { /* sessionStorage may be unavailable in private/WebView */ }
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
@@ -54,11 +54,11 @@ export function useAuth(options?: UseAuthOptions) {
     // Some mobile/private browsers can deny localStorage. Authentication must
     // continue using the secure session cookie when that browser convenience
     // cache is unavailable.
-    try {
-      localStorage.setItem(
-        "manus-runtime-user-info",
-        JSON.stringify(meQuery.data)
-      );
+try {
+        localStorage.setItem(
+          "auth-runtime-user-info",
+          JSON.stringify(meQuery.data)
+        );
     } catch {
       // Keep the auth flow available when storage is blocked.
     }

@@ -100,8 +100,9 @@ describe("Invariant 5: Input Operator cannot access admin API", () => {
     const s = readFile("./input-operator-security.test.ts");
     expect(s).toContain("admin.verifyAccess");
   });
-  it("input_only role checked in requireUser middleware", () => {
-    expect(readFile("./_core/trpc.ts")).toContain("input_only");
+  it("requireCreatePermission middleware checks RBAC create permissions", () => {
+    expect(readFile("./_core/trpc.ts")).toContain("requireCreatePermission");
+    expect(readFile("./_core/trpc.ts")).toContain("hasAnyPermission");
   });
 });
 

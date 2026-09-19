@@ -1,4 +1,4 @@
-export type AuthMode = "google" | "password" | "manus";
+export type AuthMode = "google" | "password";
 
 export const ENV = {
   authMode: (process.env.AUTH_MODE as AuthMode) ?? "password",
@@ -60,16 +60,6 @@ export function validateCriticalEnv(): string[] {
     }
   }
   
-  // If using Manus OAuth, check required Manus OAuth env vars
-  if (process.env.AUTH_MODE === "manus") {
-    const manusRequired = ["OAUTH_SERVER_URL"];
-    for (const key of manusRequired) {
-      if (!process.env[key]) {
-        missing.push(key);
-      }
-    }
-  }
-  
   return missing;
 }
 
@@ -82,8 +72,8 @@ export function validateCriticalEnv(): string[] {
  * `ensure` reads current process.env so tests can control it with vi.stubEnv.
  */
 export function ensureAuthModeConsistency(): AuthModeConsistency {
-  const serverMode = (process.env.AUTH_MODE as "google" | "password" | "manus") ?? "password";
-  const clientMode = (process.env.VITE_AUTH_MODE as "google" | "password" | "manus" | undefined);
+  const serverMode = (process.env.AUTH_MODE as "google" | "password") ?? "password";
+  const clientMode = (process.env.VITE_AUTH_MODE as "google" | "password" | undefined);
   if (!clientMode) {
     return { ok: true, serverMode, clientMode: serverMode };
   }

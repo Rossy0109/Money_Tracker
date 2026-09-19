@@ -900,17 +900,17 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // SECTION 9: Payroll management (must be blocked — only create allowed)
+  // SECTION 9: Payroll management (create allowed, read/update/delete blocked)
   // ───────────────────────────────────────────────────────────────────────
-  describe("Forbidden: Payroll management (read/update/delete)", () => {
-    it("cannot create employee (no payroll.create in old system, blocked by RBAC)", async () => {
+  describe("Payroll management (create allowed)", () => {
+    it("can create employee (payroll.create permission granted to INPUT_OPERATOR)", async () => {
       financeDb.createEmployee.mockResolvedValue({});
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.createEmployee({
           projectId: 88, name: "New Employee",
         })
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      ).resolves.toBeDefined();
     });
   });
 

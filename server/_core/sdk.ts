@@ -28,10 +28,6 @@ export type SessionPayload = {
   name: string;
 };
 
-const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
-const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
-const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
-
 interface OAuthProviderConfig {
   name: string;
   baseURL: string;
@@ -158,18 +154,6 @@ function createOAuthService(): OAuthService {
     });
   }
   
-  // Manus OAuth provider (optional)
-  if (ENV.oAuthServerUrl) {
-    providers.push({
-      name: "manus",
-      baseURL: ENV.oAuthServerUrl,
-      exchangeTokenPath: EXCHANGE_TOKEN_PATH,
-      getUserInfoPath: GET_USER_INFO_PATH,
-      getUserInfoWithJwtPath: GET_USER_INFO_WITH_JWT_PATH,
-      clientId: ENV.appId,
-    });
-  }
-  
   // If no providers configured, create a mock provider for testing
   if (providers.length === 0) {
     providers.push({
@@ -182,7 +166,6 @@ function createOAuthService(): OAuthService {
   }
   
   const defaultProvider = providers.find(p => p.name === "google") ? "google" : 
-                          providers.find(p => p.name === "manus") ? "manus" : 
                           providers[0]?.name || "mock";
   
   return new OAuthService(providers, defaultProvider);
@@ -262,13 +245,9 @@ class SDKServer {
   }
 
   private getSessionSecret() {
-    const secret = ENV.authMode === "google" ? ENV.sessionSecret : ENV.cookieSecret;
+    const secret = ENV.sessionSecret;
     if (!secret) {
-      throw new Error(
-        ENV.authMode === "google"
-          ? "SESSION_SECRET is required when AUTH_MODE=google"
-          : "JWT_SECRET is required for Manus authentication",
-      );
+      throw new Error("SESSION_SECRET is required");
     }
     return new TextEncoder().encode(secret);
   }
@@ -287,10 +266,8 @@ class SDKServer {
     if (!providerName) {
       // Check which providers are available and use an appropriate default
       const availableProviders = this.oauthService.listProviders();
-      if (ENV.authMode === "google" && availableProviders.includes("google")) {
+      if (availableProviders.includes("google")) {
         providerName = "google";
-      } else if (ENV.authMode === "manus" && availableProviders.includes("manus")) {
-        providerName = "manus";
       } else if (availableProviders.length > 0) {
         providerName = availableProviders[0];
       } else {
@@ -315,10 +292,8 @@ class SDKServer {
     let providerName = options.providerName;
     if (!providerName) {
       const availableProviders = this.oauthService.listProviders();
-      if (ENV.authMode === "google" && availableProviders.includes("google")) {
+      if (availableProviders.includes("google")) {
         providerName = "google";
-      } else if (ENV.authMode === "manus" && availableProviders.includes("manus")) {
-        providerName = "manus";
       } else if (availableProviders.length > 0) {
         providerName = availableProviders[0];
       } else {
@@ -402,7 +377,7 @@ class SDKServer {
     const providerNameResolved = providerName ?? "google";
     const provider = this.oauthService.getProvider(providerName ?? "google");
     const client = this.oauthService.getClientForProvider(providerName ?? "google");
-    const getUserInfoWithJwtPath = provider.getUserInfoWithJwtPath ?? GET_USER_INFO_WITH_JWT_PATH;
+    const getUserInfoWithJwtPath = provider.getUserInfoWithJwtPath ?? "/oauth2/v2/userinfo";
     const { data } = await client.post<GetUserInfoWithJwtResponse>(
       getUserInfoWithJwtPath,
       payload
@@ -454,9 +429,7 @@ class SDKServer {
     let user = await db.getUserByOpenId(sessionUserId);
 
     // Determine which OAuth provider was used based on user's login method or auth mode
-    const providerName = user?.loginMethod === "google" ? "google" : 
-                         user?.loginMethod === "manus" ? "manus" :
-                         ENV.authMode;
+    const providerName = user?.loginMethod === "google" ? "google" : "google";
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
@@ -499,7 +472,7 @@ function buildCronUser(
   return {
     id: -1,
     openId: userInfo.openId,
-    name: userInfo.name || "Manus Scheduled Task",
+    name: userInfo.name || "Scheduled Task",
     email: null,
     loginMethod: null,
     role: "user",
