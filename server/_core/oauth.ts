@@ -21,6 +21,19 @@ import {
 import { ENV } from "./env";
 import { sdk } from "./sdk";
 import { hashPassword, verifyPasswordConstantTime } from "./passwordAuth";
+import {
+  GITHUB_CALLBACK_PATH,
+  GITHUB_LOGIN_PATH,
+  GITHUB_TRANSACTION_COOKIE,
+  createGitHubAuthorizationUrl,
+  createGitHubTransaction,
+  encodeGitHubTransaction,
+  exchangeGitHubAuthorizationCode,
+  fetchGitHubUser,
+  githubTransactionCookieMaxAge,
+  readGitHubTransaction,
+  transactionMatchesGitHubState,
+} from "./githubOAuth";
 import logger from "./logger";
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -217,6 +230,78 @@ export function registerOAuthRoutes(app: Express) {
     } catch (error) {
       logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Callback failed");
       res.status(401).json({ error: "Google sign-in could not be verified" });
+    }
+  });
+
+  // GitHub OAuth login endpoint
+  app.get(GITHUB_LOGIN_PATH, (req: Request, res: Response) => {
+    if (!process.env.GITHUB_CLIENT_ID) {
+      res.status(503).json({ error: "GitHub OAuth is not configured on this server" });
+      return;
+    }
+    try {
+      const transaction = createGitHubTransaction();
+      const options = getOAuthTransactionCookieOptions(req);
+      res.cookie(GITHUB_TRANSACTION_COOKIE, encodeGitHubTransaction(transaction), {
+        ...options,
+        maxAge: githubTransactionCookieMaxAge,
+      });
+      const redirectUri = `${req.protocol}://${req.get("host")}${GITHUB_CALLBACK_PATH}`;
+      res.redirect(302, createGitHubAuthorizationUrl(transaction, redirectUri));
+    } catch (error) {
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[GitHub OAuth] Login initialization failed");
+      res.status(503).json({ error: "GitHub sign-in is temporarily unavailable" });
+    }
+  });
+
+  // GitHub OAuth callback endpoint
+  app.get(GITHUB_CALLBACK_PATH, async (req: Request, res: Response) => {
+    if (!process.env.GITHUB_CLIENT_ID) {
+      res.status(503).json({ error: "GitHub OAuth is not configured" });
+      return;
+    }
+
+    const code = getQueryParam(req, "code");
+    const state = getQueryParam(req, "state");
+    const transaction = readGitHubTransaction(req);
+    const transactionCookieOptions = getOAuthTransactionCookieOptions(req);
+
+    if (!code || !transaction || !transactionMatchesGitHubState(transaction, state)) {
+      res.status(403).json({ error: "invalid github oauth state" });
+      return;
+    }
+    res.clearCookie(GITHUB_TRANSACTION_COOKIE, transactionCookieOptions);
+
+    try {
+      const accessToken = await exchangeGitHubAuthorizationCode(code);
+      const identity = await fetchGitHubUser(accessToken);
+
+      const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
+      const normalizedEmail = (identity.email || "").trim().toLowerCase();
+      const role = bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail) ? "admin" : undefined;
+
+      await db.upsertUser({
+        openId: identity.openId,
+        name: identity.name,
+        email: identity.email,
+        loginMethod: "github",
+        ...(role ? { role } : {}),
+        lastSignedIn: new Date(),
+      });
+
+      const sessionToken = await sdk.createSessionToken(identity.openId, {
+        name: identity.name ?? identity.email,
+        expiresInMs: ONE_YEAR_MS,
+      });
+
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...getSessionCookieOptions(req),
+        maxAge: ONE_YEAR_MS,
+      });
+      res.redirect(302, "/");
+    } catch (error) {
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[GitHub OAuth] Callback failed");
+      res.status(401).json({ error: "GitHub sign-in could not be verified" });
     }
   });
 }

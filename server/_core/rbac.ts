@@ -29,8 +29,8 @@ export const PERMISSION_CATEGORIES = {
 } as const;
 
 // In-memory cache for permissions (populated at startup)
-let permissionCache: Map<string, string[]> = new Map();
-let roleCache: Map<number, { name: string; permissions: string[] }> = new Map();
+const permissionCache: Map<string, string[]> = new Map();
+const roleCache: Map<number, { name: string; permissions: string[] }> = new Map();
 let initialized = false;
 
 /**

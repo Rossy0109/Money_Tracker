@@ -5,6 +5,9 @@ import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
+import { checkSchemaRoute } from "../migration-routes";
+import { addIsActiveRoute } from "../migration-routes";
+import { applyRbacMigrationRoute } from "../migration-routes";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
@@ -61,6 +64,31 @@ export { performanceStore };
 export function createApiApp() {
   const app = express();
 
+  // Trust Vercel's proxy (first hop) for correct client IP, protocol, and host
+  app.set("trust proxy", 1);
+
+  // Canonical host enforcement — redirect non-canonical hostnames to production alias
+  // This prevents cookie mismatches between deployment URLs and the canonical domain,
+  // while safely supporting Vercel preview deployments (*.vercel.app) and local development.
+  const CANONICAL_HOST = process.env.CANONICAL_HOST || "money-tracker-blond-pi.vercel.app";
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const host = req.get("host")?.toLowerCase() || "";
+    const isVercelDomain = host.endsWith(".vercel.app");
+    const isLocal = host.startsWith("localhost") || host.startsWith("127.0.0.1") || host === "::1";
+    const isCanonical = host === CANONICAL_HOST || isLocal || isVercelDomain;
+    
+    // Allow health checks and cron endpoints to bypass host check
+    if (req.path === "/api/healthz" || req.path.startsWith("/api/scheduled/")) {
+      return next();
+    }
+
+    if (!isCanonical && process.env.NODE_ENV === "production") {
+      const canonicalUrl = `https://${CANONICAL_HOST}${req.originalUrl}`;
+      return res.redirect(301, canonicalUrl);
+    }
+    next();
+  });
+
   // Security headers
   app.use(
     helmet({
@@ -95,11 +123,16 @@ export function createApiApp() {
     const isProd = ENV.isProduction;
 
     if (isProd) {
-      // In production, only allow same-origin (no origin header) or exact APP_URL match
-      if (!origin || origin === process.env.APP_URL) {
+      // In production, allow same-origin, exact APP_URL, or any *.vercel.app deployment
+      const isAllowedOrigin =
+        !origin ||
+        origin === process.env.APP_URL ||
+        origin === `https://${CANONICAL_HOST}` ||
+        (typeof origin === "string" && origin.endsWith(".vercel.app"));
+
+      if (isAllowedOrigin) {
         res.setHeader("Access-Control-Allow-Origin", origin || process.env.APP_URL || "*");
       }
-      // If origin doesn't match, don't set the header — browser blocks it
     } else {
       // In development, allow all origins
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
@@ -160,6 +193,11 @@ export function createApiApp() {
   app.get("/api/healthz", (_req, res) => {
     res.status(200).json({ ok: true, service: "money-tracker" });
   });
+
+  // Debug endpoints (for production debugging)
+  app.get("/api/debug/schema", checkSchemaRoute);
+  app.post("/api/debug/add-isactive", addIsActiveRoute);
+  app.post("/api/debug/apply-rbac", applyRbacMigrationRoute);
 
   registerStorageProxy(app);
 
