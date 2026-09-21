@@ -21,6 +21,7 @@ import {
 import { ENV } from "./env";
 import { sdk } from "./sdk";
 import { hashPassword, verifyPasswordConstantTime } from "./passwordAuth";
+import { extractAuditContext } from "./auditContext";
 import {
   GITHUB_CALLBACK_PATH,
   GITHUB_LOGIN_PATH,
@@ -112,6 +113,18 @@ export function registerOAuthRoutes(app: Express) {
       const user = await db.getUserByEmail(email);
       const credentialsValid = await verifyPasswordConstantTime(password, user?.passwordHash);
       if (!user || !credentialsValid) {
+        try {
+          await db.logAudit({
+            actorUserId: user?.id ?? 1,
+            actorRole: user?.role ?? "anonymous",
+            action: "login_failed",
+            entityType: "auth",
+            summary: `Failed login attempt for email: ${email}`,
+            auditContext: extractAuditContext(req),
+          });
+        } catch {
+          // Non-blocking audit failure
+        }
         res.status(401).json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
         return;
       }
@@ -131,6 +144,19 @@ export function registerOAuthRoutes(app: Express) {
       }
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+      try {
+        await db.logAudit({
+          actorUserId: user.id,
+          actorRole: user.role,
+          action: "login",
+          entityType: "auth",
+          entityId: user.id,
+          summary: `User logged in via password: ${user.email ?? user.name ?? user.id}`,
+          auditContext: extractAuditContext(req),
+        });
+      } catch {
+        // Non-blocking audit failure
+      }
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || user.email || "",
@@ -218,6 +244,21 @@ export function registerOAuthRoutes(app: Express) {
         ...(role ? { role } : {}),
         lastSignedIn: new Date(),
       });
+      const dbUser = await db.getUserByOpenId(identity.openId).catch(() => null);
+      try {
+        await db.logAudit({
+          actorUserId: dbUser?.id ?? 1,
+          actorRole: dbUser?.role ?? (role || "user"),
+          action: "login",
+          entityType: "auth",
+          entityId: dbUser?.id ?? null,
+          summary: `User logged in via Google: ${identity.email ?? identity.name ?? identity.openId}`,
+          auditContext: extractAuditContext(req),
+        });
+      } catch {
+        // Non-blocking audit failure
+      }
+
       const sessionToken = await sdk.createSessionToken(identity.openId, {
         name: identity.name ?? identity.email,
         expiresInMs: ONE_YEAR_MS,
@@ -228,6 +269,18 @@ export function registerOAuthRoutes(app: Express) {
       });
       res.redirect(302, "/");
     } catch (error) {
+      try {
+        await db.logAudit({
+          actorUserId: 1,
+          actorRole: "anonymous",
+          action: "login_failed",
+          entityType: "auth",
+          summary: `Google OAuth login failed: ${error instanceof Error ? error.message : String(error)}`,
+          auditContext: extractAuditContext(req),
+        });
+      } catch {
+        // Non-blocking audit failure
+      }
       logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Callback failed");
       res.status(401).json({ error: "Google sign-in could not be verified" });
     }
@@ -288,6 +341,20 @@ export function registerOAuthRoutes(app: Express) {
         ...(role ? { role } : {}),
         lastSignedIn: new Date(),
       });
+      const dbUser = await db.getUserByOpenId(identity.openId).catch(() => null);
+      try {
+        await db.logAudit({
+          actorUserId: dbUser?.id ?? 1,
+          actorRole: dbUser?.role ?? (role || "user"),
+          action: "login",
+          entityType: "auth",
+          entityId: dbUser?.id ?? null,
+          summary: `User logged in via GitHub: ${identity.email ?? identity.name ?? identity.openId}`,
+          auditContext: extractAuditContext(req),
+        });
+      } catch {
+        // Non-blocking audit failure
+      }
 
       const sessionToken = await sdk.createSessionToken(identity.openId, {
         name: identity.name ?? identity.email,
@@ -300,6 +367,18 @@ export function registerOAuthRoutes(app: Express) {
       });
       res.redirect(302, "/");
     } catch (error) {
+      try {
+        await db.logAudit({
+          actorUserId: 1,
+          actorRole: "anonymous",
+          action: "login_failed",
+          entityType: "auth",
+          summary: `GitHub OAuth login failed: ${error instanceof Error ? error.message : String(error)}`,
+          auditContext: extractAuditContext(req),
+        });
+      } catch {
+        // Non-blocking audit failure
+      }
       logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[GitHub OAuth] Callback failed");
       res.status(401).json({ error: "GitHub sign-in could not be verified" });
     }

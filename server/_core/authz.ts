@@ -2,6 +2,24 @@ import { TRPCError } from "@trpc/server";
 import { hasPermission, hasAnyPermission, hasAllPermissions, hasRole } from "./rbac";
 import type { TrpcContext } from "./context";
 
+async function auditPermissionDenied(ctx: TrpcContext, permissionOrReason: string) {
+  if (!ctx.user) return;
+  try {
+    const { logAudit } = await import("../db");
+    const { extractAuditContext } = await import("./auditContext");
+    await logAudit({
+      actorUserId: ctx.user.id,
+      actorRole: ctx.user.role,
+      action: "permission_denied",
+      entityType: "rbac_permission",
+      summary: `Permission denied: ${permissionOrReason}`,
+      auditContext: extractAuditContext(ctx.req),
+    });
+  } catch {
+    // Non-blocking
+  }
+}
+
 /**
  * Middleware to check if user has a specific permission.
  * Throws TRPCError if user doesn't have the permission.
@@ -19,6 +37,7 @@ export function requirePermission(permissionName: string) {
     
     const hasPerm = await hasPermission(ctx.user.id, permissionName);
     if (!hasPerm) {
+      await auditPermissionDenied(ctx, permissionName);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
         message: `অনুমতি নেই: ${permissionName}` 
@@ -46,6 +65,7 @@ export function requireAnyPermission(permissionNames: string[]) {
     const { hasAnyPermission } = await import("./rbac");
     const hasPerm = await hasAnyPermission(ctx.user.id, permissionNames);
     if (!hasPerm) {
+      await auditPermissionDenied(ctx, `any of [${permissionNames.join(", ")}]`);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
         message: `নিম্নলিখিত অনুমতির যেকোনো একটি থাকতে হবে: ${permissionNames.join(", ")}` 
@@ -73,6 +93,7 @@ export function requireAllPermissions(permissionNames: string[]) {
     const { hasAllPermissions } = await import("./rbac");
     const hasPerm = await hasAllPermissions(ctx.user.id, permissionNames);
     if (!hasPerm) {
+      await auditPermissionDenied(ctx, `all of [${permissionNames.join(", ")}]`);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
         message: `নিম্নলিখিত সব অনুমতির থাকতে হবে: ${permissionNames.join(", ")}` 
@@ -100,6 +121,7 @@ export function requireRole(roleName: string) {
     const { hasRole } = await import("./rbac");
     const hasRolePerm = await hasRole(ctx.user.id, roleName);
     if (!hasRolePerm) {
+      await auditPermissionDenied(ctx, `role:${roleName}`);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
         message: `ভূমিকা প্রয়োজন: ${roleName}` 
@@ -131,6 +153,7 @@ export function requireAnyRole(roleNames: string[]) {
     const hasRole = roleNames.some(r => userRoles.includes(r));
     
     if (!hasRole) {
+      await auditPermissionDenied(ctx, `any role of [${roleNames.join(", ")}]`);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
         message: `নিম্নলিখিত ভূমিকার যেকোনো একটি থাকতে হবে: ${roleNames.join(", ")}` 

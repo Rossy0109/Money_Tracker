@@ -23,6 +23,7 @@ import {
 import { clearAdminElevationCookie, issueAdminToken, setAdminElevationCookie } from "./_core/adminSession";
 import { getUserPermissions, getUserRoles } from "./_core/rbac";
 import { ADMIN_SESSION_TTL_MS } from "../shared/const";
+import { extractAuditContext } from "./_core/auditContext";
 
 const amount = z.number().finite().positive().max(999999999999.99);
 const projectId = z.number().int().positive();
@@ -477,6 +478,18 @@ export const appRouter = router({
           user?.passwordHash
         );
         if (!user || !credentialsValid) {
+          try {
+            await financeDb.logAudit({
+              actorUserId: user?.id ?? 1,
+              actorRole: user?.role ?? "anonymous",
+              action: "login_failed",
+              entityType: "auth",
+              summary: `Failed login attempt for email: ${input.email}`,
+              auditContext: extractAuditContext(ctx.req),
+            });
+          } catch {
+            // Non-blocking audit failure
+          }
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।",
@@ -504,6 +517,19 @@ export const appRouter = router({
           openId: user.openId,
           lastSignedIn: new Date(),
         });
+        try {
+          await financeDb.logAudit({
+            actorUserId: user.id,
+            actorRole: user.role,
+            action: "login",
+            entityType: "auth",
+            entityId: user.id,
+            summary: `User logged in: ${user.email ?? user.name ?? user.id}`,
+            auditContext: extractAuditContext(ctx.req),
+          });
+        } catch {
+          // Non-blocking audit failure
+        }
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name || user.email || "",
           expiresInMs: ONE_YEAR_MS,
@@ -524,7 +550,22 @@ export const appRouter = router({
           },
         };
       }),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user) {
+        try {
+          await financeDb.logAudit({
+            actorUserId: ctx.user.id,
+            actorRole: ctx.user.role,
+            action: "logout",
+            entityType: "auth",
+            entityId: ctx.user.id,
+            summary: `User logged out: ${ctx.user.email ?? ctx.user.name ?? ctx.user.id}`,
+            auditContext: extractAuditContext(ctx.req),
+          });
+        } catch {
+          // Non-blocking audit failure
+        }
+      }
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
@@ -661,8 +702,8 @@ export const appRouter = router({
     users: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {
       return financeDb.listUsersForAdmin();
     }),
-    updateUserStatus: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional(), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ input }) => {
-      const updated = await financeDb.updateUserStatus(input.targetUserId, input.status);
+    updateUserStatus: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional(), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ ctx, input }) => {
+      const updated = await financeDb.updateUserStatus(input.targetUserId, input.status, ctx.user?.id, extractAuditContext(ctx.req));
       return { success: true, user: updated };
     }),
     projects: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {

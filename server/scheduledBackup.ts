@@ -7,6 +7,7 @@ import { ENV } from "./_core/env";
 import { timingSafeCompare } from "./timingSafe";
 import logger from "./_core/logger";
 import { isAdminRoleUser } from "./_core/rbac";
+import { extractAuditContext } from "./_core/auditContext";
 
 export function encryptPayload(data: string, secretKey: string): { iv: string; encrypted: string; tag: string } {
   const key = createHash("sha256").update(secretKey).digest();
@@ -140,10 +141,11 @@ export async function runScheduledBackup(req: Request, res: Response): Promise<v
 
     // Log the scheduled backup audit
     await financeDb.logAudit({
-      actorUserId: 0,
-      action: "create",
+      actorUserId: activeUsers[0]?.id ?? 1,
+      action: "backup_created",
       entityType: "cloud_backup",
       summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${verifiedCount} verified, ${failedCount} failed integrity`,
+      auditContext: extractAuditContext(req),
     });
 
     res.status(200).json({

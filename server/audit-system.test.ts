@@ -8,6 +8,7 @@
  *  4. logAudit type signature accepts all new fields
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { extractAuditContext } from "./_core/auditContext";
 import { deleteAuditLogs, updateAuditLogs } from "./db";
 import type { AuditAction, AuditContext } from "./db";
@@ -193,3 +194,41 @@ describe("Audit Integration Flow", () => {
     expect(logAuditCall.auditContext?.ipAddress).toBe("10.0.0.1");
   });
 });
+
+// ─── Security-Sensitive Action Audit Verification ────────────────────────────
+
+describe("Security-Sensitive Action Audit Verification", () => {
+  it("verifies scheduledBackup and cloudBackupService audit with backup_created", () => {
+    const backupSrc = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
+    expect(backupSrc).toContain('action: "backup_created"');
+    const cloudBackupSrc = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    expect(cloudBackupSrc).toContain('action: "backup_created"');
+  });
+
+  it("verifies restoreProjectBackup audits with backup_restored", () => {
+    const dbSrc = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    expect(dbSrc).toContain('action: "backup_restored"');
+  });
+
+  it("verifies updateUserStatus audits user suspension", () => {
+    const dbSrc = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    expect(dbSrc).toContain('action: status === "suspended" ? "user_suspended" : "update"');
+  });
+
+  it("verifies permission denial is audited in authz.ts", () => {
+    const authzSrc = readFileSync(new URL("./_core/authz.ts", import.meta.url), "utf8");
+    expect(authzSrc).toContain('action: "permission_denied"');
+  });
+
+  it("verifies login, logout, and login_failed are audited in routers.ts and oauth.ts", () => {
+    const routerSrc = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+    expect(routerSrc).toContain('action: "login_failed"');
+    expect(routerSrc).toContain('action: "login"');
+    expect(routerSrc).toContain('action: "logout"');
+
+    const oauthSrc = readFileSync(new URL("./_core/oauth.ts", import.meta.url), "utf8");
+    expect(oauthSrc).toContain('action: "login_failed"');
+    expect(oauthSrc).toContain('action: "login"');
+  });
+});
+

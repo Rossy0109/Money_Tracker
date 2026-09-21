@@ -245,7 +245,7 @@ export async function executeCloudBackup(
   await financeDb.logAudit({
     actorUserId: userId,
     projectId,
-    action: "create",
+    action: "backup_created",
     entityType: "cloud_backup",
     summary: `Cloud backup executed (${targetProvider}): ${fileName} (SHA-256: ${checksum.slice(0, 10)}...)`,
   });

@@ -88,9 +88,15 @@ describe("Vercel-compatible Express application", () => {
     expect(response.status).toBe(403);
     const data = await response.json();
     expect(data.success).toBe(false);
+
+    // Also verify GET request (Vercel Cron method) without auth is rejected
+    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "GET",
+    });
+    expect(getResponse.status).toBe(403);
   });
 
-  it("authorizes /api/scheduled/finance-backup with valid Bearer token or admin password", async () => {
+  it("authorizes /api/scheduled/finance-backup with valid Bearer token via POST and GET", async () => {
     const app = createApiApp();
     const server = createServer(app);
     servers.push(server);
@@ -104,15 +110,25 @@ describe("Vercel-compatible Express application", () => {
 
     process.env.CRON_SECRET = "test-cron-secret-token";
 
-    // In unit test without live MariaDB, verify authorization succeeds or handles mock
-    const authorizedResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+    // Verify POST authorization
+    const postResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer test-cron-secret-token",
       },
     });
-    // Request passes auth check (HTTP 200 on live DB or HTTP 500 on db lookup without falling into 403)
-    expect(authorizedResponse.status).not.toBe(403);
+    expect(postResponse.status).not.toBe(403);
+    expect(postResponse.status).not.toBe(404);
+
+    // Verify GET authorization (Vercel Cron method)
+    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer test-cron-secret-token",
+      },
+    });
+    expect(getResponse.status).not.toBe(403);
+    expect(getResponse.status).not.toBe(404);
   });
 });

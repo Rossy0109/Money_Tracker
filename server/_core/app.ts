@@ -17,6 +17,10 @@ const authLimiter = rateLimit({
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: {
+    trustProxy: true,
+    xForwardedForHeader: false,
+  },
   message: {
     message: "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।",
   },
@@ -203,6 +207,7 @@ export function createApiApp() {
   registerOAuthRoutes(app);
   app.post("/api/scheduled/finance-recurring", runScheduledRecurring);
   app.post("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
+  app.get("/api/scheduled/finance-backup", runScheduledBackup);
   app.post("/api/scheduled/finance-backup", runScheduledBackup);
   app.use(
     "/api/trpc",

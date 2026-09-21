@@ -598,7 +598,9 @@ export async function cleanupOldFailedLoginAttempts() {
 
 export async function updateUserStatus(
   userId: number,
-  status: "pending" | "active" | "suspended"
+  status: "pending" | "active" | "suspended",
+  actorUserId?: number,
+  auditContext?: AuditContext
 ) {
   const db = databaseRequired(await getDb());
   await db.update(users).set({ status }).where(eq(users.id, userId));
@@ -617,6 +619,20 @@ export async function updateUserStatus(
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+
+  try {
+    await logAudit({
+      actorUserId: actorUserId ?? user?.id ?? userId,
+      action: status === "suspended" ? "user_suspended" : "update",
+      entityType: "user",
+      entityId: userId,
+      summary: status === "suspended" ? `User suspended: ${user?.email || user?.name || userId}` : `User status updated to ${status}`,
+      auditContext,
+    });
+  } catch {
+    // Non-blocking
+  }
+
   return user;
 }
 
@@ -5418,7 +5434,7 @@ export async function restoreProjectBackup(
   await logAudit({
     actorUserId: userId,
     projectId,
-    action: "create",
+    action: "backup_restored",
     entityType: "project_restore",
     entityId: projectId,
     summary: `Project restored safely from backup: ${input.projectName}`,
