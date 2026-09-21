@@ -22,24 +22,24 @@ describe("ensureAuthModeConsistency", () => {
   });
 
   it("passes when both are set to the same value", async () => {
-    vi.stubEnv("AUTH_MODE", "manus");
-    vi.stubEnv("VITE_AUTH_MODE", "manus");
+    vi.stubEnv("AUTH_MODE", "password");
+    vi.stubEnv("VITE_AUTH_MODE", "password");
     const { ensureAuthModeConsistency } = await import("./env");
-    expect(ensureAuthModeConsistency()).toEqual({ ok: true, serverMode: "manus", clientMode: "manus" });
+    expect(ensureAuthModeConsistency()).toEqual({ ok: true, serverMode: "password", clientMode: "password" });
   });
 
-  it("fails when AUTH_MODE=google but VITE_AUTH_MODE=manus", async () => {
+  it("fails when AUTH_MODE=google but VITE_AUTH_MODE=password", async () => {
     vi.stubEnv("AUTH_MODE", "google");
-    vi.stubEnv("VITE_AUTH_MODE", "manus");
+    vi.stubEnv("VITE_AUTH_MODE", "password");
     const { ensureAuthModeConsistency } = await import("./env");
     const result = ensureAuthModeConsistency();
     expect(result.ok).toBe(false);
     expect(result.serverMode).toBe("google");
-    expect(result.clientMode).toBe("manus");
+    expect(result.clientMode).toBe("password");
   });
 
-  it("fails when AUTH_MODE=manus but VITE_AUTH_MODE=google", async () => {
-    vi.stubEnv("AUTH_MODE", "manus");
+  it("fails when AUTH_MODE=password but VITE_AUTH_MODE=google", async () => {
+    vi.stubEnv("AUTH_MODE", "password");
     vi.stubEnv("VITE_AUTH_MODE", "google");
     const { ensureAuthModeConsistency } = await import("./env");
     expect(ensureAuthModeConsistency().ok).toBe(false);

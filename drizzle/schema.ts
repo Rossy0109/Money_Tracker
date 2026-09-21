@@ -98,7 +98,7 @@ export const roles = mysqlTable(
   "roles",
   {
     id: int("id").autoincrement().primaryKey(),
-    name: varchar("name", { length: 64 }).notNull().unique(),
+    name: varchar("name", { length: 64 }).notNull(),
     displayName: varchar("displayName", { length: 120 }).notNull(),
     description: text("description"),
     isSystem: boolean("isSystem").default(false).notNull(),
@@ -115,7 +115,7 @@ export const permissions = mysqlTable(
   "permissions",
   {
     id: int("id").autoincrement().primaryKey(),
-    name: varchar("name", { length: 128 }).notNull().unique(),
+    name: varchar("name", { length: 128 }).notNull(),
     displayName: varchar("displayName", { length: 128 }).notNull(),
     description: text("description"),
     category: varchar("category", { length: 64 }).notNull(),

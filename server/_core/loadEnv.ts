@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 const DEV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"];
 const PROD_FILES = [".env", ".env.local", ".env.production", ".env.production.local"];
 
-const AUTH_MODE = new Set(["google", "manus"]);
+const AUTH_MODE = new Set(["google", "password"]);
 
 export function getAuthEnvMode(): "development" | "production" {
   return process.env.NODE_ENV === "production" ? "production" : "development";
@@ -23,7 +23,7 @@ export function loadEnvFiles(mode: "development" | "production" = getAuthEnvMode
   }
 }
 
-export function validateAuthMode(mode: string | undefined): mode is "google" | "manus" {
+export function validateAuthMode(mode: string | undefined): mode is "google" | "password" {
   return typeof mode === "string" && AUTH_MODE.has(mode);
 }
 

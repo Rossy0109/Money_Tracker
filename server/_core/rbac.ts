@@ -1,35 +1,12 @@
-import type { Permission, Role, UserRole, RolePermission } from "../../drizzle/schema";
 import { databaseRequired, getDb } from "../db";
 import { eq, and } from "drizzle-orm";
 import { permissions, roles, rolePermissions, userRoles } from "../../drizzle/schema";
+import { ROLE_NAMES } from "@shared/rbac";
 
-export type PermissionName = string;
-export type RoleName = string;
+export { ROLE_NAMES };
+export type { RoleName, PermissionName } from "@shared/rbac";
 
-export const ROLE_NAMES = {
-  SUPER_ADMIN: "SUPER_ADMIN",
-  SYSTEM_ADMIN: "SYSTEM_ADMIN",
-  ACCOUNTING_ADMIN: "ACCOUNTING_ADMIN",
-  HR_ADMIN: "HR_ADMIN",
-  MANAGER: "MANAGER",
-  INPUT_OPERATOR: "INPUT_OPERATOR",
-  VIEWER: "VIEWER",
-} as const;
-
-export const PERMISSION_CATEGORIES = {
-  ACCOUNTING: "accounting",
-  BUDGET: "budget",
-  PAYROLL: "payroll",
-  VOUCHER: "voucher",
-  LEDGER: "ledger",
-  AUDIT: "audit",
-  USER: "user",
-  BACKUP: "backup",
-  SETTINGS: "settings",
-} as const;
-
-// In-memory cache for permissions (populated at startup)
-const permissionCache: Map<string, string[]> = new Map();
+// In-memory cache for role → permissions (populated at startup).
 const roleCache: Map<number, { name: string; permissions: string[] }> = new Map();
 let initialized = false;
 
@@ -42,9 +19,17 @@ export async function initializeRBAC(): Promise<void> {
   
   const db = databaseRequired(await getDb());
   
-  const allPermissions = await db.select().from(permissions);
-  const allRoles = await db.select().from(roles);
-  const allRolePermissions = await db.select().from(rolePermissions);
+  // Select explicit columns (never `*`): legacy DBs may have created these
+  // tables without `updatedAt`, so a blind `select()` would error on them.
+  const allPermissions = await db
+    .select({ id: permissions.id, name: permissions.name })
+    .from(permissions);
+  const allRoles = await db
+    .select({ id: roles.id, name: roles.name })
+    .from(roles);
+  const allRolePermissions = await db
+    .select({ roleId: rolePermissions.roleId, permissionId: rolePermissions.permissionId })
+    .from(rolePermissions);
   
   // Build permission lookup
   const permissionMap = new Map(allPermissions.map(p => [p.id, p.name]));
@@ -199,9 +184,52 @@ export async function removeRole(userId: number, roleName: string): Promise<void
  * Clear the RBAC cache (useful after role/permission changes).
  */
 export function clearRBACCache(): void {
-  permissionCache.clear();
   roleCache.clear();
   initialized = false;
 }
 
-export { eq, and } from "drizzle-orm";
+/**
+ * Role helper predicates. Each resolves the user's current RBAC roles from the
+ * DB-backed cache; prefer these over the legacy `users.role` column.
+ */
+export async function isSuperAdmin(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.SUPER_ADMIN);
+}
+
+export async function isSystemAdmin(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.SYSTEM_ADMIN);
+}
+
+export async function isAccountingAdmin(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.ACCOUNTING_ADMIN);
+}
+
+export async function isHRAdmin(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.HR_ADMIN);
+}
+
+export async function isManager(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.MANAGER);
+}
+
+export async function isInputOperator(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.INPUT_OPERATOR);
+}
+
+export async function isViewer(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.VIEWER);
+}
+
+/**
+ * True when the user holds a super-administrative RBAC role. SYSTEM_ADMIN is a
+ * privileged admin account (users/backup/settings) but has no financial write
+ * authority, so it is deliberately excluded from the "finance admin" set.
+ */
+export async function isFinanceAdmin(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.SUPER_ADMIN) || hasRole(userId, ROLE_NAMES.ACCOUNTING_ADMIN);
+}
+
+/** Super or system administrator — the administrative role set. */
+export async function isAdminRoleUser(userId: number): Promise<boolean> {
+  return hasRole(userId, ROLE_NAMES.SUPER_ADMIN) || hasRole(userId, ROLE_NAMES.SYSTEM_ADMIN);
+}

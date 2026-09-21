@@ -14,11 +14,17 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockGetDb = vi.hoisted(() => vi.fn());
 const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
+const mockAssertOwnedProject = vi.hoisted(() => vi.fn());
 
 vi.mock("./db", () => ({
   getDb: mockGetDb,
   databaseRequired: mockDatabaseRequired,
+  assertOwnedProject: mockAssertOwnedProject,
 }));
+
+beforeEach(() => {
+  mockAssertOwnedProject.mockResolvedValue(undefined);
+});
 
 import {
   generateAccountLedger,

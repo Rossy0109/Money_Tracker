@@ -15,7 +15,7 @@
  */
 
 import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
-import { databaseRequired, getDb } from "./db";
+import { assertOwnedProject, databaseRequired, getDb } from "./db";
 import {
   financeChartOfAccounts,
   financeAccountTypes,
@@ -111,10 +111,12 @@ export interface AccountingReport {
  * optionally scoped by date range.
  */
 async function accountBalances(
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<Map<number, { debitCents: number; creditCents: number }>> {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const conditions = [
@@ -122,6 +124,7 @@ async function accountBalances(
     eq(financeChartOfAccounts.projectId, projectId),
     eq(financeVouchers.id, financeLedgerEntries.voucherId),
     eq(financeVouchers.projectId, projectId),
+    eq(financeVouchers.userId, userId),
     eq(financeVouchers.status, "posted"),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
@@ -155,7 +158,8 @@ async function accountBalances(
 /**
  * Fetch all detail (leaf) accounts for a project with their account type info.
  */
-async function detailAccounts(projectId: number) {
+async function detailAccounts(userId: number, projectId: number) {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   return db
     .select({
@@ -171,6 +175,7 @@ async function detailAccounts(projectId: number) {
     .innerJoin(financeAccountTypes, eq(financeChartOfAccounts.accountTypeId, financeAccountTypes.id))
     .where(
       and(
+        eq(financeChartOfAccounts.userId, userId),
         eq(financeChartOfAccounts.projectId, projectId),
         eq(financeChartOfAccounts.isActive, true),
       )
@@ -191,14 +196,15 @@ async function detailAccounts(projectId: number) {
  * a negative balance is placed in the opposite column (contra).
  */
 export async function generateTrialBalance(
-  _userId: number,
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<TrialBalanceReport> {
+  await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
-    detailAccounts(projectId),
-    accountBalances(projectId, from, to),
+    detailAccounts(userId, projectId),
+    accountBalances(userId, projectId, from, to),
   ]);
 
   const lines: TrialBalanceLine[] = [];
@@ -256,14 +262,15 @@ export async function generateTrialBalance(
  * Expense accounts (normalBalance = "debit")  → positive balance = expense.
  */
 export async function generateIncomeStatement(
-  _userId: number,
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<IncomeStatementReport> {
+  await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
-    detailAccounts(projectId),
-    accountBalances(projectId, from, to),
+    detailAccounts(userId, projectId),
+    accountBalances(userId, projectId, from, to),
   ]);
 
   const revenueLines: IncomeStatementLine[] = [];
@@ -322,13 +329,14 @@ export async function generateIncomeStatement(
  * Equity accounts    → credit balance (capital, retained earnings)
  */
 export async function generateBalanceSheet(
-  _userId: number,
+  userId: number,
   projectId: number,
   asOf?: Date,
 ): Promise<BalanceSheetReport> {
+  await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
-    detailAccounts(projectId),
-    accountBalances(projectId, undefined, asOf),
+    detailAccounts(userId, projectId),
+    accountBalances(userId, projectId, undefined, asOf),
   ]);
 
   const assetLines: BalanceSheetLine[] = [];
@@ -401,14 +409,14 @@ export async function generateBalanceSheet(
  * Generate all three financial statements in one call.
  */
 export async function generateAccountingReport(
-  _userId: number,
+  userId: number,
   projectId: number,
   period?: { from?: Date; to?: Date },
 ): Promise<AccountingReport> {
   const [trialBalance, incomeStatement, balanceSheet] = await Promise.all([
-    generateTrialBalance(_userId, projectId, period?.from, period?.to),
-    generateIncomeStatement(_userId, projectId, period?.from, period?.to),
-    generateBalanceSheet(_userId, projectId, period?.to),
+    generateTrialBalance(userId, projectId, period?.from, period?.to),
+    generateIncomeStatement(userId, projectId, period?.from, period?.to),
+    generateBalanceSheet(userId, projectId, period?.to),
   ]);
 
   return {
@@ -560,12 +568,13 @@ export interface AccountLedgerReport {
  * Shows all journal/ledger entries in date order with running balance.
  */
 export async function generateAccountLedger(
-  _userId: number,
+  userId: number,
   projectId: number,
   accountId: number,
   from?: Date,
   to?: Date,
 ): Promise<AccountLedgerReport> {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const [account] = await db
@@ -583,6 +592,7 @@ export async function generateAccountLedger(
       and(
         eq(financeChartOfAccounts.id, accountId),
         eq(financeChartOfAccounts.projectId, projectId),
+        eq(financeChartOfAccounts.userId, userId),
       )
     )
     .limit(1);
@@ -593,6 +603,7 @@ export async function generateAccountLedger(
     eq(financeLedgerEntries.accountId, accountId),
     eq(financeVouchers.id, financeLedgerEntries.voucherId),
     eq(financeVouchers.projectId, projectId),
+    eq(financeVouchers.userId, userId),
     eq(financeVouchers.status, "posted"),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
@@ -683,14 +694,14 @@ export interface CashFlowReport {
  *   - Cash/Bank accounts: 1110, 1120 (Cash in Hand, Cash at Bank)
  */
 export async function generateCashFlowStatement(
-  _userId: number,
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<CashFlowReport> {
   const [accounts, balances] = await Promise.all([
-    detailAccounts(projectId),
-    accountBalances(projectId, from, to),
+    detailAccounts(userId, projectId),
+    accountBalances(userId, projectId, from, to),
   ]);
 
   // Find cash accounts (code starts with 11)
@@ -810,15 +821,17 @@ export interface DailyTransactionReport {
  * Generate a Daily Transaction Report grouped by date.
  */
 export async function generateDailyTransactions(
-  _userId: number,
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<DailyTransactionReport> {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const conditions = [
     eq(financeVouchers.projectId, projectId),
+    eq(financeVouchers.userId, userId),
     eq(financeVouchers.status, "posted"),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
@@ -885,15 +898,17 @@ export interface MonthlyTransactionReport {
  * Generate a Monthly Transaction Report grouped by YYYY-MM.
  */
 export async function generateMonthlyTransactions(
-  _userId: number,
+  userId: number,
   projectId: number,
   from?: Date,
   to?: Date,
 ): Promise<MonthlyTransactionReport> {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const conditions = [
     eq(financeVouchers.projectId, projectId),
+    eq(financeVouchers.userId, userId),
     eq(financeVouchers.status, "posted"),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));

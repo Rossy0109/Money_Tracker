@@ -5,9 +5,6 @@ import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
-import { checkSchemaRoute } from "../migration-routes";
-import { addIsActiveRoute } from "../migration-routes";
-import { applyRbacMigrationRoute } from "../migration-routes";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
@@ -193,11 +190,6 @@ export function createApiApp() {
   app.get("/api/healthz", (_req, res) => {
     res.status(200).json({ ok: true, service: "money-tracker" });
   });
-
-  // Debug endpoints (for production debugging)
-  app.get("/api/debug/schema", checkSchemaRoute);
-  app.post("/api/debug/add-isactive", addIsActiveRoute);
-  app.post("/api/debug/apply-rbac", applyRbacMigrationRoute);
 
   registerStorageProxy(app);
 

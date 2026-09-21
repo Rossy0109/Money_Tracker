@@ -946,8 +946,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
 
     it("cannot access admin without auth", async () => {
       const caller = appRouter.createCaller(unauthenticatedContext);
-      // adminProcedure returns FORBIDDEN (not UNAUTHORIZED) for null user
-      await expect(caller.admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      // adminProcedure rejects unauthenticated users with UNAUTHORIZED before
+      // any role or elevation check (never FORBIDDEN, never treated as admin).
+      await expect(caller.admin.users()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     });
   });
 

@@ -1,7 +1,5 @@
-import { createServer as createHttpServer } from "node:http";
-import { request as nodeRequest } from "node:http";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Server } from "node:http";
+import { createServer as createHttpServer, request as nodeRequest } from "node:http";
+import { describe, expect, it, vi } from "vitest";
 
 const stubDiscovery = {
   issuer: "https://accounts.google.com",
@@ -94,7 +92,7 @@ describe("Google login route (google mode)", () => {
   it("returns 404 when AUTH_MODE is not google", { timeout: 30000 }, async () => {
     vi.unstubAllEnvs();
     vi.resetModules();
-    // Leave AUTH_MODE unset → defaults to manus
+    // Leave AUTH_MODE unset → defaults to password
     const { createApiApp } = await import("./app");
     const app = createApiApp();
     const server = createHttpServer(app);

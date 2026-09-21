@@ -1,20 +1,59 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards, type LucideIcon } from "lucide-react";
+import { ROLE_NAMES } from "@shared/rbac";
 
 interface MenuItem {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   href: string;
   adminOnly?: boolean;
   inputOnlyAllowed?: boolean;
+}
+
+interface AuthGatingUser {
+  name?: string | null;
+  email?: string | null;
+  status?: string;
+  role?: string;
+  roles?: string[];
+  permissions?: string[];
+}
+
+const ADMIN_ROLES: Set<string> = new Set([ROLE_NAMES.SUPER_ADMIN, ROLE_NAMES.SYSTEM_ADMIN]);
+
+function roleSet(user: AuthGatingUser | null | undefined): string[] {
+  return Array.isArray(user?.roles) ? user.roles : [];
+}
+
+function permissionSet(user: AuthGatingUser | null | undefined): string[] {
+  return Array.isArray(user?.permissions) ? user.permissions : [];
+}
+
+/** Server-admin gate: legacy admin OR RBAC system admin OR any admin-level permission. */
+function isAdminUser(user: AuthGatingUser | null | undefined): boolean {
+  if (user?.role === "admin") return true;
+  if (roleSet(user).some(r => ADMIN_ROLES.has(r))) return true;
+  return permissionSet(user).some(p =>
+    p === "settings.manage" || p === "role.manage" || p === "permission.manage" ||
+    p === "user.manage" || p.startsWith("backup.") || p.startsWith("audit.")
+  );
+}
+
+/** Strict input-only gate: legacy input_only OR INPUT_OPERATOR role OR create-only permission set. */
+function isInputOnlyUser(user: AuthGatingUser | null | undefined): boolean {
+  if (user?.role === "input_only") return true;
+  const roles = roleSet(user);
+  if (roles.includes(ROLE_NAMES.INPUT_OPERATOR)) return true;
+  const perms = permissionSet(user);
+  if (perms.length === 0) return false;
+  return perms.every(p => p.startsWith("auth.") || p.endsWith(".create"));
 }
 
 const menuItems: MenuItem[] = [
@@ -55,7 +94,7 @@ function DashboardSidebarContent({
 }: {
   visibleMenuItems: MenuItem[];
   logoUrl: string | null;
-  user: any;
+  user: AuthGatingUser;
   logout: () => void;
 }) {
   const { setOpenMobile, isMobile } = useSidebar();
@@ -139,14 +178,14 @@ function DashboardSidebarContent({
                 <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
                 <span
                   className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
-                    user.role === "admin"
+                    isAdminUser(user)
                       ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30"
-                      : user.role === "input_only"
+                      : isInputOnlyUser(user)
                       ? "bg-amber-400/25 text-amber-200 border border-amber-400/30"
                       : "bg-white/15 text-[#b9d2c2]"
                   }`}
                 >
-                  {user.role === "admin" ? "Admin" : user.role === "input_only" ? "Input Only" : "User"}
+                  {isAdminUser(user) ? "Admin" : isInputOnlyUser(user) ? "Input Only" : "User"}
                 </span>
               </div>
               <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
@@ -195,10 +234,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const isInputOnly = user.role === "input_only";
+  const isInputOnly = isInputOnlyUser(user);
   const visibleMenuItems = isInputOnly
     ? inputOnlyMenuItems
-    : menuItems.filter(item => !item.adminOnly || user.role === "admin");
+    : menuItems.filter(item => !item.adminOnly || isAdminUser(user));
 
   return (
     <SidebarProvider defaultOpen>

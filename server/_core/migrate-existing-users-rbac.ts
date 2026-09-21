@@ -1,7 +1,6 @@
 import { databaseRequired, getDb, logAudit } from "../db";
-import { eq } from "drizzle-orm";
 import { users } from "../../drizzle/schema";
-import { assignRole } from "./rbac";
+import { assignRole, clearRBACCache } from "./rbac";
 
 /**
  * One-time migration: assign default RBAC roles to all existing users
@@ -43,4 +42,8 @@ export async function migrateExistingUsersToRBAC() {
       summary: `Migrated ${migrated}/${allUsers.length} existing users to RBAC roles`,
     });
   }
+
+  // Role assignments changed; drop any stale in-memory RBAC cache so the next
+  // lookup reflects the migrated assignments.
+  clearRBACCache();
 }

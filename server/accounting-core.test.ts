@@ -12,17 +12,28 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockGetDb = vi.hoisted(() => vi.fn());
 const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
+const mockAssertOwnedProject = vi.hoisted(() => vi.fn());
 
 vi.mock("./db", () => ({
   getDb: mockGetDb,
   databaseRequired: mockDatabaseRequired,
+  assertOwnedProject: mockAssertOwnedProject,
 }));
+
+beforeEach(() => {
+  // By default assume the caller owns the project; individual tests override.
+  mockAssertOwnedProject.mockResolvedValue(undefined);
+});
 
 import {
   generateTrialBalance,
   generateIncomeStatement,
   generateBalanceSheet,
   generateAccountingReport,
+  generateAccountLedger,
+  generateCashFlowStatement,
+  generateDailyTransactions,
+  generateMonthlyTransactions,
   createFiscalPeriod,
   listFiscalPeriods,
   assertPeriodNotLocked,
@@ -431,5 +442,45 @@ describe("DECIMAL(18,2) Precision", () => {
     expect(tb.isBalanced).toBe(true);
     expect(tb.totalDebit).toBe(100);
     expect(tb.totalCredit).toBe(100);
+  });
+});
+
+// ─── Cross-Project Isolation Tests ──────────────────────────────────────────
+
+describe("Cross-Project Isolation (IDOR prevention)", () => {
+  beforeEach(() => {
+    mockAssertOwnedProject.mockRejectedValue(new Error("Project not found or access denied"));
+  });
+
+  it("generateTrialBalance rejects when the project belongs to another user", async () => {
+    await expect(generateTrialBalance(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateIncomeStatement rejects when the project belongs to another user", async () => {
+    await expect(generateIncomeStatement(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateBalanceSheet rejects when the project belongs to another user", async () => {
+    await expect(generateBalanceSheet(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateAccountingReport rejects when the project belongs to another user", async () => {
+    await expect(generateAccountingReport(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateAccountLedger rejects when the project belongs to another user", async () => {
+    await expect(generateAccountLedger(2, 1, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateCashFlowStatement rejects when the project belongs to another user", async () => {
+    await expect(generateCashFlowStatement(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateDailyTransactions rejects when the project belongs to another user", async () => {
+    await expect(generateDailyTransactions(2, 1)).rejects.toThrow("Project not found or access denied");
+  });
+
+  it("generateMonthlyTransactions rejects when the project belongs to another user", async () => {
+    await expect(generateMonthlyTransactions(2, 1)).rejects.toThrow("Project not found or access denied");
   });
 });

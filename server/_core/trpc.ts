@@ -93,7 +93,22 @@ export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+
+    const wasAdmin = ctx.user.role === "admin";
+    let isRbacAdmin = false;
+    if (!wasAdmin) {
+      try {
+        const { isAdminRoleUser } = await import("./rbac");
+        isRbacAdmin = await isAdminRoleUser(ctx.user.id);
+      } catch {
+        isRbacAdmin = false;
+      }
+    }
+
+    if (!wasAdmin && !isRbacAdmin) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -124,7 +139,22 @@ export const elevatedAdminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+
+    const wasAdmin = ctx.user.role === "admin";
+    let isRbacAdmin = false;
+    if (!wasAdmin) {
+      try {
+        const { isAdminRoleUser } = await import("./rbac");
+        isRbacAdmin = await isAdminRoleUser(ctx.user.id);
+      } catch {
+        isRbacAdmin = false;
+      }
+    }
+
+    if (!wasAdmin && !isRbacAdmin) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

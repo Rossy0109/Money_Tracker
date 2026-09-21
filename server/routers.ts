@@ -20,7 +20,8 @@ import {
   protectedWithPermission,
   inputOnlyWithPermission,
 } from "./_core/rbac-procedures";
-import { issueAdminToken, setAdminElevationCookie, clearAdminElevationCookie } from "./_core/adminSession";
+import { clearAdminElevationCookie, issueAdminToken, setAdminElevationCookie } from "./_core/adminSession";
+import { getUserPermissions, getUserRoles } from "./_core/rbac";
 import { ADMIN_SESSION_TTL_MS } from "../shared/const";
 
 const amount = z.number().finite().positive().max(999999999999.99);
@@ -359,7 +360,27 @@ function userSessionFromRequest(request: { headers: { cookie?: string } }) {
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(async opts => {
+      const user = opts.ctx.user;
+      if (!user) return null;
+      const {
+        passwordHash: _passwordHash,
+        resetToken: _resetToken,
+        resetTokenExpiresAt: _resetTokenExpiresAt,
+        ...safeUser
+      } = user;
+      try {
+        const [roles, permissions] = await Promise.all([
+          getUserRoles(user.id),
+          getUserPermissions(user.id),
+        ]);
+        return { ...safeUser, roles, permissions };
+      } catch {
+        // RBAC metadata unavailable (still authenticating / DB unreachable).
+        // Return deny-by-default: no roles and no permission grants.
+        return { ...safeUser, roles: [], permissions: [] };
+      }
+    }),
     register: publicProcedure
       .input(
         z.object({
@@ -770,13 +791,13 @@ export const appRouter = router({
         financeDb.getVoucherList(ctx.user!.id, input.projectId, input)
       ),
     // Voucher Lifecycle
-    submitVoucher: inputOnlyWithPermission("voucher", "update")
+    submitVoucher: inputOnlyWithPermission("voucher", "submit")
       .use(idempotent)
       .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
       .mutation(({ ctx, input }) =>
         financeDb.submitVoucher(ctx.user!.id, input.projectId, input.voucherId)
       ),
-    approveVoucher: inputOnlyWithPermission("voucher", "update")
+    approveVoucher: inputOnlyWithPermission("voucher", "approve")
       .use(idempotent)
       .input(z.object({
         projectId,
@@ -787,7 +808,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.approveVoucher(ctx.user!.id, input.projectId, input.voucherId, input.action)
       ),
-    postVoucher: inputOnlyWithPermission("voucher", "update")
+    postVoucher: inputOnlyWithPermission("voucher", "post")
       .use(idempotent)
       .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
       .mutation(async ({ ctx, input }) => {

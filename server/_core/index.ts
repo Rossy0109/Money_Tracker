@@ -61,7 +61,13 @@ async function startServer() {
     await initializeRBAC();
     logger.info("RBAC system initialized");
   } catch (err) {
-    logger.error({ err }, "RBAC initialization failed — permission checks will be skipped");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "RBAC initialization failed — refusing to start with authorization disabled",
+        { cause: err },
+      );
+    }
+    logger.error({ err }, "RBAC initialization failed in non-production — authorization checks will be unavailable");
   }
 
   const app = createApiApp();

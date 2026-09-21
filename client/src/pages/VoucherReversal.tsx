@@ -92,6 +92,14 @@ export default function VoucherReversal() {
     </label>
   ) : null;
 
+  const vouchers = voucherListQuery.data ?? [];
+  const reversals = reversalsQuery.data ?? [];
+
+  const reversibleVouchers = useMemo(
+    () => vouchers.filter(v => !v.reversal && v.status === "posted"),
+    [vouchers]
+  );
+
   if (overview.isLoading || projectsLoading || voucherListQuery.isLoading || reversalsQuery.isLoading) {
     return (
       <DashboardLayout>
@@ -101,13 +109,6 @@ export default function VoucherReversal() {
       </DashboardLayout>
     );
   }
-
-  const vouchers = voucherListQuery.data ?? [];
-  const reversals = reversalsQuery.data ?? [];
-
-  const reversibleVouchers = useMemo(() => 
-    vouchers.filter(v => !v.reversal && v.status === "posted")
-  , [vouchers]);
 
   const handleReverse = (voucher: Voucher) => {
     setSelectedVoucher(voucher);
@@ -130,16 +131,6 @@ export default function VoucherReversal() {
   const getReversalInfo = (voucherId: number) => {
     return reversals.find(r => r.originalVoucherId === voucherId);
   };
-
-  if (overview.isLoading || projectsLoading || voucherListQuery.isLoading || reversalsQuery.isLoading) {
-    return (
-      <DashboardLayout>
-        <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">ভাউচার রিভার্সাল লোড হচ্ছে…</div>
-        </main>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>

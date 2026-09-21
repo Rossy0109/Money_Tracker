@@ -132,12 +132,12 @@ describe("Self-Approval Prevention — Router-Level Enforcement", () => {
   const routerSource = readFile("./routers.ts");
 
   it("approveVoucher procedure uses permission-based middleware (not owner-only)", () => {
-    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"update\")");
+    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"approve\")");
   });
 
   it("postVoucher procedure uses permission-based middleware", () => {
     // postVoucher should also be protected by RBAC
-    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"update\")");
+    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"post\")");
   });
 });
 
