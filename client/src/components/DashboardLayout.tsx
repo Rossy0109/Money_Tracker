@@ -7,7 +7,7 @@ import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
 import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards, type LucideIcon } from "lucide-react";
-import { ROLE_NAMES } from "@shared/rbac";
+import { isAdminUser, isInputOnlyUser, type AuthGatingUser } from "@/lib/rbac";
 
 interface MenuItem {
   icon: LucideIcon;
@@ -15,45 +15,6 @@ interface MenuItem {
   href: string;
   adminOnly?: boolean;
   inputOnlyAllowed?: boolean;
-}
-
-interface AuthGatingUser {
-  name?: string | null;
-  email?: string | null;
-  status?: string;
-  role?: string;
-  roles?: string[];
-  permissions?: string[];
-}
-
-const ADMIN_ROLES: Set<string> = new Set([ROLE_NAMES.SUPER_ADMIN, ROLE_NAMES.SYSTEM_ADMIN]);
-
-function roleSet(user: AuthGatingUser | null | undefined): string[] {
-  return Array.isArray(user?.roles) ? user.roles : [];
-}
-
-function permissionSet(user: AuthGatingUser | null | undefined): string[] {
-  return Array.isArray(user?.permissions) ? user.permissions : [];
-}
-
-/** Server-admin gate: legacy admin OR RBAC system admin OR any admin-level permission. */
-function isAdminUser(user: AuthGatingUser | null | undefined): boolean {
-  if (user?.role === "admin") return true;
-  if (roleSet(user).some(r => ADMIN_ROLES.has(r))) return true;
-  return permissionSet(user).some(p =>
-    p === "settings.manage" || p === "role.manage" || p === "permission.manage" ||
-    p === "user.manage" || p.startsWith("backup.") || p.startsWith("audit.")
-  );
-}
-
-/** Strict input-only gate: legacy input_only OR INPUT_OPERATOR role OR create-only permission set. */
-function isInputOnlyUser(user: AuthGatingUser | null | undefined): boolean {
-  if (user?.role === "input_only") return true;
-  const roles = roleSet(user);
-  if (roles.includes(ROLE_NAMES.INPUT_OPERATOR)) return true;
-  const perms = permissionSet(user);
-  if (perms.length === 0) return false;
-  return perms.every(p => p.startsWith("auth.") || p.endsWith(".create"));
 }
 
 const menuItems: MenuItem[] = [

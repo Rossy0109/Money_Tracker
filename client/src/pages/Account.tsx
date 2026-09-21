@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck, User } from "lucide-react";
 import { useState } from "react";
+import { getDisplayRole } from "@/lib/rbac";
 
 export default function Account() {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ export default function Account() {
               <div>
                 <div className="text-xs text-[#5c7a6e]">ভূমিকা</div>
                 <div className="font-semibold text-[#14382f]">
-                  {user?.role === "admin" ? "অ্যাডমিন (Admin)" : "ইউজার / সদস্য"}
+                  {getDisplayRole(user)}
                 </div>
               </div>
             </div>

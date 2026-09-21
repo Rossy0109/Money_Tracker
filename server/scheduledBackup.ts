@@ -6,6 +6,7 @@ import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { timingSafeCompare } from "./timingSafe";
 import logger from "./_core/logger";
+import { isAdminRoleUser } from "./_core/rbac";
 
 export function encryptPayload(data: string, secretKey: string): { iv: string; encrypted: string; tag: string } {
   const key = createHash("sha256").update(secretKey).digest();
@@ -62,7 +63,8 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
     if (user.isCron) {
       return true;
     }
-    if (user.role === "admin") {
+    // Check legacy admin role OR RBAC admin role
+    if (user.role === "admin" || await isAdminRoleUser(user.id)) {
       return true;
     }
   } catch {

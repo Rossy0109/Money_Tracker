@@ -43,6 +43,7 @@ import {
 } from "@/components/dashboard/types";
 import { trpc } from "@/lib/trpc";
 import { canLoadAdminData } from "@/lib/adminAccess";
+import { isAdminUser } from "@/lib/rbac";
 import {
   readActiveProjectId,
   resolveActiveProjectId,
@@ -1002,7 +1003,7 @@ export default function Home() {
           downloadExport={downloadExport}
           isExportFetching={exportData.isFetching}
           onOpenMonthlyReport={() => setMonthlyReportOpen(true)}
-          isAdmin={user?.role === "admin"}
+          isAdmin={isAdminUser(user)}
           onOpenAdmin={() => setAdminOpen(true)}
         />
 

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useActiveProject } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
+import { isAdminUser } from "@/lib/rbac";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -65,7 +66,7 @@ export default function FinanceBackup() {
   });
 
   const cloudStorageStatus = trpc.finance.cloudBackupStatus.useQuery(undefined, {
-    enabled: user?.role === "admin",
+    enabled: isAdminUser(user),
   });
 
   const triggerCloudBackup = trpc.finance.triggerCloudBackup.useMutation({
@@ -76,7 +77,7 @@ export default function FinanceBackup() {
     onError: error => toast.error(error.message || "ক্লাউড ব্যাকআপ ব্যর্থ হয়েছে"),
   });
 
-  if (user && user.role !== "admin") {
+  if (user && !isAdminUser(user)) {
     return (
       <DashboardLayout>
         <div className="max-w-xl mx-auto py-12 px-4 text-center">
