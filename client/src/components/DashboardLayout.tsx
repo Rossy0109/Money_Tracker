@@ -7,44 +7,43 @@ import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
 import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards, type LucideIcon } from "lucide-react";
-import { isAdminUser, isInputOnlyUser, type AuthGatingUser } from "@/lib/rbac";
+import { isAdminUser, isInputOnlyUser, hasPermission, getDisplayRole, type AuthGatingUser } from "@/lib/rbac";
 
 interface MenuItem {
   icon: LucideIcon;
   label: string;
   href: string;
-  adminOnly?: boolean;
-  inputOnlyAllowed?: boolean;
+  permission?: string;
 }
 
 const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
-  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
-  { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts" },
-  { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock" },
-  { icon: RotateCcw, label: "ভাউচার রিভার্সাল", href: "/voucher-reversal" },
-  { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger" },
-  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll" },
-  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },
-  { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory" },
-  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements" },
-  { icon: Printer, label: "রিপোর্ট ও প্রিন্ট", href: "/reports" },
-  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator" },
-  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
-  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
-  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
-  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
-  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
-  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", adminOnly: true },
-  { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
-  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
+  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/", permission: "accounting.read" },
+  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions", permission: "accounting.read" },
+  { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts", permission: "accounting.read" },
+  { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock", permission: "accounting.read" },
+  { icon: RotateCcw, label: "ভাউচার রিভার্সাল", href: "/voucher-reversal", permission: "voucher.read" },
+  { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger", permission: "accounting.read" },
+  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll", permission: "payroll.read" },
+  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices", permission: "accounting.read" },
+  { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory", permission: "accounting.read" },
+  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements", permission: "reports.view" },
+  { icon: Printer, label: "রিপোর্ট ও প্রিন্ট", href: "/reports", permission: "reports.view" },
+  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator", permission: "accounting.read" },
+  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts", permission: "accounting.read" },
+  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets", permission: "budget.read" },
+  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights", permission: "accounting.read" },
+  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation", permission: "accounting.read" },
+  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family", permission: "accounting.read" },
+  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", permission: "backup.view" },
+  { icon: Tags, label: "ক্যাটাগরি", href: "/categories", permission: "accounting.read" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
 ];
 
 const inputOnlyMenuItems: MenuItem[] = [
-  { icon: ReceiptText, label: "লেনদেন যোগ করুন", href: "/#transactions", inputOnlyAllowed: true },
-  { icon: WalletCards, label: "অ্যাকাউন্ট যোগ করুন", href: "/#accounts", inputOnlyAllowed: true },
-  { icon: ChartNoAxesCombined, label: "বাজেট যোগ করুন", href: "/#budgets", inputOnlyAllowed: true },
-  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
+  { icon: ReceiptText, label: "লেনদেন যোগ করুন", href: "/#transactions", permission: "accounting.create" },
+  { icon: WalletCards, label: "অ্যাকাউন্ট যোগ করুন", href: "/#accounts", permission: "accounting.create" },
+  { icon: ChartNoAxesCombined, label: "বাজেট যোগ করুন", href: "/#budgets", permission: "budget.create" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
 ];
 
 function DashboardSidebarContent({
@@ -146,7 +145,7 @@ function DashboardSidebarContent({
                       : "bg-white/15 text-[#b9d2c2]"
                   }`}
                 >
-                  {isAdminUser(user) ? "Admin" : isInputOnlyUser(user) ? "Input Only" : "User"}
+                  {getDisplayRole(user)}
                 </span>
               </div>
               <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
@@ -198,7 +197,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isInputOnly = isInputOnlyUser(user);
   const visibleMenuItems = isInputOnly
     ? inputOnlyMenuItems
-    : menuItems.filter(item => !item.adminOnly || isAdminUser(user));
+    : menuItems.filter(item => !item.permission || hasPermission(user, item.permission));
 
   return (
     <SidebarProvider defaultOpen>

@@ -2,6 +2,7 @@ import type { CreateExpressContextOptions } from "@trpc/server/adapters/express"
 import type { User } from "../../drizzle/schema";
 import { sdk } from "./sdk";
 import { extractAdminTokenFromRequest, verifyAdminToken, type AdminElevationPayload } from "./adminSession";
+import { isAdminRoleUser } from "./rbac";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -24,7 +25,7 @@ export async function createContext(
   }
 
   let adminElevation: AdminElevationPayload | null = null;
-  if (user && user.role === "admin") {
+  if (user && await isAdminRoleUser(user.id)) {
     const rawAdminToken = extractAdminTokenFromRequest(opts.req);
     const verified = verifyAdminToken(rawAdminToken);
     if (verified && verified.userId === user.id) {
