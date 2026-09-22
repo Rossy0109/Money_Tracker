@@ -17,6 +17,7 @@ export default defineConfig({
     environment: "node",
     include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
+    globalSetup: ["./vitest.global-setup.ts"],
     env: {
       NODE_ENV: "test",
       ADMIN_ACCESS_PASSWORD: "test-admin-access-password",
