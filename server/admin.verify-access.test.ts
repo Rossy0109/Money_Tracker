@@ -7,7 +7,7 @@ const adminContext = {
     openId: "administrator",
     email: "admin@example.com",
     name: "Administrator",
-    loginMethod: "manus",
+    loginMethod: "google",
     role: "admin" as const,
     createdAt: new Date(),
     updatedAt: new Date(),

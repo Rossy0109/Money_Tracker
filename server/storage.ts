@@ -3,6 +3,7 @@
 
 import { ENV } from "./_core/env";
 import { selectStorageBackend } from "./_core/storageBackend";
+import { createHash } from "node:crypto";
 
 function getStorageBackend() {
   const backend = selectStorageBackend(ENV);
@@ -83,12 +84,12 @@ export async function storagePut(
     throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
   }
 
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/api/storage/objects/${key}` };
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/api/storage/objects/${key}` };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {

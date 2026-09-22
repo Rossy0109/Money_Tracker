@@ -60,19 +60,19 @@ import { appRouter } from "./routers";
 
 const adminUser = {
   id: 1, openId: "admin-user", email: "admin@example.com", name: "Admin",
-  loginMethod: "manus", role: "admin" as const, status: "active" as const,
+  loginMethod: "google", role: "admin" as const, status: "active" as const,
   createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
 };
 
 const inputOnlyUser = {
   id: 42, openId: "input-only-user", email: "input@example.com", name: "Input Only",
-  loginMethod: "manus", role: "input_only" as const, status: "active" as const,
+  loginMethod: "google", role: "input_only" as const, status: "active" as const,
   createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
 };
 
 const normalUser = {
   id: 99, openId: "normal-user", email: "normal@example.com", name: "Normal User",
-  loginMethod: "manus", role: "user" as const, status: "active" as const,
+  loginMethod: "google", role: "user" as const, status: "active" as const,
   createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
 };
 

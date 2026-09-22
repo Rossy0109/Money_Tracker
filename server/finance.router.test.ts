@@ -43,7 +43,7 @@ vi.mock("./_core/rbac", () => ({
 import { appRouter } from "./routers";
 
 const authenticatedContext = {
-  user: { id: 42, openId: "finance-owner", email: "owner@example.com", name: "Owner", loginMethod: "manus", role: "user" as const, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+  user: { id: 42, openId: "finance-owner", email: "owner@example.com", name: "Owner", loginMethod: "google", role: "user" as const, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
   req: { protocol: "https", headers: {} },
   res: { clearCookie: vi.fn() },
 } as any;
