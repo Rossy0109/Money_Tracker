@@ -12,7 +12,13 @@ function makeRequest(url: string): Promise<{ status: number; rawHeaders: string[
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const req = nodeRequest(
-      { hostname: parsed.hostname, port: parsed.port, path: parsed.pathname, method: "GET" },
+      { 
+        hostname: parsed.hostname, 
+        port: parsed.port, 
+        path: parsed.pathname, 
+        method: "GET",
+        headers: { Host: parsed.host }
+      },
       res => {
         const chunks: Buffer[] = [];
         res.on("data", c => chunks.push(c));

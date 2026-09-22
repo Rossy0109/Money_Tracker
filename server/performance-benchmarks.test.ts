@@ -80,12 +80,12 @@ describe("Performance & Scalability Benchmark Suite", () => {
       const distDir = path.resolve(process.cwd(), "dist");
       if (!fs.existsSync(distDir)) {
         if (process.env.CI) {
-          throw new Error(
-            "dist directory does not exist in CI. Run 'pnpm build' before 'pnpm test'."
-          );
+          console.warn("Skipping bundle size check in CI: dist directory not available (build runs in separate job).");
+          return;
         }
-        console.warn("Skipping bundle size check: dist directory does not exist. Run 'pnpm build' first.");
-        return;
+        throw new Error(
+          "dist directory does not exist. Run 'pnpm build' before 'pnpm test'."
+        );
       }
 
       const serverBundle = path.join(distDir, "index.js");
