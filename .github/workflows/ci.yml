@@ -64,7 +64,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Unit tests
-        run: NODE_ENV=test npx vitest run
+        run: NODE_ENV=test NODE_ENV=test npx vitest run
 
       - name: Upload coverage
         if: always()
