@@ -18,13 +18,11 @@ describe("Vercel nested API routing", () => {
     });
   });
 
-  it("routes storage paths through the same function without falling into SPA routing", () => {
+  it("does not include legacy manus-storage routes", () => {
     const configPath = fileURLToPath(new URL("../../vercel.json", import.meta.url));
     const config = JSON.parse(readFileSync(configPath, "utf8")) as { routes?: VercelRoute[] };
 
-    expect(config.routes).toContainEqual({
-      src: "/manus-storage/(.*)",
-      dest: "/api/[...path]?path=manus-storage/$1",
-    });
+    const hasManusStorage = config.routes?.some(r => r.src?.includes("manus-storage"));
+    expect(hasManusStorage).toBe(false);
   });
 });

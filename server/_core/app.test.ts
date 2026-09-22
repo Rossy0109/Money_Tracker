@@ -23,11 +23,10 @@ describe("Vercel-compatible Express application", () => {
     expect(typeof vercelHandler).toBe("function");
   });
 
-  it("preserves the public storage-proxy path after the Vercel function rewrite", () => {
-    expect(normalizeVercelRequestPath("/api/manus-storage/exports/report.pdf?download=1")).toBe(
-      "/manus-storage/exports/report.pdf?download=1",
-    );
+  it("preserves the public path after the Vercel function rewrite", () => {
+    // Since we removed manus-storage routes, the path is now a passthrough
     expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
+    expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
   });
 
   it("exposes a non-mutating health endpoint without starting a process listener", async () => {
