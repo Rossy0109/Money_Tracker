@@ -18,6 +18,7 @@ export default defineConfig({
     include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
     env: {
+      NODE_ENV: "test",
       ADMIN_ACCESS_PASSWORD: "test-admin-access-password",
       JWT_SECRET: "test-jwt-secret-minimum-32-chars-long",
       SESSION_SECRET: "test-session-secret-minimum-32-chars-long",
