@@ -1,6 +1,8 @@
 import { createServer as createHttpServer, request as nodeRequest } from "node:http";
 import { describe, expect, it, vi } from "vitest";
 
+process.env.NODE_ENV = "test";
+
 const stubDiscovery = {
   issuer: "https://accounts.google.com",
   authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -16,8 +18,7 @@ function makeRequest(url: string): Promise<{ status: number; rawHeaders: string[
         hostname: parsed.hostname, 
         port: parsed.port, 
         path: parsed.pathname, 
-        method: "GET",
-        headers: { Host: parsed.host }
+        method: "GET"
       },
       res => {
         const chunks: Buffer[] = [];
