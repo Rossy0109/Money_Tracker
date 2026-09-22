@@ -98,6 +98,7 @@ describe("Google login route (google mode)", () => {
   it("returns 404 when AUTH_MODE is not google", { timeout: 30000 }, async () => {
     vi.unstubAllEnvs();
     vi.resetModules();
+    vi.stubEnv("NODE_ENV", "test");
     // Leave AUTH_MODE unset → defaults to password
     const { createApiApp } = await import("./app");
     const app = createApiApp();

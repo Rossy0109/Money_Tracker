@@ -1,8 +1,10 @@
+process.env.NODE_ENV = "test";
+
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Server } from "node:http";
-import { createApiApp } from "./app";
 import { normalizeVercelRequestPath } from "./vercelPath";
+import { createApiApp } from "./app";
 import vercelHandler from "../vercel-handler";
 
 const servers: Server[] = [];
@@ -50,7 +52,6 @@ describe("Vercel-compatible Express application", () => {
   });
 
   it("keeps Google OAuth endpoints disabled when the legacy Manus mode is active", async () => {
-    vi.stubEnv("NODE_ENV", "test");
     const app = createApiApp();
     const server = createServer(app);
     servers.push(server);
