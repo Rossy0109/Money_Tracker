@@ -4164,6 +4164,13 @@ export async function createAccount(
     entityId: id,
     summary: `Account created: ${input.name.trim()}`,
   });
+
+  const [created] = await db
+    .select()
+    .from(financeAccounts)
+    .where(eq(financeAccounts.id, id))
+    .limit(1);
+  return created;
 }
 
 export async function updateAccount(

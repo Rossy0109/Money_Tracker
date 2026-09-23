@@ -7,6 +7,7 @@ import { users } from "../drizzle/schema";
 import { appRouter } from "./routers";
 import { seedDefaultRBAC } from "./_core/seed-rbac";
 import { assignRole, clearRBACCache, initializeRBAC } from "./_core/rbac";
+import { verifyAdminToken, type AdminElevationPayload } from "./_core/adminSession";
 import { closeDatabaseConnection, getDb } from "./db";
 import { INPUT_OPERATOR_PERMISSIONS, ROLE_NAMES } from "../shared/rbac";
 
@@ -30,12 +31,12 @@ let superAdmin: E2eUser;
 let viewer: E2eUser;
 let legacyAdmin: E2eUser;
 
-function caller(user: E2eUser) {
+function caller(user: E2eUser, adminElevation: AdminElevationPayload | null = null) {
   return appRouter.createCaller({
     user,
     req: { protocol: "https", headers: {} },
     res: { clearCookie: vi.fn(), cookie: vi.fn() },
-    adminElevation: null,
+    adminElevation,
   } as unknown as Parameters<typeof appRouter.createCaller>[0]);
 }
 
@@ -154,7 +155,11 @@ describe("real-stack RBAC E2E", () => {
 
     const adminPassword = process.env.ADMIN_ACCESS_PASSWORD;
     if (adminPassword) {
-      await expect(admin.admin.users()).resolves.toEqual(
+      const verified = await admin.admin.verifyAccess({ password: adminPassword });
+      expect(verified.verified).toBe(true);
+      const elevation = verifyAdminToken(verified.token);
+      expect(elevation).not.toBeNull();
+      await expect(caller(superAdmin, elevation).admin.users()).resolves.toEqual(
         expect.arrayContaining([expect.objectContaining({ email: "input@rbac.test", role: "user" })])
       );
     }

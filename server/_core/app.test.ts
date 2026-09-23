@@ -1,7 +1,7 @@
 process.env.NODE_ENV = "test";
 
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Server } from "node:http";
 import { normalizeVercelRequestPath } from "./vercelPath";
 import { createApiApp } from "./app";
@@ -52,7 +52,12 @@ describe("Vercel-compatible Express application", () => {
   });
 
   it("keeps Google OAuth endpoints disabled when password mode is active", async () => {
-    const app = createApiApp();
+    // Hermetic: ambient CI environments set AUTH_MODE=google, so stub the
+    // password mode explicitly instead of relying on it being unset.
+    vi.resetModules();
+    vi.stubEnv("AUTH_MODE", "password");
+    const fresh = await import("./app");
+    const app = fresh.createApiApp();
     const server = createServer(app);
     servers.push(server);
 
@@ -68,6 +73,7 @@ describe("Vercel-compatible Express application", () => {
     });
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Google OAuth is not enabled" });
+    vi.unstubAllEnvs();
   });
 
   it("rejects unauthorized access to /api/scheduled/finance-backup", async () => {

@@ -124,7 +124,9 @@ describe("Google login route (google mode)", () => {
     vi.unstubAllEnvs();
     vi.resetModules();
     vi.stubEnv("NODE_ENV", "test");
-    // Leave AUTH_MODE unset → defaults to password
+    // Explicit password mode: ambient CI environments set AUTH_MODE=google,
+    // so "unset" cannot be relied on here.
+    vi.stubEnv("AUTH_MODE", "password");
     const fresh = await import("./app");
     passwordServer = await startServer(fresh.createApiApp);
 

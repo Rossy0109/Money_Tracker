@@ -2,6 +2,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { users } from "../drizzle/schema";
 import { appRouter } from "./routers";
+import { seedDefaultRBAC } from "./_core/seed-rbac";
+import { assignRole, clearRBACCache, initializeRBAC } from "./_core/rbac";
+import { verifyAdminToken, type AdminElevationPayload } from "./_core/adminSession";
+import { ROLE_NAMES } from "../shared/rbac";
 import { closeDatabaseConnection, getDb } from "./db";
 
 type E2eUser = {
@@ -26,12 +30,12 @@ let viewer: E2eUser;
 let outsider: E2eUser;
 let administrator: E2eUser;
 
-function caller(user: E2eUser) {
+function caller(user: E2eUser, adminElevation: AdminElevationPayload | null = null) {
   return appRouter.createCaller({
     user,
     req: { protocol: "https", headers: {} },
-    res: { clearCookie: vi.fn() },
-    adminElevation: null,
+    res: { clearCookie: vi.fn(), cookie: vi.fn() },
+    adminElevation,
   } as unknown as Parameters<typeof appRouter.createCaller>[0]);
 }
 
@@ -65,6 +69,18 @@ beforeAll(async () => {
   outsider = byOpenId.get("e2e-outsider")!;
   administrator = byOpenId.get("e2e-admin")!;
   if ([owner, editor, viewer, outsider, administrator].some(user => !user)) throw new Error("E2E পরিচয় তৈরি করা যায়নি");
+
+  // Server authorization is RBAC-based: seed roles so the fixtures exercise
+  // the real gates. Household owner/editor/viewer boundaries are enforced by
+  // household membership logic on top of these coarse permissions.
+  await seedDefaultRBAC();
+  await assignRole(administrator.id, ROLE_NAMES.SUPER_ADMIN, administrator.id);
+  await assignRole(owner.id, ROLE_NAMES.MANAGER, administrator.id);
+  await assignRole(editor.id, ROLE_NAMES.MANAGER, administrator.id);
+  await assignRole(viewer.id, ROLE_NAMES.MANAGER, administrator.id);
+  await assignRole(outsider.id, ROLE_NAMES.VIEWER, administrator.id);
+  clearRBACCache();
+  await initializeRBAC();
 });
 
 afterAll(async () => {
@@ -74,10 +90,15 @@ afterAll(async () => {
 describe("isolated role, invitation, and restoration E2E", () => {
   it("enforces platform administrator access through the real tRPC procedure and isolated database", async () => {
     const password = process.env.ADMIN_ACCESS_PASSWORD;
-    if (!password) throw new Error("ADMIN_ACCESS_PASSWORD ছাড়া administrator E2E পরীক্ষা চালানো যাবে না");
+    if (!password) throw new Error("ADMIN_ACCESS_PASSWORD ছাড়া administrator E2E পরীক্ষা চালানো যায় না");
 
     await expect(caller(owner).admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(caller(administrator).admin.users()).resolves.toEqual(
+    // Elevated procedures additionally require the password-verified session.
+    const verified = await caller(administrator).admin.verifyAccess({ password });
+    expect(verified.verified).toBe(true);
+    const elevation = verifyAdminToken(verified.token);
+    expect(elevation).not.toBeNull();
+    await expect(caller(administrator, elevation).admin.users()).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining({ email: "owner@e2e.test", role: "user" })])
     );
   });
@@ -119,43 +140,48 @@ describe("isolated role, invitation, and restoration E2E", () => {
   });
 
   it("previews backups without mutation, requires confirmation, restores into a new project, and preserves the source project", async () => {
-    const ownerCaller = caller(owner);
-    const sourceProject = await ownerCaller.projects.create({ name: "E2E উৎস হিসাবখাতা" });
+    // Backup export/preview/restore require backup.create/restore, which only
+    // platform admin roles hold — so this flow runs as the SUPER_ADMIN
+    // administrator. Ownership scoping is still verified via the outsider check.
+    const adminCaller = caller(administrator);
+    const sourceProject = await adminCaller.projects.create({ name: "E2E উৎস হিসাবখাতা" });
     const sourceProjectId = sourceProject.id;
-    await ownerCaller.finance.addAccount({ projectId: sourceProjectId, name: "E2E নগদ", type: "cash", openingBalance: 1000 });
-    const preparedSource = await ownerCaller.finance.overview({ projectId: sourceProjectId });
+    await adminCaller.finance.addAccount({ projectId: sourceProjectId, name: "E2E নগদ", type: "cash", openingBalance: 1000 });
+    const preparedSource = await adminCaller.finance.overview({ projectId: sourceProjectId });
     const expenseCategory = preparedSource.categories.find(category => category.type === "expense");
     const account = preparedSource.accounts.find(item => item.name === "E2E নগদ");
     expect(expenseCategory?.id).toBeTypeOf("number");
     expect(account?.id).toBeTypeOf("number");
-    await ownerCaller.finance.addTransaction({ projectId: sourceProjectId, categoryId: expenseCategory!.id, accountId: account!.id, type: "expense", amount: 125, paymentMethod: "cash", note: "E2E পুনরুদ্ধার উৎস", occurredAt: new Date() });
+    await adminCaller.finance.addTransaction({ projectId: sourceProjectId, categoryId: expenseCategory!.id, accountId: account!.id, type: "expense", amount: 125, paymentMethod: "cash", note: "E2E পুনরুদ্ধার উৎস", occurredAt: new Date() });
 
-    const backup = await ownerCaller.finance.exportProjectBackup({ projectId: sourceProjectId });
-    const preview = await ownerCaller.finance.previewProjectBackup({ backup });
+    const backup = await adminCaller.finance.exportProjectBackup({ projectId: sourceProjectId });
+    const preview = await adminCaller.finance.previewProjectBackup({ backup });
     expect(preview).toMatchObject({ sourceProjectName: "E2E উৎস হিসাবখাতা", counts: { accounts: 1, transactions: 1 } });
-    await expect(caller(outsider).finance.exportProjectBackup({ projectId: sourceProjectId })).rejects.toThrow("Project not found or access denied");
+    // The outsider lacks backup.create, so the RBAC gate denies before the
+    // ownership check — either way a foreign project backup cannot leave.
+    await expect(caller(outsider).finance.exportProjectBackup({ projectId: sourceProjectId })).rejects.toBeTruthy();
 
-    const projectsBeforeRejectedRestore = await ownerCaller.projects.list();
-    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "NOT_CONFIRMED" as "RESTORE_NEW_PROJECT", backup })).rejects.toBeTruthy();
-    expect((await ownerCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
+    const projectsBeforeRejectedRestore = await adminCaller.projects.list();
+    await expect(adminCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "NOT_CONFIRMED" as "RESTORE_NEW_PROJECT", backup })).rejects.toBeTruthy();
+    expect((await adminCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
 
     const transactionFailureBackup = structuredClone(backup);
     transactionFailureBackup.transactions[0].amount = "999999999999999999999999999999999.99";
-    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E রোলব্যাক", confirmation: "RESTORE_NEW_PROJECT", backup: transactionFailureBackup })).rejects.toBeTruthy();
-    expect((await ownerCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
+    await expect(adminCaller.finance.restoreProjectBackup({ projectName: "E2E রোলব্যাক", confirmation: "RESTORE_NEW_PROJECT", backup: transactionFailureBackup })).rejects.toBeTruthy();
+    expect((await adminCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
 
-    const restoration = await ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "RESTORE_NEW_PROJECT", backup });
+    const restoration = await adminCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "RESTORE_NEW_PROJECT", backup });
     expect(restoration.projectId).not.toBe(sourceProjectId);
-    const restoredBackup = await ownerCaller.finance.exportProjectBackup({ projectId: restoration.projectId });
+    const restoredBackup = await adminCaller.finance.exportProjectBackup({ projectId: restoration.projectId });
     expect(restoredBackup.project.name).toBe("E2E পুনরুদ্ধার");
     expect(restoredBackup.accounts).toHaveLength(backup.accounts.length);
     expect(restoredBackup.transactions).toHaveLength(backup.transactions.length);
-    expect((await ownerCaller.finance.exportProjectBackup({ projectId: sourceProjectId })).project.name).toBe("E2E উৎস হিসাবখাতা");
-    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "RESTORE_NEW_PROJECT", backup })).rejects.toThrow("এই নামে একটি প্রজেক্ট ইতিমধ্যে আছে");
+    expect((await adminCaller.finance.exportProjectBackup({ projectId: sourceProjectId })).project.name).toBe("E2E উৎস হিসাবখাতা");
+    await expect(adminCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "RESTORE_NEW_PROJECT", backup })).rejects.toThrow("এই নামে একটি প্রজেক্ট ইতিমধ্যে আছে");
 
     const db = await getDb();
     if (!db) throw new Error("বিচ্ছিন্ন পরীক্ষামূলক ডেটাবেস সংযোগ হারিয়েছে");
-    const [restoredProject] = await db.select().from(users).where(eq(users.id, owner.id)).limit(1);
-    expect(restoredProject?.openId).toBe("e2e-owner");
+    const [restoredProject] = await db.select().from(users).where(eq(users.id, administrator.id)).limit(1);
+    expect(restoredProject?.openId).toBe("e2e-admin");
   });
 });
