@@ -82,6 +82,7 @@ interface AdminDialogProps {
       email?: string | null;
       role: string;
       status?: string | null;
+      rbacRoles?: string[];
     }>;
   };
   adminProjects: {
@@ -100,6 +101,8 @@ interface AdminDialogProps {
   isAuditExporting: boolean;
   onUpdateUserStatus: (targetUserId: number, status: "active" | "suspended") => void;
   isUpdatingUserStatus: boolean;
+  onAssignRole: (targetUserId: number, role: string) => void;
+  isAssigningRole: boolean;
   // Logo
   logoUrl: string | null;
   onUploadLogo: (file: File) => Promise<void>;
@@ -128,12 +131,13 @@ export function AdminDialog({
   auditActivity,
   adminUsers,
   adminProjects,
-  auditPage,
   setAuditPage,
   onDownloadAuditLogs,
   isAuditExporting,
   onUpdateUserStatus,
   isUpdatingUserStatus,
+  onAssignRole,
+  isAssigningRole,
   logoUrl,
   onUploadLogo,
   onResetLogo,
@@ -483,8 +487,40 @@ export function AdminDialog({
                         <p className="text-xs text-[#73857c] truncate mt-0.5">
                           {member.email}
                         </p>
+                        {member.rbacRoles?.length ? (
+                          <p className="text-[11px] text-[#477263] mt-0.5">
+                            RBAC: {member.rbacRoles.join(", ")}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
+                        {member.status === "active" && (
+                          <select
+                            aria-label={`Assign role to ${member.name || member.email || member.id}`}
+                            className="h-8 rounded-lg border border-[#c9dcd0] bg-white px-2 text-xs text-[#25483e]"
+                            value={member.rbacRoles?.[0] ?? "VIEWER"}
+                            disabled={isAssigningRole}
+                            onChange={event =>
+                              onAssignRole(member.id, event.target.value)
+                            }
+                          >
+                            {(
+                              [
+                                "SUPER_ADMIN",
+                                "SYSTEM_ADMIN",
+                                "ACCOUNTING_ADMIN",
+                                "HR_ADMIN",
+                                "MANAGER",
+                                "INPUT_OPERATOR",
+                                "VIEWER",
+                              ] as const
+                            ).map(roleName => (
+                              <option key={roleName} value={roleName}>
+                                {roleName}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         {member.status !== "active" && (
                           <Button
                             type="button"
@@ -497,7 +533,10 @@ export function AdminDialog({
                             <span>অনুমোদন দিন</span>
                           </Button>
                         )}
-                        {member.status === "active" && member.role !== "admin" && (
+                        {member.status === "active" &&
+                          !(member.rbacRoles ?? []).some(
+                            r => r === "SUPER_ADMIN" || r === "SYSTEM_ADMIN"
+                          ) && (
                           <Button
                             type="button"
                             variant="outline"

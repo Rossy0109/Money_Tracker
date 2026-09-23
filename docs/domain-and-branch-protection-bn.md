@@ -17,4 +17,4 @@ CI-এর commit `f9a0e864187c2700976ba0bb859db5c0a1cb345c`-এ দুটি req
 
 ## Custom domain-এর জন্য প্রয়োজনীয় তথ্য
 
-পূর্ণ-stack application বর্তমানে `https://moneytrack-2tqvjvuy.manus.space/`-এ চলে। GitHub Pages কেবল redirect করে। একটি domain পাওয়া গেলে দুইটি আলাদা hostname ব্যবহার করা নিরাপদ: `app.<আপনার-domain>` live app-এর জন্য এবং `www.<আপনার-domain>` Pages redirect-এর জন্য। DNS provider-এ domain ownership ছাড়া record বা hosting binding সম্পন্ন করা সম্ভব নয়।
+পূর্ণ-stack application বর্তমানে Vercel production deployment-এ চলে। GitHub Pages কেবল redirect করে। একটি domain পাওয়া গেলে দুইটি আলাদা hostname ব্যবহার করা নিরাপদ: `app.<আপনার-domain>` live app-এর জন্য এবং `www.<আপনার-domain>` Pages redirect-এর জন্য। DNS provider-এ domain ownership ছাড়া record বা hosting binding সম্পন্ন করা সম্ভব নয়।

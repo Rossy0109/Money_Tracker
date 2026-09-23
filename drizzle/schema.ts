@@ -12,7 +12,7 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 
-/** Core identity table maintained by Manus OAuth. */
+/** Core identity table backing the auth flow. */
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
@@ -183,7 +183,7 @@ export const financeHouseholds = mysqlTable(
   "finance_households",
   {
     id: int("id").autoincrement().primaryKey(),
-    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
     name: varchar("name", { length: 120 }).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -199,8 +199,8 @@ export const financeHouseholdMembers = mysqlTable(
   "finance_household_members",
   {
     id: int("id").autoincrement().primaryKey(),
-    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
-    userId: int("userId").references(() => users.id, { onDelete: "cascade" }),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "restrict" }),
+    userId: int("userId").references(() => users.id, { onDelete: "restrict" }),
     inviteeEmail: varchar("inviteeEmail", { length: 320 }).notNull(),
     displayName: varchar("displayName", { length: 120 }),
     role: mysqlEnum("role", ["editor", "viewer"]).notNull().default("viewer"),
@@ -223,7 +223,7 @@ export const financeSharedBudgets = mysqlTable(
   "finance_shared_budgets",
   {
     id: int("id").autoincrement().primaryKey(),
-    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "restrict" }),
     label: varchar("label", { length: 120 }).notNull(),
     monthKey: varchar("monthKey", { length: 7 }).notNull(),
     amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
@@ -242,8 +242,8 @@ export const financeSharedExpenses = mysqlTable(
   "finance_shared_expenses",
   {
     id: int("id").autoincrement().primaryKey(),
-    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "cascade" }),
-    budgetId: int("budgetId").notNull().references(() => financeSharedBudgets.id, { onDelete: "cascade" }),
+    householdId: int("householdId").notNull().references(() => financeHouseholds.id, { onDelete: "restrict" }),
+    budgetId: int("budgetId").notNull().references(() => financeSharedBudgets.id, { onDelete: "restrict" }),
     contributorUserId: int("contributorUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
     amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
     note: varchar("note", { length: 500 }),
@@ -470,8 +470,8 @@ export const financeChartOfAccounts = mysqlTable(
   "finance_chart_of_accounts",
   {
     id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
     accountTypeId: int("accountTypeId").notNull().references(() => financeAccountTypes.id, { onDelete: "restrict" }),
     parentId: int("parentId"),
     code: varchar("code", { length: 30 }).notNull(), // e.g., 1000, 1010, 1010.01
@@ -499,8 +499,8 @@ export const financeAccountGroups = mysqlTable(
   "finance_account_groups",
   {
     id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
     accountTypeId: int("accountTypeId").notNull().references(() => financeAccountTypes.id, { onDelete: "restrict" }),
     parentId: int("parentId"),
     code: varchar("code", { length: 20 }).notNull(),
@@ -525,8 +525,8 @@ export const financeFiscalPeriods = mysqlTable(
   "finance_fiscal_periods",
   {
     id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
     name: varchar("name", { length: 120 }).notNull(),
     startDate: timestamp("startDate").notNull(),
     endDate: timestamp("endDate").notNull(),
@@ -728,7 +728,7 @@ export const financeDueSettlements = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
     projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
-    dueId: int("dueId").notNull().references(() => financeDues.id, { onDelete: "cascade" }),
+    dueId: int("dueId").notNull().references(() => financeDues.id, { onDelete: "restrict" }),
     accountId: int("accountId").references(() => financeAccounts.id, { onDelete: "set null" }),
     amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
     voucherNo: varchar("voucherNo", { length: 80 }),
@@ -852,9 +852,9 @@ export const financePrivateStorageObjects = mysqlTable(
   "finance_private_storage_objects",
   {
     id: int("id").autoincrement().primaryKey(),
-    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    projectId: int("projectId").references(() => financeProjects.id, { onDelete: "cascade" }),
-    householdId: int("householdId").references(() => financeHouseholds.id, { onDelete: "cascade" }),
+    ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    projectId: int("projectId").references(() => financeProjects.id, { onDelete: "restrict" }),
+    householdId: int("householdId").references(() => financeHouseholds.id, { onDelete: "restrict" }),
     storageKey: varchar("storageKey", { length: 512 }).notNull(),
     kind: mysqlEnum("kind", ["backup", "export"]).notNull(),
     scope: mysqlEnum("scope", ["owner", "household"]).notNull(),
@@ -980,7 +980,7 @@ export const financeSalaryPayments = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
     projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
-    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "cascade" }),
+    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "restrict" }),
     monthKey: varchar("monthKey", { length: 7 }).notNull(), // YYYY-MM
     baseSalary: decimal("baseSalary", { precision: 18, scale: 2 }).notNull(),
     bonusAmount: decimal("bonusAmount", { precision: 18, scale: 2 }).notNull().default("0.00"),
@@ -1011,7 +1011,7 @@ export const financeEmployeeAdvances = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "restrict" }),
     projectId: int("projectId").notNull().references(() => financeProjects.id, { onDelete: "restrict" }),
-    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "cascade" }),
+    employeeId: int("employeeId").notNull().references(() => financeEmployees.id, { onDelete: "restrict" }),
     amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
     repaidAmount: decimal("repaidAmount", { precision: 18, scale: 2 }).notNull().default("0.00"),
     disbursedDate: timestamp("disbursedDate").notNull(),

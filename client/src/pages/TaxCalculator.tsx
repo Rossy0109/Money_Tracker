@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,13 +11,10 @@ import {
 } from "@/lib/taxCalculator";
 import {
   Calculator,
-  Percent,
   ShieldCheck,
   TrendingUp,
-  Landmark,
   Building,
   Coins,
-  ArrowRight,
   HelpCircle,
 } from "lucide-react";
 
@@ -30,7 +26,7 @@ export default function TaxCalculator() {
   const [salaryIncome, setSalaryIncome] = useState("720000");
   const [businessIncome, setBusinessIncome] = useState("0");
   const [houseRentIncome, setHouseRentIncome] = useState("0");
-  const [agricultureIncome, setAgricultureIncome] = useState("0");
+  const [agricultureIncome] = useState("0");
   const [otherIncome, setOtherIncome] = useState("0");
   const [tds, setTds] = useState("0");
 
@@ -39,7 +35,7 @@ export default function TaxCalculator() {
   const [dps, setDps] = useState("120000");
   const [stockMarket, setStockMarket] = useState("0");
   const [lifeInsurance, setLifeInsurance] = useState("30000");
-  const [providentFund, setProvidentFund] = useState("60000");
+  const [providentFund] = useState("60000");
 
   const income: IncomeBreakdown = {
     salaryIncome: Number(salaryIncome) || 0,
@@ -115,7 +111,10 @@ export default function TaxCalculator() {
 
                 <div>
                   <Label className="text-xs font-semibold text-[#244b3c]">এলাকা (ন্যূনতম করের জন্য)</Label>
-                  <Select value={cityType} onValueChange={(val: any) => setCityType(val)}>
+                  <Select
+                    value={cityType}
+                    onValueChange={(val: "dhaka_ctg" | "other_city" | "non_city") => setCityType(val)}
+                  >
                     <SelectTrigger className="mt-1 h-10 rounded-xl border-[#cfe0d5] text-xs">
                       <SelectValue />
                     </SelectTrigger>

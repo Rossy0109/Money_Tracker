@@ -1,4 +1,4 @@
-import { databaseRequired, getDb } from "../db";
+import { databaseRequired, getDb } from "./dbConnection";
 import { eq, and } from "drizzle-orm";
 import { permissions, roles, rolePermissions, userRoles } from "../../drizzle/schema";
 import { ROLE_NAMES } from "@shared/rbac";

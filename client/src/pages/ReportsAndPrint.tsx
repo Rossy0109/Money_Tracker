@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -83,10 +83,7 @@ export default function ReportsAndPrint() {
   });
 
   const [projectId, setProjectId] = useState<number | null>(null);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- select first project on load
-    if (projectId == null && projects.data?.[0]) setProjectId(projects.data[0].id);
-  }, [projects.data, projectId]);
+  const effectiveProjectId = projectId ?? projects.data?.[0]?.id ?? null;
 
   const [kind, setKind] = useState<StatementKind>("daily");
   const [preset, setPreset] = useState<PresetValue>("today");
@@ -98,12 +95,12 @@ export default function ReportsAndPrint() {
   const [isPdfBusy, setIsPdfBusy] = useState(false);
 
   const overview = trpc.finance.overview.useQuery(
-    { projectId: projectId ?? 0 },
-    { enabled: isAuthenticated && projectId != null }
+    { projectId: effectiveProjectId ?? 0 },
+    { enabled: isAuthenticated && effectiveProjectId != null }
   );
   const firmProfile = trpc.finance.firmProfile.useQuery(
-    { projectId: projectId ?? 0 },
-    { enabled: isAuthenticated && projectId != null }
+    { projectId: effectiveProjectId ?? 0 },
+    { enabled: isAuthenticated && effectiveProjectId != null }
   );
 
   const { from, to } = useMemo(
@@ -119,8 +116,8 @@ export default function ReportsAndPrint() {
   }, [kind, typeFilter]);
 
   const statementData = trpc.finance.statementData.useQuery(
-    { projectId: projectId ?? 0, type: effectiveType, categoryId: categoryId ?? undefined, accountId: accountId ?? undefined, from, to },
-    { enabled: isAuthenticated && projectId != null }
+    { projectId: effectiveProjectId ?? 0, type: effectiveType, categoryId: categoryId ?? undefined, accountId: accountId ?? undefined, from, to },
+    { enabled: isAuthenticated && effectiveProjectId != null }
   );
 
   const periodLabel = useMemo(() => {
@@ -150,19 +147,20 @@ export default function ReportsAndPrint() {
   }, [kind, kindLabel]);
 
   const [firmDraft, setFirmDraft] = useState({ name: "", tagline: "", phone: "", email: "", address: "" });
-  useEffect(() => {
-    const firm = firmProfile.data;
-    if (firm) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync firm profile from server to local draft
-      setFirmDraft({
-        name: firm.name,
-        tagline: firm.tagline,
-        phone: firm.phone,
-        email: firm.email,
-        address: firm.address,
-      });
-    }
-  }, [firmProfile.data]);
+  const firmSourceKey = firmProfile.data
+    ? `${firmProfile.data.name}|${firmProfile.data.tagline}|${firmProfile.data.phone}|${firmProfile.data.email}|${firmProfile.data.address}`
+    : "";
+  const [syncedFirmKey, setSyncedFirmKey] = useState("");
+  if (firmProfile.data && firmSourceKey !== syncedFirmKey) {
+    setSyncedFirmKey(firmSourceKey);
+    setFirmDraft({
+      name: firmProfile.data.name,
+      tagline: firmProfile.data.tagline,
+      phone: firmProfile.data.phone,
+      email: firmProfile.data.email,
+      address: firmProfile.data.address,
+    });
+  }
 
   const saveFirm = trpc.finance.saveFirmProfile.useMutation({
     onSuccess: async () => {
@@ -245,7 +243,7 @@ export default function ReportsAndPrint() {
                   {projects.data?.length ? (
                     <select
                       className="finance-input mt-1 h-10 w-full rounded-xl"
-                      value={projectId ?? ""}
+                      value={effectiveProjectId ?? ""}
                       onChange={event => {
                         const value = event.target.value ? Number(event.target.value) : null;
                         setProjectId(value);
@@ -439,10 +437,10 @@ export default function ReportsAndPrint() {
                 </label>
                 <Button
                   onClick={() =>
-                    projectId &&
-                    saveFirm.mutate({ projectId, ...firmDraft })
+                    effectiveProjectId &&
+                    saveFirm.mutate({ projectId: effectiveProjectId, ...firmDraft })
                   }
-                  disabled={!projectId || saveFirm.isPending}
+                  disabled={!effectiveProjectId || saveFirm.isPending}
                   className="h-10 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
                 >
                   <Save className="mr-1.5 h-4 w-4" />
@@ -480,7 +478,7 @@ export default function ReportsAndPrint() {
                   <div className="p-6">
                     <Printer className="mx-auto h-8 w-8 text-[#b6c7bd]" />
                     <p className="mt-3 text-sm text-[#5c7a6e]">
-                      {projectId == null
+                      {effectiveProjectId == null
                         ? "প্রথমে একটি প্রজেক্ট নির্বাচন করুন।"
                         : statementData.isFetching
                           ? "বিবরণী তৈরি হচ্ছে..."

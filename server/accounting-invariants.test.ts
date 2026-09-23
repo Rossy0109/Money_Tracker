@@ -153,7 +153,10 @@ describe("Invariant 8: Duplicate idempotency key prevents duplicates", () => {
     expect(readFile("../drizzle/schema.ts")).toContain("idempotency_keys_user_key_unique");
   });
   it("idempotent middleware intercepts replays", () => {
-    expect(readFile("./_core/trpc.ts")).toContain("existing.isReplay");
+    const s = readFile("./_core/trpc.ts");
+    expect(s).toContain('claim.outcome === "replay"');
+    expect(s).toContain("completeIdempotency");
+    expect(s).toContain("claimIdempotency");
   });
 });
 

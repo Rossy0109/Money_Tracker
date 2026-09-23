@@ -1,5 +1,5 @@
-// WebDev Auth TypeScript types
-// Generic OAuth types (not Manus-specific)
+// Auth TypeScript types
+// Generic OAuth types
 
 export interface AuthorizeRequest {
   redirectUri: string;

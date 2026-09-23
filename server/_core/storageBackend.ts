@@ -1,21 +1,18 @@
-export type StorageBackend = "forge" | "vercel-blob" | "missing";
+export type StorageBackend = "vercel-blob" | "missing";
 
 export type StorageEnvironment = {
   blobStoreId: string;
   blobReadWriteToken: string;
-  forgeApiUrl: string;
-  forgeApiKey: string;
 };
 
 /**
- * Selects a storage transport without permitting a Vercel Blob store to fall
- * back to an unrelated Forge account when its injected Blob credential is
- * unavailable. A read-write token embeds the store identity, so a store ID is
- * optional for the SDK path.
+ * Selects a storage transport. Only the private Vercel Blob store (via its
+ * injected read-write credential) is supported — anything else fails closed.
+ * A read-write token embeds the store identity, so a store ID is optional
+ * for the SDK path.
  */
 export function selectStorageBackend(env: StorageEnvironment): StorageBackend {
   if (env.blobReadWriteToken) return "vercel-blob";
-  if (env.blobStoreId) return "missing";
 
-  return env.forgeApiUrl && env.forgeApiKey ? "forge" : "missing";
+  return "missing";
 }

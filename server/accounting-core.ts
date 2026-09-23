@@ -14,7 +14,7 @@
  *   - Every voucher: sum(debits) === sum(credits)  (checked at insert time)
  */
 
-import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { assertOwnedProject, databaseRequired, getDb } from "./db";
 import {
   financeChartOfAccounts,
@@ -36,11 +36,6 @@ function toCents(v: string | number): number {
 /** Convert integer cents back to a decimal number. */
 function fromCents(c: number): number {
   return c / 100;
-}
-
-/** Format a number as a fixed-2 decimal string. */
-function fmt(n: number): string {
-  return n.toFixed(2);
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────

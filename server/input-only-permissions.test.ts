@@ -50,6 +50,7 @@ const rbacMock = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   getUserRoles: vi.fn(),
   initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  isAdminRoleUser: vi.fn(),
 }));
 
 vi.mock("./_core/rbac", () => rbacMock);
@@ -135,6 +136,8 @@ describe("Input-Only User Permission Model", () => {
       return ["SUPER_ADMIN"];
     });
     rbacMock.hasRole.mockResolvedValue(true);
+    // Only id=1 is an RBAC admin — legacy role column is ignored by adminProcedure.
+    rbacMock.isAdminRoleUser.mockImplementation(async (userId: number) => userId === 1);
   });
 
   // ─────────────────────────────────────────────
@@ -506,11 +509,6 @@ describe("Input-Only User Permission Model", () => {
     it("Cannot generate recurring now", async () => {
       const caller = appRouter.createCaller(inputOnlyContext);
       await expect(caller.finance.generateRecurringNow({ projectId: 88, id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    });
-
-    it("Cannot enable recurring schedule", async () => {
-      const caller = appRouter.createCaller(inputOnlyContext);
-      await expect(caller.finance.enableRecurringSchedule({ projectId: 88, id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
 
     it("Cannot enable bill reminder", async () => {

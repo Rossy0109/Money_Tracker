@@ -10,11 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/lib/trpc";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartColumnIncreasing, Clock3, FileDown, House, ImageDown, Plus, UserPlus, UsersRound, WalletCards } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const taka = (value: number) => `৳ ${new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 0 }).format(value)}`;
-const thisMonth = () => new Date().toISOString().slice(0, 7);
 const comparisonColors = ["#2d8554", "#2d6ea1", "#b4672d", "#8257a6", "#bd4d69", "#337c82"];
 const monthText = (monthKey: string) => new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(new Date(`${monthKey}-01T12:00:00.000Z`));
 const defaultPdfTitle = "পারিবারিক সদস্যদের মাসিক খরচের তুলনা";
@@ -28,6 +27,7 @@ export default function FamilyHousehold() {
   const { data: households = [], isLoading: householdsLoading } = trpc.finance.households.useQuery();
   const { data: invitations = [] } = trpc.finance.householdInvitations.useQuery();
   const [householdId, setHouseholdId] = useState<number | null>(null);
+  const effectiveHouseholdId = householdId ?? households[0]?.id ?? null;
   const [householdName, setHouseholdName] = useState("");
   const [invite, setInvite] = useState({ email: "", displayName: "", role: "editor" as "editor" | "viewer" });
   const [budget, setBudget] = useState({ label: "", amount: "" });
@@ -36,14 +36,9 @@ export default function FamilyHousehold() {
   const [pdfTitle, setPdfTitle] = useState(defaultPdfTitle);
   const monthlyChartExportRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- select first household on initial load
-    if (householdId === null && households.length) setHouseholdId(households[0].id);
-  }, [households, householdId]);
-
   const overviewQuery = trpc.finance.householdOverview.useQuery(
-    { householdId: householdId ?? 0 },
-    { enabled: householdId !== null }
+    { householdId: effectiveHouseholdId ?? 0 },
+    { enabled: effectiveHouseholdId !== null }
   );
   const overview = overviewQuery.data;
   const canManage = overview?.currentRole === "owner";
@@ -139,7 +134,7 @@ export default function FamilyHousehold() {
               <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">একসঙ্গে বাজেট, আলাদা দায়িত্ব</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#d4e9da]">ব্যক্তিগত প্রজেক্ট অপরিবর্তিত রেখে পরিবারের সদস্য, ভূমিকা এবং মাসিক শেয়ার করা বাজেট পরিচালনা করুন।</p>
             </div>
-            {households.length > 0 && <Select value={String(householdId ?? households[0].id)} onValueChange={value => setHouseholdId(Number(value))}>
+            {households.length > 0 && <Select value={String(effectiveHouseholdId ?? households[0].id)} onValueChange={value => setHouseholdId(Number(value))}>
               <SelectTrigger className="h-11 w-full border-white/25 bg-white/10 text-white sm:w-64"><SelectValue /></SelectTrigger>
               <SelectContent>{households.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}</SelectContent>
             </Select>}

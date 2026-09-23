@@ -86,23 +86,6 @@ function mockDbSelects(detailAccountsResult: any[], ledgerEntriesResult: any[]) 
 }
 
 /**
- * Mock db for a single select chain (for getVoucherList, getVoucherReversals, etc.)
- */
-function mockDbSingleSelect(result: any) {
-  mockGetDb.mockResolvedValue({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue(result),
-          }),
-        }),
-      }),
-    }),
-  });
-}
-
-/**
  * Mock db for a single select with groupBy + orderBy (for daily/monthly reports)
  */
 function mockDbGroupBySelect(result: any[]) {
@@ -332,7 +315,6 @@ describe("Journal Entry Structure", () => {
 
   it("rejects journal entry with zero total", () => {
     const totalDebit = 0;
-    const totalCredit = 0;
     expect(totalDebit).toBe(0);
   });
 });

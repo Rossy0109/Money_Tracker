@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
 import { trpc } from "@/lib/trpc";
 import { startLogin } from "@/const";
 import { useAppLogo } from "@/hooks/useAppLogo";
@@ -7,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Banknote,
   Eye,
   EyeOff,
   Lock,
@@ -22,6 +23,8 @@ import {
   RefreshCw,
   LogOut,
 } from "lucide-react";
+
+type AuthMeData = inferRouterOutputs<AppRouter>["auth"]["me"];
 
 export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null; email?: string | null } | null }) {
   const { logoUrl } = useAppLogo();
@@ -48,7 +51,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
     onSuccess: async (data) => {
       setErrorMessage(null);
       setPendingApprovalMsg(null);
-      utils.auth.me.setData(undefined, data.user as any);
+      utils.auth.me.setData(undefined, data.user as unknown as AuthMeData);
       await utils.auth.me.invalidate();
     },
     onError: (err) => {
@@ -65,7 +68,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
         setPassword("");
         setConfirmPassword("");
       } else if (data.user) {
-        utils.auth.me.setData(undefined, data.user as any);
+        utils.auth.me.setData(undefined, data.user as unknown as AuthMeData);
         await utils.auth.me.invalidate();
       }
     },
@@ -81,9 +84,6 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
     setErrorMessage(null);
     if (role === "admin") {
       setMode("login");
-      setEmail("kamrul01@gmail.com");
-    } else {
-      if (email === "kamrul01@gmail.com") setEmail("");
     }
   };
 

@@ -1,5 +1,3 @@
-import type { jsPDF } from "jspdf";
-
 export interface PayslipData {
   voucherNo?: string | null;
   monthKey: string; // YYYY-MM

@@ -4,18 +4,16 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import * as financeDb from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
-import { createHeartbeatJob } from "./_core/heartbeat";
 import { sdk } from "./_core/sdk";
 import { hashPassword, verifyPasswordConstantTime } from "./_core/passwordAuth";
-import { checkRateLimit, resetRateLimit } from "./_core/rateLimiter";
+import { checkRateLimit, resetRateLimit, getClientIp } from "./_core/rateLimiter";
 import {
   getCloudStorageConfig,
   executeCloudBackup,
 } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
 import * as accountingCore from "./accounting-core";
-import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, protectedProcedure, publicProcedure, router, idempotent } from "./_core/trpc";
-import { permissionProcedure } from "./_core/trpc";
+import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, publicProcedure, router, idempotent } from "./_core/trpc";
 import {
   protectedWithPermission,
   inputOnlyWithPermission,
@@ -85,7 +83,8 @@ const voucherInput = z.object({
 }).superRefine((input, ctx) => {
   const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
   const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
-  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+  // Exact cents — must match accounting-core trial-balance (integer cents) tolerance.
+  if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["credits"],
@@ -314,7 +313,7 @@ const backupRecurring = z.object({
 });
 const projectBackupInput = z
   .object({
-    formatVersion: z.literal("finance-project-backup-v1"),
+    formatVersion: z.enum(["finance-project-backup-v1", "finance-project-backup-v2"]),
     exportedAt: backupDate,
     project: z.object({
       id: z.number().int().positive().optional(),
@@ -337,6 +336,13 @@ const projectBackupInput = z
       })
       .nullable()
       .optional(),
+    chartOfAccounts: z.array(z.record(z.string(), z.any())).max(20000).optional(),
+    vouchers: z.array(z.object({ id: z.number().int().positive() }).passthrough()).max(20000).optional(),
+    voucherDebits: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    voucherCredits: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    ledgerEntries: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    journalEntries: z.array(z.record(z.string(), z.any())).max(20000).optional(),
+    journalLines: z.array(z.record(z.string(), z.any())).max(50000).optional(),
   })
   .superRefine((backup, context) => {
     if (
@@ -349,14 +355,6 @@ const projectBackupInput = z
         message: "ভাউচার রেঞ্জ সঠিক নয়",
       });
   });
-
-function userSessionFromRequest(request: { headers: { cookie?: string } }) {
-  const entry = request.headers.cookie
-    ?.split(";")
-    .map(value => value.trim())
-    .find(value => value.startsWith(`${COOKIE_NAME}=`));
-  return entry ? decodeURIComponent(entry.slice(COOKIE_NAME.length + 1)) : "";
-}
 
 export const appRouter = router({
   system: systemRouter,
@@ -394,10 +392,7 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const clientIp =
-          ctx.req.ip ||
-          (ctx.req.headers["x-forwarded-for"] as string) ||
-          "client-ip";
+        const clientIp = getClientIp(ctx.req);
         checkRateLimit(String(clientIp), {
           windowMs: 15 * 60 * 1000,
           max: 20,
@@ -433,22 +428,28 @@ export const appRouter = router({
             ...cookieOptions,
             maxAge: ONE_YEAR_MS,
           });
+          const [roles, permissions] = await Promise.all([
+            getUserRoles(user.id).catch(() => []),
+            getUserPermissions(user.id).catch(() => []),
+          ]);
           return {
             success: true,
             pendingApproval: false,
-            message: "সফলভাবে নিবন্ধিত ও লগইন হয়েছে।",
+            message: "সফলভাবে নিবন্ধিত ও লগইন হয়েছে।",
             user: {
               id: user.id,
               openId: user.openId,
               name: user.name,
               email: user.email,
               role: user.role,
+              roles,
+              permissions,
             },
           };
-        } catch (error: any) {
+        } catch (error) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: error.message || "রেজিস্ট্রেশন ব্যর্থ হয়েছে",
+            message: error instanceof Error ? error.message : "রেজিস্ট্রেশন ব্যর্থ হয়েছে",
           });
         }
       }),
@@ -460,10 +461,7 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const clientIp =
-          ctx.req.ip ||
-          (ctx.req.headers["x-forwarded-for"] as string) ||
-          "client-ip";
+        const clientIp = getClientIp(ctx.req);
         checkRateLimit(String(clientIp), {
           windowMs: 15 * 60 * 1000,
           max: 15,
@@ -472,12 +470,44 @@ export const appRouter = router({
             "খুব বেশি চেষ্টার কারণে সাময়িকভাবে লগইন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
         });
 
+        // DB-backed account lockout (multi-instance safe).
+        try {
+          const lockout = await financeDb.isLockedOut(input.email, String(clientIp));
+          if (lockout.locked) {
+            throw new TRPCError({
+              code: "TOO_MANY_REQUESTS",
+              message:
+                "অতিরিক্ত ভুল পাসওয়ার্ডের কারণে লগইন সাময়িকভাবে বন্ধ। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+            });
+          }
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          // Non-blocking if lockout table unavailable (e.g. unit tests)
+        }
+
         const user = await financeDb.getUserByEmail(input.email);
         const credentialsValid = await verifyPasswordConstantTime(
           input.password,
           user?.passwordHash
         );
         if (!user || !credentialsValid) {
+          try {
+            await financeDb.recordFailedLoginAttempt(input.email, String(clientIp));
+            if (user) {
+              await financeDb.recordLoginHistory(
+                user.id,
+                "password",
+                String(clientIp),
+                typeof ctx.req?.headers?.["user-agent"] === "string"
+                  ? ctx.req.headers["user-agent"]
+                  : null,
+                false,
+                "invalid_credentials"
+              );
+            }
+          } catch {
+            // Non-blocking lockout tracking
+          }
           try {
             await financeDb.logAudit({
               actorUserId: user?.id ?? 1,
@@ -513,6 +543,20 @@ export const appRouter = router({
         }
 
         resetRateLimit(String(clientIp), "auth-login");
+        try {
+          await financeDb.clearFailedLoginAttempts(input.email, String(clientIp));
+          await financeDb.recordLoginHistory(
+            user.id,
+            "password",
+            String(clientIp),
+            typeof ctx.req?.headers?.["user-agent"] === "string"
+              ? ctx.req.headers["user-agent"]
+              : null,
+            true
+          );
+        } catch {
+          // Non-blocking lockout/history tracking
+        }
         await financeDb.upsertUser({
           openId: user.openId,
           lastSignedIn: new Date(),
@@ -534,11 +578,32 @@ export const appRouter = router({
           name: user.name || user.email || "",
           expiresInMs: ONE_YEAR_MS,
         });
+        // Record the session so logout / password-reset can revoke it.
+        try {
+          const expiresAt = new Date(Date.now() + ONE_YEAR_MS);
+          await financeDb.createUserSession(
+            user.id,
+            sessionToken,
+            sessionToken,
+            typeof ctx.req?.headers?.["user-agent"] === "string"
+              ? ctx.req.headers["user-agent"]
+              : null,
+            getClientIp(ctx.req),
+            expiresAt,
+            expiresAt
+          );
+        } catch {
+          // Non-blocking: session table unavailable (e.g. unit tests)
+        }
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, {
           ...cookieOptions,
           maxAge: ONE_YEAR_MS,
         });
+        const [roles, permissions] = await Promise.all([
+          getUserRoles(user.id).catch(() => []),
+          getUserPermissions(user.id).catch(() => []),
+        ]);
         return {
           success: true,
           user: {
@@ -547,10 +612,28 @@ export const appRouter = router({
             name: user.name,
             email: user.email,
             role: user.role,
+            roles,
+            permissions,
           },
         };
       }),
     logout: publicProcedure.mutation(async ({ ctx }) => {
+      // Revoke the current session token server-side (kills the JWT early).
+      try {
+        const cookies = ctx.req?.headers?.cookie;
+        if (typeof cookies === "string" && cookies.includes(COOKIE_NAME)) {
+          const raw = cookies
+            .split(";")
+            .map(part => part.trim())
+            .find(part => part.startsWith(`${COOKIE_NAME}=`));
+          const token = raw?.slice(COOKIE_NAME.length + 1);
+          if (token) {
+            await financeDb.revokeSessionByToken(decodeURIComponent(token));
+          }
+        }
+      } catch {
+        // Non-blocking revoke
+      }
       if (ctx.user) {
         try {
           await financeDb.logAudit({
@@ -580,10 +663,7 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const clientIp =
-          ctx.req.ip ||
-          (ctx.req.headers["x-forwarded-for"] as string) ||
-          "client-ip";
+        const clientIp = getClientIp(ctx.req);
         checkRateLimit(String(clientIp), {
           windowMs: 15 * 60 * 1000,
           max: 5,
@@ -607,10 +687,7 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const clientIp =
-          ctx.req.ip ||
-          (ctx.req.headers["x-forwarded-for"] as string) ||
-          "client-ip";
+        const clientIp = getClientIp(ctx.req);
         checkRateLimit(String(clientIp), {
           windowMs: 60 * 60 * 1000,
           max: 5,
@@ -619,15 +696,56 @@ export const appRouter = router({
             "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড রিসেট বন্ধ রাখা হয়েছে। ১ ঘণ্টা পর আবার চেষ্টা করুন।",
         });
 
-        const { success, resetToken } = await financeDb.createPasswordResetToken(input.email);
+        const { resetToken, resetTokenExpiresAt, user } =
+          await financeDb.createPasswordResetToken(input.email);
 
-        // In production, you would send the resetToken via email
-        // For now, we return it in development for testing
         const isDev = process.env.NODE_ENV === "development";
-        
+        const genericMessage =
+          "যদি ইমেইলটি রেজিস্টার্ড থাকে, পাসওয়ার্ড রিসেট লিংকটি পাঠানো হবে।";
+
+        // Unknown email — same generic response (no enumeration).
+        if (!resetToken || !user) {
+          return { success: true, message: genericMessage, resetToken: undefined } as const;
+        }
+
+        const { sendPasswordResetEmail, buildPasswordResetUrl, isEmailDeliveryConfigured } =
+          await import("./_core/mailer");
+
+        if (!isEmailDeliveryConfigured()) {
+          if (isDev) {
+            // Local testing only: surface token so the flow is usable without SMTP.
+            return {
+              success: true,
+              message: `${genericMessage} (ডেভেলপমেন্ট: টোকেন নিচে দেখানো হয়েছে)`,
+              resetToken,
+            } as const;
+          }
+          // Production without a transport — fail closed, never pretend delivery.
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "পাসওয়ার্ড রিসেট ইমেইল ডেলিভারি কনফিগার করা হয়নি (EMAIL_WEBHOOK_URL বা RESEND_API_KEY সেট করুন)।",
+          });
+        }
+
+        const resetUrl = buildPasswordResetUrl(resetToken);
+        const delivered = await sendPasswordResetEmail({
+          to: user.email ?? input.email,
+          resetUrl,
+          token: resetToken,
+          expiresAt: resetTokenExpiresAt ?? new Date(Date.now() + 60 * 60 * 1000),
+        });
+
+        if (!delivered && !isDev) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "পাসওয়ার্ড রিসেট ইমেইল পাঠানো যায়নি। একটু পরে আবার চেষ্টা করুন।",
+          });
+        }
+
         return {
           success: true,
-          message: "যদি ইমেইলটি রেজিস্টার্ড থাকে, পাসওয়ার্ড রিসেট লিংকটি পাঠানো হবে।",
+          message: genericMessage,
           resetToken: isDev ? resetToken : undefined,
         } as const;
       }),
@@ -662,7 +780,7 @@ export const appRouter = router({
   }),
   admin: router({
     verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {
-      const clientIp = ctx.req?.headers?.["x-forwarded-for"] || ctx.req?.socket?.remoteAddress || ctx.req?.ip || "admin-verify";
+      const clientIp = getClientIp(ctx.req);
       const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
 
       checkRateLimit(String(rateLimitKey), {
@@ -699,23 +817,72 @@ export const appRouter = router({
       }
       return { revoked: true } as const;
     }),
-    users: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {
+    users: elevatedAdminProcedure.query(() => {
       return financeDb.listUsersForAdmin();
     }),
     updateUserStatus: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional(), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ ctx, input }) => {
       const updated = await financeDb.updateUserStatus(input.targetUserId, input.status, ctx.user?.id, extractAuditContext(ctx.req));
       return { success: true, user: updated };
     }),
-    projects: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional() }).optional()).query(() => {
+    assignRole: elevatedAdminProcedure
+      .input(
+        z.object({
+          password: z.string().max(128).optional(),
+          targetUserId: z.number().int().positive(),
+          role: z.enum([
+            "SUPER_ADMIN",
+            "SYSTEM_ADMIN",
+            "ACCOUNTING_ADMIN",
+            "HR_ADMIN",
+            "MANAGER",
+            "INPUT_OPERATOR",
+            "VIEWER",
+          ]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const rbac = await import("./_core/rbac");
+        try {
+          const existing = await rbac.getUserRoles(input.targetUserId);
+          for (const roleName of existing) {
+            if (roleName !== input.role) {
+              await rbac.removeRole(input.targetUserId, roleName);
+            }
+          }
+          await rbac.assignRole(input.targetUserId, input.role, ctx.user!.id);
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "ভূমিকা নির্ধারণ করা যায়নি",
+          });
+        }
+        try {
+          await financeDb.logAudit({
+            actorUserId: ctx.user!.id,
+            actorRole: ctx.user!.role,
+            action: "update",
+            entityType: "user",
+            entityId: input.targetUserId,
+            summary: `Assigned role ${input.role} to user #${input.targetUserId}`,
+            auditContext: extractAuditContext(ctx.req),
+          });
+        } catch {
+          // Non-blocking audit failure
+        }
+        return { success: true, targetUserId: input.targetUserId, role: input.role } as const;
+      }),
+    projects: elevatedAdminProcedure.query(() => {
       return financeDb.listProjectsForAdmin();
     }),
-    auditLogs: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional(), page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
+    // Admin queries never accept an inline password — elevation cookie only
+    // (passwords must not ride on GET query strings / URLs).
+    auditLogs: elevatedAdminProcedure.input(auditFilters.extend({ page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
       return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search, page: input.page, pageSize: input.pageSize });
     }),
-    auditLogExport: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional() })).query(({ input }) => {
+    auditLogExport: elevatedAdminProcedure.input(auditFilters).query(({ input }) => {
       return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
     }),
-    auditActivity: elevatedAdminProcedure.input(auditFilters.extend({ password: z.string().max(128).optional() })).query(({ input }) => {
+    auditActivity: elevatedAdminProcedure.input(auditFilters).query(({ input }) => {
       return financeDb.getAuditLogActivity({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
     }),
   }),
@@ -1005,7 +1172,7 @@ export const appRouter = router({
     // Chart of Accounts
     getAccountTypes: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
-      .query(({ ctx, input }) =>
+      .query(() =>
         financeDb.getAccountTypes()
       ),
     getChartOfAccounts: protectedWithPermission("accounting", "read")
@@ -1458,27 +1625,6 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.generateRecurringNow(ctx.user!.id, input.projectId, input.id)
       ),
-    enableRecurringSchedule: protectedWithPermission("accounting", "update")
-      .input(z.object({ projectId, id: z.number().int().positive() }))
-      .mutation(async ({ ctx, input }) => {
-        const job = await createHeartbeatJob(
-          {
-            name: `finance-recurring-${ctx.user!.id}-${input.id}`,
-            cron: "0 5 0 * * *",
-            path: "/api/scheduled/finance-recurring",
-            description:
-              "Daily check for a user-controlled recurring finance transaction",
-          },
-          userSessionFromRequest(ctx.req)
-        );
-        await financeDb.setRecurringScheduleTask(
-          ctx.user!.id,
-          input.projectId,
-          input.id,
-          job.taskUid
-        );
-        return job;
-      }),
     invoices: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
@@ -1666,23 +1812,7 @@ export const appRouter = router({
           input.id,
           input.reminderDaysBefore
         );
-        const job = await createHeartbeatJob(
-          {
-            name: `finance-bill-reminder-${ctx.user!.id}-${input.id}`,
-            cron: "0 0 8 * * *",
-            path: "/api/scheduled/finance-bill-reminder",
-            description:
-              "Daily check for a user-controlled finance bill reminder",
-          },
-          userSessionFromRequest(ctx.req)
-        );
-        await financeDb.setBillScheduleTask(
-          ctx.user!.id,
-          input.projectId,
-          input.id,
-          job.taskUid
-        );
-        return job;
+        return { success: true };
       }),
     employeesList: protectedWithPermission("payroll", "read")
       .input(z.object({ projectId }))

@@ -10,11 +10,10 @@
  *  6. CloudBackupResult shape validation
  *  7. CloudStorageConfig detection
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { encryptPayload } from "./scheduledBackup";
-import type { CloudBackupResult, CloudStorageConfig } from "./cloudBackupService";
 
 // ─── Encrypt Payload Tests ───────────────────────────────────────────────────
 
@@ -126,11 +125,88 @@ describe("Backup Authorization", () => {
     expect(source).not.toContain("adminPasswordHeader");
     expect(source).not.toContain("req.body.adminPassword");
     expect(source).not.toContain("x-admin-password");
+    expect(source).not.toContain("ADMIN_ACCESS_PASSWORD");
+    expect(source).not.toContain("adminAccessPassword");
+    expect(source).not.toContain("ENV.adminAccessPassword");
   });
 
   it("CRON_SECRET is used for backup auth", () => {
     const source = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
     expect(source).toContain("hasValidCronSecret");
+    // Auth goes through ENV.backupCronSecret (CRON_SECRET / BACKUP_CRON_SECRET).
+    expect(source).toContain("ENV.backupCronSecret");
+  });
+
+  it("ENV.backupCronSecret only reads CRON_SECRET / BACKUP_CRON_SECRET", () => {
+    const envSource = readFileSync(new URL("./_core/env.ts", import.meta.url), "utf8");
+    const match = envSource.match(/backupCronSecret:\s*([^,\n]+)/);
+    expect(match).toBeTruthy();
+    const expr = match![1];
+    expect(expr).toContain("CRON_SECRET");
+    expect(expr).not.toContain("ADMIN_ACCESS_PASSWORD");
+    expect(expr).not.toContain("adminAccessPassword");
+  });
+
+  it("GitHub daily backup workflow does not fall back to ADMIN_ACCESS_PASSWORD", () => {
+    const workflow = readFileSync(
+      new URL("../.github/workflows/daily-backup.yml", import.meta.url),
+      "utf8"
+    );
+    // Comments may mention the secret name to forbid it; it must never be read.
+    expect(workflow).not.toMatch(/secrets\.ADMIN_ACCESS_PASSWORD/);
+    expect(workflow).not.toMatch(/BACKUP_SECRET:.*ADMIN_ACCESS_PASSWORD/);
+    expect(workflow).toContain("CRON_SECRET");
+  });
+
+  it("scheduled backup route accepts GET (Vercel Cron) and is not POST-only", () => {
+    const appSource = readFileSync(new URL("./_core/app.ts", import.meta.url), "utf8");
+    const hasAll = appSource.includes('app.all("/api/scheduled/finance-backup"');
+    const hasGet = appSource.includes('app.get("/api/scheduled/finance-backup"');
+    const hasPost = appSource.includes('app.post("/api/scheduled/finance-backup"');
+
+    expect(hasAll || hasGet).toBe(true);
+    // POST-only registration is the historical production 404 bug.
+    expect(hasPost && !hasGet && !hasAll).toBe(false);
+  });
+
+  it("vercel.json cron path is covered by a GET-capable Express registration", () => {
+    const vercel = JSON.parse(
+      readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
+    ) as { crons?: Array<{ path: string }> };
+    const appSource = readFileSync(new URL("./_core/app.ts", import.meta.url), "utf8");
+
+    const cronPaths = vercel.crons?.map(c => c.path) ?? [];
+    expect(cronPaths).toContain("/api/scheduled/finance-backup");
+
+    for (const path of cronPaths) {
+      const covered =
+        appSource.includes(`app.all("${path}"`) ||
+        (appSource.includes(`app.get("${path}"`) && appSource.includes(`app.post("${path}"`));
+      expect(covered, `cron ${path} must accept GET for Vercel Cron`).toBe(true);
+    }
+  });
+});
+
+// ─── S3 upload must not claim success without an actual upload ───────────────
+
+describe("Cloud upload partial-failure safety", () => {
+  it("uploadToS3 does not return true when S3 failed and no webhook", () => {
+    const source = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    // Scope to uploadToS3 only — later helpers (e.g. Google Drive) may return true.
+    const start = source.indexOf("async function uploadToS3");
+    const end = source.indexOf("async function uploadToGoogleDrive");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const uploadToS3Body = source.slice(start, end);
+    // After the direct S3 try/catch, a missing webhook must fail closed.
+    expect(uploadToS3Body).toContain("Direct S3 upload error");
+    expect(uploadToS3Body).toContain("return false");
+    expect(uploadToS3Body).toMatch(
+      /do not claim success\.\s*\n\s*return false;\s*\n\}/
+    );
+    expect(uploadToS3Body.slice(uploadToS3Body.lastIndexOf("const webhook"))).not.toMatch(
+      /return true;/
+    );
   });
 });
 

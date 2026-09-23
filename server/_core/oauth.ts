@@ -1,5 +1,4 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { parseCookie as parseCookieHeader } from "cookie";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { timingSafeCompare } from "../timingSafe";
@@ -36,6 +35,7 @@ import {
   transactionMatchesGitHubState,
 } from "./githubOAuth";
 import logger from "./logger";
+import { getUserPermissions, getUserRoles } from "./rbac";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -93,9 +93,11 @@ export function registerOAuthRoutes(app: Express) {
           name: user.name,
           email: user.email,
           role: user.role,
+          roles: await getUserRoles(user.id).catch(() => []),
+          permissions: await getUserPermissions(user.id).catch(() => []),
         },
       });
-    } catch (error: any) {
+    } catch (error) {
       logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Register] Failed");
       res.status(400).json({ error: "রেজিস্ট্রেশন সম্পন্ন করা যায়নি" });
     }
@@ -110,9 +112,37 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
+      // DB-backed account lockout (multi-instance safe).
+      try {
+        const lockout = await db.isLockedOut(email, req.ip ?? "unknown-ip");
+        if (lockout.locked) {
+          res.status(429).json({
+            error: "অতিরিক্ত ভুল পাসওয়ার্ডের কারণে লগইন সাময়িকভাবে বন্ধ। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+          });
+          return;
+        }
+      } catch {
+        // Non-blocking if lockout table unavailable
+      }
+
       const user = await db.getUserByEmail(email);
       const credentialsValid = await verifyPasswordConstantTime(password, user?.passwordHash);
       if (!user || !credentialsValid) {
+        try {
+          await db.recordFailedLoginAttempt(email, req.ip ?? "unknown-ip");
+          if (user) {
+            await db.recordLoginHistory(
+              user.id,
+              "password",
+              req.ip ?? "unknown-ip",
+              typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+              false,
+              "invalid_credentials"
+            );
+          }
+        } catch {
+          // Non-blocking lockout tracking
+        }
         try {
           await db.logAudit({
             actorUserId: user?.id ?? 1,
@@ -131,16 +161,29 @@ export function registerOAuthRoutes(app: Express) {
 
       if (user.status === "pending") {
         res.status(403).json({
-          error: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+          error: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
         });
         return;
       }
 
       if (user.status === "suspended") {
         res.status(403).json({
-          error: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+          error: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
         });
         return;
+      }
+
+      try {
+        await db.clearFailedLoginAttempts(email, req.ip ?? "unknown-ip");
+        await db.recordLoginHistory(
+          user.id,
+          "password",
+          req.ip ?? "unknown-ip",
+          typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+          true
+        );
+      } catch {
+        // Non-blocking lockout/history tracking
       }
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
@@ -163,6 +206,22 @@ export function registerOAuthRoutes(app: Express) {
         expiresInMs: ONE_YEAR_MS,
       });
 
+      // Record session for server-side revocation on logout / password-reset.
+      try {
+        const expiresAt = new Date(Date.now() + ONE_YEAR_MS);
+        await db.createUserSession(
+          user.id,
+          sessionToken,
+          sessionToken,
+          typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+          req.ip ?? null,
+          expiresAt,
+          expiresAt
+        );
+      } catch {
+        // Non-blocking
+      }
+
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, {
         ...cookieOptions,
@@ -177,16 +236,33 @@ export function registerOAuthRoutes(app: Express) {
           name: user.name,
           email: user.email,
           role: user.role,
+          roles: await getUserRoles(user.id).catch(() => []),
+          permissions: await getUserPermissions(user.id).catch(() => []),
         },
       });
-    } catch (error: any) {
+    } catch (error) {
       logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Login] Failed");
-      res.status(500).json({ error: "লগইন প্রক্রিয়া ব্যর্থ হয়েছে" });
+      res.status(500).json({ error: "লগইন প্রক্রিয়া ব্যর্থ হয়েছে" });
     }
   });
 
-  // Direct logout endpoint
-  app.post("/api/auth/logout", (req: Request, res: Response) => {
+  // Direct logout endpoint — revoke the session token server-side when present.
+  app.post("/api/auth/logout", async (req: Request, res: Response) => {
+    try {
+      const cookieHeader = req.headers.cookie;
+      if (typeof cookieHeader === "string" && cookieHeader.includes(COOKIE_NAME)) {
+        const raw = cookieHeader
+          .split(";")
+          .map(part => part.trim())
+          .find(part => part.startsWith(`${COOKIE_NAME}=`));
+        const token = raw?.slice(COOKIE_NAME.length + 1);
+        if (token) {
+          await db.revokeSessionByToken(decodeURIComponent(token));
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
     const cookieOptions = getSessionCookieOptions(req);
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     res.status(200).json({ success: true });

@@ -33,11 +33,11 @@ pnpm build
 
 ## Authentication and data isolation
 
-The application uses the provided Manus OAuth flow. Users sign in through the account portal, which supports the Gmail-compatible login experience available to their Manus account. Every database query and write is protected by an authenticated procedure and carries the server-derived user ID; the browser never supplies a user ID for finance records.
+The application uses Google OAuth 2.0 and email/password sign-in (`AUTH_MODE=google` or `AUTH_MODE=password`; server `AUTH_MODE` and client `VITE_AUTH_MODE` must match). Every database query and write is protected by an authenticated procedure and carries the server-derived user ID; the browser never supplies a user ID for finance records.
 
 ## Deployment notes
 
-This source tree is designed for the Manus full-stack environment, which provides the required OAuth and managed database configuration. Before making a deployment public, create a checkpoint, then use the project interface's **Publish** control. Keep this repository as the portable source-code backup for future changes.
+This source tree deploys to Vercel (`pnpm run build:vercel`), which serves the Vite frontend and the Express API (`api/[...path].js`). Configure `AUTH_MODE`/`VITE_AUTH_MODE`, Google OAuth credentials, `DATABASE_URL`, and session secrets in the hosting provider's environment variables. Keep this repository as the portable source-code backup for future changes.
 
 ## Continuous deployment
 

@@ -105,7 +105,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Server E2E tests
-        run: NODE_ENV=test npx vitest run --config vitest.e2e.config.ts
+        env:
+          ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+        run: pnpm test:e2e:isolated
 
   # ── Gate 4: Browser E2E (MariaDB + Playwright + dev server) ─────────────────
   browser-e2e:
@@ -142,7 +144,7 @@ jobs:
       - name: Browser E2E tests
         env:
           ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
-        run: NODE_ENV=test pnpm vitest run --config vitest.e2e.config.ts --project=chromium
+        run: NODE_ENV=test pnpm test:browser:e2e
 
       - name: Upload Playwright report
         if: always()

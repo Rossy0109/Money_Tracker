@@ -294,7 +294,7 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
 } {
   const totalsData = data.totals;
   const running = withRunningBalance(data.items, totalsData.openingBalance);
-  const moneyCol = (label: string, width: number, format: "money" = "money") =>
+  const moneyCol = (label: string, width: number, _format: "money" = "money") =>
     ({ label, width, align: "right" } as PdfColumn);
   const detailedColumns: PdfColumn[] = [
     { label: "ক্র.", width: 0.05, align: "center" },

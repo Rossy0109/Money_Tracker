@@ -17,7 +17,7 @@
 | **API Layer** | tRPC (Express adapter) | ✅ EXISTS |
 | **Server** | Express 5 + Node.js (ESM) | ✅ EXISTS |
 | **Database** | TiDB Cloud (MySQL-compatible) via Drizzle ORM | ✅ EXISTS |
-| **Auth** | Manus OAuth (Google) + Password fallback | ✅ EXISTS |
+| **Auth** | Google OAuth 2.0 + Email/Password | ✅ EXISTS |
 | **Session** | JWT (jose) + HttpOnly cookies | ✅ EXISTS |
 | **Rate Limiting** | express-rate-limit + custom in-memory | ✅ EXISTS |
 | **Logging** | Pino + Pino-HTTP | ✅ EXISTS |
@@ -60,7 +60,7 @@
 
 | Table | Purpose | Status |
 |-------|---------|--------|
-| `users` | Core identity (Manus OAuth + password) | ✅ EXISTS |
+| `users` | Core identity (Google OAuth + password) | ✅ EXISTS |
 | `finance_projects` | User workspaces | ✅ EXISTS |
 | `finance_households` | Shared family profiles | ✅ EXISTS |
 | `finance_household_members` | Household invitations/membership | ✅ EXISTS |
@@ -154,7 +154,7 @@
 
 | Aspect | Implementation | Status |
 |--------|----------------|--------|
-| **Primary** | Manus OAuth (Google) | ✅ EXISTS |
+| **Primary** | Google OAuth 2.0 (`/api/auth/google/*`) | ✅ EXISTS |
 | **Fallback** | Email/Password (bcrypt + constant-time verify) | ✅ EXISTS |
 | **Session** | JWT (HS256 via jose) in HttpOnly cookie | ✅ EXISTS |
 | **Cookie** | `__Host-` prefix optional; Secure; SameSite=Lax | ✅ EXISTS |
@@ -211,7 +211,7 @@
 | **Project Backup** | Full schema (accounts, categories, transactions, budgets, bills, dues, settlements, recurring, voucherSettings) | ✅ EXISTS |
 | **Restore** | `restoreProjectBackup()` → new project with data | ✅ EXISTS |
 | **Cloud Backup** | Supabase / S3 (R2/MinIO) / Google Drive webhook | ✅ EXISTS |
-| **Encryption** | AES-256-GCM (key from `ADMIN_ACCESS_PASSWORD` or custom) | ✅ EXISTS |
+| **Encryption** | AES-256-GCM (key from dedicated `BACKUP_ENCRYPTION_KEY` only; no admin-password fallback) | ✅ EXISTS |
 | **Scheduled** | Daily cron (18:00) via Vercel cron + manual trigger | ✅ EXISTS |
 | **Verification** | SHA-256 checksum + metadata in `financePrivateStorageObjects` | ✅ EXISTS |
 | **Download Control** | Signed URLs + ownership/household membership check | ✅ EXISTS |
@@ -268,7 +268,7 @@
 | **No CSP** | MEDIUM | `helmet.contentSecurityPolicy: false` — needs policy |
 | **In-memory rate limiter** | MEDIUM | Not distributed; fails in serverless — use Redis/Upstash |
 | **JWT in cookie** | LOW | HttpOnly + Secure; consider short expiry + refresh tokens |
-| **Admin password in env** | LOW | `ADMIN_ACCESS_PASSWORD` used for encryption + elevation |
+| **Admin password in env** | LOW | `ADMIN_ACCESS_PASSWORD` used only for admin elevation/2FA — never for backup auth or encryption |
 | **No CSRF token** | LOW | SameSite=Lax cookies + tRPC POST-only mutations mitigate |
 | **SQL Injection** | LOW | Drizzle parameterized queries |
 | **XSS** | LOW | React auto-escape; no dangerouslySetInnerHTML found |

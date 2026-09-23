@@ -9,6 +9,7 @@ const rbacMock = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   getUserRoles: vi.fn(),
   initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  isAdminRoleUser: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("./_core/rbac", () => rbacMock);
@@ -917,12 +918,12 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   // ───────────────────────────────────────────────────────────────────────
   // SECTION 10: System settings (must be blocked)
   // ───────────────────────────────────────────────────────────────────────
-  describe("Forbidden: System settings", () => {
-    it("cannot send system notification (notifyOwner)", async () => {
-      const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(
-        caller.system.notifyOwner({ title: "Test", content: "Test" })
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  describe("System settings", () => {
+    it("exposes only the health procedure", async () => {
+      const procedures = Object.keys(appRouter._def.procedures).filter(key =>
+        key.startsWith("system.")
+      );
+      expect(procedures).toEqual(["system.health"]);
     });
   });
 

@@ -18,4 +18,11 @@ describe("project backup and restoration wiring", () => {
     expect(sidebarSource).toContain('href: "/backup"');
     expect(sidebarSource).toContain("ব্যাকআপ ও পুনরুদ্ধার");
   });
+
+  it("gates the backup page and actions on backup permissions, not a legacy admin flag", () => {
+    expect(backupSource).toContain('"backup.view"');
+    expect(backupSource).toContain('"backup.create"');
+    expect(backupSource).toContain('"backup.restore"');
+    expect(backupSource).not.toContain("isAdminUser");
+  });
 });

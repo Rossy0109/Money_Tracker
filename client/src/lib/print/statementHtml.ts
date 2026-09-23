@@ -107,34 +107,6 @@ function categoryTableHtml(rows: CategoryAggregate[]): string {
   </table>`;
 }
 
-function daySummaryTableHtml(rows: ReturnType<typeof aggregateByDay>): string {
-  const body = rows
-    .map(
-      (row, index) => `<tr>
-        <td class="ser">${index + 1}</td>
-        <td>${escapeHtml(row.dateLabel)}</td>
-        <td class="num">${numberBn(row.count)} টি</td>
-        <td class="num">${moneyBn(row.income)}</td>
-        <td class="num">${moneyBn(row.expense)}</td>
-        <td class="num">${moneyBn(row.net)}</td>
-      </tr>`
-    )
-    .join("");
-  return `<table class="report-table">
-    <thead>
-      <tr>
-        <th class="ser">ক্র.</th>
-        <th>তারিখ</th>
-        <th class="num">লেনদেন</th>
-        <th class="num">মোট আয়/আমানত</th>
-        <th class="num">মোট ব্যয়/খরচ</th>
-        <th class="num">নিট</th>
-      </tr>
-    </thead>
-    <tbody>${body || `<tr><td colspan="6">${noDataHtml()}</td></tr>`}</tbody>
-  </table>`;
-}
-
 function monthlySummaryTableHtml(
   rows: ReturnType<typeof monthlySummary>
 ): string {
@@ -237,7 +209,6 @@ export function buildStatementHtml(
   const meta = [...reportGeneratedMeta(data.firm, data.project, periodLabel)];
   if (filteredBy) meta.push({ label: "ফিল্টার", value: filteredBy });
 
-  const dailyAgg = aggregateByDay(data.items);
   const categoryAgg = aggregateByCategory(data.items);
   const monthlyAgg = monthlySummary(data.items);
 
@@ -343,8 +314,8 @@ export function buildStatementHtml(
 
 export function buildDailyAutoSummaryHtml(
   data: StatementData,
-  periodLabel: string,
-  title: string
+  _periodLabel: string,
+  _title: string
 ): string {
   const rowsHtml = aggregateByDay(data.items)
     .map(

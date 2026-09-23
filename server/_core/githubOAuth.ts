@@ -1,7 +1,6 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { parseCookie as parseCookieHeader } from "cookie";
 import type { Request } from "express";
-import { ENV } from "./env";
 
 export const GITHUB_CALLBACK_PATH = "/api/auth/github/callback";
 export const GITHUB_LOGIN_PATH = "/api/auth/github/login";

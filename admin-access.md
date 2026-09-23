@@ -2,11 +2,11 @@
 
 ## User সাইন-ইন
 
-প্রতিটি ব্যবহারকারী নিজের Gmail-সামঞ্জস্যপূর্ণ Manus OAuth account দিয়ে সাইন-ইন করেন। সাইন-ইনের পর তারা কেবল নিজের Project workspace, হিসাব, account, category, budget, bill এবং export দেখতে বা পরিবর্তন করতে পারেন। Project `Face Two Button` একটি আলাদা হিসাবখাতা; কোনো project-এর record অন্য project-এ দেখা যায় না।
+প্রতিটি ব্যবহারকারী Google OAuth অথবা ইমেইল/পাসওয়ার্ড দিয়ে সাইন-ইন করেন। সাইন-ইনের পর তারা কেবল নিজের Project workspace, হিসাব, account, category, budget, bill এবং export দেখতে বা পরিবর্তন করতে পারেন। Project `Face Two Button` একটি আলাদা হিসাবখাতা; কোনো project-এর record অন্য project-এ দেখা যায় না।
 
 ## Admin সাইন-ইন ও যাচাই
 
-Admin-ও প্রথমে Manus OAuth দিয়ে সাইন-ইন করেন। Owner account-এর role `admin` হয়। তারপর Admin button থেকে server-side administrator password দিয়ে দ্বিতীয় ধাপের যাচাই সম্পন্ন করতে হয়। Passwordটি application code, GitHub, browser storage বা audit log-এ রাখা হয় না।
+Admin-ও প্রথমে Google OAuth অথবা ইমেইল/পাসওয়ার্ড দিয়ে সাইন-ইন করেন। Owner account-এর role `admin` হয়। তারপর Admin button থেকে server-side administrator password দিয়ে দ্বিতীয় ধাপের যাচাই সম্পন্ন করতে হয়। Passwordটি application code, GitHub, browser storage বা audit log-এ রাখা হয় না।
 
 ## Admin control
 

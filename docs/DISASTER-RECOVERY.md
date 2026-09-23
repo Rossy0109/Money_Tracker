@@ -25,14 +25,15 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 ### Automated Backup Process
 
-1. Vercel Cron triggers `/api/scheduled/finance-backup` daily at 18:00 UTC
-2. The endpoint authenticates using `CRON_SECRET` (dedicated secret)
-3. For each active user, each project is exported as JSON
-4. The JSON is encrypted using AES-256-GCM with `BACKUP_ENCRYPTION_KEY`
-5. The encrypted payload is uploaded to the configured cloud provider
-6. A SHA-256 checksum is computed and stored in the backup envelope
-7. Post-upload integrity verification: checksum is re-verified
-8. An audit log entry is created for every backup
+1. Vercel Cron triggers `/api/scheduled/finance-backup` daily at 18:00 UTC using **GET** (Vercel Cron always sends GET)
+2. The Express route is registered with `app.all`, so GET and POST both work (GitHub Actions may use either)
+3. The endpoint authenticates using `CRON_SECRET` (dedicated secret) via `Authorization: Bearer …`
+4. For each active user, each project is exported as JSON
+5. The JSON is encrypted using AES-256-GCM with `BACKUP_ENCRYPTION_KEY`
+6. The encrypted payload is uploaded to the configured cloud provider
+7. A SHA-256 checksum is computed and stored in the backup envelope
+8. Post-upload integrity verification: checksum is re-verified
+9. An audit log entry is created for every backup
 
 ---
 

@@ -31,7 +31,8 @@ function caller(user: E2eUser) {
     user,
     req: { protocol: "https", headers: {} },
     res: { clearCookie: vi.fn() },
-  } as any);
+    adminElevation: null,
+  } as unknown as Parameters<typeof appRouter.createCaller>[0]);
 }
 
 function assertIsolatedDatabase() {
@@ -75,8 +76,8 @@ describe("isolated role, invitation, and restoration E2E", () => {
     const password = process.env.ADMIN_ACCESS_PASSWORD;
     if (!password) throw new Error("ADMIN_ACCESS_PASSWORD ছাড়া administrator E2E পরীক্ষা চালানো যাবে না");
 
-    await expect(caller(owner).admin.users({ password })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(caller(administrator).admin.users({ password })).resolves.toEqual(
+    await expect(caller(owner).admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller(administrator).admin.users()).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining({ email: "owner@e2e.test", role: "user" })])
     );
   });
@@ -135,7 +136,7 @@ describe("isolated role, invitation, and restoration E2E", () => {
     await expect(caller(outsider).finance.exportProjectBackup({ projectId: sourceProjectId })).rejects.toThrow("Project not found or access denied");
 
     const projectsBeforeRejectedRestore = await ownerCaller.projects.list();
-    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "NOT_CONFIRMED" as any, backup })).rejects.toBeTruthy();
+    await expect(ownerCaller.finance.restoreProjectBackup({ projectName: "E2E পুনরুদ্ধার", confirmation: "NOT_CONFIRMED" as "RESTORE_NEW_PROJECT", backup })).rejects.toBeTruthy();
     expect((await ownerCaller.projects.list()).map(project => project.id)).toEqual(projectsBeforeRejectedRestore.map(project => project.id));
 
     const transactionFailureBackup = structuredClone(backup);

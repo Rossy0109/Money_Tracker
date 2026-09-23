@@ -49,8 +49,8 @@ export function useAppLogo() {
           setLogoUrl(base64Data);
           window.dispatchEvent(new CustomEvent(LOGO_CHANGE_EVENT));
           resolve(base64Data);
-        } catch (err) {
-          reject(new Error("ব্রাউজার স্টোরেজে লোগো সংরক্ষণ করা যায়নি"));
+        } catch {
+          reject(new Error("ব্রাউজার স্টোরেজে লোগো সংরক্ষণ করা যায়নি"));
         }
       };
       reader.onerror = () => reject(new Error("ছবিটি লোড করা সম্ভব হয়নি"));

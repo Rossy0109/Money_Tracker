@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import { createCipheriv, randomBytes, createHash } from "node:crypto";
 import * as financeDb from "./db";
-import { executeCloudBackup } from "./cloudBackupService";
+import { executeCloudBackup, type CloudBackupResult } from "./cloudBackupService";
 import { sdk } from "./_core/sdk";
-import { ENV } from "./_core/env";
 import { timingSafeCompare } from "./timingSafe";
 import logger from "./_core/logger";
+import { ENV } from "./_core/env";
 import { isAdminRoleUser } from "./_core/rbac";
 import { extractAuditContext } from "./_core/auditContext";
 
@@ -31,7 +31,9 @@ function hasValidSecret(candidate: string, expectedSecret?: string) {
 }
 
 function hasValidCronSecret(candidate: string) {
-  const cronSecret = process.env.CRON_SECRET || process.env.BACKUP_CRON_SECRET;
+  // Dedicated cron secrets only — admin elevation password is never accepted.
+  // Read process.env at call time so tests can stub env after import.
+  const cronSecret = process.env.CRON_SECRET || process.env.BACKUP_CRON_SECRET || ENV.backupCronSecret;
   return hasValidSecret(candidate, cronSecret);
 }
 
@@ -64,8 +66,8 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
     if (user.isCron) {
       return true;
     }
-    // Check legacy admin role OR RBAC admin role
-    if (user.role === "admin" || await isAdminRoleUser(user.id)) {
+    // RBAC is authoritative — legacy users.role must not grant backup access.
+    if (await isAdminRoleUser(user.id)) {
       return true;
     }
   } catch {
@@ -118,20 +120,22 @@ export async function runScheduledBackup(req: Request, res: Response): Promise<v
     for (const user of activeUsers) {
       const projects = await financeDb.listProjects(user.id);
       for (const project of projects) {
-        const cloudResult = await executeCloudBackup(user.id, project.id);
+        const cloudResult: CloudBackupResult & { integrityVerified?: boolean; integrityError?: string } = await executeCloudBackup(user.id, project.id);
 
-        // Post-upload integrity verification
+        // Post-upload integrity verification — only meaningful when something was stored.
         if (cloudResult.success && cloudResult.checksum) {
           const verification = await verifyBackupIntegrity(user.id, project.id, cloudResult.checksum);
           if (verification.verified) {
             verifiedCount++;
-            (cloudResult as any).integrityVerified = true;
+            cloudResult.integrityVerified = true;
           } else {
             failedCount++;
-            (cloudResult as any).integrityVerified = false;
-            (cloudResult as any).integrityError = verification.error;
+            cloudResult.integrityVerified = false;
+            cloudResult.integrityError = verification.error;
             logger.warn(`Backup integrity check failed for project ${project.id}: ${verification.error}`);
           }
+        } else if (!cloudResult.success) {
+          failedCount++;
         }
 
         backupResults.push(cloudResult);
@@ -139,19 +143,21 @@ export async function runScheduledBackup(req: Request, res: Response): Promise<v
       }
     }
 
-    // Log the scheduled backup audit
+    const storedCount = backupResults.filter(r => r.success).length;
+    // Log the scheduled backup audit — only count verified when a payload was actually stored.
     await financeDb.logAudit({
       actorUserId: activeUsers[0]?.id ?? 1,
-      action: "backup_created",
-      entityType: "cloud_backup",
-      summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${verifiedCount} verified, ${failedCount} failed integrity`,
+      action: failedCount === 0 && totalProjectsBackedUp > 0 ? "backup_created" : "update",
+      entityType: failedCount === 0 && totalProjectsBackedUp > 0 ? "cloud_backup" : "cloud_backup_failed",
+      summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
       auditContext: extractAuditContext(req),
     });
 
-    res.status(200).json({
-      success: true,
+    res.status(failedCount > 0 && storedCount === 0 ? 500 : 200).json({
+      success: storedCount > 0,
       timestamp: new Date().toISOString(),
       backedUpProjectsCount: totalProjectsBackedUp,
+      storedProjectsCount: storedCount,
       integrityVerified: verifiedCount,
       integrityFailed: failedCount,
       details: backupResults,

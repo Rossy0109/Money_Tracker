@@ -10,7 +10,7 @@ export const INPUT_ONLY_ERR_MSG = 'Access denied. Input-only users cannot perfor
 
 // One-time nonce cookie that binds an OAuth login to the browser that started
 // it. The `__Host-` prefix forces the cookie host-only (Secure, Path=/, no
-// Domain), so a sibling *.manus.space site cannot plant a matching value in a
+// Domain), so a sibling site cannot plant a matching value in a
 // victim's browser.
 export const OAUTH_STATE_COOKIE = "__Host-oauth_state";
 

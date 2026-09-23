@@ -4,9 +4,14 @@ import { Plus, Pencil, Printer, Trash2, ChevronLeft, ChevronRight, Search, ListF
 import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../../server/routers";
 
 const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 const ROW_HEIGHT = 48; // px height per row
+
+type TransactionRow =
+  inferRouterOutputs<AppRouter>["finance"]["overview"]["transactions"][number];
 
 export function TransactionsPanel({
   rows,
@@ -17,13 +22,13 @@ export function TransactionsPanel({
   onDelete,
   onVoucher,
 }: {
-  rows: any[];
+  rows: TransactionRow[];
   filter: "all" | "income" | "expense";
   setFilter: (value: "all" | "income" | "expense") => void;
   onAdd: () => void;
-  onEdit: (row: any) => void;
+  onEdit: (row: TransactionRow) => void;
   onDelete: (id: number) => void;
-  onVoucher?: (row: any) => void;
+  onVoucher?: (row: TransactionRow) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,7 +130,6 @@ export function TransactionsPanel({
         </div>
       </div>
 
-      {/* eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual container ref is required here */}
       <div
         // eslint-disable-next-line react-hooks/refs
         ref={virtualizer.containerRef}
@@ -146,7 +150,7 @@ export function TransactionsPanel({
           </thead>
           <tbody>
             {visibleVirtualRows.length ? (
-              visibleVirtualRows.map((row, idx) => (
+              visibleVirtualRows.map((row, _idx) => (
                 <tr
                   key={row.id}
                   className="border-b border-[#edf1ee] hover:bg-[#fbfdfb] transition-colors"

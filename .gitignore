@@ -31,9 +31,8 @@ public/
 ehthumbs.db
 Thumbs.db
 
-# Manus debug collector logs
-.manus-logs/
-.manus-logs
+# Local debug collector logs
+.local-logs/
 
 # Logs
 logs
@@ -114,8 +113,8 @@ temp/
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 
-# Manus version file (auto-generated, not part of source)
-client/public/__manus__/version.json
+# Generated version file (auto-generated, not part of source)
+client/public/__version__/version.json
 .project-config.json
 .vercel
 .env*

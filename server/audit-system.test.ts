@@ -200,9 +200,11 @@ describe("Audit Integration Flow", () => {
 describe("Security-Sensitive Action Audit Verification", () => {
   it("verifies scheduledBackup and cloudBackupService audit with backup_created", () => {
     const backupSrc = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
-    expect(backupSrc).toContain('action: "backup_created"');
+    expect(backupSrc).toContain('"backup_created"');
+    expect(backupSrc).toContain("storedCount");
     const cloudBackupSrc = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
-    expect(cloudBackupSrc).toContain('action: "backup_created"');
+    expect(cloudBackupSrc).toContain('"backup_created"');
+    expect(cloudBackupSrc).toContain("uploadSuccess ? \"backup_created\"");
   });
 
   it("verifies restoreProjectBackup audits with backup_restored", () => {

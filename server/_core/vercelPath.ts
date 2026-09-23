@@ -1,5 +1,5 @@
 /**
- * Vercel path normalization - no longer needed for manus-storage.
+ * Vercel path normalization.
  * Kept for compatibility with existing vercel-handler.ts import.
  */
 export function normalizeVercelRequestPath(url: string): string {

@@ -3,6 +3,8 @@ import { Plus } from "lucide-react";
 import { Empty } from "@/components/dashboard/DashboardMetrics";
 import { bdt } from "./types";
 import { useState } from "react";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../../server/routers";
 import {
   Dialog,
   DialogContent,
@@ -12,19 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface AccountItem {
-  id: number;
-  name: string;
-  type: "cash" | "bank" | "mobile" | string;
-  openingBalance: number | string;
-  currentBalance: number | string;
-  [key: string]: any;
-}
+type AccountItem =
+  inferRouterOutputs<AppRouter>["finance"]["overview"]["accounts"][number];
 
 interface AccountsPanelProps {
-  accounts: any[];
+  accounts: AccountItem[];
   onAdd: () => void;
-  onEdit: (account: any) => void;
+  onEdit: (account: AccountItem) => void;
   onDelete: (id: number) => void;
 }
 

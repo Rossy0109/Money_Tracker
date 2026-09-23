@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
-import { Plus, RotateCcw, Loader2, Eye, Calendar, AlertCircle, CheckCircle, ArrowLeftRight, ChevronDown, ChevronUp } from "lucide-react";
+import { RotateCcw, Loader2, ArrowLeftRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 
@@ -26,17 +26,6 @@ interface Voucher {
   reversal?: { reversalVoucherId: number; reversalVoucherNo: string } | null;
 }
 
-interface Reversal {
-  id: number;
-  originalVoucherId: number;
-  reversalVoucherId: number;
-  reason: string;
-  reversedAt: Date;
-  reversedBy: number;
-  originalVoucherNo: string;
-  reversalVoucherNo: string;
-}
-
 interface ReverseVoucherResult {
   originalVoucherId: number;
   reversalVoucherId: number;
@@ -44,7 +33,7 @@ interface ReverseVoucherResult {
 }
 
 export default function VoucherReversal() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
 
   const utils = trpc.useUtils();
@@ -76,7 +65,7 @@ export default function VoucherReversal() {
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [reversalReason, setReversalReason] = useState("");
   const [reversalDate, setReversalDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [, setPreviewOpen] = useState(false);
 
   const projectSelector = projects.length ? (
     <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
@@ -92,8 +81,8 @@ export default function VoucherReversal() {
     </label>
   ) : null;
 
-  const vouchers = voucherListQuery.data ?? [];
-  const reversals = reversalsQuery.data ?? [];
+  const vouchers = useMemo(() => voucherListQuery.data ?? [], [voucherListQuery.data]);
+  const reversals = useMemo(() => reversalsQuery.data ?? [], [reversalsQuery.data]);
 
   const reversibleVouchers = useMemo(
     () => vouchers.filter(v => !v.reversal && v.status === "posted"),
@@ -126,10 +115,6 @@ export default function VoucherReversal() {
     });
     setSelectedVoucher(null);
     setPreviewOpen(false);
-  };
-
-  const getReversalInfo = (voucherId: number) => {
-    return reversals.find(r => r.originalVoucherId === voucherId);
   };
 
   return (

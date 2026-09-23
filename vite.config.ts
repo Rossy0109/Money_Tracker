@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
-import { dirnameFromMetaUrl } from "./dirname";
+import { dirnameFromMetaUrl } from "./dirname.ts";
 
 const __dirname = dirnameFromMetaUrl(import.meta.url);
 

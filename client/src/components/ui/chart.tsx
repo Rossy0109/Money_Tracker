@@ -102,6 +102,15 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+type ChartTooltipPayloadItem = {
+  type?: string;
+  dataKey?: string | number;
+  name?: string | number;
+  value?: number | string;
+  color?: string;
+  payload: { fill?: string; [key: string]: unknown };
+};
+
 function ChartTooltipContent({
   active,
   payload,
@@ -116,7 +125,30 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: any) {
+}: {
+  active?: boolean;
+  payload?: ChartTooltipPayloadItem[];
+  className?: string;
+  indicator?: "dot" | "line" | "dashed";
+  hideLabel?: boolean;
+  hideIndicator?: boolean;
+  label?: string | number;
+  labelFormatter?: (
+    value: React.ReactNode,
+    payload: ChartTooltipPayloadItem[]
+  ) => React.ReactNode;
+  labelClassName?: string;
+  formatter?: (
+    value: number | string | undefined,
+    name: string | number | undefined,
+    item: ChartTooltipPayloadItem,
+    index: number,
+    payload: { fill?: string; [key: string]: unknown }
+  ) => React.ReactNode;
+  color?: string;
+  nameKey?: string;
+  labelKey?: string;
+}) {
   const { config } = useChart();
 
   const tooltipLabel = React.useMemo(() => {
@@ -171,8 +203,8 @@ function ChartTooltipContent({
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
         {payload
-          .filter((item: any) => item.type !== "none")
-          .map((item: any, index: number) => {
+          .filter(item => item.type !== "none")
+          .map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
             const indicatorColor = color || item.payload.fill || item.color;

@@ -1,6 +1,5 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS, decodeOAuthState } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
-import axios, { type AxiosInstance } from "axios";
 import { parseCookie as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
@@ -8,13 +7,6 @@ import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
 import logger from "./logger";
-import type {
-  ExchangeTokenRequest,
-  ExchangeTokenResponse,
-  GetUserInfoResponse,
-  GetUserInfoWithJwtRequest,
-  GetUserInfoWithJwtResponse,
-} from "./types/oauthTypes";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -30,16 +22,8 @@ export type SessionPayload = {
 
 interface OAuthProviderConfig {
   name: string;
-  baseURL: string;
-  exchangeTokenPath: string;
-  getUserInfoPath: string;
-  getUserInfoWithJwtPath?: string;
   clientId: string;
   clientSecret?: string;
-  tokenEndpoint?: string;
-  authorizationEndpoint?: string;
-  jwksUri?: string;
-  issuer?: string[];
 }
 
 class OAuthService {
@@ -49,11 +33,11 @@ class OAuthService {
   constructor(providers: OAuthProviderConfig[], defaultProvider: string) {
     this.providers = new Map(providers.map(p => [p.name, p]));
     this.defaultProvider = defaultProvider;
-    
+
     for (const provider of providers) {
-      logger.info({ name: provider.name, baseURL: provider.baseURL }, `[OAuth] Provider ${provider.name} initialized`);
+      logger.info({ name: provider.name }, `[OAuth] Provider ${provider.name} initialized`);
     }
-    
+
     if (!this.providers.has(defaultProvider)) {
       throw new Error(`Default provider "${defaultProvider}" not found in providers`);
     }
@@ -75,164 +59,39 @@ class OAuthService {
   listProviders(): string[] {
     return Array.from(this.providers.keys());
   }
-
-  private decodeState(state: string): string {
-    return decodeOAuthState(state).redirectUri;
-  }
-
-  async getTokenByCode(
-    code: string,
-    state: string,
-    providerName?: string
-  ): Promise<ExchangeTokenResponse> {
-    const provider = this.getProvider(providerName);
-    const payload: ExchangeTokenRequest = {
-      clientId: provider.clientId,
-      grantType: "authorization_code",
-      code,
-      redirectUri: this.decodeState(state),
-    };
-
-    if (provider.clientSecret) {
-      (payload as any).clientSecret = provider.clientSecret;
-    }
-
-    const { data } = await this.getClient(provider).post<ExchangeTokenResponse>(
-      provider.exchangeTokenPath,
-      payload
-    );
-
-    return data;
-  }
-
-  async getUserInfoByToken(
-    token: ExchangeTokenResponse,
-    providerName?: string
-  ): Promise<GetUserInfoResponse> {
-    const provider = this.getProvider(providerName);
-    const { data } = await this.getClient(provider).post<GetUserInfoResponse>(
-      provider.getUserInfoPath,
-      {
-        accessToken: token.accessToken,
-      }
-    );
-
-    return data;
-  }
-
-  private getClient(provider: OAuthProviderConfig): AxiosInstance {
-    return axios.create({
-      baseURL: provider.baseURL,
-      timeout: AXIOS_TIMEOUT_MS,
-    });
-  }
-
-  public getClientForProvider(providerName: string): AxiosInstance {
-    const provider = this.getProvider(providerName);
-    return this.getClient(provider);
-  }
 }
-
-const createOAuthHttpClient = (): AxiosInstance =>
-  axios.create({
-    baseURL: ENV.oAuthServerUrl,
-    timeout: AXIOS_TIMEOUT_MS,
-  });
 
 function createOAuthService(): OAuthService {
   const providers: OAuthProviderConfig[] = [];
-  
+
   // Google OAuth provider
-  if (ENV.googleOAuthClientId && ENV.googleOAuthClientSecret && ENV.googleOAuthRedirectUri) {
+  if (ENV.googleOAuthClientId) {
     providers.push({
       name: "google",
-      baseURL: "https://oauth2.googleapis.com",
-      exchangeTokenPath: "/token",
-      getUserInfoPath: "/oauth2/v2/userinfo",
       clientId: ENV.googleOAuthClientId,
-      clientSecret: ENV.googleOAuthClientSecret,
+      clientSecret: ENV.googleOAuthClientSecret || undefined,
     });
   }
-  
+
   // If no providers configured, create a mock provider for testing
   if (providers.length === 0) {
     providers.push({
       name: "mock",
-      baseURL: "http://localhost",
-      exchangeTokenPath: "/token",
-      getUserInfoPath: "/userinfo",
       clientId: "mock-client-id",
     });
   }
-  
-  const defaultProvider = providers.find(p => p.name === "google") ? "google" : 
+
+  const defaultProvider = providers.find(p => p.name === "google") ? "google" :
                           providers[0]?.name || "mock";
-  
+
   return new OAuthService(providers, defaultProvider);
 }
 
 class SDKServer {
-  private readonly client: AxiosInstance;
   private readonly oauthService: OAuthService;
 
-  constructor(client: AxiosInstance = createOAuthHttpClient()) {
-    this.client = client;
+  constructor() {
     this.oauthService = createOAuthService();
-  }
-
-  private deriveLoginMethod(
-    platforms: unknown,
-    fallback: string | null | undefined
-  ): string | null {
-    if (fallback && fallback.length > 0) return fallback;
-    if (!Array.isArray(platforms) || platforms.length === 0) return null;
-    const set = new Set<string>(
-      platforms.filter((p): p is string => typeof p === "string")
-    );
-    if (set.has("REGISTERED_PLATFORM_EMAIL")) return "email";
-    if (set.has("REGISTERED_PLATFORM_GOOGLE")) return "google";
-    if (set.has("REGISTERED_PLATFORM_APPLE")) return "apple";
-    if (
-      set.has("REGISTERED_PLATFORM_MICROSOFT") ||
-      set.has("REGISTERED_PLATFORM_AZURE")
-    )
-      return "microsoft";
-    if (set.has("REGISTERED_PLATFORM_GITHUB")) return "github";
-    const first = Array.from(set)[0];
-    return first ? first.toLowerCase() : null;
-  }
-
-  /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state, "google");
-   */
-  async exchangeCodeForToken(
-    code: string,
-    state: string,
-    providerName?: string
-  ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state, providerName);
-  }
-
-  /**
-   * Get user information using access token
-   * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken, "google");
-   */
-  async getUserInfo(accessToken: string, providerName?: string): Promise<GetUserInfoResponse> {
-    const data = await this.oauthService.getUserInfoByToken({
-      accessToken,
-    } as ExchangeTokenResponse, providerName);
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoResponse;
   }
 
   private parseCookies(cookieHeader: string | undefined) {
@@ -281,7 +140,10 @@ class SDKServer {
         appId: provider.clientId,
         name: options.name || "",
       },
-      { expiresInMs: ACCESS_TOKEN_TTL_MS }
+      // Honor the caller's requested TTL (login flows pass ONE_YEAR_MS to match
+      // the session cookie). Falling back to the 15-minute access-token default
+      // caused JWTs to expire while the cookie was still valid.
+      { expiresInMs: options.expiresInMs ?? ACCESS_TOKEN_TTL_MS }
     );
   }
 
@@ -365,35 +227,6 @@ class SDKServer {
     }
   }
 
-  async getUserInfoWithJwt(
-    jwtToken: string,
-    providerName?: string
-  ): Promise<GetUserInfoWithJwtResponse> {
-    const payload: GetUserInfoWithJwtRequest = {
-      jwtToken,
-      projectId: ENV.appId,
-    };
-
-    const providerNameResolved = providerName ?? "google";
-    const provider = this.oauthService.getProvider(providerName ?? "google");
-    const client = this.oauthService.getClientForProvider(providerName ?? "google");
-    const getUserInfoWithJwtPath = provider.getUserInfoWithJwtPath ?? "/oauth2/v2/userinfo";
-    const { data } = await client.post<GetUserInfoWithJwtResponse>(
-      getUserInfoWithJwtPath,
-      payload
-    );
-
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoWithJwtResponse;
-  }
-
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
     // 1. Prefer the session cookie (regular OAuth login).
     const cookies = this.parseCookies(req.headers.cookie);
@@ -415,39 +248,18 @@ class SDKServer {
       throw ForbiddenError("Invalid session cookie");
     }
 
-    if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
-      const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
-      const taskUid = userInfo.taskUid ?? null;
-      if (!taskUid) {
-        throw ForbiddenError("Cron session missing task_uid");
+    // Session revocation: stateless JWT alone is not enough — honor the
+    // user_sessions table so logout / password-reset can kill live tokens.
+    if (sessionToken) {
+      const [revoked] = await db.findRevokedSessionByToken(sessionToken);
+      if (revoked) {
+        logger.warn({ openId: session.openId }, "[Auth] Rejected revoked session token");
+        throw ForbiddenError("Session has been revoked");
       }
-      return buildCronUser(userInfo);
     }
 
     const sessionUserId = session.openId;
-    const signedInAt = new Date();
-    let user = await db.getUserByOpenId(sessionUserId);
-
-    // Determine which OAuth provider was used based on user's login method or auth mode
-    const providerName = user?.loginMethod === "google" ? "google" : "google";
-
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "", providerName);
-        await db.upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
-        });
-        user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth] Failed to sync user from OAuth");
-        throw ForbiddenError("Failed to sync user info");
-      }
-    }
+    const user = await db.getUserByOpenId(sessionUserId);
 
     if (!user) {
       throw ForbiddenError("User not found");
@@ -457,31 +269,10 @@ class SDKServer {
   }
 }
 
-const CRON_OPEN_ID_PREFIX = "cron_";
-
-/** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`; see `/home/ubuntu/skills/webdev-periodic-updates/SKILL.md`. */
+/** Result of `sdk.authenticateRequest`. */
 export type AuthenticatedUser = User & {
   taskUid?: string;
   isCron?: boolean;
 };
-
-function buildCronUser(
-  userInfo: GetUserInfoWithJwtResponse
-): AuthenticatedUser {
-  const now = new Date();
-  return {
-    id: -1,
-    openId: userInfo.openId,
-    name: userInfo.name || "Scheduled Task",
-    email: null,
-    loginMethod: null,
-    role: "user",
-    createdAt: now,
-    updatedAt: now,
-    lastSignedIn: now,
-    taskUid: userInfo.taskUid ?? undefined,
-    isCron: true,
-  } as AuthenticatedUser;
-}
 
 export const sdk = new SDKServer();

@@ -35,7 +35,8 @@ function caller(user: E2eUser) {
     user,
     req: { protocol: "https", headers: {} },
     res: { clearCookie: vi.fn(), cookie: vi.fn() },
-  } as any);
+    adminElevation: null,
+  } as unknown as Parameters<typeof appRouter.createCaller>[0]);
 }
 
 function assertIsolatedDatabase() {
@@ -127,7 +128,7 @@ describe("real-stack RBAC E2E", () => {
 
     const adminPassword = process.env.ADMIN_ACCESS_PASSWORD;
     if (adminPassword) {
-      await expect(op.admin.users({ password: adminPassword })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(op.admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
   });
 
@@ -153,7 +154,7 @@ describe("real-stack RBAC E2E", () => {
 
     const adminPassword = process.env.ADMIN_ACCESS_PASSWORD;
     if (adminPassword) {
-      await expect(admin.admin.users({ password: adminPassword })).resolves.toEqual(
+      await expect(admin.admin.users()).resolves.toEqual(
         expect.arrayContaining([expect.objectContaining({ email: "input@rbac.test", role: "user" })])
       );
     }

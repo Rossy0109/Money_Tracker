@@ -1,7 +1,7 @@
 process.env.NODE_ENV = "test";
 
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
 import { normalizeVercelRequestPath } from "./vercelPath";
 import { createApiApp } from "./app";
@@ -26,7 +26,7 @@ describe("Vercel-compatible Express application", () => {
   });
 
   it("preserves the public path after the Vercel function rewrite", () => {
-    // Since we removed manus-storage routes, the path is now a passthrough
+    // API paths are passed through to the Express handler
     expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
     expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
   });
@@ -51,7 +51,7 @@ describe("Vercel-compatible Express application", () => {
     await expect(response.json()).resolves.toEqual({ ok: true, service: "money-tracker" });
   });
 
-  it("keeps Google OAuth endpoints disabled when the legacy Manus mode is active", async () => {
+  it("keeps Google OAuth endpoints disabled when password mode is active", async () => {
     const app = createApiApp();
     const server = createServer(app);
     servers.push(server);
@@ -111,7 +111,17 @@ describe("Vercel-compatible Express application", () => {
 
     process.env.CRON_SECRET = "test-cron-secret-token";
 
-    // Verify POST authorization
+    // Vercel Cron method — must not 404/403 when authorized.
+    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer test-cron-secret-token",
+      },
+    });
+    expect(getResponse.status).not.toBe(403);
+    expect(getResponse.status).not.toBe(404);
+
+    // GitHub Actions / manual POST still accepted (app.all).
     const postResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
       method: "POST",
       headers: {
@@ -122,14 +132,16 @@ describe("Vercel-compatible Express application", () => {
     expect(postResponse.status).not.toBe(403);
     expect(postResponse.status).not.toBe(404);
 
-    // Verify GET authorization (Vercel Cron method)
-    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
-      method: "GET",
-      headers: {
-        Authorization: "Bearer test-cron-secret-token",
-      },
-    });
-    expect(getResponse.status).not.toBe(403);
-    expect(getResponse.status).not.toBe(404);
+    // Other scheduled paths must also accept GET (Vercel Cron parity).
+    for (const path of [
+      "/api/scheduled/finance-recurring",
+      "/api/scheduled/finance-bill-reminder",
+    ]) {
+      const scheduledGet = await fetch(`http://127.0.0.1:${address.port}${path}`, {
+        method: "GET",
+      });
+      // Route must exist (not 404); auth may still reject with 500/403.
+      expect(scheduledGet.status).not.toBe(404);
+    }
   });
 });

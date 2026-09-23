@@ -3,14 +3,14 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
-import { Plus, Lock, Unlock, Loader2, Calendar, AlertCircle, CheckCircle } from "lucide-react";
-import { useState, useMemo, useCallback } from "react";
+import { Lock, Unlock, Loader2, Calendar } from "lucide-react";
+import { useState, useMemo } from "react";
 import { format, addMonths, subMonths, startOfMonth } from "date-fns";
 
 interface PeriodLock {
@@ -22,7 +22,7 @@ interface PeriodLock {
 }
 
 export default function PeriodLock() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
 
   const utils = trpc.useUtils();
@@ -58,8 +58,6 @@ export default function PeriodLock() {
   const [unlockConfirmMonth, setUnlockConfirmMonth] = useState<string | null>(null);
 
   const currentMonthKey = format(new Date(), "yyyy-MM");
-  const prevMonthKey = format(subMonths(new Date(), 1), "yyyy-MM");
-  const nextMonthKey = format(addMonths(new Date(), 1), "yyyy-MM");
 
   const monthRange = useMemo(() => {
     const months: string[] = [];

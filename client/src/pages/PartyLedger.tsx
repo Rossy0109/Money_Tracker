@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import type { jsPDF } from "jspdf";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import { bdt } from "@/lib/utils";
@@ -6,7 +7,6 @@ import { useActiveProject } from "@/lib/activeProject";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,26 +16,18 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownLeft,
-  Receipt,
-  FileText,
   Download,
   Share2,
-  Calendar,
-  Wallet,
   Phone,
-  Plus,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
   TrendingUp,
   Building2,
-  ArrowRight,
   HandCoins,
 } from "lucide-react";
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 
-async function addBengaliFont(doc: any) {
+async function addBengaliFont(doc: jsPDF) {
   try {
     const response = await window.fetch(BENGALI_FONT_URL);
     if (!response.ok) return;
@@ -47,9 +39,10 @@ async function addBengaliFont(doc: any) {
     doc.addFileToVFS("NotoSansBengali-Regular.ttf", btoa(binary));
     doc.addFont("NotoSansBengali-Regular.ttf", "NotoSansBengali", "normal");
     doc.setFont("NotoSansBengali", "normal");
-  } catch (err) {
-    console.warn("Could not embed Bengali font in PDF:", err);
-  }
+    } catch (err) {
+      // Font embedding is best-effort — PDF still renders with fallback metrics.
+      console.warn("party-ledger: Bengali font embed skipped", err instanceof Error ? err.message : String(err));
+    }
 }
 
 export default function PartyLedger() {
@@ -82,9 +75,10 @@ export default function PartyLedger() {
     },
   });
 
-  const dues = overviewQuery.data?.dues || [];
+  // Wrap with useMemo to keep stable reference across renders
+  const dues = useMemo(() => overviewQuery.data?.dues || [], [overviewQuery.data]);
   const accounts = overviewQuery.data?.accounts || [];
-  const invoices = invoicesQuery.data || [];
+  const invoices = useMemo(() => invoicesQuery.data || [], [invoicesQuery.data]);
 
   // Group and synthesize parties from dues, settlements, and invoices
   const parties = useMemo(() => {
@@ -188,7 +182,7 @@ export default function PartyLedger() {
   const totalDebt = parties.reduce((sum, p) => sum + p.outstandingDebt, 0);
   const netBalance = totalReceivable - totalDebt;
 
-  // Filtered Parties
+  // Filtered Parties - useMemo now depends on stable dues/invoices refs
   const filteredParties = useMemo(() => {
     return parties.filter((p) => {
       const matchesSearch =
@@ -427,7 +421,7 @@ export default function PartyLedger() {
       doc.save(`Party_Ledger_${activeParty.name.replace(/\s+/g, "_")}.pdf`);
       toast.success("খতিয়ান PDF সফলভাবে তৈরি ও ডাউনলোড হয়েছে!");
     } catch (e) {
-      console.error(e);
+      console.error("party-ledger: PDF export failed", e instanceof Error ? e.message : e);
       toast.error("PDF ডাউনলোড করা যায়নি");
     }
   };

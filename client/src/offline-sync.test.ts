@@ -65,7 +65,7 @@ async function runOfflineSync(
       synced: itemsToSync.length,
       remaining: storage.size(),
     };
-  } catch (err) {
+  } catch {
     // Retry logic: keep in storage when sync fails
     return {
       success: false,

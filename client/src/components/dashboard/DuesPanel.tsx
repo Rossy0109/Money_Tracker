@@ -2,6 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Plus, MessageCircle } from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
 import { generateDueReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../../server/routers";
+
+type DueItem =
+  inferRouterOutputs<AppRouter>["finance"]["overview"]["dues"][number];
 
 export function DuesPanel({
   title,
@@ -12,9 +17,9 @@ export function DuesPanel({
 }: {
   title: string;
   eyebrow: string;
-  dues: any[];
+  dues: DueItem[];
   onAdd: () => void;
-  onSettle: (due: any) => void;
+  onSettle: (due: DueItem) => void;
 }) {
   return (
     <article className="finance-card p-5 sm:p-6">
@@ -95,7 +100,7 @@ export function DuesPanel({
                   <p className="text-xs font-semibold text-[#587466]">
                     সমন্বয়ের ইতিহাস
                   </p>
-                  {due.settlements.map((settlement: any) => (
+                  {due.settlements.map(settlement => (
                     <div
                       key={settlement.id}
                       className="mt-2 grid gap-1 border-t border-[#e5eee7] pt-2 text-xs text-[#667d72] sm:grid-cols-2"

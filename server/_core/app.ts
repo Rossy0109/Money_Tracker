@@ -9,7 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
-import { ensureAuthModeConsistency, ENV } from "./env";
+import { ENV } from "./env";
 import logger from "./logger";
 
 const authLimiter = rateLimit({
@@ -17,9 +17,12 @@ const authLimiter = rateLimit({
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
+  // Trust the first reverse-proxy hop (Vercel). Validation is enabled so
+  // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR / ERR_ERL_FORWARDED_HEADER surface as
+  // config errors instead of silently keying on spoofable headers.
   validate: {
     trustProxy: true,
-    xForwardedForHeader: false,
+    xForwardedForHeader: true,
   },
   message: {
     message: "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।",
@@ -174,8 +177,26 @@ export function createApiApp() {
     );
   }
 
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Path-aware body limits: small global cap; large only for backup
+  // restore/preview (client file cap is 20MB → allow 25mb for those).
+  // Pre-create parsers once (creating them per-request can stall).
+  const isBackupRestorePath = (req: Request): boolean =>
+    req.path.includes("finance.restoreProjectBackup") ||
+    req.path.includes("finance.previewProjectBackup");
+  const jsonSmall = express.json({ limit: "2mb" });
+  const urlencodedSmall = express.urlencoded({ limit: "2mb", extended: true });
+  const jsonLarge = express.json({ limit: "25mb" });
+  const urlencodedLarge = express.urlencoded({ limit: "25mb", extended: true });
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET" || req.method === "HEAD") return next();
+    const large = isBackupRestorePath(req);
+    const json = large ? jsonLarge : jsonSmall;
+    const urlencoded = large ? urlencodedLarge : urlencodedSmall;
+    json(req, res, err => {
+      if (err) return next(err);
+      urlencoded(req, res, next);
+    });
+  });
 
   // Performance tracking middleware
   app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -205,10 +226,12 @@ export function createApiApp() {
   app.use(/^\/api\/trpc\/auth\./, authLimiter);
 
   registerOAuthRoutes(app);
-  app.post("/api/scheduled/finance-recurring", runScheduledRecurring);
-  app.post("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
-  app.get("/api/scheduled/finance-backup", runScheduledBackup);
-  app.post("/api/scheduled/finance-backup", runScheduledBackup);
+  // Scheduled callbacks are POST; Vercel Cron always invokes GET.
+  // Register every scheduled path for both methods so a method mismatch can
+  // never 404 a production cron again.
+  app.all("/api/scheduled/finance-recurring", runScheduledRecurring);
+  app.all("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
+  app.all("/api/scheduled/finance-backup", runScheduledBackup);
   app.use(
     "/api/trpc",
     createExpressMiddleware({

@@ -1,6 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { hasPermission, hasAnyPermission, hasAllPermissions, hasRole } from "./rbac";
+import type { MiddlewareResult } from "@trpc/server/unstable-core-do-not-import";
+import { hasPermission } from "./rbac";
 import type { TrpcContext } from "./context";
+
+type AuthzMiddleware = (opts: {
+  ctx: TrpcContext;
+  next: (opts: { ctx: TrpcContext }) => Promise<MiddlewareResult<object>>;
+}) => Promise<MiddlewareResult<object>>;
 
 async function auditPermissionDenied(ctx: TrpcContext, permissionOrReason: string) {
   if (!ctx.user) return;
@@ -25,7 +31,7 @@ async function auditPermissionDenied(ctx: TrpcContext, permissionOrReason: strin
  * Throws TRPCError if user doesn't have the permission.
  */
 export function requirePermission(permissionName: string) {
-  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+  const middleware: AuthzMiddleware = async (opts) => {
     const { ctx, next } = opts;
     
     if (!ctx.user) {
@@ -46,13 +52,14 @@ export function requirePermission(permissionName: string) {
     
     return next({ ctx });
   };
+  return middleware;
 }
 
 /**
  * Middleware to check if user has any of the given permissions (OR logic).
  */
 export function requireAnyPermission(permissionNames: string[]) {
-  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+  const middleware: AuthzMiddleware = async (opts) => {
     const { ctx, next } = opts;
     
     if (!ctx.user) {
@@ -74,13 +81,14 @@ export function requireAnyPermission(permissionNames: string[]) {
     
     return next({ ctx });
   };
+  return middleware;
 }
 
 /**
  * Middleware to check if user has all of the given permissions (AND logic).
  */
 export function requireAllPermissions(permissionNames: string[]) {
-  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+  const middleware: AuthzMiddleware = async (opts) => {
     const { ctx, next } = opts;
     
     if (!ctx.user) {
@@ -102,13 +110,14 @@ export function requireAllPermissions(permissionNames: string[]) {
     
     return next({ ctx });
   };
+  return middleware;
 }
 
 /**
  * Middleware to check if user has a specific role.
  */
 export function requireRole(roleName: string) {
-  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+  const middleware: AuthzMiddleware = async (opts) => {
     const { ctx, next } = opts;
     
     if (!ctx.user) {
@@ -130,13 +139,14 @@ export function requireRole(roleName: string) {
     
     return next({ ctx });
   };
+  return middleware;
 }
 
 /**
  * Middleware to check if user has any of the given roles (OR logic).
  */
 export function requireAnyRole(roleNames: string[]) {
-  return async (opts: { ctx: TrpcContext; next: (opts: { ctx: TrpcContext }) => Promise<any> }) => {
+  const middleware: AuthzMiddleware = async (opts) => {
     const { ctx, next } = opts;
     
     if (!ctx.user) {
@@ -146,13 +156,12 @@ export function requireAnyRole(roleNames: string[]) {
       });
     }
     
-    const { hasAnyPermission } = await import("./rbac");
     // For roles, we check if user has any of the roles
     const { getUserRoles } = await import("./rbac");
-    const userRoles = await getUserRoles((opts as any).ctx.user.id);
-    const hasRole = roleNames.some(r => userRoles.includes(r));
+    const userRoles = await getUserRoles(ctx.user.id);
+    const hasRolePerm = roleNames.some(r => userRoles.includes(r));
     
-    if (!hasRole) {
+    if (!hasRolePerm) {
       await auditPermissionDenied(ctx, `any role of [${roleNames.join(", ")}]`);
       throw new TRPCError({ 
         code: "FORBIDDEN", 
@@ -162,6 +171,7 @@ export function requireAnyRole(roleNames: string[]) {
     
     return next({ ctx });
   };
+  return middleware;
 }
 
 /**

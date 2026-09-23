@@ -92,11 +92,11 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     });
   } else {
     checks.push({
-      id: "auth.sandbox",
-      label: "স্যান্ডবক্স লগইন",
+      id: "auth.password",
+      label: "পাসওয়ার্ড লগইন",
       status: "ok",
       timestamp: checkedAt,
-      details: "AUTH_MODE=manus",
+      details: "AUTH_MODE=password",
     });
   }
 
@@ -268,7 +268,7 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
   const toRate = (id: string) => checks.find(check => check.id === id)?.status ?? "unknown";
   const summary: HealthSummary = {
     database: toRate("database.read") === "ok" && toRate("database.write") === "ok" ? "ok" : "fail",
-    auth: toRate("auth.google"),
+    auth: toRate("auth.google") !== "unknown" ? toRate("auth.google") : toRate("auth.password"),
     storage:
       toRate("storage.supabase") === "ok" || toRate("storage.vercel_blob") === "ok" ? "ok" : "not_configured",
     vercel: toRate("vercel.api"),

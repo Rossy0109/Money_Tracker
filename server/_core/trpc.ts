@@ -6,7 +6,7 @@ import { ENV } from "./env";
 import { timingSafeCompare } from "../timingSafe";
 import { requirePermission, requireAnyPermission, requireAllPermissions, requireRole, requireAnyRole, requireResourcePermission, requireAnyResourcePermission, requireAllResourcePermissions } from "./authz";
 import { hasAnyPermission } from "./rbac";
-import { checkIdempotency, storeIdempotency, hashRequest } from "./idempotency";
+import { hashRequest, claimIdempotency, completeIdempotency, clearIdempotency } from "./idempotency";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -97,18 +97,17 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
 
-    const wasAdmin = ctx.user.role === "admin";
-    let isRbacAdmin = false;
-    if (!wasAdmin) {
-      try {
-        const { isAdminRoleUser } = await import("./rbac");
-        isRbacAdmin = await isAdminRoleUser(ctx.user.id);
-      } catch {
-        isRbacAdmin = false;
-      }
+    // RBAC is authoritative. Legacy users.role must never grant privilege on
+    // its own (it remains only for display/migration compatibility).
+    let isRbacAdmin: boolean;
+    try {
+      const { isAdminRoleUser } = await import("./rbac");
+      isRbacAdmin = await isAdminRoleUser(ctx.user.id);
+    } catch {
+      isRbacAdmin = false;
     }
 
-    if (!wasAdmin && !isRbacAdmin) {
+    if (!isRbacAdmin) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -143,18 +142,16 @@ export const elevatedAdminProcedure = t.procedure.use(
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
 
-    const wasAdmin = ctx.user.role === "admin";
-    let isRbacAdmin = false;
-    if (!wasAdmin) {
-      try {
-        const { isAdminRoleUser } = await import("./rbac");
-        isRbacAdmin = await isAdminRoleUser(ctx.user.id);
-      } catch {
-        isRbacAdmin = false;
-      }
+    // Same rule as adminProcedure: only RBAC admin roles authorize elevation.
+    let isRbacAdmin: boolean;
+    try {
+      const { isAdminRoleUser } = await import("./rbac");
+      isRbacAdmin = await isAdminRoleUser(ctx.user.id);
+    } catch {
+      isRbacAdmin = false;
     }
 
-    if (!wasAdmin && !isRbacAdmin) {
+    if (!isRbacAdmin) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -173,19 +170,20 @@ export const elevatedAdminProcedure = t.procedure.use(
     }
 
     const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);
-    let rawInput: any;
-    if (typeof (opts as any).getRawInput === "function") {
+    let rawInput: unknown;
+    const optsRecord = opts as Record<string, unknown>;
+    if (typeof optsRecord.getRawInput === "function") {
       try {
-        rawInput = await (opts as any).getRawInput();
+        rawInput = await (optsRecord.getRawInput as () => unknown | Promise<unknown>)();
       } catch {
-        rawInput = (opts as any).rawInput;
+        rawInput = optsRecord.rawInput;
       }
     } else {
-      rawInput = (opts as any).rawInput;
+      rawInput = optsRecord.rawInput;
     }
 
-    const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof rawInput.password === "string")
-      ? rawInput.password
+    const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof (rawInput as { password: unknown }).password === "string")
+      ? (rawInput as { password: string }).password
       : undefined;
     const expectedPassword = ENV.adminAccessPassword || process.env.ADMIN_ACCESS_PASSWORD || "";
     const hasInlinePassword = Boolean(inputPassword && expectedPassword && timingSafeCompare(inputPassword, expectedPassword));
@@ -235,22 +233,23 @@ export const idempotent = t.middleware(async (opts) => {
   const { ctx, next } = opts;
 
   // Extract rawInput using getRawInput() if available (tRPC v11)
-  let rawInput: any;
-  if (typeof (opts as any).getRawInput === "function") {
+  let rawInput: unknown;
+  const optsRecord = opts as Record<string, unknown>;
+  if (typeof optsRecord.getRawInput === "function") {
     try {
-      rawInput = await (opts as any).getRawInput();
+      rawInput = await (optsRecord.getRawInput as () => unknown | Promise<unknown>)();
     } catch {
-      rawInput = (opts as any).rawInput;
+      rawInput = optsRecord.rawInput;
     }
   } else {
-    rawInput = (opts as any).rawInput;
+    rawInput = optsRecord.rawInput;
   }
 
   // Extract idempotency key from input
   const input = rawInput as Record<string, unknown> | undefined;
   const idempotencyKey =
     input && typeof input === "object" && "idempotencyKey" in input
-      ? String((input as any).idempotencyKey)
+      ? String(input.idempotencyKey)
       : null;
 
   // If no key provided, skip idempotency check (pass-through)
@@ -261,43 +260,58 @@ export const idempotent = t.middleware(async (opts) => {
   const route = ctx.req?.path ?? "unknown";
   const requestHash = hashRequest(rawInput);
 
-  // Check for existing idempotency record
-  const existing = await checkIdempotency(
+  // INSERT-first claim — only one concurrent request may execute.
+  const claim = await claimIdempotency(
     ctx.user.id,
     idempotencyKey,
     route,
     requestHash,
   );
 
-  if (existing.isReplay) {
-    // Return cached response — do NOT re-execute the handler
-    const body = existing.body ? JSON.parse(existing.body) : {};
+  if (claim.outcome === "conflict") {
+    throw new TRPCError({ code: "CONFLICT", message: claim.message });
+  }
+
+  if (claim.outcome === "in_progress") {
     throw new TRPCError({
-      code: "OK" as any,
-      message: JSON.stringify(body),
+      code: "CONFLICT",
+      message: "একই ইডেমপোটেন্সি কী নিয়ে আরেকটি অনুরোধ চলছে; একটু পরে আবার চেষ্টা করুন।",
     });
   }
 
-  // Execute the handler
-  const result = await next(opts);
-
-  // Store the idempotency record on successful mutation
-  if (!result.ok) {
-    // Handler threw — don't store, allow retry with same key
-    return result;
+  if (claim.outcome === "replay") {
+    // Short-circuit: return cached response without re-executing the handler.
+    const body = claim.body ? JSON.parse(claim.body) : {};
+    return {
+      data: body,
+      ctx: opts.ctx,
+    } as unknown as Awaited<ReturnType<typeof opts.next>>;
   }
 
-  try {
-    await storeIdempotency(
-      ctx.user.id,
-      idempotencyKey,
-      route,
-      requestHash,
-      200, // successful mutations return 200
-      result.data,
-    );
-  } catch {
-    // Best-effort: if store fails, still return the result
+  const userId = ctx.user.id;
+
+  // Execute the handler while holding the claim.
+  const result = await next(opts).catch(async (err: unknown) => {
+    // Handler threw — release claim so client can retry with the same key.
+    await clearIdempotency(userId, idempotencyKey, route).catch(() => {});
+    throw err;
+  });
+
+  // Finalize the claim with the successful mutation result.
+  if (result.ok) {
+    try {
+      await completeIdempotency(
+        userId,
+        idempotencyKey,
+        route,
+        200, // successful mutations return 200
+        result.data,
+      );
+    } catch {
+      // Best-effort: if finalize fails, still return the result
+    }
+  } else {
+    await clearIdempotency(userId, idempotencyKey, route).catch(() => {});
   }
 
   return result;

@@ -43,7 +43,7 @@ import {
 } from "@/components/dashboard/types";
 import { trpc } from "@/lib/trpc";
 import { canLoadAdminData } from "@/lib/adminAccess";
-import { isAdminUser } from "@/lib/rbac";
+import { isAdminUser, isInputOnlyUser } from "@/lib/rbac";
 import {
   readActiveProjectId,
   resolveActiveProjectId,
@@ -56,7 +56,7 @@ import {
 } from "@/lib/accountingReportDefinitions";
 import { queueOfflineTransaction } from "@/lib/offlineQueue";
 import { toast } from "sonner";
-import { Banknote, TrendingDown, TrendingUp, WalletCards, FileDown, Printer, X } from "lucide-react";
+import { Banknote, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PrintPreviewFrame } from "@/components/PrintPreviewFrame";
 import { Button } from "@/components/ui/button";
@@ -205,7 +205,7 @@ export default function Home() {
   const [isAuditExporting, setIsAuditExporting] = useState(false);
   const deferredAuditSearch = useDeferredValue(auditSearch);
   const canViewAdminData = canLoadAdminData({
-    role: user?.role,
+    user,
     verified: adminVerified,
     password: adminPassword,
   });
@@ -217,7 +217,7 @@ export default function Home() {
       activeProjectId,
       readActiveProjectId()
     );
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active project from storage
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- validate sessionStorage selection after async project list loads (cannot derive during render without impure storage reads)
     if (nextProjectId !== activeProjectId) setActiveProjectId(nextProjectId);
   }, [activeProjectId, projects.data]);
 
@@ -226,16 +226,23 @@ export default function Home() {
     setActiveProjectId(projectId);
   }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset page when audit filters change
+  // Reset audit page whenever filters change (setters, not an effect).
+  const setAuditSearchAndReset = (value: string) => {
+    setAuditSearch(value);
     setAuditPage(1);
-  }, [
-    auditDateRange?.from?.getTime(),
-    auditDateRange?.to?.getTime(),
-    auditActorUserId,
-    auditActorRole,
-    deferredAuditSearch,
-  ]);
+  };
+  const setAuditDateRangeAndReset = (value: DateRange | undefined) => {
+    setAuditDateRange(value);
+    setAuditPage(1);
+  };
+  const setAuditActorRoleAndReset = (value: "all" | "admin" | "user") => {
+    setAuditActorRole(value);
+    setAuditPage(1);
+  };
+  const setAuditActorUserIdAndReset = (value: string) => {
+    setAuditActorUserId(value);
+    setAuditPage(1);
+  };
 
   const adminAuditFilters = useMemo(
     () =>
@@ -271,14 +278,14 @@ export default function Home() {
     enabled: canViewAdminData,
     retry: false,
   });
-  const adminUsers = trpc.admin.users.useQuery(
-    { password: adminPassword || "pending" },
-    { enabled: canViewAdminData, retry: false }
-  );
-  const adminProjects = trpc.admin.projects.useQuery(
-    { password: adminPassword || "pending" },
-    { enabled: canViewAdminData, retry: false }
-  );
+  const adminUsers = trpc.admin.users.useQuery(undefined, {
+    enabled: canViewAdminData,
+    retry: false,
+  });
+  const adminProjects = trpc.admin.projects.useQuery(undefined, {
+    enabled: canViewAdminData,
+    retry: false,
+  });
 
   const refresh = async () => {
     await Promise.all([
@@ -498,6 +505,16 @@ export default function Home() {
     },
     onError: error => {
       toast.error(error.message || "অবস্থা আপডেট করা যায়নি");
+    },
+  });
+
+  const assignRole = trpc.admin.assignRole.useMutation({
+    onSuccess: () => {
+      toast.success("ভূমিকা নির্ধারণ সফল হয়েছে");
+      adminUsers.refetch();
+    },
+    onError: error => {
+      toast.error(error.message || "ভূমিকা নির্ধারণ করা যায়নি");
     },
   });
 
@@ -980,7 +997,7 @@ export default function Home() {
       </DashboardLayout>
     );
 
-  if (user?.role === "input_only" && !window.location.hash) {
+  if (isInputOnlyUser(user) && !window.location.hash) {
     window.location.replace("#transactions");
     return (
       <DashboardLayout>
@@ -1296,18 +1313,19 @@ export default function Home() {
         }}
         isVerifying={verifyAdmin.isPending}
         auditSearch={auditSearch}
-        setAuditSearch={setAuditSearch}
+        setAuditSearch={setAuditSearchAndReset}
         auditDateRange={auditDateRange}
-        setAuditDateRange={setAuditDateRange}
+        setAuditDateRange={setAuditDateRangeAndReset}
         auditActorRole={auditActorRole}
-        setAuditActorRole={setAuditActorRole}
+        setAuditActorRole={setAuditActorRoleAndReset}
         auditActorUserId={auditActorUserId}
-        setAuditActorUserId={setAuditActorUserId}
+        setAuditActorUserId={setAuditActorUserIdAndReset}
         onClearFilters={() => {
           setAuditDateRange(undefined);
           setAuditSearch("");
           setAuditActorUserId("all");
           setAuditActorRole("all");
+          setAuditPage(1);
         }}
         adminLogs={adminLogs}
         auditActivity={auditActivity}
@@ -1325,13 +1343,31 @@ export default function Home() {
           });
         }}
         isUpdatingUserStatus={updateUserStatus.isPending}
+        onAssignRole={(targetUserId, role) => {
+          assignRole.mutate({
+            password: adminPassword || "",
+            targetUserId,
+            role: role as
+              | "SUPER_ADMIN"
+              | "SYSTEM_ADMIN"
+              | "ACCOUNTING_ADMIN"
+              | "HR_ADMIN"
+              | "MANAGER"
+              | "INPUT_OPERATOR"
+              | "VIEWER",
+          });
+        }}
+        isAssigningRole={assignRole.isPending}
         logoUrl={logoUrl}
         onUploadLogo={async file => {
           try {
             await uploadLogo(file);
             toast.success("নতুন লোগো সফলভাবে আপলোড ও যুক্ত করা হয়েছে!");
-          } catch (err: any) {
-            toast.error(err.message || "লোগো আপলোড ব্যর্থ হয়েছে");
+          } catch (err) {
+            toast.error(
+              (err instanceof Error ? err.message : "") ||
+                "লোগো আপলোড ব্যর্থ হয়েছে"
+            );
           }
         }}
         onResetLogo={() => {

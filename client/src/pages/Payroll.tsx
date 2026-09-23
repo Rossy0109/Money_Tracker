@@ -151,7 +151,7 @@ export default function Payroll() {
     setEmpNotes("");
   };
 
-  const handleEditEmployee = (emp: any) => {
+  const handleEditEmployee = (emp: (typeof employees)[number]) => {
     setEditingEmployeeId(emp.id);
     setEmpName(emp.name);
     setEmpPhone(emp.phone || "");
@@ -579,8 +579,8 @@ export default function Payroll() {
                                     notes: p.notes,
                                   });
                                   toast.success("পে-স্লিপ ডাউনলোড সম্পন্ন হয়েছে");
-                                } catch (err) {
-                                  toast.error("পে-স্লিপ তৈরি করা যায়নি");
+                                } catch {
+                                  toast.error("পে-স্লিপ তৈরি করা যায়নি");
                                 }
                               }}
                               className="h-8 rounded-xl border-[#c9dcd0] text-[#1b5e20] hover:bg-[#eaf4ed] text-xs font-semibold gap-1.5"

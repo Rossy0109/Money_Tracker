@@ -29,6 +29,9 @@ describe("export lazy-loading wiring", () => {
   it("loads party ledger PDF generation on-demand inside PartyLedger page", () => {
     const source = readClientFile("pages/PartyLedger.tsx");
     expect(source).toContain('await import("jspdf")');
-    expect(source).not.toContain('from "jspdf"');
+    // Runtime imports must stay lazy; type-only imports are erased at compile time.
+    const runtimeJspdfImports = source.match(/^\s*import\s+(?!type\s)[^\n]*from\s+"jspdf"/gm);
+    expect(runtimeJspdfImports).toBeNull();
+    expect(source).not.toMatch(/^\s*import\s+["']jspdf["']/m);
   });
 });

@@ -2,16 +2,12 @@ export type AuthMode = "google" | "password";
 
 export const ENV = {
   authMode: (process.env.AUTH_MODE as AuthMode) ?? "password",
-  appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   sessionSecret: process.env.SESSION_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   adminAccessPassword: process.env.ADMIN_ACCESS_PASSWORD ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   blobStoreId: process.env.BLOB_STORE_ID ?? "",
   blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN ?? "",
   googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
@@ -34,8 +30,7 @@ export type AuthModeConsistency = { ok: boolean; serverMode?: AuthMode; clientMo
  */
 export function validateCriticalEnv(): string[] {
   const required = ["DATABASE_URL"];
-  const authRequired = ["SESSION_SECRET", "JWT_SECRET"];
-  
+
   const missing: string[] = [];
   
   for (const key of required) {

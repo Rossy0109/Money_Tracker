@@ -88,6 +88,7 @@ vi.mock("./accounting-core", () => ({
 
 vi.mock("./_core/rbac", () => ({
   initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  isAdminRoleUser: vi.fn().mockResolvedValue(false),
   hasPermission: vi.fn().mockResolvedValue(true),
   hasAnyPermission: vi.fn().mockResolvedValue(true),
   hasAllPermissions: vi.fn().mockResolvedValue(true),

@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
-import { Plus, ChevronDown, ChevronRight, FilePlus, Edit2, Trash2, Loader2, Banknote, CreditCard, LandPlot, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { Plus, ChevronDown, FilePlus, Edit2, Trash2, Loader2, Banknote, CreditCard, LandPlot, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState, useMemo } from "react";
 
 interface CoaAccount {
@@ -38,13 +39,54 @@ interface AccountType {
   createdAt: Date;
 }
 
-const accountTypeColors: Record<string, { label: string; color: string; icon: any }> = {
+const accountTypeColors: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   ASSET: { label: "Asset", color: "bg-green-100 text-green-800", icon: Banknote },
   LIABILITY: { label: "Liability", color: "bg-red-100 text-red-800", icon: CreditCard },
   EQUITY: { label: "Equity", color: "bg-purple-100 text-purple-800", icon: LandPlot },
   REVENUE: { label: "Revenue", color: "bg-blue-100 text-blue-800", icon: TrendingUp },
   EXPENSE: { label: "Expense", color: "bg-orange-100 text-orange-800", icon: TrendingDown },
 };
+
+function buildAccountTree(
+  accounts: {
+    id: number;
+    code: string;
+    name: string;
+    nameBn?: string | null;
+    accountTypeId: number;
+    currentBalance: string;
+    isDetail: boolean;
+    isActive: boolean;
+    parentId: number | null;
+  }[]
+): CoaAccount[] {
+  const accountMap = new Map<number, CoaAccount>();
+  accounts.forEach(a => {
+    accountMap.set(a.id, {
+      id: a.id,
+      code: a.code,
+      name: a.name,
+      nameBn: a.nameBn ?? null,
+      accountTypeId: a.accountTypeId,
+      currentBalance: a.currentBalance,
+      isDetail: a.isDetail,
+      isActive: a.isActive,
+      parentId: a.parentId,
+      children: [],
+    });
+  });
+
+  const roots: CoaAccount[] = [];
+  accounts.forEach(acc => {
+    const withChildren = accountMap.get(acc.id)!;
+    if (acc.parentId && accountMap.has(acc.parentId)) {
+      accountMap.get(acc.parentId)!.children.push(withChildren);
+    } else {
+      roots.push(withChildren);
+    }
+  });
+  return roots;
+}
 
 function AccountTreeNode({
   account,
@@ -186,6 +228,16 @@ function AccountFormDialog({
   }) => void;
   isSubmitting: boolean;
 }) {
+  const submit = (values: {
+    accountTypeId: number;
+    parentId?: number | null;
+    code: string;
+    name: string;
+    nameBn?: string;
+    description?: string;
+    isDetail: boolean;
+    openingBalance: number;
+  }) => onSubmit(values);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -195,7 +247,22 @@ function AccountFormDialog({
             {"*"} fields are required
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(defaultValues as any); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit({
+              accountTypeId: defaultValues?.accountTypeId ?? 0,
+              parentId: defaultValues?.parentId,
+              code: defaultValues?.code ?? "",
+              name: defaultValues?.name ?? "",
+              nameBn: defaultValues?.nameBn,
+              description: defaultValues?.description,
+              isDetail: defaultValues?.isDetail ?? true,
+              openingBalance: defaultValues?.openingBalance ?? 0,
+            });
+          }}
+          className="space-y-4"
+        >
           <div className="grid gap-4">
             <div>
               <Label htmlFor="accountTypeId">Account Type *</Label>
@@ -278,7 +345,7 @@ function AccountFormDialog({
 }
 
 export default function ChartOfAccounts() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
 
   const utils = trpc.useUtils();
@@ -334,39 +401,10 @@ export default function ChartOfAccounts() {
   const handleEdit = (acc: CoaAccount) => setEditingAccount(acc);
   const handleAddChild = (acc: CoaAccount) => setAddingChildTo(acc);
   const handleDelete = (id: number) => setDeleteConfirmId(id);
-  const handleClick = (acc: CoaAccount) => { /* could show detail drawer */ };
+  const handleClick = (_acc: CoaAccount) => { /* could show detail drawer */ };
 
   const accountTypesData = accountTypesQuery.data ?? [];
   const accountTypes = accountTypesData.map(t => ({ id: t.id, code: t.code, name: t.name }));
-
-  const buildAccountTree = (accounts: any[]): CoaAccount[] => {
-    const accountMap = new Map<number, CoaAccount>();
-    accounts.forEach(a => {
-      accountMap.set(a.id, {
-        id: a.id,
-        code: a.code,
-        name: a.name,
-        nameBn: a.nameBn ?? null,
-        accountTypeId: a.accountTypeId,
-        currentBalance: a.currentBalance,
-        isDetail: a.isDetail,
-        isActive: a.isActive,
-        parentId: a.parentId,
-        children: [],
-      });
-    });
-
-    const roots: CoaAccount[] = [];
-    accounts.forEach(acc => {
-      const withChildren = accountMap.get(acc.id)!;
-      if (acc.parentId && accountMap.has(acc.parentId)) {
-        accountMap.get(acc.parentId)!.children.push(withChildren);
-      } else {
-        roots.push(withChildren);
-      }
-    });
-    return roots;
-  };
 
   const coaTree = useMemo(() => buildAccountTree(coaTreeQuery.data ?? []), [coaTreeQuery.data]);
 

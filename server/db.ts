@@ -1,5 +1,9 @@
-import { and, asc, desc, eq, gte, isNull, like, lt, lte, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { and, asc, desc, eq, gte, isNull, isNotNull, like, lt, lte, or, sql } from "drizzle-orm";
+import {
+  getDb,
+  closeDatabaseConnection,
+  databaseRequired,
+} from "./_core/dbConnection";
 import {
   auditLogs,
   financeAccounts,
@@ -42,12 +46,10 @@ import {
   userSessions,
   failedLoginAttempts,
   loginHistory,
-  roles,
-  permissions,
-  userRoles,
-  rolePermissions,
   InsertUser,
   users,
+  roles,
+  userRoles,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { timingSafeCompare } from "./timingSafe";
@@ -69,39 +71,20 @@ import {
   type PrivateObjectScope,
 } from "./privateStorageAccess";
 
+export { getDb, closeDatabaseConnection, databaseRequired };
+
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
-let _db: ReturnType<typeof drizzle> | null = null;
-
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      // Use connection string directly; drizzle handles pooling internally with SSL for TiDB
-      _db = drizzle(process.env.DATABASE_URL, {
-        logger: false,
-      });
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
-}
-
-/** Releases the optional mysql pool for disposable test databases and graceful shutdown paths. */
-export async function closeDatabaseConnection() {
-  const client = (_db as any)?.$client as { end?: () => Promise<void> } | undefined;
-  _db = null;
-  await client?.end?.();
-}
-
-export function databaseRequired<T>(db: T | null): T {
-  if (!db) throw new Error("Database unavailable");
-  return db;
-}
+type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
+type DbOrTx = DbHandle | DbTx;
 
 function decimal(value: number) {
   return value.toFixed(2);
+}
+
+function openIdMatchesOwner(openId: string, ownerOpenId: string | undefined) {
+  return Boolean(ownerOpenId) && openId === ownerOpenId;
 }
 
 function monthKey(date = new Date()) {
@@ -138,10 +121,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
   const normalizedEmail = (user.email || "").trim().toLowerCase();
   const ownerOpenId = ENV.ownerOpenId;
+  // Bootstrap admin is determined only by configured email/owner identity —
+  // never by a caller-supplied users.role value (legacy column is display-only).
   const isBootstrapAdmin =
     (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
-    (ownerOpenId ? timingSafeCompare(user.openId, ownerOpenId) : user.openId === ownerOpenId) ||
-    user.role === "admin";
+    (ownerOpenId ? timingSafeCompare(user.openId, ownerOpenId) : openIdMatchesOwner(user.openId, ownerOpenId));
 
   const shouldSetRole = isBootstrapAdmin || user.role !== undefined;
   values.role = isBootstrapAdmin ? "admin" : (user.role ?? "user");
@@ -151,7 +135,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
   // Do not silently demote an existing administrator during an ordinary sign-in.
   // A role changes only through explicit bootstrap/administration or the existing
-  // Manus owner mapping.
+  // owner mapping.
   if (shouldSetRole) updateSet.role = values.role;
   await db
     .insert(users)
@@ -216,12 +200,40 @@ export async function revokeSession(refreshToken: string) {
     .where(eq(userSessions.refreshToken, refreshToken));
 }
 
+/** Revoke a session by its session JWT (used on logout). */
+export async function revokeSessionByToken(sessionToken: string) {
+  const db = databaseRequired(await getDb());
+  await db
+    .update(userSessions)
+    .set({ revokedAt: new Date() })
+    .where(eq(userSessions.sessionToken, sessionToken));
+}
+
 export async function revokeAllUserSessions(userId: number) {
   const db = databaseRequired(await getDb());
   await db
     .update(userSessions)
     .set({ revokedAt: new Date() })
     .where(eq(userSessions.userId, userId));
+}
+
+/**
+ * Look up a session by its JWT string and report whether it has been revoked.
+ * Returns [] when the token was never recorded (legacy/OAuth cookie) or is active.
+ * Returns a row only when revokedAt is set — callers reject those tokens.
+ */
+export async function findRevokedSessionByToken(sessionToken: string) {
+  const db = databaseRequired(await getDb());
+  return db
+    .select({ id: userSessions.id, revokedAt: userSessions.revokedAt })
+    .from(userSessions)
+    .where(
+      and(
+        eq(userSessions.sessionToken, sessionToken),
+        isNotNull(userSessions.revokedAt)
+      )
+    )
+    .limit(1);
 }
 
 export async function updateSessionLastUsed(refreshToken: string) {
@@ -716,7 +728,7 @@ function formatVoucherNumber(prefix: string, number: number) {
   return `${prefix.trim() || "V"}-${String(number).padStart(6, "0")}`;
 }
 
-async function claimNextVoucher(tx: any, userId: number, projectId: number) {
+async function claimNextVoucher(tx: DbTx, userId: number, projectId: number) {
   await tx
     .insert(financeVoucherSettings)
     .values({ userId, projectId })
@@ -762,12 +774,15 @@ export async function createVoucherWithEntries(
     status?: "draft" | "posted";
     voucherType?: string;
     fiscalPeriodId?: number;
+    _internalPostedBy?: number;
   }
 ) {
-  // Validation: Total debits must equal total credits
+  // Validation: Total debits must equal total credits (exact cents — align with trial balance)
   const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
   const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
-  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+  const totalDebitCents = Math.round(totalDebit * 100);
+  const totalCreditCents = Math.round(totalCredit * 100);
+  if (totalDebitCents !== totalCreditCents) {
     throw new Error("ডেবিট ও ক্রেডিটের মোট সমান হতে হবে");
   }
 
@@ -789,7 +804,7 @@ export async function createVoucherWithEntries(
 
   // Self-posting prevention: the voucher creator cannot directly create a posted voucher.
   // Internal callers (e.g. reverseVoucher) pass _internalPostedBy to bypass this check.
-  if (input.status === "posted" && !(input as any)._internalPostedBy) {
+  if (input.status === "posted" && !input._internalPostedBy) {
     throw new Error("সরাসরি পোস্ট করা ভাউচার তৈরি করা যাবে না; প্রথমে ড্রাফ্ট তৈরি করুন");
   }
 
@@ -855,7 +870,7 @@ export async function createVoucherWithEntries(
       await tx.insert(financeVoucherReferences).values(
         input.references.map(r => ({
           voucherId,
-          refType: r.refType as any,
+          refType: r.refType as "cheque" | "bill" | "invoice" | "challan" | "other",
           refNumber: r.refNumber.trim(),
           refDate: r.refDate ?? null,
           relatedEntityType: r.relatedEntityType ?? null,
@@ -978,6 +993,11 @@ export async function approveVoucher(
     throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
   }
 
+  // 4-eyes (maker ≠ checker): the submitter cannot approve their own submission.
+  if (action === "approve" && voucher.submittedBy === userId) {
+    throw new Error("প্রস্তুতকারক নিজে অনুমোদন করতে পারবেন না (চার-চোখ নীতি)");
+  }
+
   const targetStatus = action === "approve" ? "approved" : "draft";
   assertVoucherTransition(voucher.status, targetStatus);
 
@@ -1001,7 +1021,7 @@ export async function approveVoucher(
 
 /** Internal: post ledger entries + journal entry for a voucher within a transaction. */
 async function postVoucherInternals(
-  tx: any,
+  tx: DbTx,
   userId: number,
   projectId: number,
   voucherId: number,
@@ -1708,7 +1728,7 @@ export async function adjustChartOfAccountBalance(
   projectId: number,
   accountId: number,
   delta: number,
-  tx?: any
+  tx?: DbOrTx
 ) {
   if (delta === 0) return;
   const executor = tx || databaseRequired(await getDb());
@@ -1901,7 +1921,7 @@ export async function reverseVoucher(
       credits: reversedDebits,
       status: "posted",
       _internalPostedBy: userId,
-    } as any);
+    });
 
     // 2b. Record the reversal link
     await tx.insert(financeVoucherReversals).values({
@@ -2193,7 +2213,7 @@ export async function unmatchBankReconciliationItem(
   }
 }
 
-async function recalculateReconciliation(db: any, userId: number, projectId: number, reconciliationId: number) {
+async function recalculateReconciliation(db: DbHandle, userId: number, projectId: number, reconciliationId: number) {
   const items = await db
     .select()
     .from(financeBankReconciliationItems)
@@ -2280,8 +2300,14 @@ export async function getBankReconciliationItems(
   userId: number,
   reconciliationId: number
 ) {
-  await assertOwnedProject(userId, 0);
   const db = databaseRequired(await getDb());
+  const [rec] = await db
+    .select({ id: financeBankReconciliations.id, projectId: financeBankReconciliations.projectId })
+    .from(financeBankReconciliations)
+    .where(eq(financeBankReconciliations.id, reconciliationId))
+    .limit(1);
+  if (!rec) throw new Error("রিকনসিলিয়েশন পাওয়া যায়নি");
+  await assertOwnedProject(userId, rec.projectId);
   return db
     .select()
     .from(financeBankReconciliationItems)
@@ -3192,7 +3218,7 @@ async function adjustAccountBalance(
   projectId: number,
   accountId: number | null,
   delta: number,
-  tx?: any
+  tx?: DbOrTx
 ) {
   if (!accountId || delta === 0) return;
   const executor = tx || databaseRequired(await getDb());
@@ -4220,8 +4246,6 @@ export async function deleteAccount(
   });
 }
 
-const idempotencyStore = new Map<string, { id: number; timestamp: number }>();
-
 export async function createTransaction(
   userId: number,
   input: {
@@ -4247,16 +4271,9 @@ export async function createTransaction(
     await assertOwnedAccount(userId, input.projectId, input.accountId);
 
   const cleanIdempKey = input.idempotencyKey?.trim();
-  if (cleanIdempKey) {
-    const cacheKey = `${userId}:${input.projectId}:${cleanIdempKey}`;
-    const cached = idempotencyStore.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 24 * 60 * 60 * 1000) {
-      return cached.id;
-    }
-  }
-
   const db = databaseRequired(await getDb());
 
+  // Persistent idempotency only — no in-process Map (multi-instance safe).
   if (cleanIdempKey) {
     const [existing] = await db
       .select({ id: financeTransactions.id })
@@ -4271,10 +4288,6 @@ export async function createTransaction(
       .limit(1);
 
     if (existing) {
-      idempotencyStore.set(`${userId}:${input.projectId}:${cleanIdempKey}`, {
-        id: existing.id,
-        timestamp: Date.now(),
-      });
       return existing.id;
     }
   }
@@ -4313,13 +4326,6 @@ export async function createTransaction(
     );
     return insertId;
   });
-
-  if (cleanIdempKey) {
-    idempotencyStore.set(`${userId}:${input.projectId}:${cleanIdempKey}`, {
-      id,
-      timestamp: Date.now(),
-    });
-  }
 
   await logAudit({
     actorUserId: userId,
@@ -5079,6 +5085,13 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     settlements,
     recurring,
     voucherSettings,
+    chartOfAccounts,
+    vouchers,
+    voucherDebits,
+    voucherCredits,
+    ledgerEntries,
+    journalEntries,
+    journalLines,
   ] = await Promise.all([
     db
       .select()
@@ -5162,9 +5175,71 @@ export async function exportProjectBackup(userId: number, projectId: number) {
         )
       )
       .limit(1),
+    // Double-entry scope (CoA + vouchers + lines) so backups are not cash-only.
+    db
+      .select()
+      .from(financeChartOfAccounts)
+      .where(
+        and(
+          eq(financeChartOfAccounts.userId, userId),
+          eq(financeChartOfAccounts.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeVoucherDebits)
+      .innerJoin(financeVouchers, eq(financeVoucherDebits.voucherId, financeVouchers.id))
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_debits)),
+    db
+      .select()
+      .from(financeVoucherCredits)
+      .innerJoin(financeVouchers, eq(financeVoucherCredits.voucherId, financeVouchers.id))
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_credits)),
+    db
+      .select()
+      .from(financeLedgerEntries)
+      .innerJoin(financeVouchers, eq(financeLedgerEntries.voucherId, financeVouchers.id))
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_ledger_entries)),
+    db
+      .select()
+      .from(financeJournalEntries)
+      .where(eq(financeJournalEntries.projectId, projectId)),
+    db
+      .select()
+      .from(financeJournalLines)
+      .innerJoin(financeJournalEntries, eq(financeJournalLines.journalEntryId, financeJournalEntries.id))
+      .where(eq(financeJournalEntries.projectId, projectId))
+      .then(rows => rows.map(r => r.finance_journal_lines)),
   ]);
   return {
-    formatVersion: "finance-project-backup-v1" as const,
+    formatVersion: "finance-project-backup-v2" as const,
     exportedAt: new Date(),
     project: { id: project.id, name: project.name },
     accounts,
@@ -5176,6 +5251,14 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     settlements,
     recurring,
     voucherSettings: voucherSettings[0] ?? null,
+    // Double-entry books (optional for older v1 restore paths).
+    chartOfAccounts,
+    vouchers,
+    voucherDebits,
+    voucherCredits,
+    ledgerEntries,
+    journalEntries,
+    journalLines,
   };
 }
 
@@ -5184,7 +5267,96 @@ function assertUniqueBackupIds(rows: Array<{ id: number }>, label: string) {
     throw new Error(`${label} ব্যাকআপে একই আইডি একাধিকবার আছে`);
 }
 
-function assertBackupReferences(backup: any) {
+type BackupJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | BackupJsonValue[]
+  | { [key: string]: BackupJsonValue };
+
+/** Loose backup row: known columns are typed for Drizzle inserts; extra JSON keys allowed. */
+type ProjectBackupRow = {
+  id: number;
+  name?: string;
+  type?: string;
+  title?: string;
+  counterparty?: string;
+  paymentMethod?: string;
+  note?: string | null;
+  reason?: string | null;
+  voucherNo?: string | null;
+  amount?: string | number;
+  openingBalance?: string | number;
+  currentBalance?: string | number;
+  originalAmount?: string | number;
+  outstandingAmount?: string | number;
+  monthKey?: string;
+  categoryId?: number;
+  accountId?: number | null;
+  dueId?: number;
+  isDefault?: boolean;
+  isPaid?: boolean;
+  frequency?: string;
+  scheduleDay?: number;
+  reminderDaysBefore?: number;
+  nextRunAt?: Date | string;
+  lastGeneratedAt?: Date | string | null;
+  lastReminderAt?: Date | string | null;
+  openedAt?: Date | string;
+  dueAt?: Date | string | null;
+  occurredAt?: Date | string;
+  [key: string]: BackupJsonValue;
+};
+
+type ProjectBackupLike = {
+  project: { id?: number; name: string };
+  exportedAt: Date | string;
+  accounts: ProjectBackupRow[];
+  categories: ProjectBackupRow[];
+  transactions: Array<ProjectBackupRow & { categoryId: number; accountId?: number | null; occurredAt: Date | string }>;
+  budgets: Array<ProjectBackupRow & { categoryId: number }>;
+  bills: ProjectBackupRow[];
+  dues: ProjectBackupRow[];
+  settlements: Array<ProjectBackupRow & { dueId: number; accountId?: number | null }>;
+  recurring: Array<ProjectBackupRow & { categoryId: number; accountId?: number | null }>;
+  voucherSettings?: {
+    prefix: string;
+    startNumber: number;
+    endNumber: number;
+    nextNumber: number;
+  } | null;
+  chartOfAccounts?: Array<Record<string, unknown>>;
+  vouchers?: Array<{ id: number } & Record<string, unknown>>;
+  voucherDebits?: Array<Record<string, unknown>>;
+  voucherCredits?: Array<Record<string, unknown>>;
+  ledgerEntries?: Array<Record<string, unknown>>;
+  journalEntries?: Array<Record<string, unknown>>;
+  journalLines?: Array<Record<string, unknown>>;
+  formatVersion?: string;
+};
+
+function backupDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  return new Date(String(value ?? ""));
+}
+
+function backupText(value: unknown): string {
+  return value == null ? "" : String(value);
+}
+
+function backupNullableText(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
+function backupNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function assertBackupReferences(backup: ProjectBackupLike) {
   for (const [rows, label] of [
     [backup.accounts, "অ্যাকাউন্ট"],
     [backup.categories, "ক্যাটাগরি"],
@@ -5193,9 +5365,9 @@ function assertBackupReferences(backup: any) {
   ] as const) {
     assertUniqueBackupIds(rows, label);
   }
-  const accountIds = new Set(backup.accounts.map((row: any) => row.id));
-  const categoryIds = new Set(backup.categories.map((row: any) => row.id));
-  const dueIds = new Set(backup.dues.map((row: any) => row.id));
+  const accountIds = new Set(backup.accounts.map(row => row.id));
+  const categoryIds = new Set(backup.categories.map(row => row.id));
+  const dueIds = new Set(backup.dues.map(row => row.id));
   const ensureAccount = (id: number | null | undefined) => {
     if (id !== null && id !== undefined && !accountIds.has(id))
       throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট রেফারেন্স সঠিক নয়");
@@ -5204,26 +5376,26 @@ function assertBackupReferences(backup: any) {
     if (!categoryIds.has(id))
       throw new Error("ব্যাকআপের একটি ক্যাটাগরি রেফারেন্স সঠিক নয়");
   };
-  backup.transactions.forEach((row: any) => {
+  backup.transactions.forEach(row => {
     ensureCategory(row.categoryId);
     ensureAccount(row.accountId);
   });
-  backup.budgets.forEach((row: any) => ensureCategory(row.categoryId));
-  backup.settlements.forEach((row: any) => {
+  backup.budgets.forEach(row => ensureCategory(row.categoryId));
+  backup.settlements.forEach(row => {
     if (!dueIds.has(row.dueId))
-      throw new Error("ব্যাকআপের একটি দেনা/পাওনা সমন্বয় রেফারেন্স সঠিক নয়");
+      throw new Error("ব্যাকআপের একটি দেনা/পাওনা সমন্বয় রেফারেন্স সঠিক নয়");
     ensureAccount(row.accountId);
   });
-  backup.recurring.forEach((row: any) => {
+  backup.recurring.forEach(row => {
     ensureCategory(row.categoryId);
     ensureAccount(row.accountId);
   });
 }
 
-export function previewProjectBackup(backup: any) {
+export function previewProjectBackup(backup: ProjectBackupLike) {
   assertBackupReferences(backup);
   const transactionDates = backup.transactions
-    .map((row: any) => new Date(row.occurredAt).getTime())
+    .map(row => new Date(row.occurredAt).getTime())
     .filter(Number.isFinite);
   return {
     sourceProjectName: backup.project.name,
@@ -5237,6 +5409,13 @@ export function previewProjectBackup(backup: any) {
       dues: backup.dues.length,
       settlements: backup.settlements.length,
       recurring: backup.recurring.length,
+      chartOfAccounts: backup.chartOfAccounts?.length ?? 0,
+      vouchers: backup.vouchers?.length ?? 0,
+      voucherDebits: backup.voucherDebits?.length ?? 0,
+      voucherCredits: backup.voucherCredits?.length ?? 0,
+      ledgerEntries: backup.ledgerEntries?.length ?? 0,
+      journalEntries: backup.journalEntries?.length ?? 0,
+      journalLines: backup.journalLines?.length ?? 0,
     },
     transactionDateRange: transactionDates.length
       ? {
@@ -5251,7 +5430,7 @@ export function previewProjectBackup(backup: any) {
 
 export async function restoreProjectBackup(
   userId: number,
-  input: { projectName: string; backup: any }
+  input: { projectName: string; backup: ProjectBackupLike }
 ) {
   const db = databaseRequired(await getDb());
   assertBackupReferences(input.backup);
@@ -5278,6 +5457,9 @@ export async function restoreProjectBackup(
     const accountMap = new Map<number, number>();
     const categoryMap = new Map<number, number>();
     const dueMap = new Map<number, number>();
+    const coaMap = new Map<number, number>();
+    const voucherMap = new Map<number, number>();
+    const journalMap = new Map<number, number>();
 
     for (const row of input.backup.accounts) {
       const result = await tx
@@ -5285,10 +5467,10 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          name: row.name,
-          type: row.type,
-          openingBalance: String(row.openingBalance),
-          currentBalance: String(row.currentBalance),
+          name: backupText(row.name),
+          type: row.type as "cash" | "bank" | "mobile",
+          openingBalance: String(row.openingBalance ?? "0"),
+          currentBalance: String(row.currentBalance ?? "0"),
         })
         .execute();
       accountMap.set(row.id, Number(result[0].insertId));
@@ -5299,8 +5481,8 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          name: row.name,
-          type: row.type,
+          name: backupText(row.name),
+          type: row.type as "income" | "expense",
           isDefault: Boolean(row.isDefault),
         })
         .execute();
@@ -5333,15 +5515,15 @@ export async function restoreProjectBackup(
           projectId: restoredProjectId,
           accountId:
             row.accountId == null ? null : accountMap.get(row.accountId)!,
-          categoryId: categoryMap.get(row.categoryId)!,
-          type: row.type,
-          amount: String(row.amount),
-          paymentMethod: row.paymentMethod,
-          note: row.note ?? null,
-          frequency: row.frequency,
-          scheduleDay: row.scheduleDay,
-          nextRunAt: row.nextRunAt,
-          lastGeneratedAt: row.lastGeneratedAt ?? null,
+          categoryId: categoryMap.get(row.categoryId!)!,
+          type: row.type as "income" | "expense",
+          amount: String(row.amount ?? "0"),
+          paymentMethod: backupText(row.paymentMethod),
+          note: backupNullableText(row.note),
+          frequency: row.frequency as "weekly" | "monthly",
+          scheduleDay: backupNumber(row.scheduleDay, 1),
+          nextRunAt: backupDate(row.nextRunAt),
+          lastGeneratedAt: row.lastGeneratedAt == null ? null : backupDate(row.lastGeneratedAt),
           isActive: false,
           scheduleCronTaskUid: null,
         })
@@ -5355,14 +5537,14 @@ export async function restoreProjectBackup(
           projectId: restoredProjectId,
           accountId:
             row.accountId == null ? null : accountMap.get(row.accountId)!,
-          categoryId: categoryMap.get(row.categoryId)!,
-          type: row.type,
-          amount: String(row.amount),
-          voucherNo: row.voucherNo ?? null,
-          reason: row.reason ?? null,
-          paymentMethod: row.paymentMethod,
-          note: row.note ?? null,
-          occurredAt: row.occurredAt,
+          categoryId: categoryMap.get(row.categoryId!)!,
+          type: row.type as "income" | "expense",
+          amount: String(row.amount ?? "0"),
+          voucherNo: backupNullableText(row.voucherNo),
+          reason: backupNullableText(row.reason),
+          paymentMethod: backupText(row.paymentMethod),
+          note: backupNullableText(row.note),
+          occurredAt: backupDate(row.occurredAt),
         })
         .execute();
     }
@@ -5372,9 +5554,9 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          categoryId: categoryMap.get(row.categoryId)!,
-          monthKey: row.monthKey,
-          amount: String(row.amount),
+          categoryId: categoryMap.get(row.categoryId!)!,
+          monthKey: backupText(row.monthKey),
+          amount: String(row.amount ?? "0"),
         })
         .execute();
     }
@@ -5384,12 +5566,12 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          title: row.title,
-          amount: String(row.amount),
-          dueAt: row.dueAt,
+          title: backupText(row.title),
+          amount: String(row.amount ?? "0"),
+          dueAt: backupDate(row.dueAt),
           isPaid: Boolean(row.isPaid),
-          reminderDaysBefore: row.reminderDaysBefore,
-          lastReminderAt: row.lastReminderAt ?? null,
+          reminderDaysBefore: backupNumber(row.reminderDaysBefore, 3),
+          lastReminderAt: row.lastReminderAt == null ? null : backupDate(row.lastReminderAt),
           scheduleCronTaskUid: null,
         })
         .execute();
@@ -5400,15 +5582,15 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          type: row.type,
-          counterparty: row.counterparty,
-          originalAmount: String(row.originalAmount),
-          outstandingAmount: String(row.outstandingAmount),
-          voucherNo: row.voucherNo ?? null,
-          reason: row.reason ?? null,
-          note: row.note ?? null,
-          openedAt: row.openedAt,
-          dueAt: row.dueAt ?? null,
+          type: row.type as "debt" | "receivable",
+          counterparty: backupText(row.counterparty),
+          originalAmount: String(row.originalAmount ?? "0"),
+          outstandingAmount: String(row.outstandingAmount ?? "0"),
+          voucherNo: backupNullableText(row.voucherNo),
+          reason: backupNullableText(row.reason),
+          note: backupNullableText(row.note),
+          openedAt: backupDate(row.openedAt),
+          dueAt: row.dueAt == null ? null : backupDate(row.dueAt),
         })
         .execute();
       dueMap.set(row.id, Number(result[0].insertId));
@@ -5419,16 +5601,143 @@ export async function restoreProjectBackup(
         .values({
           userId,
           projectId: restoredProjectId,
-          dueId: dueMap.get(row.dueId)!,
+          dueId: dueMap.get(row.dueId!)!,
           accountId:
             row.accountId == null ? null : accountMap.get(row.accountId)!,
-          amount: String(row.amount),
-          voucherNo: row.voucherNo ?? null,
-          note: row.note ?? null,
-          occurredAt: row.occurredAt,
+          amount: String(row.amount ?? "0"),
+          voucherNo: backupNullableText(row.voucherNo),
+          note: backupNullableText(row.note),
+          occurredAt: backupDate(row.occurredAt),
         })
         .execute();
     }
+
+    // ── Double-entry books (v2 backups) ──────────────────────────────────
+    // Insert parents first, remap FKs to the new project's rows.
+    const coaRows = [...(input.backup.chartOfAccounts ?? [])].sort(
+      (a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0) || String(a.code).localeCompare(String(b.code))
+    );
+    for (const row of coaRows) {
+      const result = await tx
+        .insert(financeChartOfAccounts)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          accountTypeId: Number(row.accountTypeId),
+          parentId: row.parentId == null ? null : coaMap.get(Number(row.parentId)) ?? null,
+          code: String(row.code),
+          name: String(row.name),
+          nameBn: row.nameBn == null ? null : String(row.nameBn),
+          description: row.description == null ? null : String(row.description),
+          isActive: row.isActive !== false,
+          isDetail: row.isDetail !== false,
+          openingBalance: String(row.openingBalance ?? "0.00"),
+          currentBalance: String(row.currentBalance ?? "0.00"),
+          sortOrder: Number(row.sortOrder ?? 0),
+        })
+        .execute();
+      if (row.id != null) coaMap.set(Number(row.id), Number(result[0].insertId));
+    }
+
+    for (const row of input.backup.vouchers ?? []) {
+      const result = await tx
+        .insert(financeVouchers)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          voucherNo: backupText(row.voucherNo),
+          date: backupDate(row.date),
+          narration: backupNullableText(row.narration),
+          totalDebit: String(row.totalDebit ?? "0.00"),
+          totalCredit: String(row.totalCredit ?? "0.00"),
+          status: (row.status as "draft" | "submitted" | "approved" | "posted" | "reversed") ?? "draft",
+          voucherType: backupText(row.voucherType) || "general",
+          fiscalPeriodId: null,
+          submittedBy: null,
+          submittedAt: null,
+          approvedBy: null,
+          approvedAt: null,
+          postedBy: null,
+          postedAt: null,
+          reversedBy: null,
+          reversedAt: null,
+          reversalReference: backupNullableText(row.reversalReference),
+          isArchived: Boolean(row.isArchived),
+        })
+        .execute();
+      if (row.id != null) voucherMap.set(Number(row.id), Number(result[0].insertId));
+    }
+
+    for (const row of input.backup.voucherDebits ?? []) {
+      await tx
+        .insert(financeVoucherDebits)
+        .values({
+          voucherId: voucherMap.get(Number(row.voucherId))!,
+          accountId: accountMap.get(Number(row.accountId))!,
+          amount: String(row.amount),
+          narration: row.narration == null ? null : String(row.narration),
+          sortOrder: Number(row.sortOrder ?? 0),
+        })
+        .execute();
+    }
+    for (const row of input.backup.voucherCredits ?? []) {
+      await tx
+        .insert(financeVoucherCredits)
+        .values({
+          voucherId: voucherMap.get(Number(row.voucherId))!,
+          accountId: accountMap.get(Number(row.accountId))!,
+          amount: String(row.amount),
+          narration: row.narration == null ? null : String(row.narration),
+          sortOrder: Number(row.sortOrder ?? 0),
+        })
+        .execute();
+    }
+    for (const row of input.backup.ledgerEntries ?? []) {
+      await tx
+        .insert(financeLedgerEntries)
+        .values({
+          voucherId: voucherMap.get(Number(row.voucherId))!,
+          accountId: accountMap.get(Number(row.accountId))!,
+          entryType: (row.entryType as "debit" | "credit") ?? "debit",
+          amount: String(row.amount ?? "0"),
+          runningBalance: String(row.runningBalance ?? "0.00"),
+          postedAt: row.postedAt == null ? undefined : backupDate(row.postedAt),
+        })
+        .execute();
+    }
+
+    for (const row of input.backup.journalEntries ?? []) {
+      const result = await tx
+        .insert(financeJournalEntries)
+        .values({
+          voucherId: voucherMap.get(Number(row.voucherId))!,
+          projectId: restoredProjectId,
+          journalNo: backupText(row.journalNo),
+          date: backupDate(row.date),
+          narration: backupNullableText(row.narration),
+          totalDebit: String(row.totalDebit ?? "0.00"),
+          totalCredit: String(row.totalCredit ?? "0.00"),
+          status: (row.status as "draft" | "posted" | "reversed") ?? "draft",
+          postedBy: null,
+          postedAt: row.postedAt == null ? null : backupDate(row.postedAt),
+        })
+        .execute();
+      if (row.id != null) journalMap.set(Number(row.id), Number(result[0].insertId));
+    }
+    for (const row of input.backup.journalLines ?? []) {
+      await tx
+        .insert(financeJournalLines)
+        .values({
+          journalEntryId: journalMap.get(Number(row.journalEntryId))!,
+          accountId: coaMap.get(Number(row.accountId))!,
+          entryType: (row.entryType as "debit" | "credit") ?? "debit",
+          amount: String(row.amount),
+          narration: row.narration == null ? null : String(row.narration),
+          sortOrder: Number(row.sortOrder ?? 0),
+        })
+        .execute();
+    }
+
     return restoredProjectId;
   });
   await logAudit({
@@ -5575,15 +5884,6 @@ export async function getAuditLogActivity(filters: AuditLogFilters = {}) {
 }
 
 export async function listAuditLogs(filters: AuditLogFilters = {}) {
-  const predicates = [
-    filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
-    filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
-    filters.actorUserId
-      ? eq(auditLogs.actorUserId, filters.actorUserId)
-      : undefined,
-  ].filter((predicate): predicate is NonNullable<typeof predicate> =>
-    Boolean(predicate)
-  );
   return listAuditLogsPage({ ...filters, page: 1, pageSize: 250 }).then(
     result => result.logs
   );
@@ -5591,7 +5891,7 @@ export async function listAuditLogs(filters: AuditLogFilters = {}) {
 
 export async function listUsersForAdmin() {
   const db = databaseRequired(await getDb());
-  return db
+  const rows = await db
     .select({
       id: users.id,
       name: users.name,
@@ -5604,6 +5904,31 @@ export async function listUsersForAdmin() {
     })
     .from(users)
     .orderBy(desc(users.createdAt));
+
+  // Attach RBAC roles (user_roles → roles) for admin UI / role management.
+  let rbacRolesByUser = new Map<number, string[]>();
+  try {
+    const roleRows = await db
+      .select({
+        userId: userRoles.userId,
+        roleName: roles.name,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id));
+    rbacRolesByUser = roleRows.reduce((map, row) => {
+      const list = map.get(row.userId) ?? [];
+      list.push(row.roleName);
+      map.set(row.userId, list);
+      return map;
+    }, new Map<number, string[]>());
+  } catch {
+    // RBAC tables may not exist yet during migration
+  }
+
+  return rows.map(row => ({
+    ...row,
+    rbacRoles: rbacRolesByUser.get(row.id) ?? [],
+  }));
 }
 
 export async function listProjectsForAdmin() {
@@ -5643,7 +5968,7 @@ export type CreateInvoiceInput = {
 };
 
 async function generateNextInvoiceNumber(
-  tx: any,
+  tx: DbTx,
   projectId: number
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
@@ -5952,7 +6277,7 @@ export async function createInventoryItem(input: {
   await assertOwnedProject(input.userId, input.projectId);
   const db = databaseRequired(await getDb());
 
-  const result = await db.insert(financeInventoryItems).values({
+  const result = (await db.insert(financeInventoryItems).values({
     userId: input.userId,
     projectId: input.projectId,
     name: input.name.trim(),
@@ -5964,10 +6289,10 @@ export async function createInventoryItem(input: {
     currentStock: input.currentStock.toFixed(2),
     lowStockThreshold: (input.lowStockThreshold ?? 5).toFixed(2),
     notes: input.notes?.trim() || null,
-  });
+  })) as unknown as Array<{ insertId?: number | bigint }> | { insertId?: number | bigint };
 
   const insertId = Number(
-    (result as any)[0]?.insertId || (result as any).insertId || 0
+    (Array.isArray(result) ? result[0]?.insertId : result.insertId) || 0
   );
 
   await logAudit({
@@ -6015,7 +6340,7 @@ export async function updateInventoryItem(
 
   if (!existing) throw new Error("ইনভেন্টরি আইটেম পাওয়া যায়নি");
 
-  const updateData: Record<string, any> = {};
+  const updateData: Record<string, string | null> = {};
   if (input.name !== undefined) updateData.name = input.name.trim();
   if (input.sku !== undefined) updateData.sku = input.sku?.trim() || null;
   if (input.category !== undefined)
@@ -6278,6 +6603,25 @@ export async function deleteEmployee(
     .limit(1);
 
   if (!existing) throw new Error("কর্মচারীর তথ্য পাওয়া যায়নি");
+
+  // Salary payments and advances are immutable financial history guarded by
+  // RESTRICT foreign keys — refuse the delete with a clear message instead of
+  // surfacing a raw database constraint error.
+  const [payment] = await db
+    .select({ id: financeSalaryPayments.id })
+    .from(financeSalaryPayments)
+    .where(eq(financeSalaryPayments.employeeId, id))
+    .limit(1);
+  const [advance] = await db
+    .select({ id: financeEmployeeAdvances.id })
+    .from(financeEmployeeAdvances)
+    .where(eq(financeEmployeeAdvances.employeeId, id))
+    .limit(1);
+  if (payment || advance) {
+    throw new Error(
+      "এই কর্মচারীর বেতন বা অগ্রিম রেকর্ড রয়েছে; আর্থিক ইতিহাস সুরক্ষার জন্য মুছে ফেলা যাবে না"
+    );
+  }
 
   await db.delete(financeEmployees).where(eq(financeEmployees.id, id));
 

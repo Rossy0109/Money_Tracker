@@ -19,6 +19,13 @@ export interface ClassifiedNetworkError {
 
 const DEFAULT_TIMEOUT_MS = 30000;
 
+interface ErrorLike {
+  data?: { httpStatus?: number };
+  status?: number;
+  response?: { status?: number };
+  message?: string;
+}
+
 export function isBrowserOnline(): boolean {
   if (typeof navigator !== "undefined" && typeof navigator.onLine === "boolean") {
     return navigator.onLine;
@@ -77,10 +84,11 @@ export function classifyNetworkError(
   }
 
   // Check for HTTP status in tRPC or fetch error shape
+  const errorLike = error as ErrorLike | null | undefined;
   const status =
-    (error as any)?.data?.httpStatus ??
-    (error as any)?.status ??
-    (error as any)?.response?.status;
+    errorLike?.data?.httpStatus ??
+    errorLike?.status ??
+    errorLike?.response?.status;
 
   // 2. Server 5xx Errors
   if (status && status >= 500 && status < 600) {
@@ -132,7 +140,7 @@ export function classifyNetworkError(
       kind: "CLIENT_4XX",
       statusCode: status,
       message: `Client error ${status}`,
-      userFacingMessage: (error as any)?.message || "অনুরোধটি সঠিক নয়।",
+      userFacingMessage: errorLike?.message || "অনুরোধটি সঠিক নয়।",
       shouldRetry: false,
       retryDelayMs: 0,
     };

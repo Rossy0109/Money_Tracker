@@ -42,25 +42,29 @@ export function hasAllPermissions(user: AuthGatingUser | null | undefined, permi
   return permissions.every(p => perms.includes(p));
 }
 
+/**
+ * Admin UI gating. Mirrors the server (`isAdminRoleUser` in
+ * `server/_core/rbac.ts`): only the SUPER_ADMIN / SYSTEM_ADMIN roles pass the
+ * `adminProcedure` gate, so the UI must not promise admin data to anyone else.
+ * Permission holders without these roles (e.g. ACCOUNTING_ADMIN with
+ * audit.read) are denied server-side — showing them the admin surface would be
+ * a UI/server mismatch. Legacy `users.role` never grants here.
+ */
 export function isAdminUser(user: AuthGatingUser | null | undefined): boolean {
-  if (user?.role === "admin") return true;
-  if (getUserRoles(user).some(r => ADMIN_ROLES.has(r))) return true;
-  return getUserPermissions(user).some(p =>
-    p === "settings.manage" || p === "role.manage" || p === "permission.manage" ||
-    p === "user.manage" || p.startsWith("backup.") || p.startsWith("audit.")
-  );
+  return getUserRoles(user).some(r => ADMIN_ROLES.has(r));
 }
 
 export function isInputOnlyUser(user: AuthGatingUser | null | undefined): boolean {
-  if (user?.role === "input_only") return true;
   if (getUserRoles(user).includes(ROLE_NAMES.INPUT_OPERATOR)) return true;
   const perms = getUserPermissions(user);
+  // Migration fallback only: when no RBAC data is attached yet, honor the
+  // legacy flag so the UI fails closed. Real RBAC data always wins.
+  if (perms.length === 0 && getUserRoles(user).length === 0) return user?.role === "input_only";
   if (perms.length === 0) return false;
   return perms.every(p => p.startsWith("auth.") || p.endsWith(".create"));
 }
 
 export function isFinanceAdmin(user: AuthGatingUser | null | undefined): boolean {
-  if (user?.role === "admin") return true;
   const roles = getUserRoles(user);
   return roles.includes(ROLE_NAMES.SUPER_ADMIN) || roles.includes(ROLE_NAMES.ACCOUNTING_ADMIN);
 }

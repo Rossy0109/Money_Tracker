@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
-import { dirnameFromMetaUrl } from "./dirname";
+import { dirnameFromMetaUrl } from "./dirname.ts";
 
 const templateRoot = path.resolve(dirnameFromMetaUrl(import.meta.url));
 
