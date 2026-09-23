@@ -6,7 +6,7 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
   });
 
   test("1. Touch-specific actions: tap and touch targets adhere to mobile touch guidelines", async ({ page }) => {
-    const signInButton = page.getByRole("button", { name: /সাইন ইন/ });
+    const signInButton = page.getByRole("button", { name: /সাইন ইন/ }).first();
     await expect(signInButton).toBeVisible();
 
     // Check minimum touch target accessibility (at least 32px height for mobile tappability)
@@ -32,7 +32,7 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     expect(isLandscape).toBe(true);
 
     // Assert UI elements remain visible and accessible without horizontal viewport breaks
-    await expect(page.getByRole("button", { name: /সাইন ইন/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /সাইন ইন/ }).first()).toBeVisible();
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const innerWidth = await page.evaluate(() => window.innerWidth);
     expect(scrollWidth).toBeLessThanOrEqual(innerWidth + 5); // No unwanted horizontal overflow
