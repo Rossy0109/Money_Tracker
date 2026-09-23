@@ -32,6 +32,26 @@ describe("Vercel-compatible Express application", () => {
     expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
   });
 
+  it("never sends upgrade-insecure-requests (breaks plain-http serving)", async () => {
+    // Regression: the directive rewrote http:// subresources to https://,
+    // so dev/e2e browsers got TLS failures and a blank page.
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/healthz`);
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).not.toContain("upgrade-insecure-requests");
+    expect(csp).toContain("default-src 'self'");
+  });
+
   it("lets runtime SPA layers serve non-API routes before the fallback 404", async () => {
     // Regression: the dev server answered GET / with 404 because the generic
     // fallback was registered before the Vite middleware. SPA layers must run

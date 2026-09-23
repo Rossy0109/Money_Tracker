@@ -94,12 +94,18 @@ export function createApiApp() {
   });
 
   // Security headers
+  // NOTE: `upgrade-insecure-requests` is deliberately OFF (helmet default is
+  // on). It rewrites every http:// subresource to https://, which breaks any
+  // plain-http serving (dev server, e2e, http previews) with TLS handshake
+  // failures and a blank page. Production is https + HSTS anyway.
+  // Dev also allows 'unsafe-inline' scripts for Vite's react-refresh preamble;
+  // production stays strict.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ENV.isProduction ? ["'self'"] : ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
@@ -108,6 +114,7 @@ export function createApiApp() {
           frameAncestors: ["'none'"],
           baseUri: ["'self'"],
           formAction: ["'self'"],
+          "upgrade-insecure-requests": null,
         },
       },
       crossOriginEmbedderPolicy: false,
