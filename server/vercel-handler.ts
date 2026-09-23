@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createApiApp } from "./_core/app";
+import { createApiApp, registerFallbackHandlers } from "./_core/app";
 import { normalizeVercelRequestPath } from "./_core/vercelPath";
 import { seedDefaultRBAC } from "./_core/seed-rbac";
 import { initializeRBAC } from "./_core/rbac";
@@ -7,6 +7,7 @@ import { migrateExistingUsersToRBAC } from "./_core/migrate-existing-users-rbac"
 import logger from "./_core/logger";
 
 const app = createApiApp();
+registerFallbackHandlers(app);
 
 /**
  * Serverless cold-start: seed/migrate RBAC once per instance so authorization

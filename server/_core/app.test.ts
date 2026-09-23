@@ -3,8 +3,9 @@ process.env.NODE_ENV = "test";
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Server } from "node:http";
+import type { NextFunction, Request, Response } from "express";
 import { normalizeVercelRequestPath } from "./vercelPath";
-import { createApiApp } from "./app";
+import { createApiApp, registerFallbackHandlers } from "./app";
 import vercelHandler from "../vercel-handler";
 
 const servers: Server[] = [];
@@ -29,6 +30,35 @@ describe("Vercel-compatible Express application", () => {
     // API paths are passed through to the Express handler
     expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
     expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
+  });
+
+  it("lets runtime SPA layers serve non-API routes before the fallback 404", async () => {
+    // Regression: the dev server answered GET / with 404 because the generic
+    // fallback was registered before the Vite middleware. SPA layers must run
+    // first; /api/* keeps JSON 404 semantics.
+    const app = createApiApp();
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api")) return next();
+      res.status(200).send("spa-shell");
+    });
+    registerFallbackHandlers(app);
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const spa = await fetch(`http://127.0.0.1:${address.port}/`);
+    expect(spa.status).toBe(200);
+    await expect(spa.text()).resolves.toBe("spa-shell");
+
+    const api = await fetch(`http://127.0.0.1:${address.port}/api/no-such-route`);
+    expect(api.status).toBe(404);
+    await expect(api.json()).resolves.toEqual({ error: "Not found" });
   });
 
   it("exposes a non-mutating health endpoint without starting a process listener", async () => {

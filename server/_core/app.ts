@@ -1,4 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import rateLimit from "express-rate-limit";
@@ -240,6 +240,24 @@ export function createApiApp() {
     }),
   );
 
+  // 404 for unknown API paths. This stays inside the shared pipeline so
+  // /api/* semantics are identical in every runtime. The generic (non-API)
+  // fallback lives in registerFallbackHandlers, which runtimes register AFTER
+  // their SPA layer (Vite dev middleware / static files) — otherwise Express
+  // would answer 404 before the SPA layer ever runs.
+  app.use("/api", (_req: Request, res: Response) => {
+    res.status(404).json({ error: "Not found" });
+  });
+
+  return app;
+}
+
+/**
+ * Terminal middleware for a fully-assembled app: generic 404 plus the global
+ * Express error handler. Call AFTER setupVite/serveStatic (persistent runtimes)
+ * or directly after createApiApp (API-only runtimes like the Vercel handler).
+ */
+export function registerFallbackHandlers(app: Express) {
   // 404 handler for unmatched routes
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: "Not found" });
@@ -250,6 +268,4 @@ export function createApiApp() {
     logger.error({ err }, "Unhandled Express error");
     res.status(500).json({ error: "Internal server error" });
   });
-
-  return app;
 }

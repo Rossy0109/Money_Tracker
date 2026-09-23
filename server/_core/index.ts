@@ -2,7 +2,7 @@ import "./loadEnv";
 import { createServer } from "http";
 import net from "net";
 import * as Sentry from "@sentry/node";
-import { createApiApp } from "./app";
+import { createApiApp, registerFallbackHandlers } from "./app";
 import { ensureAuthModeConsistency, validateCriticalEnv } from "./env";
 import { serveStatic, setupVite } from "./vite";
 import logger from "./logger";
@@ -78,6 +78,8 @@ async function startServer() {
   } else {
     serveStatic(app);
   }
+  // Terminal handlers go last so the SPA layer serves non-API routes first.
+  registerFallbackHandlers(app);
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
