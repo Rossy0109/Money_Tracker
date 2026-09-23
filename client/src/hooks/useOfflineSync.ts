@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
 import {
@@ -17,8 +17,9 @@ export function useOfflineSync() {
 
   const utils = trpc.useUtils();
   const syncMutation = trpc.finance.syncOfflineTransactions.useMutation();
+  const { mutateAsync: syncMutateAsync } = syncMutation;
 
-  const syncQueue = async () => {
+  const syncQueue = useCallback(async () => {
     if (!activeProjectId || !navigator.onLine || isSyncingRef.current) return;
     isSyncingRef.current = true;
 
@@ -50,7 +51,7 @@ export function useOfflineSync() {
         idempotencyKey: item.id,
       }));
 
-      await syncMutation.mutateAsync({
+      await syncMutateAsync({
         projectId: activeProjectId,
         items: payload,
       });
@@ -69,7 +70,7 @@ export function useOfflineSync() {
     } finally {
       isSyncingRef.current = false;
     }
-  };
+  }, [activeProjectId, syncMutateAsync, utils]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -98,7 +99,7 @@ export function useOfflineSync() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [activeProjectId]);
+  }, [activeProjectId, syncQueue]);
 
   return {
     isOnline,

@@ -143,7 +143,6 @@ export function calculateBangladeshIncomeTax(
       taxAmount: tax,
     });
     grossTaxLiability += tax;
-    remainingTaxable = 0;
   }
 
   // Investment Rebate Calculation:

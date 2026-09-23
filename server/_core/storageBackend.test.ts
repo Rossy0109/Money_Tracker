@@ -1,30 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { selectStorageBackend } from "./storageBackend";
 
-const forgeEnvironment = {
+const baseEnvironment = {
   blobStoreId: "",
   blobReadWriteToken: "",
-  forgeApiUrl: "https://forge.example.test",
-  forgeApiKey: "forge-key",
 };
 
 describe("selectStorageBackend", () => {
-  it("preserves the existing Forge fallback outside Vercel Blob deployments", () => {
-    expect(selectStorageBackend(forgeEnvironment)).toBe("forge");
+  it("reports missing when no Blob credential is configured", () => {
+    expect(selectStorageBackend(baseEnvironment)).toBe("missing");
   });
 
   it("uses private Vercel Blob with Vercel's injected Blob credential", () => {
     expect(
       selectStorageBackend({
-        ...forgeEnvironment,
+        ...baseEnvironment,
         blobReadWriteToken: "configured-private-blob-credential",
       }),
     ).toBe("vercel-blob");
   });
 
-  it("fails closed rather than falling back to Forge when a configured Blob store lacks its credential", () => {
+  it("fails closed when a configured Blob store lacks its credential", () => {
     expect(
-      selectStorageBackend({ ...forgeEnvironment, blobStoreId: "store_staging" }),
+      selectStorageBackend({ ...baseEnvironment, blobStoreId: "store_staging" }),
     ).toBe("missing");
   });
 });

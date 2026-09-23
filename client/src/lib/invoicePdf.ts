@@ -1,5 +1,3 @@
-import type { jsPDF } from "jspdf";
-
 export interface InvoiceData {
   invoiceNumber: string;
   issueDate: string | Date;

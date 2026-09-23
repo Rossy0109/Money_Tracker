@@ -3,16 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { readActiveProjectId, resolveActiveProjectId, saveActiveProjectId } from "@/lib/activeProject";
+import { bdt } from "@/lib/utils";
+import { useActiveProject } from "@/lib/activeProject";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarDays, Filter, Loader2, Search, Sparkles, TrendingUp } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
-
-const bdt = (value: number | string) =>
-  `৳ ${new Intl.NumberFormat("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
 
 const monthLabel = (value: string) =>
   new Intl.DateTimeFormat("bn-BD", { month: "short", year: "numeric" }).format(new Date(`${value}-01T12:00:00Z`));
@@ -34,15 +31,10 @@ const emptySearch: SearchForm = { query: "", categoryId: "", type: "all", from: 
 
 export default function FinanceInsights() {
   const utils = trpc.useUtils();
-  const { data: projects = [], isLoading: projectsLoading } = trpc.projects.list.useQuery();
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
   const [planMonth, setPlanMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchForm, setSearchForm] = useState<SearchForm>(emptySearch);
   const [appliedSearch, setAppliedSearch] = useState<SearchForm>(emptySearch);
-
-  useEffect(() => {
-    if (projects.length) setActiveProjectId(current => resolveActiveProjectId(projects.map(project => project.id), current, readActiveProjectId()));
-  }, [projects]);
 
   const projectId = activeProjectId ?? 0;
   const { data: overview } = trpc.finance.overview.useQuery({ projectId }, { enabled: projectId > 0 });
@@ -74,8 +66,7 @@ export default function FinanceInsights() {
 
   const chooseProject = (value: string) => {
     const id = Number(value);
-    setActiveProjectId(id);
-    saveActiveProjectId(id);
+    selectProject(id);
   };
   const applySearch = (event: FormEvent) => {
     event.preventDefault();

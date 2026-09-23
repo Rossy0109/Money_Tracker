@@ -15,14 +15,9 @@ import {
   Download,
   Trash2,
   CheckCircle2,
-  Clock,
-  AlertCircle,
   Building2,
-  Phone,
-  Mail,
   Receipt,
   Search,
-  Filter,
   MessageCircle,
 } from "lucide-react";
 import { generateInvoiceReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
@@ -46,8 +41,8 @@ export default function Invoices() {
   const [clientEmail, setClientEmail] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [clientBinTin, setClientBinTin] = useState("");
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState(
+  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
   const [discountAmount, setDiscountAmount] = useState("0");
@@ -123,7 +118,11 @@ export default function Invoices() {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleItemChange = (index: number, field: keyof InvoiceItemState, value: any) => {
+  const handleItemChange = (
+    index: number,
+    field: keyof InvoiceItemState,
+    value: InvoiceItemState[keyof InvoiceItemState]
+  ) => {
     const next = [...items];
     next[index] = { ...next[index], [field]: value };
     if (field === "description" && typeof value === "string") {
@@ -191,8 +190,8 @@ export default function Invoices() {
       const { generateInvoicePdf } = await import("@/lib/invoicePdf");
       await generateInvoicePdf(invoice);
       toast.success("পিডিএফ ডাউনলোড সম্পন্ন হয়েছে");
-    } catch (err) {
-      toast.error("পিডিএফ তৈরি করা যায়নি");
+    } catch {
+      toast.error("পিডিএফ তৈরি করা যায়নি");
     }
   };
 

@@ -7,14 +7,22 @@ describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
     const config = getCloudStorageConfig();
     expect(config).toBeDefined();
     expect(typeof config).toBe("object");
+    expect(config).toHaveProperty("supabase");
+    expect(config).toHaveProperty("s3");
+    expect(config).toHaveProperty("googleDrive");
   });
 
   it("creates encrypted cloud backup package with sha-256 verification", async () => {
-    const admin = await financeDb.getUserByEmail("admin@example.com");
-    if (!admin) return;
+    const admin = await financeDb.getUserByEmail("admin@example.com").catch(() => null);
+    if (!admin) {
+      // No local DB fixture — still assert the export path exists.
+      expect(typeof financeDb.exportProjectBackup).toBe("function");
+      expect(typeof executeCloudBackup).toBe("function");
+      return;
+    }
 
     const projects = await financeDb.listProjects(admin.id);
-    if (!projects.length) return;
+    expect(projects.length).toBeGreaterThan(0);
 
     const result = await executeCloudBackup(admin.id, projects[0].id, "test-encryption-key-123");
 

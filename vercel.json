@@ -9,10 +9,6 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/[...path]?path=$1"
-    },
-    {
-      "src": "/manus-storage/(.*)",
-      "dest": "/api/[...path]?path=manus-storage/$1"
     }
   ],
   "headers": [
@@ -24,24 +20,11 @@
           "value": "private, no-store, max-age=0"
         }
       ]
-    },
-    {
-      "source": "/manus-storage/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
     }
   ],
   "rewrites": [
     {
-      "source": "/manus-storage/:path*",
-      "destination": "/api/manus-storage/:path*"
-    },
-    {
-      "source": "/((?!api/|manus-storage/).*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],

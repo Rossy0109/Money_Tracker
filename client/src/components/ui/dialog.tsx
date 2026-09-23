@@ -2,22 +2,7 @@ import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import * as React from "react";
-
-// Context to track composition state across dialog children
-const DialogCompositionContext = React.createContext<{
-  isComposing: () => boolean;
-  setComposing: (composing: boolean) => void;
-  justEndedComposing: () => boolean;
-  markCompositionEnd: () => void;
-}>({
-  isComposing: () => false,
-  setComposing: () => {},
-  justEndedComposing: () => false,
-  markCompositionEnd: () => {},
-});
-
-export const useDialogComposition = () =>
-  React.useContext(DialogCompositionContext);
+import { DialogCompositionContext, useDialogComposition } from "@/components/ui/dialog-composition";
 
 function Dialog({
   ...props
@@ -104,7 +89,7 @@ function DialogContent({
     (e: KeyboardEvent) => {
       // Check both the native isComposing property and our context state
       // This handles Safari's timing issues with composition events
-      const isCurrentlyComposing = (e as any).isComposing || isComposing();
+      const isCurrentlyComposing = e.isComposing || isComposing();
 
       // If IME is composing, prevent dialog from closing
       if (isCurrentlyComposing) {

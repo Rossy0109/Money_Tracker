@@ -3,6 +3,7 @@ import { get as getBlob } from "@vercel/blob";
 import { Readable } from "node:stream";
 import { ENV } from "./env";
 import { selectStorageBackend } from "./storageBackend";
+import logger from "./logger";
 import { sdk } from "./sdk";
 import { getPrivateStorageObjectForDownload } from "../db";
 
@@ -75,57 +76,7 @@ export function registerStorageProxy(app: Express) {
 
       await streamPrivateBlobObject(object, res);
     } catch (error) {
-      console.error("[StorageProxy] private object delivery failed:", error);
-      res.status(502).send("Storage proxy error");
-    }
-  });
-
-  app.get("/manus-storage/*splat", async (req, res) => {
-    const key = (req.params as unknown as Record<string, string>)["splat"];
-    if (!key) {
-      res.status(400).send("Missing storage key");
-      return;
-    }
-
-    const backend = selectStorageBackend(ENV);
-    if (backend === "missing") {
-      res.status(500).send("Storage proxy not configured");
-      return;
-    }
-
-    try {
-      if (backend === "vercel-blob") {
-        res.status(410).send("Private storage objects require a protected download endpoint");
-        return;
-      }
-
-      const forgeUrl = new URL(
-        "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
-      );
-      forgeUrl.searchParams.set("path", key);
-
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
-      });
-
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
-        res.status(502).send("Storage backend error");
-        return;
-      }
-
-      const { url } = (await forgeResp.json()) as { url: string };
-      if (!url) {
-        res.status(502).send("Empty signed URL from backend");
-        return;
-      }
-
-      res.set("Cache-Control", "no-store");
-      res.redirect(307, url);
-    } catch (err) {
-      console.error("[StorageProxy] failed:", err);
+      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[StorageProxy] private object delivery failed");
       res.status(502).send("Storage proxy error");
     }
   });

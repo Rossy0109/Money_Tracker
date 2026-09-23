@@ -1,5 +1,17 @@
 import { TRPCError } from "@trpc/server";
+import type { Request } from "express";
 
+/**
+ * Per-process (in-memory) rate limiter.
+ *
+ * Limitations for multi-instance deployments: counters are local to this
+ * Node process, so N instances each allow up to `max` independently. Auth
+ * hardening does NOT rely on this alone:
+ *   - DB-backed account lockout (failed_login_attempts) is multi-instance safe
+ *     and is enforced on every password login.
+ *   - express-rate-limit (app.ts) provides an additional IP-based layer.
+ * If you need strict cross-instance limits, back this store with Redis/DB.
+ */
 interface RateLimitRecord {
   count: number;
   resetAt: number;
@@ -22,6 +34,23 @@ export interface RateLimitOptions {
   max: number;
   message?: string;
   keyPrefix?: string;
+}
+
+/**
+ * Resolve a stable client IP for rate-limit keys.
+ *
+ * Prefer Express `req.ip` (computed with `trust proxy` so only the trusted
+ * hop's X-Forwarded-For entry is used). Never key on the raw X-Forwarded-For
+ * header: clients can spoof it to mint fresh rate-limit buckets.
+ */
+export function getClientIp(req?: Pick<Request, "ip" | "socket" | "headers"> | null): string {
+  if (req?.ip) return req.ip;
+  const socketIp = req?.socket?.remoteAddress;
+  if (socketIp) return socketIp;
+  // Last resort only — still take a single hop, not the full spoofable list.
+  const xff = req?.headers?.["x-forwarded-for"];
+  const firstHop = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
+  return firstHop || "unknown-ip";
 }
 
 /**

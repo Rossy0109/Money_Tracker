@@ -1,4 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+
+// RBAC is authoritative for adminProcedure — legacy users.role alone must not grant access.
+vi.mock("./_core/rbac", () => ({
+  initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  hasPermission: vi.fn().mockResolvedValue(true),
+  hasAnyPermission: vi.fn().mockResolvedValue(true),
+  hasAllPermissions: vi.fn().mockResolvedValue(true),
+  hasRole: vi.fn().mockResolvedValue(true),
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+  getUserRoles: vi.fn().mockResolvedValue(["SUPER_ADMIN"]),
+  isAdminRoleUser: vi.fn().mockResolvedValue(true),
+}));
+
 import { appRouter } from "./routers";
 
 const adminContext = {
@@ -7,7 +20,7 @@ const adminContext = {
     openId: "administrator",
     email: "admin@example.com",
     name: "Administrator",
-    loginMethod: "manus",
+    loginMethod: "google",
     role: "admin" as const,
     createdAt: new Date(),
     updatedAt: new Date(),

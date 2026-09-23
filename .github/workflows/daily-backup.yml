@@ -20,18 +20,24 @@ jobs:
       - name: Trigger Remote Backup Endpoint
         env:
           APP_URL: ${{ secrets.APP_URL || 'https://moneytrackerbd.vercel.app' }}
-          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.ADMIN_ACCESS_PASSWORD }}
+          # Preferred secret: CRON_SECRET (matches server hasValidCronSecret).
+          # BACKUP_CRON_SECRET is accepted as a legacy alias by the server.
+          # ADMIN_ACCESS_PASSWORD must never authorize backups.
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.BACKUP_CRON_SECRET }}
         run: |
           if [ -z "$BACKUP_SECRET" ]; then
-            echo "Skipping trigger: CRON_SECRET or ADMIN_ACCESS_PASSWORD secret not set on GitHub."
+            echo "Skipping trigger: CRON_SECRET (or BACKUP_CRON_SECRET) secret not set on GitHub."
+            echo "Set a dedicated CRON_SECRET — do not use ADMIN_ACCESS_PASSWORD for backups."
             exit 0
           fi
 
           TARGET_URL="${APP_URL%/}/api/scheduled/finance-backup"
-          echo "Triggering backup at: $TARGET_URL"
+          echo "Triggering backup at: $TARGET_URL (GET — same method as Vercel Cron)"
 
-          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST "$TARGET_URL" \
-            -H "Content-Type: application/json" \
+          # Vercel Cron always uses GET; use GET here too so GitHub and Vercel
+          # exercise the identical production path. The Express route is
+          # registered with app.all, so POST remains accepted as well.
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X GET "$TARGET_URL" \
             -H "Authorization: Bearer $BACKUP_SECRET")
 
           cat response.json

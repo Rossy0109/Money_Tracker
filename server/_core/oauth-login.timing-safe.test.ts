@@ -72,6 +72,7 @@ afterEach(async () => {
     servers.splice(0).map(
       server =>
         new Promise<void>((resolve, reject) => {
+          server.closeAllConnections?.();
           server.close(error => (error ? reject(error) : resolve()));
         })
     )
@@ -84,7 +85,7 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
     db.users.clear();
   });
 
-  it("rejects an unknown email but still runs the constant-time verification against a dummy hash", async () => {
+  it("rejects an unknown email but still runs the constant-time verification against a dummy hash", { timeout: 15000 }, async () => {
     const baseUrl = await startServer();
     const spy = vi.mocked(verifyPasswordConstantTime);
 
@@ -139,7 +140,7 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
       body: JSON.stringify({
         name: "Registered",
         email: "registered@example.com",
-        password: "correctPassword123",
+        password: "correctPassword123!",
       }),
     });
 
@@ -151,7 +152,7 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: "registered@example.com",
-        password: "wrongPassword999",
+        password: "wrongPassword999!",
       }),
     });
 

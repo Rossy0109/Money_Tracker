@@ -6,7 +6,7 @@ node_modules
 coverage
 playwright-report
 test-results
-.manus-logs
+.local-logs
 .gemini
 *.log
 dist

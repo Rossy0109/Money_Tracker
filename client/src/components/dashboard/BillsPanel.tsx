@@ -1,6 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Plus, Check, Pencil, Trash2 } from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../../server/routers";
+
+type BillItem =
+  inferRouterOutputs<AppRouter>["finance"]["overview"]["bills"][number];
 
 export function BillsPanel({
   bills,
@@ -9,9 +14,9 @@ export function BillsPanel({
   onPay,
   onDelete,
 }: {
-  bills: any[];
+  bills: BillItem[];
   onAdd: () => void;
-  onEdit: (bill: any) => void;
+  onEdit: (bill: BillItem) => void;
   onPay: (id: number, isPaid: boolean) => void;
   onDelete: (id: number) => void;
 }) {

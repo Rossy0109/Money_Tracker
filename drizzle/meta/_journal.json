@@ -71,6 +71,48 @@
       "when": 1789329740504,
       "tag": "0009_rare_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1789675064612,
+      "tag": "0010_aromatic_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1789678161847,
+      "tag": "0011_round_ken_ellis",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1789721420828,
+      "tag": "0012_elite_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1789725379426,
+      "tag": "0013_complex_reptil",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1789925309856,
+      "tag": "0014_rbac_and_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1790190967198,
+      "tag": "0015_fk-restrict-financial-history",
+      "breakpoints": true
     }
   ]
 }

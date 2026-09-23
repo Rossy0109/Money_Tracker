@@ -23,7 +23,7 @@ interface TransactionDialogProps {
   transactionForm: TransactionDraft;
   setTransactionForm: React.Dispatch<React.SetStateAction<TransactionDraft>>;
   categories: Array<{ id: number; name: string }>;
-  accounts?: Array<{ id: number; name: string; currentBalance: number | string; [key: string]: any }>;
+  accounts?: Array<{ id: number; name: string; currentBalance: number | string; [key: string]: unknown }>;
   showSmsHelper: boolean;
   setShowSmsHelper: (show: boolean) => void;
   smsInput: string;

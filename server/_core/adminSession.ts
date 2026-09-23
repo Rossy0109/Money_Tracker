@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { Request, Response } from "express";
-import { parse as parseCookieHeader } from "cookie";
+import { parseCookie as parseCookieHeader } from "cookie";
 import { ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS } from "../../shared/const";
 import { ENV } from "./env";
 import { getAdminSessionCookieOptions } from "./cookies";
@@ -17,9 +17,13 @@ export type AdminElevationPayload = {
 /**
  * Returns HMAC secret key for signing admin elevation tokens.
  * Uses SESSION_SECRET or JWT_SECRET.
+ * Throws at startup if neither is configured.
  */
 function getAdminSecret(): string {
-  const secret = ENV.sessionSecret || ENV.cookieSecret || "admin-elevation-fallback-secret";
+  const secret = ENV.sessionSecret || ENV.cookieSecret;
+  if (!secret) {
+    throw new Error("FATAL: Neither SESSION_SECRET nor JWT_SECRET is set. Admin token signing requires a secret.");
+  }
   return secret;
 }
 

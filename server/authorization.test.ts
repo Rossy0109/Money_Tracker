@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 export interface MockUser {
   id: number;
   openId: string;
+  /** Legacy display-only column — never grants privilege on its own. */
   role: "admin" | "user";
+  /** Authoritative RBAC roles. */
+  rbacRoles: string[];
   status: "active" | "pending" | "suspended";
 }
 
@@ -26,8 +29,12 @@ export function authorizeProjectAccess(user: MockUser, project: MockProject): bo
   return project.userId === user.id;
 }
 
+const ADMIN_RBAC_ROLES = new Set(["SUPER_ADMIN", "SYSTEM_ADMIN"]);
+
 export function authorizeAdminAction(user: MockUser): boolean {
-  return user.status === "active" && user.role === "admin";
+  if (user.status !== "active") return false;
+  // RBAC is authoritative; legacy users.role must not grant admin privilege.
+  return user.rbacRoles.some(r => ADMIN_RBAC_ROLES.has(r));
 }
 
 export function authorizeHouseholdAccess(
@@ -51,10 +58,11 @@ export function authorizeHouseholdAccess(
 }
 
 describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissions, Household Members", () => {
-  const userA: MockUser = { id: 101, openId: "usr_a", role: "user", status: "active" };
-  const userB: MockUser = { id: 102, openId: "usr_b", role: "user", status: "active" };
-  const adminUser: MockUser = { id: 1, openId: "adm_1", role: "admin", status: "active" };
-  const suspendedUser: MockUser = { id: 103, openId: "usr_s", role: "user", status: "suspended" };
+  const userA: MockUser = { id: 101, openId: "usr_a", role: "user", rbacRoles: ["VIEWER"], status: "active" };
+  const userB: MockUser = { id: 102, openId: "usr_b", role: "user", rbacRoles: ["VIEWER"], status: "active" };
+  const adminUser: MockUser = { id: 1, openId: "adm_1", role: "admin", rbacRoles: ["SUPER_ADMIN"], status: "active" };
+  const suspendedUser: MockUser = { id: 103, openId: "usr_s", role: "user", rbacRoles: ["VIEWER"], status: "suspended" };
+  const legacyAdminOnly: MockUser = { id: 2, openId: "legacy_admin", role: "admin", rbacRoles: [], status: "active" };
 
   const projectA: MockProject = { id: 10, userId: userA.id, name: "ব্যক্তিগত খরচ" };
   const projectB: MockProject = { id: 20, userId: userB.id, name: "ব্যবসার খাতা" };
@@ -77,13 +85,17 @@ describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissio
   });
 
   describe("Admin Checks", () => {
-    it("authorizes active admin users for elevated system actions", () => {
+    it("authorizes active RBAC admin users for elevated system actions", () => {
       expect(authorizeAdminAction(adminUser)).toBe(true);
     });
 
     it("denies regular users from performing administrative actions", () => {
       expect(authorizeAdminAction(userA)).toBe(false);
       expect(authorizeAdminAction(userB)).toBe(false);
+    });
+
+    it("denies legacy users.role=admin without an RBAC admin role", () => {
+      expect(authorizeAdminAction(legacyAdminOnly)).toBe(false);
     });
   });
 
@@ -111,7 +123,7 @@ describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissio
     });
 
     it("denies uninvited or non-member users from viewing or accessing household data", () => {
-      const externalUser: MockUser = { id: 999, openId: "ext", role: "user", status: "active" };
+      const externalUser: MockUser = { id: 999, openId: "ext", role: "user", rbacRoles: ["VIEWER"], status: "active" };
       expect(authorizeHouseholdAccess(externalUser, household, "viewer")).toBe(false);
       expect(authorizeHouseholdAccess(externalUser, household, "member")).toBe(false);
     });

@@ -15,7 +15,7 @@ const getCombinedHomeSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch {}
+    } catch { /* dir may not exist */ }
   }
   return combined;
 };

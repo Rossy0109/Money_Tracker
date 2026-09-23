@@ -10,9 +10,7 @@ type UseAuthOptions = {
 
 export function useAuth(options?: UseAuthOptions) {
   // Login is started via startLogin() in the effect below, only when we actually
-  // navigate — never during render. startLogin() mints a one-time nonce + writes
-  // the state cookie, so calling it per render would overwrite the cookie and
-  // desync it from an in-flight login's `state`.
+  // navigate — never during render.
   const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
   const utils = trpc.useUtils();
 
@@ -43,8 +41,8 @@ export function useAuth(options?: UseAuthOptions) {
       // header-based sessions (Safari ITP / WebView) are logged out too. The
       // backend cookie is cleared by the logout mutation.
       try {
-        sessionStorage.removeItem("manus-cookie");
-      } catch {}
+        sessionStorage.removeItem("auth-session-cookie");
+      } catch { /* sessionStorage may be unavailable in private/WebView */ }
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
@@ -54,11 +52,11 @@ export function useAuth(options?: UseAuthOptions) {
     // Some mobile/private browsers can deny localStorage. Authentication must
     // continue using the secure session cookie when that browser convenience
     // cache is unavailable.
-    try {
-      localStorage.setItem(
-        "manus-runtime-user-info",
-        JSON.stringify(meQuery.data)
-      );
+try {
+        localStorage.setItem(
+          "auth-runtime-user-info",
+          JSON.stringify(meQuery.data)
+        );
     } catch {
       // Keep the auth flow available when storage is blocked.
     }
@@ -83,7 +81,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (typeof window === "undefined") return;
     if (redirectPath && window.location.pathname === redirectPath) return;
 
-    // Navigate at this moment only. startLogin() mints the nonce + cookie itself.
+    // Navigate at this moment only.
     if (redirectPath) {
       window.location.href = redirectPath;
     } else {

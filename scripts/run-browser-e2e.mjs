@@ -57,7 +57,9 @@ function reserveLoopbackPort() {
 }
 
 async function waitForServer(url) {
-  const deadline = Date.now() + 30_000;
+  // Cold CI runners need well beyond 30s: tsx compiles the full server graph
+  // and Vite compiles the client on first request before / answers 200.
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url);

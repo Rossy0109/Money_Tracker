@@ -11,7 +11,7 @@
 - [x] Build six-month income-versus-expense chart data and visualization.
 - [x] Build monthly category budget creation and actual-spend progress visualization.
 - [x] Build upcoming-bill creation, paid-state updates, and reminder list.
-- [x] Use Manus OAuth authentication and clearly present the Gmail-compatible sign-in flow.
+- [x] Use Google OAuth authentication and clearly present the Gmail-compatible sign-in flow.
 - [x] Create an elegant, responsive, mobile-first Bengali-friendly interface with consistent BDT formatting.
 - [x] Add server-side Vitest coverage for access isolation, default categories, balances, budgets, and bill updates.
 - [x] Run type checks, tests, production build, and visual checks at desktop and mobile viewport sizes.
@@ -26,14 +26,14 @@
 - [x] Replace the default expense category set with the user-provided Bengali categories and preserve existing transaction history safely.
 - [x] Update Bengali category displays, tests, and documentation to match the user-provided expense category set exactly.
 - [x] Save an updated checkpoint for the completed security, category, and backup enhancements.
-- [x] Review the existing Manus OAuth role flow and define a secure administrator bootstrap approach without exposing credentials in source code.
+- [x] Review the existing Google OAuth role flow and define a secure administrator bootstrap approach without exposing credentials in source code.
 - [x] Add role-aware authorization helpers for Admin and User access boundaries.
 - [x] Add user-isolated project workspaces, with a default workspace named Face Two Button.
 - [x] Associate finance accounts, categories, transactions, budgets, and bill reminders with a project workspace while preserving existing data.
 - [x] Add administrator-only audit-log storage for create, update, and delete activity across protected finance and project actions.
 - [x] Add safe edit and delete workflows for user-owned finance records.
 - [x] Verify and document the administrator-only project management and audit-log views end-to-end.
-- [x] Add an Admin/User sign-in explanation compatible with Manus OAuth, without adding an insecure standalone password login.
+- [x] Add an Admin/User sign-in explanation compatible with Google OAuth, without adding an insecure standalone password login.
 - [x] Add role, project-isolation, edit/delete, and audit-log test coverage; complete type, build, and visual verification.
 - [x] Document the Admin/User OAuth flow, server-side second-factor verification, and administrator-only views.
 - [x] Recheck the development server after the administrator authorization import repair and record the result.
@@ -72,11 +72,11 @@
 - [x] Test and visually verify the data-entry discoverability improvement, including the authenticated profile button, quick-entry guide, and sidebar control on desktop and mobile.
 - [x] Synchronize the verified data-entry discoverability improvement to the private GitHub repository.
 - [x] Save a release checkpoint for the data-entry discoverability improvement.
-- [x] Diagnose and resolve the reported Manus OAuth sign-in connection/reload failure by restoring the development service after a transient connection interruption.
+- [x] Diagnose and resolve the reported Google OAuth sign-in connection/reload failure by restoring the development service after a transient connection interruption.
 - [x] Provide concise Bengali mobile retry guidance for external Chrome/Safari with cookies enabled.
 - [x] Reproduce the mobile sign-in path in an external browser and determine whether any remaining blocker is outside the application.
 - [x] Verify an end-to-end successful mobile sign-in to the dashboard after the confirmed workaround or fix.
-- [x] Diagnose and mitigate the reported mobile-specific Manus OAuth connection/reload behavior with storage resilience and browser guidance.
+- [x] Diagnose and mitigate the reported mobile-specific Google OAuth connection/reload behavior with storage resilience and browser guidance.
 - [x] Permanently delete the confirmed Face Two Button workspace and all finance records scoped to it.
 - [x] Create the requested দৈনিক লেনদেনের খাতা replacement workspace for the current user.
 - [x] Prevent the deleted Face Two Button workspace from being automatically recreated on future sign-in.
@@ -212,16 +212,16 @@
 - [x] Add a Vercel-compatible entrypoint and configuration that preserves the existing backend routes and static client behavior without embedding secrets.
 - [x] Add deployment documentation, environment-variable inventory, health checks, and a clear rollback path from Vercel to the current verified hosting.
 - [x] Create and link a dedicated Vercel project for Money_Tracker without replacing the existing Foot_Print_of_Money Git connection.
-- [x] Correct the Vercel function routing so `/api/*` and `/manus-storage/*` reach the existing Express application instead of returning a static 404.
+- [x] Correct the Vercel function routing so `/api/*` reach the existing Express application instead of returning a static 404.
 - [x] Ensure the Vercel Node function packages the shared Express application and its local dependencies with resolvable production ESM imports.
 - [x] Ensure a GitHub-sourced remote Vercel build discovers and deploys the generated API function rather than serving a static 404.
 - [x] Validate type safety, full regression, isolated E2E, production build, and Vercel build compatibility before any production cutover.
 - [x] Deploy a GitHub-sourced Vercel preview/production environment only after required secret and OAuth callback configuration is safely available.
 - [x] Verify deployed authentication gating, protected API behavior, and non-mutating financial routes; document any domain/DNS or provider limitation.
-- [x] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying Manus-managed secrets.
-- [x] Audit all Manus-managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
+- [x] Add provider-approved production Vercel environment values and allow the Vercel callback URL in the OAuth provider without copying legacy managed secrets.
+- [x] Audit all managed database, OAuth, storage, scheduler, and identity dependencies and document a data-safe Vercel-compatible replacement boundary.
 - [x] Select user-owned staging providers for MySQL-compatible database, Google-based authentication, and object storage with explicit cost, region, TLS, backup, and rollback constraints.
-- [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying Manus-managed secrets or user finance data.
+- [x] Design a source-controlled, provider-neutral configuration layer that preserves existing finance authorization and avoids copying legacy managed secrets or user finance data.
 - [x] Implement and test the new integrations only against empty or disposable staging data before any production credential or data migration.
 - [x] Re-run isolated database, role, restore, export, and browser regression suites against the provider-neutral serverless architecture.
 - [x] Obtain explicit approval and an encrypted user-owned export before any production finance-data migration or Vercel cutover.
@@ -239,13 +239,13 @@
 - [x] Add relational object metadata and protected owner/project/household authorization before any financial backup or export can be read through the private Blob proxy.
 - [x] Add tenant and household denial tests for protected private-Blob downloads.
 - [x] Validate the empty no-data Vercel Preview deployment without uploading any storage object or using real financial data.
-- [x] Select the isolated `AUTH_MODE=google` staging architecture and canonical callback `/api/auth/google/callback` while retaining the existing Manus callback for the live fallback.
+- [x] Select the isolated `AUTH_MODE=google` staging architecture and canonical callback `/api/auth/google/callback` while retaining the existing password flow for the live fallback.
 - [x] Implement the server-side Google authorization-code flow with PKCE, state, nonce, discovery/JWKS ID-token verification, and `google:<sub>` identity mapping.
 - [x] Add mode-switch and Google OAuth regression tests, including invalid state, nonce, issuer, audience, expired-token, and verified-email/admin-bootstrap denial paths.
 - [x] Add the Preview-only Google/TiDB variable contract and apply the reviewed schema only to the user-approved empty TiDB staging database.
 - [x] Run authenticated blank-profile Preview verification after user-managed credentials are configured; do not upload finance files or migrate finance data.
-- [x] Audit the existing MySQL, Manus/Google authentication, and Vercel Blob coupling before replacing any staging provider with Supabase.
-- [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a Manus live-fallback rollback path.
+- [x] Audit the existing MySQL, Google authentication, and Vercel Blob coupling before replacing any staging provider with Supabase.
+- [x] Design and document a mode-switched Supabase PostgreSQL, Supabase Auth, and private Supabase Storage staging architecture with a live-fallback rollback path.
 - [x] Add a tested Supabase staging adapter while preserving existing accounting rules, tenant/household authorization, exports, backups, audit logging, and user data boundaries.
 - [x] Configure only an empty Supabase staging project and run blank-profile tests before seeking any production migration approval.
 - [x] Implement double-entry financial statements (Profit & Loss, Balance Sheet, Trial Balance) with standard debits and credits.

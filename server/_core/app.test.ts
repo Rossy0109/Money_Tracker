@@ -1,8 +1,11 @@
+process.env.NODE_ENV = "test";
+
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Server } from "node:http";
-import { createApiApp } from "./app";
+import type { NextFunction, Request, Response } from "express";
 import { normalizeVercelRequestPath } from "./vercelPath";
+import { createApiApp, registerFallbackHandlers } from "./app";
 import vercelHandler from "../vercel-handler";
 
 const servers: Server[] = [];
@@ -23,11 +26,59 @@ describe("Vercel-compatible Express application", () => {
     expect(typeof vercelHandler).toBe("function");
   });
 
-  it("preserves the public storage-proxy path after the Vercel function rewrite", () => {
-    expect(normalizeVercelRequestPath("/api/manus-storage/exports/report.pdf?download=1")).toBe(
-      "/manus-storage/exports/report.pdf?download=1",
-    );
+  it("preserves the public path after the Vercel function rewrite", () => {
+    // API paths are passed through to the Express handler
     expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
+    expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
+  });
+
+  it("never sends upgrade-insecure-requests (breaks plain-http serving)", async () => {
+    // Regression: the directive rewrote http:// subresources to https://,
+    // so dev/e2e browsers got TLS failures and a blank page.
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/healthz`);
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).not.toContain("upgrade-insecure-requests");
+    expect(csp).toContain("default-src 'self'");
+  });
+
+  it("lets runtime SPA layers serve non-API routes before the fallback 404", async () => {
+    // Regression: the dev server answered GET / with 404 because the generic
+    // fallback was registered before the Vite middleware. SPA layers must run
+    // first; /api/* keeps JSON 404 semantics.
+    const app = createApiApp();
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api")) return next();
+      res.status(200).send("spa-shell");
+    });
+    registerFallbackHandlers(app);
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const spa = await fetch(`http://127.0.0.1:${address.port}/`);
+    expect(spa.status).toBe(200);
+    await expect(spa.text()).resolves.toBe("spa-shell");
+
+    const api = await fetch(`http://127.0.0.1:${address.port}/api/no-such-route`);
+    expect(api.status).toBe(404);
+    await expect(api.json()).resolves.toEqual({ error: "Not found" });
   });
 
   it("exposes a non-mutating health endpoint without starting a process listener", async () => {
@@ -50,8 +101,13 @@ describe("Vercel-compatible Express application", () => {
     await expect(response.json()).resolves.toEqual({ ok: true, service: "money-tracker" });
   });
 
-  it("keeps Google OAuth endpoints disabled when the legacy Manus mode is active", async () => {
-    const app = createApiApp();
+  it("keeps Google OAuth endpoints disabled when password mode is active", async () => {
+    // Hermetic: ambient CI environments set AUTH_MODE=google, so stub the
+    // password mode explicitly instead of relying on it being unset.
+    vi.resetModules();
+    vi.stubEnv("AUTH_MODE", "password");
+    const fresh = await import("./app");
+    const app = fresh.createApiApp();
     const server = createServer(app);
     servers.push(server);
 
@@ -67,6 +123,7 @@ describe("Vercel-compatible Express application", () => {
     });
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Google OAuth is not enabled" });
+    vi.unstubAllEnvs();
   });
 
   it("rejects unauthorized access to /api/scheduled/finance-backup", async () => {
@@ -88,9 +145,15 @@ describe("Vercel-compatible Express application", () => {
     expect(response.status).toBe(403);
     const data = await response.json();
     expect(data.success).toBe(false);
+
+    // Also verify GET request (Vercel Cron method) without auth is rejected
+    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "GET",
+    });
+    expect(getResponse.status).toBe(403);
   });
 
-  it("authorizes /api/scheduled/finance-backup with valid Bearer token or admin password", async () => {
+  it("authorizes /api/scheduled/finance-backup with valid Bearer token via POST and GET", async () => {
     const app = createApiApp();
     const server = createServer(app);
     servers.push(server);
@@ -104,15 +167,37 @@ describe("Vercel-compatible Express application", () => {
 
     process.env.CRON_SECRET = "test-cron-secret-token";
 
-    // In unit test without live MariaDB, verify authorization succeeds or handles mock
-    const authorizedResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+    // Vercel Cron method — must not 404/403 when authorized.
+    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer test-cron-secret-token",
+      },
+    });
+    expect(getResponse.status).not.toBe(403);
+    expect(getResponse.status).not.toBe(404);
+
+    // GitHub Actions / manual POST still accepted (app.all).
+    const postResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer test-cron-secret-token",
       },
     });
-    // Request passes auth check (HTTP 200 on live DB or HTTP 500 on db lookup without falling into 403)
-    expect(authorizedResponse.status).not.toBe(403);
+    expect(postResponse.status).not.toBe(403);
+    expect(postResponse.status).not.toBe(404);
+
+    // Other scheduled paths must also accept GET (Vercel Cron parity).
+    for (const path of [
+      "/api/scheduled/finance-recurring",
+      "/api/scheduled/finance-bill-reminder",
+    ]) {
+      const scheduledGet = await fetch(`http://127.0.0.1:${address.port}${path}`, {
+        method: "GET",
+      });
+      // Route must exist (not 404); auth may still reject with 500/403.
+      expect(scheduledGet.status).not.toBe(404);
+    }
   });
 });

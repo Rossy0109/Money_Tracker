@@ -1,16 +1,138 @@
 version: 2
+
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  # ── npm dependencies ────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Dhaka
+
+    # Never open more than 5 PRs at once — avoid PR fatigue.
     open-pull-requests-limit: 5
+
+    # Group patch + minor updates into a single PR per batch.
+    # Major updates always get their own PR for careful review.
     groups:
-      dependencies:
-        patterns:
-          - "*"
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      patch-and-minor:
+        update-types:
+          - patch
+          - minor
+        # Exclude critical packages from the group — they must be reviewed individually.
+        exclude-patterns:
+          - "cookie"
+          - "express"
+          - "react"
+          - "react-dom"
+          - "vite"
+          - "vitest"
+          - "react-day-picker"
+          - "react-resizable-panels"
+          - "tailwindcss"
+          - "typescript"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "esbuild"
+          - "zod"
+          - "helmet"
+          - "jose"
+          - "pino"
+          - "pino-http"
+          - "react-hook-form"
+          - "@hookform/resolvers"
+          - "@trpc/server"
+          - "@trpc/client"
+          - "@trpc/react-query"
+
+    # ── Per-package rules ────────────────────────────────────────────────────
+    # SECURITY: always create PR immediately, ignore schedule.
+    # PATCH/MINOR: batched weekly, reviewed before merge.
+    # MAJOR: own PR, manual review required.
+    rules:
+      # --- Critical: never auto-merge, always requires manual review ---
+      - package-name: cookie
+        update-types:
+          - major
+          - minor
+          - patch
+
+      - package-name: express
+        update-types:
+          - major
+          - minor
+
+      - package-name: react
+        update-types:
+          - major
+          - minor
+
+      - package-name: react-dom
+        update-types:
+          - major
+          - minor
+
+      - package-name: vite
+        update-types:
+          - major
+          - minor
+
+      - package-name: vitest
+        update-types:
+          - major
+          - minor
+
+      - package-name: react-day-picker
+        update-types:
+          - major
+          - minor
+
+      - package-name: react-resizable-panels
+        update-types:
+          - major
+          - minor
+
+      - package-name: tailwindcss
+        update-types:
+          - major
+          - minor
+
+      - package-name: typescript
+        update-types:
+          - major
+          - minor
+
+      - package-name: drizzle-orm
+        update-types:
+          - major
+          - minor
+
+      - package-name: drizzle-kit
+        update-types:
+          - major
+          - minor
+
+      - package-name: zod
+        update-types:
+          - major
+          - minor
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
     open-pull-requests-limit: 3
+    groups:
+      actions-minor:
+        update-types:
+          - minor
+          - patch
+
+  # ── Docker ──────────────────────────────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2

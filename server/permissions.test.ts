@@ -5,7 +5,10 @@ export type WorkspaceRole = "owner" | "editor" | "viewer";
 
 export interface SecurityPrincipal {
   userId: number;
+  /** Legacy display-only column — never grants privilege on its own. */
   role: Role;
+  /** Authoritative RBAC roles. */
+  rbacRoles: string[];
 }
 
 export interface ResourceItem {
@@ -14,9 +17,12 @@ export interface ResourceItem {
   workspaceId: number;
 }
 
+const ADMIN_RBAC_ROLES = new Set(["SUPER_ADMIN", "SYSTEM_ADMIN"]);
+
 export function checkOwnership(principal: SecurityPrincipal, resource: ResourceItem): boolean {
-  // Admins bypass ownership check for auditing/moderation
-  if (principal.role === "admin") return true;
+  // RBAC admins bypass ownership check for auditing/moderation.
+  // Legacy users.role === "admin" alone must never grant this bypass.
+  if (principal.rbacRoles.some(r => ADMIN_RBAC_ROLES.has(r))) return true;
   return resource.ownerId === principal.userId;
 }
 
@@ -41,9 +47,10 @@ export function checkWorkspacePermission(
 }
 
 describe("server/permissions.test.ts - Ownership Verification, Access Control, Role-based Features", () => {
-  const normalUser: SecurityPrincipal = { userId: 42, role: "user" };
-  const otherUser: SecurityPrincipal = { userId: 99, role: "user" };
-  const systemAdmin: SecurityPrincipal = { userId: 1, role: "admin" };
+  const normalUser: SecurityPrincipal = { userId: 42, role: "user", rbacRoles: ["VIEWER"] };
+  const otherUser: SecurityPrincipal = { userId: 99, role: "user", rbacRoles: ["VIEWER"] };
+  const systemAdmin: SecurityPrincipal = { userId: 1, role: "admin", rbacRoles: ["SUPER_ADMIN"] };
+  const legacyAdminOnly: SecurityPrincipal = { userId: 2, role: "admin", rbacRoles: [] };
 
   const userResource: ResourceItem = { id: 501, ownerId: 42, workspaceId: 10 };
 
@@ -56,8 +63,12 @@ describe("server/permissions.test.ts - Ownership Verification, Access Control, R
       expect(checkOwnership(otherUser, userResource)).toBe(false);
     });
 
-    it("allows administrators to access resources across users for audit/support", () => {
+    it("allows RBAC administrators to access resources across users for audit/support", () => {
       expect(checkOwnership(systemAdmin, userResource)).toBe(true);
+    });
+
+    it("denies ownership bypass when only legacy users.role=admin is set", () => {
+      expect(checkOwnership(legacyAdminOnly, userResource)).toBe(false);
     });
   });
 

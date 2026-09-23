@@ -48,8 +48,7 @@ export type VoucherSettingsDraft = {
   endNumber: string;
 };
 
-export const bdt = (value: number | string) =>
-  `৳ ${new Intl.NumberFormat("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
+export { bdt } from "@/lib/utils";
 
 export const today = () => new Date().toISOString().slice(0, 10);
 

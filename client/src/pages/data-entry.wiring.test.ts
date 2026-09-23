@@ -14,7 +14,7 @@ const getCombinedSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch {}
+    } catch { /* dir read ignored */ }
   }
   return combined;
 };

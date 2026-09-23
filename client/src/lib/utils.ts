@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const bdt = (value: number | string) =>
-  `৳ ${new Intl.NumberFormat("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
+export const bdt = (value: number | string | null | undefined) =>
+  `৳ ${new Intl.NumberFormat("bn-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value || 0))}`;
 
 export const dateText = (value: Date | string) =>
   new Intl.DateTimeFormat("bn-BD", {

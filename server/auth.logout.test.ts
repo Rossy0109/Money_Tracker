@@ -18,8 +18,14 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     openId: "sample-user",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "manus",
+    loginMethod: "google",
     role: "user",
+    status: "active",
+    passwordHash: null,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    resetToken: null,
+    resetTokenExpiresAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -27,6 +33,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
 
   const ctx: TrpcContext = {
     user,
+    adminElevation: null,
     req: {
       protocol: "https",
       headers: {},
@@ -53,10 +60,9 @@ describe("auth.logout", () => {
     expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
     expect(clearedCookies[0]?.options).toMatchObject({
       maxAge: -1,
-      secure: true,
-      sameSite: "none",
       httpOnly: true,
       path: "/",
+      sameSite: "lax",
     });
   });
 });

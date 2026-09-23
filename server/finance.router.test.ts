@@ -19,10 +19,32 @@ const { financeDb } = vi.hoisted(() => ({
 
 vi.mock("./db", () => financeDb);
 
+vi.mock("./accounting-core", () => ({
+  assertPeriodNotLocked: vi.fn().mockResolvedValue(undefined),
+  generateTrialBalance: vi.fn(),
+  generateIncomeStatement: vi.fn(),
+  generateBalanceSheet: vi.fn(),
+  generateAccountingReport: vi.fn(),
+  createFiscalPeriod: vi.fn(),
+  listFiscalPeriods: vi.fn(),
+  closeFiscalPeriod: vi.fn(),
+}));
+
+vi.mock("./_core/rbac", () => ({
+  initializeRBAC: vi.fn().mockResolvedValue(undefined),
+  hasPermission: vi.fn().mockResolvedValue(true),
+  hasAnyPermission: vi.fn().mockResolvedValue(true),
+  hasAllPermissions: vi.fn().mockResolvedValue(true),
+  hasRole: vi.fn().mockResolvedValue(true),
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+  getUserRoles: vi.fn().mockResolvedValue([]),
+  isAdminRoleUser: vi.fn().mockResolvedValue(true),
+}));
+
 import { appRouter } from "./routers";
 
 const authenticatedContext = {
-  user: { id: 42, openId: "finance-owner", email: "owner@example.com", name: "Owner", loginMethod: "manus", role: "user" as const, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+  user: { id: 42, openId: "finance-owner", email: "owner@example.com", name: "Owner", loginMethod: "google", role: "user" as const, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
   req: { protocol: "https", headers: {} },
   res: { clearCookie: vi.fn() },
 } as any;
@@ -348,8 +370,8 @@ describe("finance router", () => {
   });
 
   it("does not permit a standard user to inspect administrator audit logs", async () => {
-    await expect(appRouter.createCaller(authenticatedContext).admin.auditLogs({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(appRouter.createCaller(authenticatedContext).admin.auditLogExport({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(appRouter.createCaller(authenticatedContext).admin.auditLogs({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(appRouter.createCaller(authenticatedContext).admin.auditLogExport({})).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(financeDb.listAuditLogsPage).not.toHaveBeenCalled();
     expect(financeDb.listAuditLogsForExport).not.toHaveBeenCalled();
   });
@@ -359,7 +381,7 @@ describe("finance router", () => {
     const caller = appRouter.createCaller(administratorContext);
 
     await expect(caller.admin.verifyAccess({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ verified: true });
-    await expect(caller.admin.auditLogs({ password: ENV.adminAccessPassword })).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
+    await expect(caller.admin.auditLogs({})).resolves.toMatchObject({ logs: [{ id: 1, summary: "Transaction created" }], page: 1, pageSize: 25 });
     expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, actorRole: undefined, search: undefined, page: 1, pageSize: 25 });
   });
 
@@ -369,7 +391,7 @@ describe("finance router", () => {
     const from = new Date("2026-08-01T00:00:00.000Z");
     const to = new Date("2026-08-19T23:59:59.999Z");
 
-    await caller.admin.auditLogs({ password: ENV.adminAccessPassword, from, to, actorUserId: 17, actorRole: "user", search: "delete", page: 2 });
+    await caller.admin.auditLogs({ from, to, actorUserId: 17, actorRole: "user", search: "delete", page: 2 });
 
     expect(financeDb.listAuditLogsPage).toHaveBeenCalledWith({ from, to, actorUserId: 17, actorRole: "user", search: "delete", page: 2, pageSize: 25 });
   });
@@ -378,7 +400,7 @@ describe("finance router", () => {
     financeDb.listAuditLogsForExport.mockResolvedValue([{ id: 2, summary: "Transaction deleted" }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.auditLogExport({ password: ENV.adminAccessPassword, actorUserId: 17, actorRole: "user", search: "deleted" })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
+    await expect(caller.admin.auditLogExport({ actorUserId: 17, actorRole: "user", search: "deleted" })).resolves.toEqual([{ id: 2, summary: "Transaction deleted" }]);
     expect(financeDb.listAuditLogsForExport).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: 17, actorRole: "user", search: "deleted" });
   });
 
@@ -386,16 +408,16 @@ describe("finance router", () => {
     financeDb.getAuditLogActivity.mockResolvedValue([{ action: "update", count: 8 }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.auditActivity({ password: ENV.adminAccessPassword, actorRole: "admin" })).resolves.toEqual([{ action: "update", count: 8 }]);
+    await expect(caller.admin.auditActivity({ actorRole: "admin" })).resolves.toEqual([{ action: "update", count: 8 }]);
     expect(financeDb.getAuditLogActivity).toHaveBeenCalledWith({ from: undefined, to: undefined, actorUserId: undefined, actorRole: "admin", search: undefined });
-    await expect(appRouter.createCaller(authenticatedContext).admin.auditActivity({ password: "any-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(appRouter.createCaller(authenticatedContext).admin.auditActivity({})).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("permits a verified administrator to inspect all registered project workspaces", async () => {
     financeDb.listProjectsForAdmin.mockResolvedValue([{ id: 88, name: "দৈনিক লেনদেনের খাতা" }]);
     const caller = appRouter.createCaller(administratorContext);
 
-    await expect(caller.admin.projects({ password: ENV.adminAccessPassword })).resolves.toEqual([{ id: 88, name: "দৈনিক লেনদেনের খাতা" }]);
+    await expect(caller.admin.projects()).resolves.toEqual([{ id: 88, name: "দৈনিক লেনদেনের খাতা" }]);
     expect(financeDb.listProjectsForAdmin).toHaveBeenCalledTimes(1);
   });
 });

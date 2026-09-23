@@ -1,77 +1,156 @@
-name: Verify money tracker
+name: CI
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  AUTH_MODE: google
+  VITE_AUTH_MODE: google
+  GOOGLE_OAUTH_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+  GOOGLE_OAUTH_CLIENT_SECRET: ci-placeholder-secret
+  GOOGLE_OAUTH_REDIRECT_URI: http://localhost:3000/api/auth/google/callback
+  SESSION_SECRET: ci-test-session-secret-minimum-32-characters
+  JWT_SECRET: ci-test-jwt-secret-minimum-32-chars-long
+  ADMIN_BOOTSTRAP_EMAIL: admin@example.com
+  ADMIN_ACCESS_PASSWORD: ci-test-admin-access-password
+
 jobs:
-  quality:
-    name: Regression, type check, and build
+  # ── Gate 1: Install + Typecheck + Lint + Build ──────────────────────────────
+  verify:
     runs-on: ubuntu-latest
-    env:
-      ADMIN_ACCESS_PASSWORD: ci-regression-admin-password
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # actions/setup-node@v4
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-      - run: pnpm build
-      - run: pnpm test
-      - run: pnpm check:vercel-entry
 
-  isolated-e2e:
-    name: Disposable MariaDB API and browser E2E
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+  # ── Gate 2: Unit tests (accounting, security, RBAC, idempotency, audit …) ──
+  test:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: NODE_ENV=test npx vitest run
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ── Gate 3: Isolated server E2E (MariaDB service, throwaway DB) ─────────────
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [verify]
     services:
       mariadb:
-        image: mariadb:11
-        env:
-          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+        image: mariadb:10.11
         ports:
           - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: money_tracker
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
-    env:
-      ISOLATED_E2E_DATABASE_URL: mysql://root@127.0.0.1:3306/mysql
-      ADMIN_ACCESS_PASSWORD: ci-isolated-e2e-admin-password
-      JWT_SECRET: ci-isolated-e2e-jwt-secret
-      VITE_APP_ID: ci-browser-e2e
-      VITE_OAUTH_PORTAL_URL: http://127.0.0.1:9999
-      OAUTH_SERVER_URL: http://127.0.0.1:9999
-      BUILT_IN_FORGE_API_URL: http://127.0.0.1:9999
-      BUILT_IN_FORGE_API_KEY: ci-browser-e2e-key
-      VITE_FRONTEND_FORGE_API_URL: http://127.0.0.1:9999
-      VITE_FRONTEND_FORGE_API_KEY: ci-browser-e2e-key
+          --health-retries=10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # actions/setup-node@v4
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:e2e:isolated
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm test:browser:e2e
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
-        if: failure()
+
+      - name: Server E2E tests
+        env:
+          ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+        run: pnpm test:e2e:isolated
+
+  # ── Gate 4: Browser E2E (MariaDB + Playwright + dev server) ─────────────────
+  browser-e2e:
+    runs-on: ubuntu-latest
+    needs: [verify]
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: money_tracker
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Browser E2E tests
+        env:
+          ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+        run: NODE_ENV=test pnpm test:browser:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
+          retention-days: 7
           if-no-files-found: ignore

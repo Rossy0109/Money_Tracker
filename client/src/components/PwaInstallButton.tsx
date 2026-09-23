@@ -15,7 +15,7 @@ export function PwaInstallButton() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(() => window.matchMedia?.("(display-mode: standalone)").matches ?? false);
   const [showIosHelp, setShowIosHelp] = useState(false);
-  const ios = useMemo(isIosDevice, []);
+  const ios = useMemo(() => isIosDevice(), []);
 
   useEffect(() => {
     const onBeforeInstall = (event: Event) => {

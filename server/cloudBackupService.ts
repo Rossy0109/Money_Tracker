@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import path from "node:path";
 import * as financeDb from "./db";
 import { encryptPayload } from "./scheduledBackup";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import { ENV } from "./_core/env";
+import logger from "./_core/logger";
 
 export interface CloudStorageConfig {
   supabase?: {
@@ -94,7 +97,7 @@ async function uploadToSupabase(
     });
     return response.ok;
   } catch (err) {
-    console.warn("[CloudBackup] Supabase upload error:", err);
+    logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Supabase upload error");
     return false;
   }
 }
@@ -133,7 +136,7 @@ async function uploadToS3(
       );
       return true;
     } catch (err) {
-      console.warn("[CloudBackup] Direct S3 upload error:", err);
+      logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Direct S3 upload error");
     }
   }
 
@@ -155,7 +158,8 @@ async function uploadToS3(
       return false;
     }
   }
-  return true;
+  // Direct S3 upload already failed and no webhook fallback — do not claim success.
+  return false;
 }
 
 /**
@@ -167,24 +171,46 @@ async function uploadToGoogleDrive(
   gdriveConfig: { folderId?: string; webhookConfigured: boolean }
 ): Promise<boolean> {
   const webhook = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.CLOUD_BACKUP_WEBHOOK_URL;
-  if (webhook) {
-    try {
-      const res = await fetch(webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "google_drive",
-          folderId: gdriveConfig.folderId,
-          fileName,
-          payload,
-        }),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+  if (!webhook) {
+    // No delivery channel configured — never claim success.
+    return false;
   }
-  return true;
+  try {
+    const res = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "google_drive",
+        folderId: gdriveConfig.folderId,
+        fileName,
+        payload,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Persist an encrypted snapshot to local disk and verify it by re-reading.
+ * Returns false if the write or verification fails — never fakes success.
+ */
+async function writeLocalEncryptedSnapshot(payload: string, fileName: string): Promise<boolean> {
+  const dir = process.env.LOCAL_BACKUP_DIR || path.join(process.cwd(), "backups");
+  try {
+    await mkdir(dir, { recursive: true });
+    const filePath = path.join(dir, fileName);
+    await writeFile(filePath, payload, "utf8");
+    const readBack = await readFile(filePath, "utf8");
+    return readBack === payload;
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err : new Error(String(err)) },
+      "[CloudBackup] Local encrypted snapshot write failed"
+    );
+    return false;
+  }
 }
 
 /**
@@ -201,7 +227,12 @@ export async function executeCloudBackup(
   const timestamp = new Date().toISOString();
   const safeProjectName = backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) || "project";
 
-  const secret = encryptionKey || ENV.adminAccessPassword || "secure-cloud-backup-key";
+  const secret = encryptionKey || ENV.backupEncryptionKey;
+  if (!secret) {
+    throw new Error(
+      "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি। BACKUP_ENCRYPTION_KEY এনভায়রনমেন্ট ভ্যারিয়েবল সেট করুন।"
+    );
+  }
   const encryptedPayload = encryptPayload(rawJson, secret);
   const finalPayload = JSON.stringify({
     formatVersion: "finance-encrypted-cloud-backup-v1",
@@ -215,8 +246,8 @@ export async function executeCloudBackup(
   const fileName = `${safeProjectName}-backup-${timestamp.slice(0, 10)}-${checksum.slice(0, 8)}.enc.json`;
   const config = getCloudStorageConfig();
 
-  let targetProvider: "supabase" | "s3" | "google_drive" | "local_encrypted" = "local_encrypted";
-  let uploadSuccess = false;
+  let targetProvider: "supabase" | "s3" | "google_drive" | "local_encrypted";
+  let uploadSuccess: boolean;
 
   if (config.supabase?.enabled) {
     targetProvider = "supabase";
@@ -224,22 +255,39 @@ export async function executeCloudBackup(
   } else if (config.s3?.enabled) {
     targetProvider = "s3";
     uploadSuccess = await uploadToS3(finalPayload, fileName, config.s3);
-  } else if (config.googleDrive?.enabled) {
+  } else if (config.googleDrive?.enabled && config.googleDrive.webhookConfigured) {
     targetProvider = "google_drive";
     uploadSuccess = await uploadToGoogleDrive(finalPayload, fileName, config.googleDrive);
+  } else if (config.googleDrive?.enabled) {
+    // Folder id set but no webhook — nothing can actually receive the payload.
+    targetProvider = "google_drive";
+    uploadSuccess = false;
   } else {
-    // If no external remote URL configured, save as verified local encrypted snapshot
+    // No remote provider — write a verified local encrypted snapshot (or fail).
     targetProvider = "local_encrypted";
-    uploadSuccess = true;
+    uploadSuccess = await writeLocalEncryptedSnapshot(finalPayload, fileName);
   }
 
-  // Audit log the cloud backup
+  const { countProjectRecords } = await import("./backupDb");
+  const recordCounts = await countProjectRecords(userId, projectId).catch(() => null);
+
+  // Audit log the cloud backup — only claim created when the payload was stored.
   await financeDb.logAudit({
     actorUserId: userId,
     projectId,
-    action: "create",
-    entityType: "cloud_backup",
-    summary: `Cloud backup executed (${targetProvider}): ${fileName} (SHA-256: ${checksum.slice(0, 10)}...)`,
+    action: uploadSuccess ? "backup_created" : "update",
+    entityType: uploadSuccess ? "cloud_backup" : "cloud_backup_failed",
+    summary: uploadSuccess
+      ? `Cloud backup executed (${targetProvider}): ${fileName} (SHA-256: ${checksum.slice(0, 10)}...)`
+      : `Cloud backup FAILED (${targetProvider}): ${fileName} was not stored`,
+    newData: {
+      fileName,
+      checksum,
+      provider: targetProvider,
+      byteSize: Buffer.byteLength(finalPayload),
+      recordCounts,
+      uploadSuccess,
+    },
   });
 
   return {
@@ -254,6 +302,6 @@ export async function executeCloudBackup(
     projectId,
     message: uploadSuccess
       ? `ক্লাউড ব্যাকআপ সফলভাবে সম্পন্ন হয়েছে (${targetProvider})`
-      : `ক্লাউড স্টোরেজে আপলোড ব্যর্থ হয়েছে`,
+      : `ক্লাউড স্টোরেজে আপলোড ব্যর্থ হয়েছে (${targetProvider}: কোনো সঠিক স্টোরেজ কনফিগারেশন নেই বা লেখা ব্যর্থ)`,
   };
 }

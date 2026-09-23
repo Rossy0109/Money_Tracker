@@ -21,7 +21,6 @@ import {
   Trash2,
   TrendingUp,
   SlidersHorizontal,
-  CheckCircle2,
 } from "lucide-react";
 
 export default function Inventory() {
@@ -29,8 +28,6 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [onlyLowStock, setOnlyLowStock] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [adjustItem, setAdjustItem] = useState<any | null>(null);
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustType, setAdjustType] = useState<"in" | "out">("in");
   const [adjustReason, setAdjustReason] = useState("");
@@ -52,6 +49,10 @@ export default function Inventory() {
     { projectId: activeProjectId! },
     { enabled: !!activeProjectId }
   );
+
+  type InventoryItem = NonNullable<typeof inventoryQuery.data>[number];
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
 
   const createMutation = trpc.finance.createInventoryItem.useMutation({
     onSuccess: () => {
@@ -104,7 +105,7 @@ export default function Inventory() {
     setNotes("");
   };
 
-  const openEditModal = (item: any) => {
+  const openEditModal = (item: InventoryItem) => {
     setEditingItem(item);
     setName(item.name);
     setSku(item.sku || "");
@@ -186,10 +187,6 @@ export default function Inventory() {
   // Analytics
   const totalStockValue = items.reduce(
     (sum, item) => sum + (Number(item.currentStock) * Number(item.purchasePrice) || 0),
-    0
-  );
-  const totalPotentialRevenue = items.reduce(
-    (sum, item) => sum + (Number(item.currentStock) * Number(item.sellingPrice) || 0),
     0
   );
   const lowStockCount = items.filter(

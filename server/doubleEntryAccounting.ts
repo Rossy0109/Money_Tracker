@@ -47,6 +47,15 @@ export interface TrialBalanceReport {
   isBalanced: boolean;
 }
 
+/** Convert a money value to integer cents (avoids float accumulation error). */
+function toCents(value: number): number {
+  return Math.round(value * 100);
+}
+
+function fromCents(cents: number): number {
+  return cents / 100;
+}
+
 export function generateDoubleEntryStatements(params: {
   accounts: Array<{ id: number; name: string; type: string; currentBalance: string | number }>;
   transactions: Array<{ type: "income" | "expense"; amount: string | number; categoryName: string; occurredAt: Date }>;
@@ -58,32 +67,40 @@ export function generateDoubleEntryStatements(params: {
 } {
   const { accounts, transactions, dues } = params;
 
-  // 1. Profit & Loss Computation
-  let operatingRevenue = 0;
-  let operatingExpenses = 0;
-  const revenueMap = new Map<string, number>();
-  const expenseMap = new Map<string, number>();
+  // 1. Profit & Loss Computation (integer cents)
+  let operatingRevenueCents = 0;
+  let operatingExpensesCents = 0;
+  const revenueCentsMap = new Map<string, number>();
+  const expenseCentsMap = new Map<string, number>();
 
   for (const tx of transactions) {
-    const amt = Number(tx.amount) || 0;
+    const amtCents = toCents(Number(tx.amount) || 0);
     if (tx.type === "income") {
-      operatingRevenue += amt;
-      revenueMap.set(tx.categoryName, (revenueMap.get(tx.categoryName) ?? 0) + amt);
+      operatingRevenueCents += amtCents;
+      revenueCentsMap.set(tx.categoryName, (revenueCentsMap.get(tx.categoryName) ?? 0) + amtCents);
     } else {
-      operatingExpenses += amt;
-      expenseMap.set(tx.categoryName, (expenseMap.get(tx.categoryName) ?? 0) + amt);
+      operatingExpensesCents += amtCents;
+      expenseCentsMap.set(tx.categoryName, (expenseCentsMap.get(tx.categoryName) ?? 0) + amtCents);
     }
   }
 
-  const grossProfit = operatingRevenue; // For service/SME, gross profit equals revenue minus direct costs
-  const netProfit = operatingRevenue - operatingExpenses;
+  // No COGS dimension in this simplified ledger — costOfGoods stays 0.
+  const costOfGoodsCents = 0;
+  const grossProfitCents = operatingRevenueCents - costOfGoodsCents;
+  const netProfitCents = operatingRevenueCents - operatingExpensesCents;
 
-  const revenueCategories = Array.from(revenueMap.entries()).map(([name, amount]) => ({ name, amount }));
-  const expenseCategories = Array.from(expenseMap.entries()).map(([name, amount]) => ({ name, amount }));
+  const operatingRevenue = fromCents(operatingRevenueCents);
+  const operatingExpenses = fromCents(operatingExpensesCents);
+  const costOfGoods = fromCents(costOfGoodsCents);
+  const grossProfit = fromCents(grossProfitCents);
+  const netProfit = fromCents(netProfitCents);
+
+  const revenueCategories = Array.from(revenueCentsMap.entries()).map(([name, amount]) => ({ name, amount: fromCents(amount) }));
+  const expenseCategories = Array.from(expenseCentsMap.entries()).map(([name, amount]) => ({ name, amount: fromCents(amount) }));
 
   const profitAndLoss: ProfitAndLossReport = {
     operatingRevenue,
-    costOfGoods: 0,
+    costOfGoods,
     grossProfit,
     operatingExpenses,
     netProfit,
@@ -91,25 +108,39 @@ export function generateDoubleEntryStatements(params: {
     expenseCategories,
   };
 
-  // 2. Balance Sheet Computation
-  const cashAndBank = accounts.reduce((sum, acc) => sum + Number(acc.currentBalance || 0), 0);
-  const accountsReceivable = dues
+  // 2. Balance Sheet Computation (integer cents)
+  const cashAndBankCents = accounts.reduce((sum, acc) => sum + toCents(Number(acc.currentBalance || 0)), 0);
+  const accountsReceivableCents = dues
     .filter(due => due.type === "receivable")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount || 0), 0);
-  const accountsPayable = dues
+    .reduce((sum, due) => sum + toCents(Number(due.outstandingAmount || 0)), 0);
+  const accountsPayableCents = dues
     .filter(due => due.type === "debt")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount || 0), 0);
+    .reduce((sum, due) => sum + toCents(Number(due.outstandingAmount || 0)), 0);
 
-  const totalCurrentAssets = cashAndBank + accountsReceivable;
-  const totalAssets = totalCurrentAssets;
-  const totalCurrentLiabilities = accountsPayable;
-  const totalLiabilities = totalCurrentLiabilities;
+  const totalCurrentAssetsCents = cashAndBankCents + accountsReceivableCents;
+  const totalAssetsCents = totalCurrentAssetsCents;
+  const totalCurrentLiabilitiesCents = accountsPayableCents;
+  const totalLiabilitiesCents = totalCurrentLiabilitiesCents;
 
-  const currentPeriodProfit = netProfit;
-  const retainedEarnings = totalAssets - totalLiabilities - currentPeriodProfit;
-  const totalEquity = retainedEarnings + currentPeriodProfit;
+  const currentPeriodProfitCents = netProfitCents;
+  // Residual equity (not a fake plug for trial balance): Assets − Liabilities − current profit.
+  const retainedEarningsCents = totalAssetsCents - totalLiabilitiesCents - currentPeriodProfitCents;
+  const totalEquityCents = retainedEarningsCents + currentPeriodProfitCents;
 
-  const isBalanced = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
+  // Balance-sheet identity check on exact cents (A = L + E).
+  const isBalanced =
+    totalAssetsCents === totalLiabilitiesCents + totalEquityCents;
+
+  const cashAndBank = fromCents(cashAndBankCents);
+  const accountsReceivable = fromCents(accountsReceivableCents);
+  const accountsPayable = fromCents(accountsPayableCents);
+  const totalCurrentAssets = fromCents(totalCurrentAssetsCents);
+  const totalAssets = fromCents(totalAssetsCents);
+  const totalCurrentLiabilities = fromCents(totalCurrentLiabilitiesCents);
+  const totalLiabilities = fromCents(totalLiabilitiesCents);
+  const currentPeriodProfit = fromCents(currentPeriodProfitCents);
+  const retainedEarnings = fromCents(retainedEarningsCents);
+  const totalEquity = fromCents(totalEquityCents);
 
   const balanceSheet: BalanceSheetReport = {
     currentAssets: {
@@ -131,61 +162,52 @@ export function generateDoubleEntryStatements(params: {
     isBalanced,
   };
 
-  // 3. Trial Balance Computation
+  // 3. Trial Balance Computation — NO artificial equity plug force-added to totals.
+  //    isBalanced reflects the real debit/credit totals (exact cents).
   const items: TrialBalanceItem[] = [];
-  let totalDebit = 0;
-  let totalCredit = 0;
+  let totalDebitCents = 0;
+  let totalCreditCents = 0;
 
   // Assets (Debit balance)
   accounts.forEach(acc => {
-    const bal = Number(acc.currentBalance || 0);
-    if (bal >= 0) {
-      items.push({ accountName: `${acc.name} (Wallet/Bank)`, type: "asset", debit: bal, credit: 0 });
-      totalDebit += bal;
+    const balCents = toCents(Number(acc.currentBalance || 0));
+    if (balCents >= 0) {
+      items.push({ accountName: `${acc.name} (Wallet/Bank)`, type: "asset", debit: fromCents(balCents), credit: 0 });
+      totalDebitCents += balCents;
     } else {
-      items.push({ accountName: `${acc.name} (Overdraft)`, type: "liability", debit: 0, credit: Math.abs(bal) });
-      totalCredit += Math.abs(bal);
+      items.push({ accountName: `${acc.name} (Overdraft)`, type: "liability", debit: 0, credit: fromCents(-balCents) });
+      totalCreditCents += -balCents;
     }
   });
 
-  if (accountsReceivable > 0) {
+  if (accountsReceivableCents > 0) {
     items.push({ accountName: "Accounts Receivable (পাওনা)", type: "asset", debit: accountsReceivable, credit: 0 });
-    totalDebit += accountsReceivable;
+    totalDebitCents += accountsReceivableCents;
   }
 
   // Liabilities (Credit balance)
-  if (accountsPayable > 0) {
+  if (accountsPayableCents > 0) {
     items.push({ accountName: "Accounts Payable (দেনা)", type: "liability", debit: 0, credit: accountsPayable });
-    totalCredit += accountsPayable;
+    totalCreditCents += accountsPayableCents;
   }
 
   // Revenue (Credit balance)
-  if (operatingRevenue > 0) {
+  if (operatingRevenueCents > 0) {
     items.push({ accountName: "Sales & Operating Revenue (আয়)", type: "revenue", debit: 0, credit: operatingRevenue });
-    totalCredit += operatingRevenue;
+    totalCreditCents += operatingRevenueCents;
   }
 
   // Expenses (Debit balance)
-  if (operatingExpenses > 0) {
+  if (operatingExpensesCents > 0) {
     items.push({ accountName: "Operating Expenses (ব্যয়)", type: "expense", debit: operatingExpenses, credit: 0 });
-    totalDebit += operatingExpenses;
-  }
-
-  // Equity / Balancing Entry
-  const equityBalance = Math.abs(totalDebit - totalCredit);
-  if (totalDebit > totalCredit) {
-    items.push({ accountName: "Owner's Equity & Retained Capital", type: "equity", debit: 0, credit: equityBalance });
-    totalCredit += equityBalance;
-  } else if (totalCredit > totalDebit) {
-    items.push({ accountName: "Owner's Drawings / Loss Offset", type: "equity", debit: equityBalance, credit: 0 });
-    totalDebit += equityBalance;
+    totalDebitCents += operatingExpensesCents;
   }
 
   const trialBalance: TrialBalanceReport = {
     items,
-    totalDebit,
-    totalCredit,
-    isBalanced: Math.abs(totalDebit - totalCredit) < 0.01,
+    totalDebit: fromCents(totalDebitCents),
+    totalCredit: fromCents(totalCreditCents),
+    isBalanced: totalDebitCents === totalCreditCents,
   };
 
   return {

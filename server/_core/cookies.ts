@@ -2,24 +2,26 @@ import type { CookieOptions, Request } from "express";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
-function isIpAddress(host: string) {
-  // Basic IPv4 check and IPv6 presence detection.
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true;
-  return host.includes(":");
-}
-
 export function isSecureRequest(req?: Request) {
   if (!req) return false;
   if (req.protocol === "https") return true;
 
   const forwardedProto = req.headers?.["x-forwarded-proto"];
-  if (!forwardedProto) return false;
+  if (forwardedProto) {
+    const protoList = Array.isArray(forwardedProto)
+      ? forwardedProto
+      : forwardedProto.split(",");
+    if (protoList.some(proto => proto.trim().toLowerCase() === "https")) {
+      return true;
+    }
+  }
 
-  const protoList = Array.isArray(forwardedProto)
-    ? forwardedProto
-    : forwardedProto.split(",");
-
-  return protoList.some(proto => proto.trim().toLowerCase() === "https");
+  // Loopback origins are trustworthy transport. Browsers permit Secure cookies
+  // (including `__Host-` prefixed ones) on http://localhost, so the dev server
+  // must mark them Secure for the OAuth transaction cookie to survive the
+  // provider round trip locally.
+  const hostname = typeof req.hostname === "string" ? req.hostname.toLowerCase() : "";
+  return LOCAL_HOSTS.has(hostname) || LOCAL_HOSTS.has(hostname.replace(/^\[|\]$/g, ""));
 }
 
 export function getSessionCookieOptions(
@@ -43,7 +45,7 @@ export function getSessionCookieOptions(
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
+    sameSite: "lax",
     secure: isSecureRequest(req),
   };
 }

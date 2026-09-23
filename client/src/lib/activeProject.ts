@@ -40,6 +40,7 @@ export function useActiveProject() {
 
   useEffect(() => {
     if (projects.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- validate sessionStorage selection after async project list loads (cannot derive during render without impure storage reads)
       setActiveProjectId((current) => {
         const next = resolveActiveProjectId(
           projects.map((p) => p.id),

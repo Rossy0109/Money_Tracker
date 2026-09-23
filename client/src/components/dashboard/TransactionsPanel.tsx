@@ -1,12 +1,17 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ListFilter } from "lucide-react";
+import { Plus, Pencil, Printer, Trash2, ChevronLeft, ChevronRight, Search, ListFilter } from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../../server/routers";
 
 const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 const ROW_HEIGHT = 48; // px height per row
+
+type TransactionRow =
+  inferRouterOutputs<AppRouter>["finance"]["overview"]["transactions"][number];
 
 export function TransactionsPanel({
   rows,
@@ -15,13 +20,15 @@ export function TransactionsPanel({
   onAdd,
   onEdit,
   onDelete,
+  onVoucher,
 }: {
-  rows: any[];
+  rows: TransactionRow[];
   filter: "all" | "income" | "expense";
   setFilter: (value: "all" | "income" | "expense") => void;
   onAdd: () => void;
-  onEdit: (row: any) => void;
+  onEdit: (row: TransactionRow) => void;
   onDelete: (id: number) => void;
+  onVoucher?: (row: TransactionRow) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,6 +65,7 @@ export function TransactionsPanel({
 
   const visibleVirtualRows = useMemo(() => {
     if (!isVirtualMode) return paginatedRows;
+    // eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual exposes startIndex/endIndex as refs
     return filteredRows.slice(virtualizer.startIndex, virtualizer.endIndex + 1);
   }, [isVirtualMode, filteredRows, paginatedRows, virtualizer.startIndex, virtualizer.endIndex]);
 
@@ -123,6 +131,7 @@ export function TransactionsPanel({
       </div>
 
       <div
+        // eslint-disable-next-line react-hooks/refs
         ref={virtualizer.containerRef}
         className={`mt-5 overflow-x-auto ${isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}`}
       >
@@ -141,7 +150,7 @@ export function TransactionsPanel({
           </thead>
           <tbody>
             {visibleVirtualRows.length ? (
-              visibleVirtualRows.map((row, idx) => (
+              visibleVirtualRows.map((row, _idx) => (
                 <tr
                   key={row.id}
                   className="border-b border-[#edf1ee] hover:bg-[#fbfdfb] transition-colors"
@@ -177,6 +186,16 @@ export function TransactionsPanel({
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex justify-end gap-2">
+                      {onVoucher && (
+                        <button
+                          onClick={() => onVoucher(row)}
+                          aria-label="ভাউচার প্রিন্ট"
+                          title="ভাউচার দেখুন ও প্রিন্ট করুন"
+                          className="text-[#577d6e] hover:text-[#184438] p-1"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(row)}
                         aria-label="সম্পাদনা"

@@ -1,39 +1,169 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
+import { useSidebar } from "@/components/ui/sidebar-context";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, LogOut, Plus, Receipt, ReceiptText, RefreshCw, Tags, UserCheck, Users, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards, type LucideIcon } from "lucide-react";
+import { isAdminUser, isInputOnlyUser, hasPermission, getDisplayRole, type AuthGatingUser } from "@/lib/rbac";
 
 interface MenuItem {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   href: string;
-  adminOnly?: boolean;
+  permission?: string;
 }
 
 const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/" },
-  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions" },
-  { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger" },
-  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll" },
-  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices" },
-  { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory" },
-  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements" },
-  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator" },
-  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts" },
-  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets" },
-  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights" },
-  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation" },
-  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family" },
-  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", adminOnly: true },
-  { icon: Tags, label: "ক্যাটাগরি", href: "/categories" },
-  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account" },
+  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/", permission: "accounting.read" },
+  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions", permission: "accounting.read" },
+  { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts", permission: "accounting.read" },
+  { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock", permission: "accounting.read" },
+  { icon: RotateCcw, label: "ভাউচার রিভার্সাল", href: "/voucher-reversal", permission: "voucher.read" },
+  { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger", permission: "accounting.read" },
+  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll", permission: "payroll.read" },
+  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices", permission: "accounting.read" },
+  { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory", permission: "accounting.read" },
+  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements", permission: "reports.view" },
+  { icon: Printer, label: "রিপোর্ট ও প্রিন্ট", href: "/reports", permission: "reports.view" },
+  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator", permission: "accounting.read" },
+  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts", permission: "accounting.read" },
+  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets", permission: "budget.read" },
+  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights", permission: "accounting.read" },
+  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation", permission: "accounting.read" },
+  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family", permission: "accounting.read" },
+  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", permission: "backup.view" },
+  { icon: Tags, label: "ক্যাটাগরি", href: "/categories", permission: "accounting.read" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
 ];
+
+const inputOnlyMenuItems: MenuItem[] = [
+  { icon: ReceiptText, label: "লেনদেন যোগ করুন", href: "/#transactions", permission: "accounting.create" },
+  { icon: WalletCards, label: "অ্যাকাউন্ট যোগ করুন", href: "/#accounts", permission: "accounting.create" },
+  { icon: ChartNoAxesCombined, label: "বাজেট যোগ করুন", href: "/#budgets", permission: "budget.create" },
+  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
+];
+
+function DashboardSidebarContent({
+  visibleMenuItems,
+  logoUrl,
+  user,
+  logout,
+}: {
+  visibleMenuItems: MenuItem[];
+  logoUrl: string | null;
+  user: AuthGatingUser;
+  logout: () => void;
+}) {
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  const handleNavClick = (href: string) => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+    // Handle in-page hash links smoothly if already on home
+    if (href.startsWith("/#") && window.location.pathname === "/") {
+      const targetId = href.replace("/#", "");
+      const elem = document.getElementById(targetId);
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  };
+
+  return (
+    <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
+      <SidebarHeader className="h-20 justify-center px-3">
+        <a
+          href="/"
+          onClick={() => handleNavClick("/")}
+          className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]"
+        >
+          <img
+            src={logoUrl || "/logo.png"}
+            alt="Ahmed's Financial Accounting"
+            className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+          <span className="group-data-[collapsible=icon]:hidden">
+            <span className="block text-sm font-bold tracking-wide">Ahmed's Financial</span>
+            <span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span>
+          </span>
+        </a>
+      </SidebarHeader>
+      <SidebarContent className="px-2 py-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip="নতুন লেনদেন যোগ করুন"
+              className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]"
+            >
+              <a href="/#transactions" onClick={() => handleNavClick("/#transactions")}>
+                <Plus className="h-4.5 w-4.5" />
+                <span>লেনদেন যোগ করুন</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          {visibleMenuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton
+                asChild
+                tooltip={item.label}
+                className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-[#d8f2dd] data-[active=true]:text-[#113a30]"
+              >
+                <a href={item.href} onClick={() => handleNavClick(item.href)}>
+                  <item.icon className="h-4.5 w-4.5" />
+                  <span>{item.label}</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+      <SidebarFooter className="p-3">
+        <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5 space-y-2">
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 border border-white/20">
+              <AvatarFallback className="bg-[#285d4e] text-xs text-white">
+                {(user.name || user.email || "U").charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
+                <span
+                  className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
+                    isAdminUser(user)
+                      ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30"
+                      : isInputOnlyUser(user)
+                      ? "bg-amber-400/25 text-amber-200 border border-amber-400/30"
+                      : "bg-white/15 text-[#b9d2c2]"
+                  }`}
+                >
+                  {getDisplayRole(user)}
+                </span>
+              </div>
+              <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
+            </div>
+            <button
+              onClick={logout}
+              aria-label="সাইন আউট"
+              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user, logout } = useAuth();
@@ -65,51 +195,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || user.role === "admin");
+  const isInputOnly = isInputOnlyUser(user);
+  const visibleMenuItems = isInputOnly
+    ? inputOnlyMenuItems
+    : menuItems.filter(item => !item.permission || hasPermission(user, item.permission));
 
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
-        <SidebarHeader className="h-20 justify-center px-3">
-          <a href="/" className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]">
-            <img src={logoUrl || "/logo.png"} alt="Ahmed's Financial Accounting" className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
-            <span className="group-data-[collapsible=icon]:hidden"><span className="block text-sm font-bold tracking-wide">Ahmed's Financial</span><span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span></span>
-          </a>
-        </SidebarHeader>
-        <SidebarContent className="px-2 py-3">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="নতুন লেনদেন যোগ করুন" className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]">
-                <a href="/#transactions"><Plus className="h-4.5 w-4.5" /><span>লেনদেন যোগ করুন</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {visibleMenuItems.map(item => <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild tooltip={item.label} className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-[#d8f2dd] data-[active=true]:text-[#113a30]">
-                <a href={item.href}><item.icon className="h-4.5 w-4.5" /><span>{item.label}</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>)}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter className="p-3">
-          <div className="rounded-xl bg-white/8 p-2.5 group-data-[collapsible=icon]:p-1.5 space-y-2">
-            <div className="flex items-center gap-2.5">
-              <Avatar className="h-8 w-8 border border-white/20"><AvatarFallback className="bg-[#285d4e] text-xs text-white">{(user.name || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${user.role === "admin" ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30" : "bg-white/15 text-[#b9d2c2]"}`}>
-                    {user.role === "admin" ? "Admin" : "User"}
-                  </span>
-                </div>
-                <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
-              </div>
-              <button onClick={logout} aria-label="সাইন আউট" className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"><LogOut className="h-4 w-4" /></button>
-            </div>
-          </div>
-        </SidebarFooter>
-      </Sidebar>
+      <DashboardSidebarContent
+        visibleMenuItems={visibleMenuItems}
+        logoUrl={logoUrl}
+        user={user}
+        logout={logout}
+      />
       <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
-        <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 lg:hidden">
+        <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 md:hidden">
           <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
           <img src={logoUrl || "/logo.png"} alt="Logo" className="ml-1 h-7 w-7 rounded-lg object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
           <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">Ahmed's Financial</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
