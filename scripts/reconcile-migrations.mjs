@@ -242,6 +242,7 @@ async function run() {
     await reconcileFile(conn, "0014_rbac_and_idempotency.sql");
     await reconcileFile(conn, "0015_fk-restrict-financial-history.sql");
     await reconcileFile(conn, "0016_schema_drift_repair.sql");
+    await reconcileFile(conn, "0017_missing_indexes.sql");
     await report(conn);
     console.log(
       dryRun
