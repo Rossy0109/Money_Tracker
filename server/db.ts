@@ -5048,6 +5048,70 @@ export async function processScheduledBillReminder(
   return { reminded: true, skipped: false };
 }
 
+/**
+ * Daily sweep: generate runs for EVERY due active recurring template.
+ * Replaces per-task heartbeat jobs — Vercel Cron invokes this without any
+ * taskUid. generateRecurringRuns is idempotent per run-key, and one bad
+ * template never aborts the sweep (counted in `failed`).
+ */
+export async function processRecurringSweep(now = new Date()) {
+  const db = databaseRequired(await getDb());
+  const due = await db
+    .select()
+    .from(financeRecurringTransactions)
+    .where(
+      and(
+        eq(financeRecurringTransactions.isActive, true),
+        lte(financeRecurringTransactions.nextRunAt, now)
+      )
+    );
+  let templates = 0;
+  let created = 0;
+  let failed = 0;
+  for (const template of due) {
+    try {
+      const result = await generateRecurringRuns(template, now);
+      created += result.created;
+      templates += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  return { templates, created, failed };
+}
+
+/**
+ * Daily sweep: stamp lastReminderAt on EVERY unpaid bill whose reminder
+ * window has opened. At most one stamp per bill per day, so overlapping or
+ * retried cron invocations stay idempotent.
+ */
+export async function processBillReminderSweep(now = new Date()) {
+  const db = databaseRequired(await getDb());
+  const startOfToday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  const unpaid = await db
+    .select()
+    .from(financeBills)
+    .where(eq(financeBills.isPaid, false));
+  let checked = 0;
+  let reminded = 0;
+  for (const bill of unpaid) {
+    const reminderDueAt = new Date(
+      bill.dueAt.getTime() - bill.reminderDaysBefore * 86_400_000
+    );
+    if (now < reminderDueAt) continue;
+    if (bill.lastReminderAt && bill.lastReminderAt >= startOfToday) continue;
+    checked += 1;
+    await db
+      .update(financeBills)
+      .set({ lastReminderAt: now })
+      .where(eq(financeBills.id, bill.id));
+    reminded += 1;
+  }
+  return { checked, reminded };
+}
+
 export async function exportUserData(userId: number) {
   const db = databaseRequired(await getDb());
   const [projects, accounts, categories, transactions, budgets, bills] =

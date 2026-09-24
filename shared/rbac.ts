@@ -219,6 +219,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     "audit.read",
     "audit.export",
     "backup.view",
+    "backup.create",
+    "backup.restore",
     "reports.view",
     "reports.export",
   ],

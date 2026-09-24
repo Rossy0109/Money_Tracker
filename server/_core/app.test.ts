@@ -126,6 +126,28 @@ describe("Vercel-compatible Express application", () => {
     vi.unstubAllEnvs();
   });
 
+  it("rejects unauthorized access to /api/scheduled/daily-sweep", async () => {
+    const app = createApiApp();
+    const server = createServer(app);
+    servers.push(server);
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/daily-sweep`, {
+      method: "GET",
+    });
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "নির্ধারিত দৈনিক যাচাই চালানো যায়নি",
+    });
+  });
+
   it("rejects unauthorized access to /api/scheduled/finance-backup", async () => {
     const app = createApiApp();
     const server = createServer(app);
@@ -192,6 +214,7 @@ describe("Vercel-compatible Express application", () => {
     for (const path of [
       "/api/scheduled/finance-recurring",
       "/api/scheduled/finance-bill-reminder",
+      "/api/scheduled/daily-sweep",
     ]) {
       const scheduledGet = await fetch(`http://127.0.0.1:${address.port}${path}`, {
         method: "GET",
