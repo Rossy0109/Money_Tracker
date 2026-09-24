@@ -32,6 +32,10 @@
     {
       "path": "/api/scheduled/finance-backup",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/scheduled/daily-sweep",
+      "schedule": "0 1 * * *"
     }
   ]
 }
