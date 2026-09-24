@@ -1,0 +1,60 @@
+name: DB Schema Reconcile (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run prints the plan without writing; apply executes it"
+        required: true
+        default: "dry-run"
+        type: choice
+        options:
+          - dry-run
+          - apply
+      confirm:
+        description: 'Required only for apply: type APPLY-TO-PROD to confirm'
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: db-schema-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile production schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run schema reconciliation
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PROD_DATABASE_URL secret is not set on GitHub (repo Settings → Secrets → Actions)."
+            echo "Copy it from Vercel project Settings → Environment Variables → DATABASE_URL (Production)."
+            echo "Never paste database credentials into code, logs, or chat."
+            exit 1
+          fi
+          if [ "${{ inputs.mode }}" = "apply" ]; then
+            if [ "${{ inputs.confirm }}" != "APPLY-TO-PROD" ]; then
+              echo "Refusing to apply: type APPLY-TO-PROD in the confirm field."
+              exit 1
+            fi
+            node scripts/reconcile-migrations.mjs
+          else
+            node scripts/reconcile-migrations.mjs --dry-run
+          fi
