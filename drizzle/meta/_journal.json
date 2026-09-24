@@ -120,6 +120,13 @@
       "when": 1790215663169,
       "tag": "0016_schema_drift_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1790232846507,
+      "tag": "0017_missing_indexes",
+      "breakpoints": true
     }
   ]
 }
