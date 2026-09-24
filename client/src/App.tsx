@@ -7,6 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
 const Home = lazy(() => import("./pages/Home"));
+const Vouchers = lazy(() => import("./pages/Vouchers"));
 const Account = lazy(() => import("./pages/Account"));
 const FinanceInsights = lazy(() => import("./pages/FinanceInsights"));
 const FinanceAutomation = lazy(() => import("./pages/FinanceAutomation"));
@@ -29,6 +30,7 @@ function Router() {
     <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><div className="animate-pulse font-semibold text-sm">লোড হচ্ছে...</div></div>}>
       <Switch>
         <Route path={"/"} component={Home} />
+        <Route path={"/vouchers"} component={Vouchers} />
         <Route path={"/account"} component={Account} />
 <Route path={"/party-ledger"} component={PartyLedger} />
 <Route path={"/payroll"} component={Payroll} />
