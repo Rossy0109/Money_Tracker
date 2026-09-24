@@ -187,7 +187,7 @@ describe("Invariant 9: Failed multi-step posting rolls back completely", () => {
     const start = s.indexOf("export async function postVoucher(");
     const end = s.indexOf("\nexport async function ", start + 1);
     const fn = s.slice(start, end === -1 ? undefined : end);
-    expect(fn).toContain("postVoucherInternals(tx,");
+    expect(fn.replace(/\s+/g, "")).toContain("postVoucherInternals(tx,userId,projectId,voucherId,debitInput,creditInput)");
   });
 });
 

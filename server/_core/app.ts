@@ -7,7 +7,11 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { runScheduledBillReminder, runScheduledRecurring } from "../scheduledFinance";
+import {
+  runScheduledBillReminder,
+  runScheduledRecurring,
+  runDailySweep,
+} from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
 import { ENV } from "./env";
 import logger from "./logger";
@@ -239,6 +243,7 @@ export function createApiApp() {
   app.all("/api/scheduled/finance-recurring", runScheduledRecurring);
   app.all("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
   app.all("/api/scheduled/finance-backup", runScheduledBackup);
+  app.all("/api/scheduled/daily-sweep", runDailySweep);
   app.use(
     "/api/trpc",
     createExpressMiddleware({
