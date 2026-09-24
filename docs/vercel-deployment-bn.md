@@ -38,6 +38,24 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 | `OWNER_OPEN_ID` | owner bootstrap metadata | minimal approved metadata |
 | `ADMIN_ACCESS_PASSWORD` | administrator access guard | আলাদা, secret value |
 
+### Preview environment বর্তমান অবস্থা (2026-09-24 যাচাই)
+
+Preview scope-এ বর্তমানে শুধু `ADMIN_BOOTSTRAP_EMAIL` ও `ADMIN_ACCESS_PASSWORD`
+আছে। `DATABASE_URL`, `AUTH_MODE`/`VITE_AUTH_MODE`, Google OAuth ও session
+secret না থাকায় PR preview-এ API boot-এ FATAL হয়ে 500 দেয় (static SPA shell
+লোড হলেও সব `/api/*` ব্যর্থ)। অর্থাৎ preview এখন UI shell review-এর বেশি
+কিছু নয় — কার্যকর preview-এর জন্য নিচের checklist পূরণ করতে হবে।
+
+### Preview চালু করার checklist (staging DB + secrets)
+
+1. খালি TiDB Cloud staging cluster তৈরি করুন (production data কখনো নয়)।
+2. Preview scope-এ বসান: `DATABASE_URL` (staging), `AUTH_MODE` +
+   `VITE_AUTH_MODE` (একই মান), `SESSION_SECRET` + `JWT_SECRET` (production
+   থেকে আলাদা random), Google OAuth Preview-only client + exact callback URI।
+3. `CRON_SECRET` Preview-এ দেবেন না (Vercel Cron শুধু production-এ চলে)।
+4. PR preview-এ `GET /api/healthz` 200 নিশ্চিত করুন; blank-profile ছাড়া
+   finance data পরীক্ষা করবেন না।
+
 ### Provider-neutral Preview variables
 
 নিচের নামগুলো provider-neutral adapter-এর জন্য। কোনো value এই repository-তে, browser variable-এ, বা chat-এ লেখা যাবে না।
