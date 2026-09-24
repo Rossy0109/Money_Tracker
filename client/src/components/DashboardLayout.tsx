@@ -19,6 +19,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/", permission: "accounting.read" },
+  { icon: ReceiptText, label: "ভাউচার", href: "/vouchers", permission: "voucher.read" },
   { icon: ReceiptText, label: "লেনদেন", href: "/#transactions", permission: "accounting.read" },
   { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts", permission: "accounting.read" },
   { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock", permission: "accounting.read" },
