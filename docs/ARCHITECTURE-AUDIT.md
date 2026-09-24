@@ -130,13 +130,13 @@
 |----------|------------|------|
 | **Overview/Analytics** | `overview`, `budgetPlan`, `analytics`, `automationOverview`, `monthlyReport` | protected |
 | **Transactions** | `searchTransactions`, `paginatedTransactions` | protected |
-| **Vouchers (NEW)** | `createVoucher` | **inputOnly** |
+| **Vouchers** | `createVoucher`, `voucherList`, `submitVoucher`, `approveVoucher`, `postVoucher`, `reverseVoucher` (+ `/vouchers` UI) | **inputOnly** |
 | **Legacy Transactions** | `addTransaction`, `updateTransaction`, `deleteTransaction` | inputOnly / protected |
 | **Dues** | `addDue`, `settleDue` | inputOnly / protected |
 | **Accounts** | `addAccount`, `updateAccount`, `deleteAccount` | inputOnly / protected |
 | **Budgets** | `saveBudget` | inputOnly |
 | **Bills** | `addBill`, `updateBill`, `setBillPaid`, `deleteBill`, `enableBillReminder` | inputOnly / protected |
-| **Recurring** | `addRecurringTemplate`, `setRecurringActive`, `generateRecurringNow`, `enableRecurringSchedule` | inputOnly / protected |
+| **Recurring** | `addRecurringTemplate`, `setRecurringActive`, `generateRecurringNow` (+ daily-sweep cron, no per-task scheduler) | inputOnly / protected |
 | **Voucher Settings** | `voucherSettings`, `saveVoucherSettings`, `voucherPrint` | protected |
 | **Statements** | `statementData`, `financialStatements`, `firmProfile`, `saveFirmProfile` | protected |
 | **Households** | `households`, `householdInvitations`, `createHousehold`, `householdOverview`, `inviteHouseholdMember`, `acceptHouseholdInvitation`, `updateHouseholdMember`, `saveSharedHouseholdBudget`, `addSharedHouseholdExpense` | protected |
