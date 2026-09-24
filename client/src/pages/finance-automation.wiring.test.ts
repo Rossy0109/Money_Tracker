@@ -7,7 +7,7 @@ const sidebarSource = readFileSync(resolve(process.cwd(), "client/src/components
 
 describe("finance automation workspace wiring", () => {
   it("uses the selected project for recurring templates, reminders, and debt or receivable ageing", () => {
-    expect(automationSource).toContain("trpc.finance.automationOverview.useQuery({ projectId }");
+    expect(automationSource.replace(/\s+/g, "")).toContain("trpc.finance.automationOverview.useQuery({projectId}");
     expect(automationSource).toContain("trpc.finance.addRecurringTemplate.useMutation");
     expect(automationSource).toContain("trpc.finance.enableBillReminder.useMutation");
     expect(automationSource).toContain("trpc.finance.generateRecurringNow.useMutation");
