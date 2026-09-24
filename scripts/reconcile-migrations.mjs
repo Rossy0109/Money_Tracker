@@ -168,6 +168,26 @@ async function reconcileFile(conn, fileRel) {
       continue;
     }
 
+    const dropIndex =
+      sql.match(/ALTER TABLE `?(\w+)`? DROP INDEX `?(\w+)`?/i) ||
+      sql.match(/DROP INDEX `?(\w+)`? ON `?(\w+)`?/i);
+    if (dropIndex) {
+      // ALTER form captures (table, name); standalone form captures (name, table).
+      const [table, name] = dropIndex[0].toUpperCase().startsWith("ALTER")
+        ? [dropIndex[1], dropIndex[2]]
+        : [dropIndex[2], dropIndex[1]];
+      if (!(await tableExists(conn, table))) {
+        console.log(`  warn [${label}] parent table ${table} missing — cannot drop index ${name}`);
+        continue;
+      }
+      if (!(await indexExists(conn, name))) {
+        console.log(`  skip [${label}] index ${name} already absent (converged)`);
+        continue;
+      }
+      await runStatement(conn, sql, label);
+      continue;
+    }
+
     // Unknown shape — still run with already-exists tolerance.
     await runStatement(conn, sql, label);
   }
@@ -237,11 +257,27 @@ async function run() {
   console.log(`Reconciling schema${dryRun ? " (dry-run)" : ""}…`);
   try {
     await ensureUsersColumns(conn);
+    // Full chain in journal order: every file is individually skip-safe, so
+    // any partial state (e.g. historical 0009/0011/0014 failures) converges.
+    // Files absent from disk are reported and skipped.
+    await reconcileFile(conn, "0000_condemned_wendell_vaughn.sql");
+    await reconcileFile(conn, "0001_mighty_hobgoblin.sql");
+    await reconcileFile(conn, "0002_exotic_mindworm.sql");
+    await reconcileFile(conn, "0003_huge_nighthawk.sql");
+    await reconcileFile(conn, "0004_fresh_shen.sql");
+    await reconcileFile(conn, "0005_stiff_wonder_man.sql");
+    await reconcileFile(conn, "0006_tan_star_brand.sql");
+    await reconcileFile(conn, "0007_worthless_thunderball.sql");
+    await reconcileFile(conn, "0008_calm_lady_ursula.sql");
     await reconcileFile(conn, "0009_rare_beyonder.sql");
+    await reconcileFile(conn, "0010_aromatic_wolf_cub.sql");
     await reconcileFile(conn, "0011_round_ken_ellis.sql");
+    await reconcileFile(conn, "0012_elite_talon.sql");
+    await reconcileFile(conn, "0013_complex_reptil.sql");
     await reconcileFile(conn, "0014_rbac_and_idempotency.sql");
     await reconcileFile(conn, "0015_fk-restrict-financial-history.sql");
     await reconcileFile(conn, "0016_schema_drift_repair.sql");
+    await reconcileFile(conn, "0017_missing_indexes.sql");
     await reconcileFile(conn, "0017_missing_indexes.sql");
     await report(conn);
     console.log(
