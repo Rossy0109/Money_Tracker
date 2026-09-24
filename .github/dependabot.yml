@@ -46,6 +46,13 @@ updates:
           - "@trpc/client"
           - "@trpc/react-query"
 
+    # TypeScript 7 is a native-compiler major that typescript-eslint does not
+    # support yet (verify job fails with "does not support TS 7.0"). Hold the
+    # major so the rest of the group stays mergeable; minors still flow.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
     # ── Per-package rules ────────────────────────────────────────────────────
     # SECURITY: always create PR immediately, ignore schedule.
     # PATCH/MINOR: batched weekly, reviewed before merge.
