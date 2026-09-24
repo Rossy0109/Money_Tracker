@@ -114,6 +114,34 @@ async function reconcileFile(conn, fileRel) {
       continue;
     }
 
+    const addFk = sql.match(/ADD CONSTRAINT `?(\w+)`?/i);
+    if (addFk) {
+      const name = addFk[1];
+      if (await constraintExists(conn, name)) {
+        console.log(`  skip [${label}] constraint ${name} already exists`);
+        continue;
+      }
+      await runStatement(conn, sql, label);
+      continue;
+    }
+
+    const dropFk = sql.match(/ALTER TABLE `?(\w+)`? DROP FOREIGN KEY `?(\w+)`?/i);
+    if (dropFk) {
+      const [, table, name] = dropFk;
+      if (!(await tableExists(conn, table))) {
+        console.log(`  warn [${label}] parent table ${table} missing — cannot drop ${name}`);
+        continue;
+      }
+      if (!(await constraintExists(conn, name))) {
+        console.log(`  skip [${label}] constraint ${name} already absent (converged)`);
+        continue;
+      }
+      await runStatement(conn, sql, label);
+      continue;
+    }
+
+    // NOTE: checked AFTER ADD/DROP CONSTRAINT — the optional COLUMN keyword
+    // would otherwise misroute ADD CONSTRAINT statements here.
     const addColumn = sql.match(/ALTER TABLE `?(\w+)`? ADD (?:COLUMN )?`?(\w+)`?/i);
     if (addColumn) {
       const [, table, col] = addColumn;
@@ -123,17 +151,6 @@ async function reconcileFile(conn, fileRel) {
       }
       if (await columnExists(conn, table, col)) {
         console.log(`  skip [${label}] column ${table}.${col} already exists`);
-        continue;
-      }
-      await runStatement(conn, sql, label);
-      continue;
-    }
-
-    const addFk = sql.match(/ADD CONSTRAINT `?(\w+)`?/i);
-    if (addFk) {
-      const name = addFk[1];
-      if (await constraintExists(conn, name)) {
-        console.log(`  skip [${label}] constraint ${name} already exists`);
         continue;
       }
       await runStatement(conn, sql, label);
@@ -189,6 +206,10 @@ async function report(conn) {
     "finance_salary_payments",
     "finance_account_types",
     "finance_chart_of_accounts",
+    "finance_account_groups",
+    "finance_fiscal_periods",
+    "finance_journal_entries",
+    "finance_journal_lines",
     "finance_period_locks",
     "finance_voucher_reversals",
     "finance_bank_reconciliations",
@@ -219,6 +240,8 @@ async function run() {
     await reconcileFile(conn, "0009_rare_beyonder.sql");
     await reconcileFile(conn, "0011_round_ken_ellis.sql");
     await reconcileFile(conn, "0014_rbac_and_idempotency.sql");
+    await reconcileFile(conn, "0015_fk-restrict-financial-history.sql");
+    await reconcileFile(conn, "0016_schema_drift_repair.sql");
     await report(conn);
     console.log(
       dryRun
