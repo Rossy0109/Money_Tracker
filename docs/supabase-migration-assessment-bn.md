@@ -1,5 +1,11 @@
 # Supabase Staging Migration Assessment
 
+> **সিদ্ধান্ত (2026-09-24): NO-GO — Supabase-এ migration করা হবে না।**
+> বর্তমান stack (TiDB/MySQL + Google OAuth + Vercel Blob) বহাল থাকবে।
+> এই সিদ্ধান্ত শুধু Database/Auth/Storage প্রতিস্থাপনের ক্ষেত্রে প্রযোজ্য —
+> encrypted backup target হিসেবে Supabase Storage integration
+> (`server/cloudBackupService.ts`) সচল থাকবে, এতে কোনো পরিবর্তন নেই।
+
 ## উদ্দেশ্য ও সীমা
 
 এই নথিটি ব্যবহারকারীর নতুন অনুরোধ—Vercel frontend/backend-এর সঙ্গে Supabase Database, Auth ও private Storage ব্যবহার—মূল্যায়নের প্রাথমিক রেকর্ড। এটি **কোনও migration অনুমোদন নয়**। বর্তমান live fallback, GitHub Pages redirect, Vercel Blob-এর বিদ্যমান নিরাপত্তা নিয়ন্ত্রণ, এবং বাস্তব আর্থিক ডেটা অপরিবর্তিত থাকবে। প্রথম কাজ হবে শুধু empty staging project ও blank-profile verification।
