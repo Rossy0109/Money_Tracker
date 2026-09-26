@@ -111,10 +111,12 @@ async function reconcileFile(conn, fileRel) {
       const hasUsers = await tableExists(conn, "users");
       const hasProjects = await tableExists(conn, "finance_projects");
       const detail = hasUsers
-        ? (await conn.query("SELECT COUNT(*) n FROM users"))[0].n +
+        ? (await conn.query("SELECT COUNT(*) n FROM users"))[0][0].n +
           " users, " +
           (hasProjects
-            ? (await conn.query("SELECT COUNT(*) n FROM finance_projects"))[0].n
+            ? (
+                await conn.query("SELECT COUNT(*) n FROM finance_projects")
+              )[0][0].n
             : 0) +
           " existing projects"
         : "users table not present yet";
