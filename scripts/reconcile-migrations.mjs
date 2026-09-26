@@ -107,6 +107,22 @@ async function reconcileFile(conn, fileRel) {
 
   for (const [i, sql] of statements.entries()) {
     const label = `${fileRel}#${i + 1}`;
+    if (/INSERT\s+INTO\s+`?finance_projects`?/i.test(sql)) {
+      const hasUsers = await tableExists(conn, "users");
+      const hasProjects = await tableExists(conn, "finance_projects");
+      const detail = hasUsers
+        ? (await conn.query("SELECT COUNT(*) n FROM users"))[0].n +
+          " users, " +
+          (hasProjects
+            ? (await conn.query("SELECT COUNT(*) n FROM finance_projects"))[0].n
+            : 0) +
+          " existing projects"
+        : "users table not present yet";
+      console.log(
+        `  skip [${label}] legacy project backfill — ${detail}; a second misnamed project per user is never wanted`
+      );
+      continue;
+    }
     const createTable = sql.match(/CREATE TABLE(?: IF NOT EXISTS)? `?(\w+)`?/i);
     if (createTable) {
       const name = createTable[1];
