@@ -294,7 +294,7 @@ function resolveSsl(params) {
       return { ssl: parsed, sslNote: "object" };
     } catch {
       throw new Error(
-        'ssl must be a boolean or a JSON object, e.g. ?ssl={"rejectUnauthorized":true}'
+        `ssl must be a boolean or a JSON object, e.g. ?ssl={"rejectUnauthorized":true} (received ssl=${JSON.stringify(raw)}, length ${raw.length})`
       );
     }
   }
