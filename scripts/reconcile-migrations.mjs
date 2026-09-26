@@ -273,38 +273,99 @@ async function report(conn) {
   console.log(`  foreign keys: ${fk[0].n}`);
 }
 
-function describeTarget(url) {
+function resolveSsl(params) {
+  const raw = params.get("ssl");
+  const mode = params.get("ssl-mode");
+  if (raw !== null) {
+    if (/^(true|1|yes|on|required)$/i.test(raw)) {
+      return {
+        ssl: { rejectUnauthorized: true },
+        sslNote: "object (from boolean)",
+      };
+    }
+    if (/^(false|0|no|off|disabled)$/i.test(raw)) {
+      return { ssl: undefined, sslNote: "disabled (from boolean)" };
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("not an object");
+      }
+      return { ssl: parsed, sslNote: "object" };
+    } catch {
+      throw new Error(
+        'ssl must be a boolean or a JSON object, e.g. ?ssl={"rejectUnauthorized":true}'
+      );
+    }
+  }
+  if (mode !== null) {
+    if (/^disabled$/i.test(mode))
+      return { ssl: undefined, sslNote: "disabled" };
+    if (/^required$|^preferred$/i.test(mode)) {
+      return {
+        ssl: { rejectUnauthorized: false },
+        sslNote: "encrypted, certificate not verified",
+      };
+    }
+    if (/^verify_ca$|^verify_identity$/i.test(mode)) {
+      return {
+        ssl: { rejectUnauthorized: true },
+        sslNote: "encrypted, certificate verified",
+      };
+    }
+    throw new Error(`unsupported ssl-mode "${mode}"`);
+  }
+  return { ssl: undefined, sslNote: "not requested" };
+}
+
+function resolveTarget(rawUrl) {
+  const url = rawUrl.trim();
   let parsed;
   try {
-    parsed = new URL(url.trim());
+    parsed = new URL(url);
   } catch {
-    const scheme = /^([a-zA-Z0-9+.-]+):/.exec(url.trim())?.[1] ?? "none";
-    return `unparsable connection string (scheme: ${scheme}, length: ${url.trim().length})`;
+    const scheme = /^([a-zA-Z0-9+.-]+):/.exec(url)?.[1] ?? "none";
+    throw new Error(
+      `unparsable connection string (scheme: ${scheme}, length: ${url.length}); expected mysql://USER:PASSWORD@HOST:PORT/DATABASE`
+    );
   }
   if (parsed.protocol !== "mysql:") {
-    return `unsupported scheme "${parsed.protocol.replace(":", "")}" (expected mysql)`;
+    throw new Error(
+      `unsupported scheme "${parsed.protocol.replace(":", "")}"; expected mysql`
+    );
   }
-  const keys = [...parsed.searchParams.keys()];
-  return [
+  const { ssl, sslNote } = resolveSsl(parsed.searchParams);
+  const config = {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 3306,
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, "") || undefined,
+  };
+  if (ssl) config.ssl = ssl;
+  const params = [...parsed.searchParams.keys()];
+  const summary = [
     `host=${parsed.hostname}`,
-    `port=${parsed.port || "default"}`,
-    `user=${parsed.username || "(none)"}`,
-    `password=${parsed.password ? "set" : "(none)"}`,
-    `database=${parsed.pathname.replace(/^\//, "") || "(none)"}`,
-    `params=${keys.length ? keys.join(",") : "(none)"}`,
+    `port=${config.port}`,
+    `user=${config.user || "(none)"}`,
+    `password=${config.password ? "set" : "(none)"}`,
+    `database=${config.database || "(none)"}`,
+    `params=${params.length ? params.join(",") : "(none)"}`,
+    `tls=${sslNote}`,
   ].join(" ");
+  return { config, summary };
 }
 
 async function run() {
-  const url = getUrl();
-  const summary = describeTarget(url);
-  if (summary.startsWith("unparsable") || summary.startsWith("unsupported")) {
-    console.error(`Cannot use DATABASE_URL: ${summary}`);
-    console.error("Expected mysql://USER:PASSWORD@HOST:PORT/DATABASE");
+  let target;
+  try {
+    target = resolveTarget(getUrl());
+  } catch (err) {
+    console.error(`Cannot use DATABASE_URL: ${err.message}`);
     process.exit(1);
   }
-  console.log(`Target: ${summary}`);
-  const conn = await createConnection(url);
+  console.log(`Target: ${target.summary}`);
+  const conn = await createConnection(target.config);
   console.log(`Reconciling schema${dryRun ? " (dry-run)" : ""}…`);
   try {
     await ensureUsersColumns(conn);
