@@ -42,7 +42,9 @@ export function useAuth(options?: UseAuthOptions) {
       // backend cookie is cleared by the logout mutation.
       try {
         sessionStorage.removeItem("auth-session-cookie");
-      } catch { /* sessionStorage may be unavailable in private/WebView */ }
+      } catch {
+        /* sessionStorage may be unavailable in private/WebView */
+      }
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
@@ -52,11 +54,11 @@ export function useAuth(options?: UseAuthOptions) {
     // Some mobile/private browsers can deny localStorage. Authentication must
     // continue using the secure session cookie when that browser convenience
     // cache is unavailable.
-try {
-        localStorage.setItem(
-          "auth-runtime-user-info",
-          JSON.stringify(meQuery.data)
-        );
+    try {
+      localStorage.setItem(
+        "auth-runtime-user-info",
+        JSON.stringify(meQuery.data)
+      );
     } catch {
       // Keep the auth flow available when storage is blocked.
     }

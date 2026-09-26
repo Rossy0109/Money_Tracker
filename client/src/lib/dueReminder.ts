@@ -80,7 +80,10 @@ export function generateDueReminderMessage(due: {
   );
 }
 
-export function getWhatsAppShareUrl(phone: string | null | undefined, message: string): string {
+export function getWhatsAppShareUrl(
+  phone: string | null | undefined,
+  message: string
+): string {
   const formattedPhone = formatBdPhoneNumber(phone);
   const encodedText = encodeURIComponent(message);
   if (formattedPhone) {
@@ -89,7 +92,10 @@ export function getWhatsAppShareUrl(phone: string | null | undefined, message: s
   return `https://api.whatsapp.com/send?text=${encodedText}`;
 }
 
-export function getSmsShareUrl(phone: string | null | undefined, message: string): string {
+export function getSmsShareUrl(
+  phone: string | null | undefined,
+  message: string
+): string {
   const formattedPhone = formatBdPhoneNumber(phone);
   const encodedText = encodeURIComponent(message);
   if (formattedPhone) {

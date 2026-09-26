@@ -120,7 +120,10 @@ describe("Checksum Verification", () => {
 
 describe("Backup Authorization", () => {
   it("ADMIN_ACCESS_PASSWORD is not used in backup auth", () => {
-    const source = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("./scheduledBackup.ts", import.meta.url),
+      "utf8"
+    );
     expect(source).not.toContain("hasValidAdminPassword");
     expect(source).not.toContain("adminPasswordHeader");
     expect(source).not.toContain("req.body.adminPassword");
@@ -131,14 +134,20 @@ describe("Backup Authorization", () => {
   });
 
   it("CRON_SECRET is used for backup auth", () => {
-    const source = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("./scheduledBackup.ts", import.meta.url),
+      "utf8"
+    );
     expect(source).toContain("hasValidCronSecret");
     // Auth goes through ENV.backupCronSecret (CRON_SECRET / BACKUP_CRON_SECRET).
     expect(source).toContain("ENV.backupCronSecret");
   });
 
   it("ENV.backupCronSecret only reads CRON_SECRET / BACKUP_CRON_SECRET", () => {
-    const envSource = readFileSync(new URL("./_core/env.ts", import.meta.url), "utf8");
+    const envSource = readFileSync(
+      new URL("./_core/env.ts", import.meta.url),
+      "utf8"
+    );
     const match = envSource.match(/backupCronSecret:\s*([^,\n]+)/);
     expect(match).toBeTruthy();
     const expr = match![1];
@@ -159,10 +168,19 @@ describe("Backup Authorization", () => {
   });
 
   it("scheduled backup route accepts GET (Vercel Cron) and is not POST-only", () => {
-    const appSource = readFileSync(new URL("./_core/app.ts", import.meta.url), "utf8");
-    const hasAll = appSource.includes('app.all("/api/scheduled/finance-backup"');
-    const hasGet = appSource.includes('app.get("/api/scheduled/finance-backup"');
-    const hasPost = appSource.includes('app.post("/api/scheduled/finance-backup"');
+    const appSource = readFileSync(
+      new URL("./_core/app.ts", import.meta.url),
+      "utf8"
+    );
+    const hasAll = appSource.includes(
+      'app.all("/api/scheduled/finance-backup"'
+    );
+    const hasGet = appSource.includes(
+      'app.get("/api/scheduled/finance-backup"'
+    );
+    const hasPost = appSource.includes(
+      'app.post("/api/scheduled/finance-backup"'
+    );
 
     expect(hasAll || hasGet).toBe(true);
     // POST-only registration is the historical production 404 bug.
@@ -173,7 +191,10 @@ describe("Backup Authorization", () => {
     const vercel = JSON.parse(
       readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
     ) as { crons?: Array<{ path: string }> };
-    const appSource = readFileSync(new URL("./_core/app.ts", import.meta.url), "utf8");
+    const appSource = readFileSync(
+      new URL("./_core/app.ts", import.meta.url),
+      "utf8"
+    );
 
     const cronPaths = vercel.crons?.map(c => c.path) ?? [];
     expect(cronPaths).toContain("/api/scheduled/finance-backup");
@@ -181,8 +202,11 @@ describe("Backup Authorization", () => {
     for (const path of cronPaths) {
       const covered =
         appSource.includes(`app.all("${path}"`) ||
-        (appSource.includes(`app.get("${path}"`) && appSource.includes(`app.post("${path}"`));
-      expect(covered, `cron ${path} must accept GET for Vercel Cron`).toBe(true);
+        (appSource.includes(`app.get("${path}"`) &&
+          appSource.includes(`app.post("${path}"`));
+      expect(covered, `cron ${path} must accept GET for Vercel Cron`).toBe(
+        true
+      );
     }
   });
 });
@@ -191,7 +215,10 @@ describe("Backup Authorization", () => {
 
 describe("Cloud upload partial-failure safety", () => {
   it("uploadToS3 does not return true when S3 failed and no webhook", () => {
-    const source = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("./cloudBackupService.ts", import.meta.url),
+      "utf8"
+    );
     // Scope to uploadToS3 only — later helpers (e.g. Google Drive) may return true.
     const start = source.indexOf("async function uploadToS3");
     const end = source.indexOf("async function uploadToGoogleDrive");
@@ -204,9 +231,9 @@ describe("Cloud upload partial-failure safety", () => {
     expect(uploadToS3Body).toMatch(
       /do not claim success\.\s*\n\s*return false;\s*\n\}/
     );
-    expect(uploadToS3Body.slice(uploadToS3Body.lastIndexOf("const webhook"))).not.toMatch(
-      /return true;/
-    );
+    expect(
+      uploadToS3Body.slice(uploadToS3Body.lastIndexOf("const webhook"))
+    ).not.toMatch(/return true;/);
   });
 });
 
@@ -214,13 +241,19 @@ describe("Cloud upload partial-failure safety", () => {
 
 describe("Encryption Key Security", () => {
   it("no hardcoded encryption fallback in cloudBackupService", () => {
-    const source = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("./cloudBackupService.ts", import.meta.url),
+      "utf8"
+    );
     expect(source).not.toContain("secure-cloud-backup-key");
     expect(source).not.toContain("ENV.adminAccessPassword");
   });
 
   it("throws when BACKUP_ENCRYPTION_KEY is not set", () => {
-    const source = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("./cloudBackupService.ts", import.meta.url),
+      "utf8"
+    );
     expect(source).toContain("BACKUP_ENCRYPTION_KEY");
   });
 });

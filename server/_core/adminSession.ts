@@ -22,7 +22,9 @@ export type AdminElevationPayload = {
 function getAdminSecret(): string {
   const secret = ENV.sessionSecret || ENV.cookieSecret;
   if (!secret) {
-    throw new Error("FATAL: Neither SESSION_SECRET nor JWT_SECRET is set. Admin token signing requires a secret.");
+    throw new Error(
+      "FATAL: Neither SESSION_SECRET nor JWT_SECRET is set. Admin token signing requires a secret."
+    );
   }
   return secret;
 }
@@ -31,7 +33,11 @@ function getAdminSecret(): string {
  * Create a signed HMAC-SHA256 admin elevation token valid for 15 minutes.
  * Format: `<base64url(payload)>.<hex(hmac)>`
  */
-export function issueAdminToken(userId: number, openId: string, ttlMs: number = ADMIN_SESSION_TTL_MS): string {
+export function issueAdminToken(
+  userId: number,
+  openId: string,
+  ttlMs: number = ADMIN_SESSION_TTL_MS
+): string {
   const issuedAt = Date.now();
   const expiresAt = issuedAt + ttlMs;
   const payload: AdminElevationPayload = {
@@ -42,8 +48,12 @@ export function issueAdminToken(userId: number, openId: string, ttlMs: number = 
     expiresAt,
   };
 
-  const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", getAdminSecret()).update(payloadEncoded).digest("hex");
+  const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString(
+    "base64url"
+  );
+  const signature = createHmac("sha256", getAdminSecret())
+    .update(payloadEncoded)
+    .digest("hex");
 
   return `${payloadEncoded}.${signature}`;
 }
@@ -52,7 +62,9 @@ export function issueAdminToken(userId: number, openId: string, ttlMs: number = 
  * Verifies an admin elevation token using constant-time timing-safe comparison.
  * Returns the payload if valid and unexpired; otherwise null.
  */
-export function verifyAdminToken(token: string | null | undefined): AdminElevationPayload | null {
+export function verifyAdminToken(
+  token: string | null | undefined
+): AdminElevationPayload | null {
   if (!token || typeof token !== "string") {
     return null;
   }
@@ -67,7 +79,9 @@ export function verifyAdminToken(token: string | null | undefined): AdminElevati
     return null;
   }
 
-  const expectedSignature = createHmac("sha256", getAdminSecret()).update(payloadEncoded).digest("hex");
+  const expectedSignature = createHmac("sha256", getAdminSecret())
+    .update(payloadEncoded)
+    .digest("hex");
 
   // Constant-time comparison between signature and expectedSignature
   if (!timingSafeCompare(signature, expectedSignature)) {
@@ -129,7 +143,11 @@ export function extractAdminTokenFromRequest(req: Request): string | null {
 /**
  * Sets the admin elevation token cookie with HttpOnly; SameSite=Strict; Secure
  */
-export function setAdminElevationCookie(req: Request, res: Response, token: string): void {
+export function setAdminElevationCookie(
+  req: Request,
+  res: Response,
+  token: string
+): void {
   if (!res || typeof res.cookie !== "function") {
     return;
   }

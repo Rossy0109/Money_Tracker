@@ -1,7 +1,17 @@
 import dotenv from "dotenv";
 
-const DEV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"];
-const PROD_FILES = [".env", ".env.local", ".env.production", ".env.production.local"];
+const DEV_FILES = [
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.development.local",
+];
+const PROD_FILES = [
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".env.production.local",
+];
 
 const AUTH_MODE = new Set(["google", "password"]);
 
@@ -16,14 +26,23 @@ export function getAuthEnvMode(): "development" | "production" {
  *
  * Missing files are normal (e.g. only `.env` exists); dotenv never throws.
  */
-export function loadEnvFiles(mode: "development" | "production" = getAuthEnvMode()) {
+export function loadEnvFiles(
+  mode: "development" | "production" = getAuthEnvMode()
+) {
   const files = mode === "production" ? PROD_FILES : DEV_FILES;
+  const explicit = new Map(Object.entries(process.env));
   for (const [index, file] of files.entries()) {
     dotenv.config({ path: file, override: index > 0 });
   }
+  for (const [key, value] of explicit) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 }
 
-export function validateAuthMode(mode: string | undefined): mode is "google" | "password" {
+export function validateAuthMode(
+  mode: string | undefined
+): mode is "google" | "password" {
   return typeof mode === "string" && AUTH_MODE.has(mode);
 }
 

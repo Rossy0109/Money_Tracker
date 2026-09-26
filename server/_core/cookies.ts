@@ -20,8 +20,12 @@ export function isSecureRequest(req?: Request) {
   // (including `__Host-` prefixed ones) on http://localhost, so the dev server
   // must mark them Secure for the OAuth transaction cookie to survive the
   // provider round trip locally.
-  const hostname = typeof req.hostname === "string" ? req.hostname.toLowerCase() : "";
-  return LOCAL_HOSTS.has(hostname) || LOCAL_HOSTS.has(hostname.replace(/^\[|\]$/g, ""));
+  const hostname =
+    typeof req.hostname === "string" ? req.hostname.toLowerCase() : "";
+  return (
+    LOCAL_HOSTS.has(hostname) ||
+    LOCAL_HOSTS.has(hostname.replace(/^\[|\]$/g, ""))
+  );
 }
 
 export function getSessionCookieOptions(
@@ -79,4 +83,3 @@ export function getAdminSessionCookieOptions(
     secure: isSecureRequest(req),
   };
 }
-

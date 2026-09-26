@@ -1,4 +1,9 @@
-import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import rateLimit from "express-rate-limit";
@@ -29,9 +34,12 @@ const authLimiter = rateLimit({
     xForwardedForHeader: true,
   },
   message: {
-    message: "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।",
+    message:
+      "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।",
   },
-  skip: () => process.env.NODE_ENV === "test" || process.env.ISOLATED_E2E_DATABASE === "true",
+  skip: () =>
+    process.env.NODE_ENV === "test" ||
+    process.env.ISOLATED_E2E_DATABASE === "true",
 });
 
 const performanceStore = {
@@ -56,7 +64,13 @@ const performanceStore = {
     const p95 = sorted[Math.floor(sorted.length * 0.95)];
     const p99 = sorted[Math.floor(sorted.length * 0.99)];
     const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
-    return { p50, p95, p99, avg: Math.round(avg * 100) / 100, count: sorted.length };
+    return {
+      p50,
+      p95,
+      p99,
+      avg: Math.round(avg * 100) / 100,
+      count: sorted.length,
+    };
   },
 };
 
@@ -78,13 +92,17 @@ export function createApiApp() {
   // Canonical host enforcement — redirect non-canonical hostnames to production alias
   // This prevents cookie mismatches between deployment URLs and the canonical domain,
   // while safely supporting Vercel preview deployments (*.vercel.app) and local development.
-  const CANONICAL_HOST = process.env.CANONICAL_HOST || "money-tracker-blond-pi.vercel.app";
+  const CANONICAL_HOST =
+    process.env.CANONICAL_HOST || "money-tracker-blond-pi.vercel.app";
   app.use((req: Request, res: Response, next: NextFunction) => {
     const host = req.get("host")?.toLowerCase() || "";
     const isVercelDomain = host.endsWith(".vercel.app");
-    const isLocal = host.startsWith("localhost") || host.startsWith("127.0.0.1") || host === "::1";
+    const isLocal =
+      host.startsWith("localhost") ||
+      host.startsWith("127.0.0.1") ||
+      host === "::1";
     const isCanonical = host === CANONICAL_HOST || isLocal || isVercelDomain;
-    
+
     // Allow health checks and cron endpoints to bypass host check
     if (req.path === "/api/healthz" || req.path.startsWith("/api/scheduled/")) {
       return next();
@@ -109,7 +127,9 @@ export function createApiApp() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ENV.isProduction ? ["'self'"] : ["'self'", "'unsafe-inline'"],
+          scriptSrc: ENV.isProduction
+            ? ["'self'"]
+            : ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
@@ -129,7 +149,7 @@ export function createApiApp() {
       xssFilter: true,
       hidePoweredBy: true,
       frameguard: { action: "deny" },
-    }),
+    })
   );
 
   // CORS — restrict to same-origin in production, allow all in dev
@@ -146,15 +166,24 @@ export function createApiApp() {
         (typeof origin === "string" && origin.endsWith(".vercel.app"));
 
       if (isAllowedOrigin) {
-        res.setHeader("Access-Control-Allow-Origin", origin || process.env.APP_URL || "*");
+        res.setHeader(
+          "Access-Control-Allow-Origin",
+          origin || process.env.APP_URL || "*"
+        );
       }
     } else {
       // In development, allow all origins
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
     }
 
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Cron-Secret, X-Admin-Password");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Cron-Secret, X-Admin-Password"
+    );
     res.setHeader("Access-Control-Expose-Headers", "X-Request-Id");
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Max-Age", "86400");
@@ -172,7 +201,10 @@ export function createApiApp() {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Download-Options", "noopen");
     res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=()"
+    );
     next();
   });
 
@@ -182,9 +214,9 @@ export function createApiApp() {
       pinoHttp({
         logger,
         autoLogging: {
-          ignore: (req) => req.url === "/api/healthz",
+          ignore: req => req.url === "/api/healthz",
         },
-      }),
+      })
     );
   }
 
@@ -249,7 +281,7 @@ export function createApiApp() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
-    }),
+    })
   );
 
   // 404 for unknown API paths. This stays inside the shared pipeline so

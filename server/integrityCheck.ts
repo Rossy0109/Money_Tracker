@@ -12,14 +12,21 @@ export interface IntegrityResult {
   projectName: string;
   checkedAt: string;
   status: "VERIFIED" | "MISMATCH" | "NO_BACKUP";
-  lastBackup: { backupId: string; fileName: string | null; verifiedAt: Date | null } | null;
+  lastBackup: {
+    backupId: string;
+    fileName: string | null;
+    verifiedAt: Date | null;
+  } | null;
   liveCounts: Record<string, number>;
   manifestCounts: Record<string, number> | null;
   diffs: IntegrityDiff[];
   missing: string[];
 }
 
-export async function runIntegrityCheck(userId: number, projectId: number): Promise<IntegrityResult> {
+export async function runIntegrityCheck(
+  userId: number,
+  projectId: number
+): Promise<IntegrityResult> {
   const liveCounts = await countProjectRecords(userId, projectId);
   const projects = await listProjects(userId);
   const project = projects.find(entry => entry.id === projectId);
@@ -30,7 +37,11 @@ export async function runIntegrityCheck(userId: number, projectId: number): Prom
     checkedAt: new Date().toISOString(),
     status: "NO_BACKUP",
     lastBackup: lastBackup
-      ? { backupId: lastBackup.backupId, fileName: lastBackup.fileName, verifiedAt: lastBackup.verifiedAt }
+      ? {
+          backupId: lastBackup.backupId,
+          fileName: lastBackup.fileName,
+          verifiedAt: lastBackup.verifiedAt,
+        }
       : null,
     liveCounts,
     manifestCounts: null,
@@ -51,7 +62,10 @@ export async function runIntegrityCheck(userId: number, projectId: number): Prom
 
   const diffs: IntegrityDiff[] = [];
   const missing: string[] = [];
-  const entities = new Set([...Object.keys(liveCounts), ...Object.keys(manifestCounts)]);
+  const entities = new Set([
+    ...Object.keys(liveCounts),
+    ...Object.keys(manifestCounts),
+  ]);
   for (const entity of entities) {
     const live = Number(liveCounts[entity] ?? 0);
     const manifest = Number(manifestCounts[entity] ?? 0);

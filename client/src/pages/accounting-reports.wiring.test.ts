@@ -3,8 +3,14 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const getCombinedSource = () => {
-  const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
-  const dashboardDir = resolve(process.cwd(), "client/src/components/dashboard");
+  const home = readFileSync(
+    resolve(process.cwd(), "client/src/pages/Home.tsx"),
+    "utf8"
+  );
+  const dashboardDir = resolve(
+    process.cwd(),
+    "client/src/components/dashboard"
+  );
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {
@@ -14,7 +20,9 @@ const getCombinedSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch { /* dir read ignored */ }
+    } catch {
+      /* dir read ignored */
+    }
   }
   return combined;
 };
@@ -23,10 +31,16 @@ const dashboardSource = getCombinedSource();
 
 describe("Bengali accounting report dashboard wiring", () => {
   it("loads the protected monthly accounting summary for the active project", () => {
-    expect(dashboardSource).toContain("const accountingSummary = trpc.finance.monthlyReport.useQuery(");
-    expect(dashboardSource).toContain("enabled: isAuthenticated && activeProjectId !== null");
+    expect(dashboardSource).toContain(
+      "const accountingSummary = trpc.finance.monthlyReport.useQuery("
+    );
+    expect(dashboardSource).toContain(
+      "enabled: isAuthenticated && activeProjectId !== null"
+    );
     expect(dashboardSource).toContain("accountingSummary.data.profitAndLoss");
-    expect(dashboardSource).toContain("accountingSummary.data.financialPosition");
+    expect(dashboardSource).toContain(
+      "accountingSummary.data.financialPosition"
+    );
   });
 
   it("presents profit-and-loss and financial-position values in Bengali", () => {

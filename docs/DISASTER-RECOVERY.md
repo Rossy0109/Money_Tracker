@@ -6,10 +6,10 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 ## Recovery Objectives
 
-| Metric | Target | Rationale |
-|---|---|---|
-| **RPO (Recovery Point Objective)** | 24 hours | Daily automated backups at 18:00 UTC; maximum data loss is one day of transactions |
-| **RTO (Recovery Time Objective)** | 4 hours | Manual restore procedure: download (30 min) + decrypt (5 min) + preview (5 min) + restore (15 min) + verification (30 min) + buffer for cloud provider latency |
+| Metric                             | Target   | Rationale                                                                                                                                                      |
+| ---------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO (Recovery Point Objective)** | 24 hours | Daily automated backups at 18:00 UTC; maximum data loss is one day of transactions                                                                             |
+| **RTO (Recovery Time Objective)**  | 4 hours  | Manual restore procedure: download (30 min) + decrypt (5 min) + preview (5 min) + restore (15 min) + verification (30 min) + buffer for cloud provider latency |
 
 **Note:** RPO of 24 hours means transactions entered after the last successful backup may be lost in a disaster scenario. RTO of 4 hours assumes the backup encryption key is available and the cloud provider is responsive. If the cloud provider is unavailable, RTO may extend by the provider's recovery time.
 
@@ -17,11 +17,11 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 ## Backup Frequency
 
-| Backup Type | Frequency | Schedule | Retention |
-|---|---|---|---|
-| Automated Cloud Backup | Daily | 00:00 BDT (18:00 UTC) via Vercel Cron | 30 days |
-| Manual Cloud Backup | On-demand | Via admin UI trigger | 30 days |
-| Local Export | On-demand | Via user UI download | User-managed |
+| Backup Type            | Frequency | Schedule                              | Retention    |
+| ---------------------- | --------- | ------------------------------------- | ------------ |
+| Automated Cloud Backup | Daily     | 00:00 BDT (18:00 UTC) via Vercel Cron | 30 days      |
+| Manual Cloud Backup    | On-demand | Via admin UI trigger                  | 30 days      |
+| Local Export           | On-demand | Via user UI download                  | User-managed |
 
 ### Automated Backup Process
 
@@ -41,10 +41,10 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 ### Required Environment Variables
 
-| Variable | Purpose |
-|---|---|
+| Variable                | Purpose                                            |
+| ----------------------- | -------------------------------------------------- |
 | `BACKUP_ENCRYPTION_KEY` | Dedicated encryption key for backups (min 6 chars) |
-| `CRON_SECRET` | Authentication for Vercel Cron / GitHub Actions |
+| `CRON_SECRET`           | Authentication for Vercel Cron / GitHub Actions    |
 
 ### Explicitly Prohibited
 
@@ -180,15 +180,15 @@ To manually verify a backup:
 
 ## Environment Variable Reference
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `BACKUP_ENCRYPTION_KEY` | Yes | (none) | AES-256-GCM encryption key for backups |
-| `CRON_SECRET` | Yes | (none) | Authentication for scheduled backup cron |
-| `BACKUP_RETENTION_DAYS` | No | 30 | Days to retain backup files |
-| `SUPABASE_URL` | No | (none) | Supabase project URL for cloud storage |
-| `SUPABASE_ANON_KEY` | No | (none) | Supabase API key |
-| `S3_BUCKET_NAME` | No | (none) | S3/R2 bucket name |
-| `S3_ACCESS_KEY_ID` | No | (none) | S3 access key |
-| `S3_SECRET_ACCESS_KEY` | No | (none) | S3 secret key |
-| `S3_REGION` | No | auto | S3 region |
-| `S3_ENDPOINT` | No | (none) | Custom S3-compatible endpoint |
+| Variable                | Required | Default | Description                              |
+| ----------------------- | -------- | ------- | ---------------------------------------- |
+| `BACKUP_ENCRYPTION_KEY` | Yes      | (none)  | AES-256-GCM encryption key for backups   |
+| `CRON_SECRET`           | Yes      | (none)  | Authentication for scheduled backup cron |
+| `BACKUP_RETENTION_DAYS` | No       | 30      | Days to retain backup files              |
+| `SUPABASE_URL`          | No       | (none)  | Supabase project URL for cloud storage   |
+| `SUPABASE_ANON_KEY`     | No       | (none)  | Supabase API key                         |
+| `S3_BUCKET_NAME`        | No       | (none)  | S3/R2 bucket name                        |
+| `S3_ACCESS_KEY_ID`      | No       | (none)  | S3 access key                            |
+| `S3_SECRET_ACCESS_KEY`  | No       | (none)  | S3 secret key                            |
+| `S3_REGION`             | No       | auto    | S3 region                                |
+| `S3_ENDPOINT`           | No       | (none)  | Custom S3-compatible endpoint            |

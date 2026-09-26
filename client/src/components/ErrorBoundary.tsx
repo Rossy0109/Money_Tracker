@@ -25,17 +25,15 @@ class ErrorBoundary extends Component<Props, State> {
       return (
         <main className="flex min-h-screen items-center justify-center bg-[#f7f8f4] p-5">
           <section className="w-full max-w-lg rounded-[2rem] border border-[#d9e4db] bg-white p-8 text-center shadow-[0_24px_70px_rgba(16,53,47,.12)]">
-            <AlertTriangle
-              size={48}
-              className="mx-auto mb-6 text-[#b54a35]"
-            />
+            <AlertTriangle size={48} className="mx-auto mb-6 text-[#b54a35]" />
 
             <h1 className="text-xl font-semibold text-[#173f36]">
               একটি অপ্রত্যাশিত সমস্যা হয়েছে
             </h1>
 
             <p className="mt-3 text-sm leading-6 text-[#668076]">
-              আপনার তথ্য নিরাপদ আছে। পৃষ্ঠাটি আবার লোড করে চেষ্টা করুন। সমস্যা থাকলে পরে আবার চেষ্টা করুন।
+              আপনার তথ্য নিরাপদ আছে। পৃষ্ঠাটি আবার লোড করে চেষ্টা করুন। সমস্যা
+              থাকলে পরে আবার চেষ্টা করুন।
             </p>
 
             <button

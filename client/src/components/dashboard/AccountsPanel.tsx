@@ -51,15 +51,10 @@ export function AccountsPanel({
       <div className="mt-4 space-y-3">
         {accounts.length ? (
           accounts.map(account => (
-            <div
-              key={account.id}
-              className="rounded-xl bg-[#f5f8f5] p-3"
-            >
+            <div key={account.id} className="rounded-xl bg-[#f5f8f5] p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-[#183d34]">
-                    {account.name}
-                  </p>
+                  <p className="font-semibold text-[#183d34]">{account.name}</p>
                   <p className="mt-1 text-sm text-[#668076]">
                     {account.type === "cash"
                       ? "নগদ"
@@ -94,19 +89,29 @@ export function AccountsPanel({
         )}
       </div>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={open => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={open => !open && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>অ্যাকাউন্ট মুছুন</DialogTitle>
             <DialogDescription>
-              কি আপনি নিশ্চিতভাবে এই অ্যাকাউন্টটি মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।
+              কি আপনি নিশ্চিতভাবে এই অ্যাকাউন্টটি মুছে ফেলতে চান? এই কাজটি
+              পূর্বাবস্থায় ফেরানো যাবে না।
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               বাতিল
             </Button>
-            <Button variant="destructive" onClick={() => { onDelete(deleteTarget!); setDeleteTarget(null); }}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onDelete(deleteTarget!);
+                setDeleteTarget(null);
+              }}
+            >
               মুছুন
             </Button>
           </DialogFooter>

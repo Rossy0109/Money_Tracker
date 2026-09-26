@@ -55,7 +55,9 @@ function stableStringify(value: unknown): string {
   }
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj).sort();
-  const parts = keys.map(k => `${JSON.stringify(k)}:${stableStringify(obj[k])}`);
+  const parts = keys.map(
+    k => `${JSON.stringify(k)}:${stableStringify(obj[k])}`
+  );
   return `{${parts.join(",")}}`;
 }
 
@@ -76,7 +78,7 @@ export async function claimIdempotency(
   idempotencyKey: string,
   route: string,
   requestHash: string,
-  ttlMs: number = DEFAULT_TTL_MS,
+  ttlMs: number = DEFAULT_TTL_MS
 ): Promise<IdempotencyClaim> {
   const db = databaseRequired(await getDb());
   const expiresAt = new Date(Date.now() + ttlMs);
@@ -101,7 +103,7 @@ export async function claimIdempotency(
         and(
           eq(idempotencyKeys.userId, userId),
           eq(idempotencyKeys.idempotencyKey, idempotencyKey),
-          eq(idempotencyKeys.route, route),
+          eq(idempotencyKeys.route, route)
         )
       )
       .limit(1);
@@ -129,8 +131,16 @@ export async function claimIdempotency(
 
     if (existing.expiresAt && new Date(existing.expiresAt) <= new Date()) {
       // Expired — delete and claim fresh.
-      await db.delete(idempotencyKeys).where(eq(idempotencyKeys.id, existing.id));
-      return claimIdempotency(userId, idempotencyKey, route, requestHash, ttlMs);
+      await db
+        .delete(idempotencyKeys)
+        .where(eq(idempotencyKeys.id, existing.id));
+      return claimIdempotency(
+        userId,
+        idempotencyKey,
+        route,
+        requestHash,
+        ttlMs
+      );
     }
 
     if (existing.requestHash !== requestHash) {
@@ -161,10 +171,13 @@ export async function completeIdempotency(
   route: string,
   responseStatus: number,
   responseBody: unknown,
-  ttlMs: number = DEFAULT_TTL_MS,
+  ttlMs: number = DEFAULT_TTL_MS
 ): Promise<void> {
   const db = databaseRequired(await getDb());
-  const body = typeof responseBody === "string" ? responseBody : JSON.stringify(responseBody);
+  const body =
+    typeof responseBody === "string"
+      ? responseBody
+      : JSON.stringify(responseBody);
   const expiresAt = new Date(Date.now() + ttlMs);
 
   await db
@@ -174,7 +187,7 @@ export async function completeIdempotency(
       and(
         eq(idempotencyKeys.userId, userId),
         eq(idempotencyKeys.idempotencyKey, idempotencyKey),
-        eq(idempotencyKeys.route, route),
+        eq(idempotencyKeys.route, route)
       )
     );
 }
@@ -187,7 +200,7 @@ export async function checkIdempotency(
   userId: number,
   idempotencyKey: string,
   route: string,
-  requestHash: string,
+  requestHash: string
 ): Promise<IdempotencyResult> {
   const db = databaseRequired(await getDb());
 
@@ -198,7 +211,7 @@ export async function checkIdempotency(
       and(
         eq(idempotencyKeys.userId, userId),
         eq(idempotencyKeys.idempotencyKey, idempotencyKey),
-        eq(idempotencyKeys.route, route),
+        eq(idempotencyKeys.route, route)
       )
     )
     .limit(1);
@@ -223,9 +236,7 @@ export async function checkIdempotency(
       );
     }
     // Expired — clean up and proceed
-    await db
-      .delete(idempotencyKeys)
-      .where(eq(idempotencyKeys.id, existing.id));
+    await db.delete(idempotencyKeys).where(eq(idempotencyKeys.id, existing.id));
   }
 
   return { isReplay: false, status: null, body: null };
@@ -241,7 +252,7 @@ export async function storeIdempotency(
   requestHash: string,
   responseStatus: number,
   responseBody: unknown,
-  ttlMs: number = DEFAULT_TTL_MS,
+  ttlMs: number = DEFAULT_TTL_MS
 ): Promise<void> {
   const db = databaseRequired(await getDb());
   const expiresAt = new Date(Date.now() + ttlMs);
@@ -254,13 +265,19 @@ export async function storeIdempotency(
       route,
       requestHash,
       responseStatus,
-      responseBody: typeof responseBody === "string" ? responseBody : JSON.stringify(responseBody),
+      responseBody:
+        typeof responseBody === "string"
+          ? responseBody
+          : JSON.stringify(responseBody),
       expiresAt,
     })
     .onDuplicateKeyUpdate({
       set: {
         responseStatus,
-        responseBody: typeof responseBody === "string" ? responseBody : JSON.stringify(responseBody),
+        responseBody:
+          typeof responseBody === "string"
+            ? responseBody
+            : JSON.stringify(responseBody),
         expiresAt,
       },
     });
@@ -272,7 +289,7 @@ export async function storeIdempotency(
 export async function clearIdempotency(
   userId: number,
   idempotencyKey: string,
-  route: string,
+  route: string
 ): Promise<void> {
   const db = databaseRequired(await getDb());
   await db
@@ -281,7 +298,7 @@ export async function clearIdempotency(
       and(
         eq(idempotencyKeys.userId, userId),
         eq(idempotencyKeys.idempotencyKey, idempotencyKey),
-        eq(idempotencyKeys.route, route),
+        eq(idempotencyKeys.route, route)
       )
     );
 }

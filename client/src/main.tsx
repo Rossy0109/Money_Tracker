@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME } from '@shared/const';
+import { COOKIE_NAME } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -15,7 +15,8 @@ import {
   shouldRetryQuery,
 } from "./lib/networkErrorHandler";
 
-const shouldRegisterServiceWorker = import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true";
+const shouldRegisterServiceWorker =
+  import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true";
 
 if (shouldRegisterServiceWorker && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

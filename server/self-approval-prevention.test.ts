@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { flattenSource } from "@shared/sourceText";
 
 function readFile(path: string): string {
   return readFileSync(new URL(path, import.meta.url), "utf8");
@@ -77,7 +78,9 @@ describe("Self-Approval Prevention — Structural Invariants", () => {
 
   it("reverseVoucher self-check is before db.transaction", () => {
     const fn = getFunctionBody(dbSource, "reverseVoucher");
-    const selfCheckPos = fn.indexOf("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
+    const selfCheckPos = fn.indexOf(
+      "নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না"
+    );
     const transactionPos = fn.indexOf("db.transaction");
     expect(selfCheckPos).toBeGreaterThan(0);
     expect(transactionPos).toBeGreaterThan(0);
@@ -103,7 +106,9 @@ describe("Self-Approval Prevention — Structural Invariants", () => {
     // approveVoucher: fetch → self-check → assertVoucherTransition → update
     const approveFn = getFunctionBody(dbSource, "approveVoucher");
     const approveFetch = approveFn.indexOf(".limit(1)");
-    const approveCheck = approveFn.indexOf("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
+    const approveCheck = approveFn.indexOf(
+      "নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না"
+    );
     const approveUpdate = approveFn.indexOf("update(");
     expect(approveFetch).toBeLessThan(approveCheck);
     expect(approveCheck).toBeLessThan(approveUpdate);
@@ -111,7 +116,9 @@ describe("Self-Approval Prevention — Structural Invariants", () => {
     // postVoucher: fetch → self-check → assertVoucherTransition → transaction
     const postFn = getFunctionBody(dbSource, "postVoucher");
     const postFetch = postFn.indexOf(".limit(1)");
-    const postCheck = postFn.indexOf("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
+    const postCheck = postFn.indexOf(
+      "নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না"
+    );
     const postTransaction = postFn.indexOf("db.transaction");
     expect(postFetch).toBeLessThan(postCheck);
     expect(postCheck).toBeLessThan(postTransaction);
@@ -119,7 +126,9 @@ describe("Self-Approval Prevention — Structural Invariants", () => {
     // reverseVoucher: fetch → self-check → assertVoucherTransition → transaction
     const reverseFn = getFunctionBody(dbSource, "reverseVoucher");
     const reverseFetch = reverseFn.indexOf(".limit(1)");
-    const reverseCheck = reverseFn.indexOf("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
+    const reverseCheck = reverseFn.indexOf(
+      "নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না"
+    );
     const reverseTransaction = reverseFn.indexOf("db.transaction");
     expect(reverseFetch).toBeLessThan(reverseCheck);
     expect(reverseCheck).toBeLessThan(reverseTransaction);
@@ -132,12 +141,16 @@ describe("Self-Approval Prevention — Router-Level Enforcement", () => {
   const routerSource = readFile("./routers.ts");
 
   it("approveVoucher procedure uses permission-based middleware (not owner-only)", () => {
-    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"approve\")");
+    expect(routerSource).toContain(
+      'inputOnlyWithPermission("voucher", "approve")'
+    );
   });
 
   it("postVoucher procedure uses permission-based middleware", () => {
     // postVoucher should also be protected by RBAC
-    expect(routerSource).toContain("inputOnlyWithPermission(\"voucher\", \"post\")");
+    expect(routerSource).toContain(
+      'inputOnlyWithPermission("voucher", "post")'
+    );
   });
 });
 
@@ -168,9 +181,20 @@ describe("Self-Approval Prevention — Schema Completeness", () => {
 
   it("submittedBy, approvedBy, postedBy, reversedBy are nullable (set via workflow)", () => {
     // These columns should be nullable because they're set as the voucher progresses
-    expect(schemaSource).toMatch(/submittedBy.*int.*submittedBy.*references.*set null/);
-    expect(schemaSource).toMatch(/approvedBy.*int.*approvedBy.*references.*set null/);
-    expect(schemaSource).toMatch(/postedBy.*int.*postedBy.*references.*set null/);
-    expect(schemaSource).toMatch(/reversedBy.*int.*reversedBy.*references.*set null/);
+    // Compared against whitespace-collapsed schema text: the column
+    // declaration is wrapped across lines, which `.*` cannot span.
+    const flattenedSchema = flattenSource(schemaSource);
+    expect(flattenedSchema).toMatch(
+      /submittedBy.*int.*submittedBy.*references.*set null/
+    );
+    expect(flattenedSchema).toMatch(
+      /approvedBy.*int.*approvedBy.*references.*set null/
+    );
+    expect(flattenedSchema).toMatch(
+      /postedBy.*int.*postedBy.*references.*set null/
+    );
+    expect(flattenedSchema).toMatch(
+      /reversedBy.*int.*reversedBy.*references.*set null/
+    );
   });
 });

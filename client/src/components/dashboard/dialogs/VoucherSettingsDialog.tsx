@@ -37,8 +37,8 @@ export function VoucherSettingsDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
           <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
-            প্রতিটি নতুন লেনদেন, দেনা/পাওনা ও সমন্বয়ের জন্য নির্ধারিত
-            রেঞ্জ থেকে পরবর্তী ভাউচার নম্বর স্বয়ংক্রিয়ভাবে দেওয়া হবে।
+            প্রতিটি নতুন লেনদেন, দেনা/পাওনা ও সমন্বয়ের জন্য নির্ধারিত রেঞ্জ থেকে
+            পরবর্তী ভাউচার নম্বর স্বয়ংক্রিয়ভাবে দেওয়া হবে।
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="ভাউচার প্রিফিক্স">

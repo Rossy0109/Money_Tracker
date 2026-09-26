@@ -1,4 +1,5 @@
-export type GenderCategory = "general" | "female_senior" | "specially_abled" | "freedom_fighter";
+export type GenderCategory =
+  "general" | "female_senior" | "specially_abled" | "freedom_fighter";
 
 export interface IncomeBreakdown {
   salaryIncome: number;
@@ -172,7 +173,10 @@ export function calculateBangladeshIncomeTax(
     finalTaxPayable = Math.max(minimumTax, netTaxAfterRebate);
   }
 
-  const remainingTaxToPay = Math.max(0, finalTaxPayable - (income.taxDeductedAtSource || 0));
+  const remainingTaxToPay = Math.max(
+    0,
+    finalTaxPayable - (income.taxDeductedAtSource || 0)
+  );
 
   return {
     totalGrossIncome,

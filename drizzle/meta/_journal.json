@@ -127,6 +127,20 @@
       "when": 1790232846507,
       "tag": "0017_missing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1790310000000,
+      "tag": "0018_canonical_accounts_and_transaction_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1790313600000,
+      "tag": "0019_wallet_opening_balance_voucher",
+      "breakpoints": true
     }
   ]
 }

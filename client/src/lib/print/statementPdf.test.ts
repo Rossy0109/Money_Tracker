@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildStatementPdf } from "./statementPdf";
 import type { StatementData, PrintTransaction } from "./types";
 
-function txn(n: number, type: "income" | "expense" = "expense"): PrintTransaction {
+function txn(
+  n: number,
+  type: "income" | "expense" = "expense"
+): PrintTransaction {
   return {
     id: n,
     projectId: 1,
@@ -22,13 +25,33 @@ function txn(n: number, type: "income" | "expense" = "expense"): PrintTransactio
 }
 
 function makeData(count: number): StatementData {
-  const items = Array.from({ length: count }, (_, index) => txn(index + 1, index % 3 === 0 ? "income" : "expense"));
-  const income = items.filter(item => item.type === "income").reduce((sum, item) => sum + Number(item.amount), 0);
-  const expense = items.filter(item => item.type === "expense").reduce((sum, item) => sum + Number(item.amount), 0);
+  const items = Array.from({ length: count }, (_, index) =>
+    txn(index + 1, index % 3 === 0 ? "income" : "expense")
+  );
+  const income = items
+    .filter(item => item.type === "income")
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const expense = items
+    .filter(item => item.type === "expense")
+    .reduce((sum, item) => sum + Number(item.amount), 0);
   return {
     project: { id: 1, name: "খাতা" },
-    firm: { name: "Ahmed's Financial Accounting", tagline: "ট্যাগলাইন", phone: "+880", email: "x@y.com", address: "ঢাকা" },
-    accounts: [{ id: 1, name: "নগদ", type: "cash", openingBalance: 0, currentBalance: income - expense }],
+    firm: {
+      name: "Ahmed's Financial Accounting",
+      tagline: "ট্যাগলাইন",
+      phone: "+880",
+      email: "x@y.com",
+      address: "ঢাকা",
+    },
+    accounts: [
+      {
+        id: 1,
+        name: "নগদ",
+        type: "cash",
+        openingBalance: 0,
+        currentBalance: income - expense,
+      },
+    ],
     items,
     totals: {
       count: items.length,
@@ -99,7 +122,11 @@ describe("statement PDF", () => {
       totals: [{ label: "মোট আয়", value: "৳ ৪০০.০০" }],
     });
     expect(instance.addFileToVFS).toHaveBeenCalled();
-    expect(instance.text).toHaveBeenCalledWith("দৈনিক আয়-ব্যয় বিবরণী", expect.any(Number), expect.any(Number));
+    expect(instance.text).toHaveBeenCalledWith(
+      "দৈনিক আয়-ব্যয় বিবরণী",
+      expect.any(Number),
+      expect.any(Number)
+    );
   });
 
   it("paginates 300-row statements and draws a page footer", async () => {

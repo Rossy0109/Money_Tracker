@@ -24,7 +24,10 @@ export interface MockHousehold {
   members: Array<{ userId: number; role: "owner" | "member" | "viewer" }>;
 }
 
-export function authorizeProjectAccess(user: MockUser, project: MockProject): boolean {
+export function authorizeProjectAccess(
+  user: MockUser,
+  project: MockProject
+): boolean {
   if (user.status !== "active") return false;
   return project.userId === user.id;
 }
@@ -58,14 +61,52 @@ export function authorizeHouseholdAccess(
 }
 
 describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissions, Household Members", () => {
-  const userA: MockUser = { id: 101, openId: "usr_a", role: "user", rbacRoles: ["VIEWER"], status: "active" };
-  const userB: MockUser = { id: 102, openId: "usr_b", role: "user", rbacRoles: ["VIEWER"], status: "active" };
-  const adminUser: MockUser = { id: 1, openId: "adm_1", role: "admin", rbacRoles: ["SUPER_ADMIN"], status: "active" };
-  const suspendedUser: MockUser = { id: 103, openId: "usr_s", role: "user", rbacRoles: ["VIEWER"], status: "suspended" };
-  const legacyAdminOnly: MockUser = { id: 2, openId: "legacy_admin", role: "admin", rbacRoles: [], status: "active" };
+  const userA: MockUser = {
+    id: 101,
+    openId: "usr_a",
+    role: "user",
+    rbacRoles: ["VIEWER"],
+    status: "active",
+  };
+  const userB: MockUser = {
+    id: 102,
+    openId: "usr_b",
+    role: "user",
+    rbacRoles: ["VIEWER"],
+    status: "active",
+  };
+  const adminUser: MockUser = {
+    id: 1,
+    openId: "adm_1",
+    role: "admin",
+    rbacRoles: ["SUPER_ADMIN"],
+    status: "active",
+  };
+  const suspendedUser: MockUser = {
+    id: 103,
+    openId: "usr_s",
+    role: "user",
+    rbacRoles: ["VIEWER"],
+    status: "suspended",
+  };
+  const legacyAdminOnly: MockUser = {
+    id: 2,
+    openId: "legacy_admin",
+    role: "admin",
+    rbacRoles: [],
+    status: "active",
+  };
 
-  const projectA: MockProject = { id: 10, userId: userA.id, name: "ব্যক্তিগত খরচ" };
-  const projectB: MockProject = { id: 20, userId: userB.id, name: "ব্যবসার খাতা" };
+  const projectA: MockProject = {
+    id: 10,
+    userId: userA.id,
+    name: "ব্যক্তিগত খরচ",
+  };
+  const projectB: MockProject = {
+    id: 20,
+    userId: userB.id,
+    name: "ব্যবসার খাতা",
+  };
 
   describe("User Isolation", () => {
     it("allows users to access their own projects", () => {
@@ -79,8 +120,14 @@ describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissio
     });
 
     it("blocks suspended users from accessing even their own projects", () => {
-      const suspendedProject: MockProject = { id: 30, userId: suspendedUser.id, name: "স্থগিত খাতা" };
-      expect(authorizeProjectAccess(suspendedUser, suspendedProject)).toBe(false);
+      const suspendedProject: MockProject = {
+        id: 30,
+        userId: suspendedUser.id,
+        name: "স্থগিত খাতা",
+      };
+      expect(authorizeProjectAccess(suspendedUser, suspendedProject)).toBe(
+        false
+      );
     });
   });
 
@@ -123,9 +170,19 @@ describe("server/authorization.test.ts - User Isolation, Admin Checks, Permissio
     });
 
     it("denies uninvited or non-member users from viewing or accessing household data", () => {
-      const externalUser: MockUser = { id: 999, openId: "ext", role: "user", rbacRoles: ["VIEWER"], status: "active" };
-      expect(authorizeHouseholdAccess(externalUser, household, "viewer")).toBe(false);
-      expect(authorizeHouseholdAccess(externalUser, household, "member")).toBe(false);
+      const externalUser: MockUser = {
+        id: 999,
+        openId: "ext",
+        role: "user",
+        rbacRoles: ["VIEWER"],
+        status: "active",
+      };
+      expect(authorizeHouseholdAccess(externalUser, household, "viewer")).toBe(
+        false
+      );
+      expect(authorizeHouseholdAccess(externalUser, household, "member")).toBe(
+        false
+      );
     });
   });
 });

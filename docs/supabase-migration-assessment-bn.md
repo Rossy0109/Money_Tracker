@@ -20,12 +20,12 @@ Supabase-এর server-side Auth guidance cookie-backed server flow ও PKCE স
 
 ## প্রাথমিক architectural implication
 
-| ক্ষেত্র | বর্তমান staging path | Supabase plan-এর ন্যূনতম-পরিবর্তনের প্রয়োজন |
-|---|---|---|
-| Database | MySQL/TiDB-oriented Drizzle schema ও `mysql2` | PostgreSQL driver, dialect, migration set, UTC/time/decimal semantics এবং project/household access tests পুনরায় যাচাই |
+| ক্ষেত্র        | বর্তমান staging path                                  | Supabase plan-এর ন্যূনতম-পরিবর্তনের প্রয়োজন                                                                               |
+| -------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Database       | MySQL/TiDB-oriented Drizzle schema ও `mysql2`         | PostgreSQL driver, dialect, migration set, UTC/time/decimal semantics এবং project/household access tests পুনরায় যাচাই     |
 | Authentication | Password fallback + isolated Google PKCE staging mode | Supabase Auth identity JWT-কে internal finance user ID-এর সঙ্গে নিরাপদে map; admin bootstrap ও role preservation পুনঃনকশা |
-| Storage | private Vercel Blob + metadata-protected stream route | Supabase private bucket + RLS `storage.objects` policies; object metadata ও owner/project/household checks ধরে রাখা |
-| Backend | Vercel Express catch-all | Server-only Supabase service credential; browser-এ service-role key নয় |
+| Storage        | private Vercel Blob + metadata-protected stream route | Supabase private bucket + RLS `storage.objects` policies; object metadata ও owner/project/household checks ধরে রাখা       |
+| Backend        | Vercel Express catch-all                              | Server-only Supabase service credential; browser-এ service-role key নয়                                                    |
 
 ## বর্তমান কোড অডিট ও ন্যূনতম-পরিবর্তনের সিদ্ধান্ত
 
@@ -37,12 +37,12 @@ Authentication-এর ক্ষেত্রেও একই নিয়ম: `AUTH_
 
 Storage-এ `STORAGE_MODE=vercel-blob` বর্তমান hardened staging transport; `STORAGE_MODE=supabase` হলে private bucket, relational object metadata এবং owner/project/household access check একই থাকবে। Raw object key, public bucket বা client-side service-role access গ্রহণ করা হবে না। Server route verified user ও metadata check-এর পরে private object stream করবে; RLS হবে দ্বিতীয় স্তরের প্রতিরক্ষা।
 
-| স্তর | বর্তমান প্রমাণিত পথ | Supabase staging mode | অপরিবর্তনীয় নিরাপত্তা সীমা |
-|---|---|---|---|
-| Finance DB | MySQL/TiDB Drizzle | PostgreSQL Drizzle adapter | internal numeric user ID, project scope, household roles, voucher/accounting transaction intact |
-| Login | Password অথবা staged Google cookie | Supabase Auth verified JWT/cookie | server-side issuer/audience/subject verification এবং admin bootstrap allowlist |
-| Files | private Vercel Blob + metadata | private Supabase bucket + metadata | no raw-key download, no public backup/export URL, owner/household denial test |
-| Deploy | Vercel Express/Vite | একই Vercel Express/Vite | GitHub protected PR/CI; Production env ও live fallback untouched |
+| স্তর       | বর্তমান প্রমাণিত পথ                | Supabase staging mode              | অপরিবর্তনীয় নিরাপত্তা সীমা                                                                      |
+| ---------- | ---------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Finance DB | MySQL/TiDB Drizzle                 | PostgreSQL Drizzle adapter         | internal numeric user ID, project scope, household roles, voucher/accounting transaction intact |
+| Login      | Password অথবা staged Google cookie | Supabase Auth verified JWT/cookie  | server-side issuer/audience/subject verification এবং admin bootstrap allowlist                  |
+| Files      | private Vercel Blob + metadata     | private Supabase bucket + metadata | no raw-key download, no public backup/export URL, owner/household denial test                   |
+| Deploy     | Vercel Express/Vite                | একই Vercel Express/Vite            | GitHub protected PR/CI; Production env ও live fallback untouched                                |
 
 ## সিদ্ধান্তের পূর্বশর্ত
 

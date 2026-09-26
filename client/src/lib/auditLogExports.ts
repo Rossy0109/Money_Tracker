@@ -2,7 +2,22 @@ import type { jsPDF } from "jspdf";
 
 export type AuditLogExportRecord = {
   id: number;
-  action: "create" | "update" | "delete" | "delete_attempt" | "approve" | "reject" | "post" | "reverse" | "login" | "logout" | "login_failed" | "permission_denied" | "user_suspended" | "backup_created" | "backup_restored";
+  action:
+    | "create"
+    | "update"
+    | "delete"
+    | "delete_attempt"
+    | "approve"
+    | "reject"
+    | "post"
+    | "reverse"
+    | "login"
+    | "logout"
+    | "login_failed"
+    | "permission_denied"
+    | "user_suspended"
+    | "backup_created"
+    | "backup_restored";
   entityType: string;
   entityId: number | null;
   summary: string;
@@ -14,10 +29,16 @@ export type AuditLogExportRecord = {
 };
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
-const auditDate = (value: Date | string) => new Intl.DateTimeFormat("bn-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-const actorText = (row: AuditLogExportRecord) => row.actorName ?? `User #${row.actorUserId}`;
+const auditDate = (value: Date | string) =>
+  new Intl.DateTimeFormat("bn-BD", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+const actorText = (row: AuditLogExportRecord) =>
+  row.actorName ?? `User #${row.actorUserId}`;
 const projectText = (row: AuditLogExportRecord) => row.projectName ?? "—";
-const escapeCsv = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+const escapeCsv = (value: unknown) =>
+  `"${String(value ?? "").replaceAll('"', '""')}"`;
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -29,9 +50,33 @@ function download(blob: Blob, filename: string) {
 }
 
 export function downloadAuditCsv(rows: AuditLogExportRecord[]) {
-  const header = ["সময়", "কাজ", "বিবরণ", "ব্যবহারকারী", "প্রজেক্ট", "এন্ট্রি আইডি"];
-  const lines = rows.map(row => [auditDate(row.createdAt), row.action, row.summary, actorText(row), projectText(row), row.id].map(escapeCsv).join(","));
-  download(new Blob(["\ufeff", header.map(escapeCsv).join(","), "\n", lines.join("\n")], { type: "text/csv;charset=utf-8" }), `audit-log-${new Date().toISOString().slice(0, 10)}.csv`);
+  const header = [
+    "সময়",
+    "কাজ",
+    "বিবরণ",
+    "ব্যবহারকারী",
+    "প্রজেক্ট",
+    "এন্ট্রি আইডি",
+  ];
+  const lines = rows.map(row =>
+    [
+      auditDate(row.createdAt),
+      row.action,
+      row.summary,
+      actorText(row),
+      projectText(row),
+      row.id,
+    ]
+      .map(escapeCsv)
+      .join(",")
+  );
+  download(
+    new Blob(
+      ["\ufeff", header.map(escapeCsv).join(","), "\n", lines.join("\n")],
+      { type: "text/csv;charset=utf-8" }
+    ),
+    `audit-log-${new Date().toISOString().slice(0, 10)}.csv`
+  );
 }
 
 async function addBengaliFont(doc: jsPDF) {
@@ -40,7 +85,8 @@ async function addBengaliFont(doc: jsPDF) {
   const fontBuffer: ArrayBuffer = await response.arrayBuffer();
   const bytes = new Uint8Array(fontBuffer);
   let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
+  for (let index = 0; index < bytes.length; index += 1)
+    binary += String.fromCharCode(bytes[index]);
   doc.addFileToVFS("NotoSansBengali-Regular.ttf", btoa(binary));
   doc.addFont("NotoSansBengali-Regular.ttf", "NotoSansBengali", "normal");
   doc.setFont("NotoSansBengali", "normal");
@@ -59,16 +105,30 @@ export async function downloadAuditPdf(rows: AuditLogExportRecord[]) {
     doc.text(`তৈরির সময়: ${auditDate(new Date())}`, 40, 60);
     doc.setFillColor(237, 245, 238);
     doc.rect(40, 78, 730, 22, "F");
-    ["সময়", "কাজ", "বিবরণ", "ব্যবহারকারী", "প্রজেক্ট"].forEach((label, index) => doc.text(label, columns[index], 93));
+    ["সময়", "কাজ", "বিবরণ", "ব্যবহারকারী", "প্রজেক্ট"].forEach((label, index) =>
+      doc.text(label, columns[index], 93)
+    );
   };
   let y = 118;
   drawHeader();
   for (const row of rows) {
     doc.setFontSize(8);
-    const values = [auditDate(row.createdAt), row.action, row.summary, actorText(row), projectText(row)];
-    const lines = values.map((value, index) => doc.splitTextToSize(value, widths[index] - 8));
+    const values = [
+      auditDate(row.createdAt),
+      row.action,
+      row.summary,
+      actorText(row),
+      projectText(row),
+    ];
+    const lines = values.map((value, index) =>
+      doc.splitTextToSize(value, widths[index] - 8)
+    );
     const rowHeight = Math.max(18, ...lines.map(line => line.length * 11)) + 8;
-    if (y + rowHeight > 555) { doc.addPage(); y = 118; drawHeader(); }
+    if (y + rowHeight > 555) {
+      doc.addPage();
+      y = 118;
+      drawHeader();
+    }
     doc.setDrawColor(224, 233, 226);
     doc.line(40, y + rowHeight - 4, 770, y + rowHeight - 4);
     lines.forEach((line, index) => doc.text(line, columns[index], y));

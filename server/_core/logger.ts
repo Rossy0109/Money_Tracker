@@ -50,7 +50,9 @@ const logger = pino({
     err: pino.stdSerializers.err,
     error: pino.stdSerializers.err,
     // Redact credentials that may appear as query params on logged URLs.
-    req(request: { url?: string; method?: string; headers?: unknown } | undefined) {
+    req(
+      request: { url?: string; method?: string; headers?: unknown } | undefined
+    ) {
       if (!request) return request;
       const safeUrl =
         typeof request.url === "string"
@@ -66,7 +68,11 @@ const logger = pino({
     ? {
         transport: {
           target: "pino-pretty",
-          options: { colorize: true, translateTime: "SYS:standard", ignore: "pid,hostname" },
+          options: {
+            colorize: true,
+            translateTime: "SYS:standard",
+            ignore: "pid,hostname",
+          },
         },
       }
     : {}),

@@ -26,14 +26,20 @@ describe("Network Resilience Scenarios: 5 Specific Edge Cases", () => {
         return new Promise<Response>((_, reject) => {
           if (options?.signal) {
             options.signal.addEventListener("abort", () => {
-              reject(new DOMException("The user aborted a request.", "AbortError"));
+              reject(
+                new DOMException("The user aborted a request.", "AbortError")
+              );
             });
           }
         });
       });
       globalThis.fetch = slowFetch as any;
 
-      const promise = fetchWithTimeout("https://api.example.com/data", {}, 5000);
+      const promise = fetchWithTimeout(
+        "https://api.example.com/data",
+        {},
+        5000
+      );
       vi.advanceTimersByTime(5001);
 
       await expect(promise).rejects.toThrow("aborted");
@@ -83,7 +89,9 @@ describe("Network Resilience Scenarios: 5 Specific Edge Cases", () => {
     });
 
     it("parses numeric or retry-after formatted messages", () => {
-      const retryAfterError = new Error("Rate limit exceeded. Retry after 15 seconds.");
+      const retryAfterError = new Error(
+        "Rate limit exceeded. Retry after 15 seconds."
+      );
       const classified = classifyNetworkError(retryAfterError, true);
 
       expect(classified.kind).toBe("RATE_LIMIT_429");
@@ -94,7 +102,9 @@ describe("Network Resilience Scenarios: 5 Specific Edge Cases", () => {
   // Scenario 3: Malformed JSON response handling
   describe("3. Malformed JSON response handling", () => {
     it("handles unexpected non-JSON HTML error page (e.g. 502/Proxy HTML)", () => {
-      const syntaxError = new SyntaxError("Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON");
+      const syntaxError = new SyntaxError(
+        "Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+      );
       const classified = classifyNetworkError(syntaxError, true);
 
       expect(classified.kind).toBe("MALFORMED_RESPONSE");
@@ -127,7 +137,9 @@ describe("Network Resilience Scenarios: 5 Specific Edge Cases", () => {
     });
 
     it("identifies explicit cross-origin restriction message", () => {
-      const crossOriginError = new Error("Cross-Origin Request Blocked: The Same Origin Policy disallows reading");
+      const crossOriginError = new Error(
+        "Cross-Origin Request Blocked: The Same Origin Policy disallows reading"
+      );
       const classified = classifyNetworkError(crossOriginError, true);
 
       expect(classified.kind).toBe("CORS_OR_SECURITY");

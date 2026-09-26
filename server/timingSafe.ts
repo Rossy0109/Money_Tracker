@@ -10,7 +10,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
  * 1. Byte-by-byte comparison timing attacks.
  * 2. Token/password length discovery via early-return on length mismatch.
  */
-export function timingSafeCompare(candidate: string, expected: string): boolean {
+export function timingSafeCompare(
+  candidate: string,
+  expected: string
+): boolean {
   if (typeof candidate !== "string" || typeof expected !== "string") {
     return false;
   }
@@ -27,7 +30,10 @@ export function timingSafeCompare(candidate: string, expected: string): boolean 
 /**
  * Validates candidate admin access password or token in constant time.
  */
-export function hasValidAdminPassword(candidate: string, expectedPassword?: string): boolean {
+export function hasValidAdminPassword(
+  candidate: string,
+  expectedPassword?: string
+): boolean {
   if (!candidate || !expectedPassword) return false;
   return timingSafeCompare(candidate, expectedPassword);
 }

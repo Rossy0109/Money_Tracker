@@ -42,10 +42,14 @@ export interface CloudBackupResult {
 export function getCloudStorageConfig(): CloudStorageConfig {
   const supabase = parseSupabaseConfig(process.env);
   const s3Bucket = process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET;
-  const s3AccessKey = process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-  const s3SecretKey = process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const s3AccessKey =
+    process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const s3SecretKey =
+    process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
   const gdriveFolderId = process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID;
-  const gdriveWebhook = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.CLOUD_BACKUP_WEBHOOK_URL;
+  const gdriveWebhook =
+    process.env.GOOGLE_DRIVE_WEBHOOK_URL ||
+    process.env.CLOUD_BACKUP_WEBHOOK_URL;
 
   return {
     supabase: supabase
@@ -55,21 +59,23 @@ export function getCloudStorageConfig(): CloudStorageConfig {
           bucket: supabase.storageBucket || "amar-hisab-backups",
         }
       : undefined,
-    s3: s3Bucket && s3AccessKey && s3SecretKey
-      ? {
-          enabled: true,
-          bucket: s3Bucket,
-          region: process.env.S3_REGION || process.env.AWS_REGION || "auto",
-          endpoint: process.env.S3_ENDPOINT,
-        }
-      : undefined,
-    googleDrive: gdriveFolderId || gdriveWebhook
-      ? {
-          enabled: true,
-          folderId: gdriveFolderId,
-          webhookConfigured: Boolean(gdriveWebhook),
-        }
-      : undefined,
+    s3:
+      s3Bucket && s3AccessKey && s3SecretKey
+        ? {
+            enabled: true,
+            bucket: s3Bucket,
+            region: process.env.S3_REGION || process.env.AWS_REGION || "auto",
+            endpoint: process.env.S3_ENDPOINT,
+          }
+        : undefined,
+    googleDrive:
+      gdriveFolderId || gdriveWebhook
+        ? {
+            enabled: true,
+            folderId: gdriveFolderId,
+            webhookConfigured: Boolean(gdriveWebhook),
+          }
+        : undefined,
   };
 }
 
@@ -81,7 +87,10 @@ async function uploadToSupabase(
   fileName: string,
   supabaseConfig: { url: string; bucket: string }
 ): Promise<boolean> {
-  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "";
   const endpoint = `${supabaseConfig.url}/storage/v1/object/${supabaseConfig.bucket}/${fileName}`;
 
   try {
@@ -97,7 +106,10 @@ async function uploadToSupabase(
     });
     return response.ok;
   } catch (err) {
-    logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Supabase upload error");
+    logger.warn(
+      { err: err instanceof Error ? err : new Error(String(err)) },
+      "[CloudBackup] Supabase upload error"
+    );
     return false;
   }
 }
@@ -112,8 +124,10 @@ async function uploadToS3(
   fileName: string,
   s3Config: { bucket: string; region: string; endpoint?: string }
 ): Promise<boolean> {
-  const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const accessKeyId =
+    process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey =
+    process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
   if (accessKeyId && secretAccessKey) {
     try {
@@ -136,7 +150,10 @@ async function uploadToS3(
       );
       return true;
     } catch (err) {
-      logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, "[CloudBackup] Direct S3 upload error");
+      logger.warn(
+        { err: err instanceof Error ? err : new Error(String(err)) },
+        "[CloudBackup] Direct S3 upload error"
+      );
     }
   }
 
@@ -170,7 +187,9 @@ async function uploadToGoogleDrive(
   fileName: string,
   gdriveConfig: { folderId?: string; webhookConfigured: boolean }
 ): Promise<boolean> {
-  const webhook = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.CLOUD_BACKUP_WEBHOOK_URL;
+  const webhook =
+    process.env.GOOGLE_DRIVE_WEBHOOK_URL ||
+    process.env.CLOUD_BACKUP_WEBHOOK_URL;
   if (!webhook) {
     // No delivery channel configured — never claim success.
     return false;
@@ -196,8 +215,12 @@ async function uploadToGoogleDrive(
  * Persist an encrypted snapshot to local disk and verify it by re-reading.
  * Returns false if the write or verification fails — never fakes success.
  */
-async function writeLocalEncryptedSnapshot(payload: string, fileName: string): Promise<boolean> {
-  const dir = process.env.LOCAL_BACKUP_DIR || path.join(process.cwd(), "backups");
+async function writeLocalEncryptedSnapshot(
+  payload: string,
+  fileName: string
+): Promise<boolean> {
+  const dir =
+    process.env.LOCAL_BACKUP_DIR || path.join(process.cwd(), "backups");
   try {
     await mkdir(dir, { recursive: true });
     const filePath = path.join(dir, fileName);
@@ -225,7 +248,9 @@ export async function executeCloudBackup(
   const rawJson = JSON.stringify(backupData, null, 2);
   const checksum = createHash("sha256").update(rawJson).digest("hex");
   const timestamp = new Date().toISOString();
-  const safeProjectName = backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) || "project";
+  const safeProjectName =
+    backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) ||
+    "project";
 
   const secret = encryptionKey || ENV.backupEncryptionKey;
   if (!secret) {
@@ -251,13 +276,24 @@ export async function executeCloudBackup(
 
   if (config.supabase?.enabled) {
     targetProvider = "supabase";
-    uploadSuccess = await uploadToSupabase(finalPayload, fileName, config.supabase);
+    uploadSuccess = await uploadToSupabase(
+      finalPayload,
+      fileName,
+      config.supabase
+    );
   } else if (config.s3?.enabled) {
     targetProvider = "s3";
     uploadSuccess = await uploadToS3(finalPayload, fileName, config.s3);
-  } else if (config.googleDrive?.enabled && config.googleDrive.webhookConfigured) {
+  } else if (
+    config.googleDrive?.enabled &&
+    config.googleDrive.webhookConfigured
+  ) {
     targetProvider = "google_drive";
-    uploadSuccess = await uploadToGoogleDrive(finalPayload, fileName, config.googleDrive);
+    uploadSuccess = await uploadToGoogleDrive(
+      finalPayload,
+      fileName,
+      config.googleDrive
+    );
   } else if (config.googleDrive?.enabled) {
     // Folder id set but no webhook — nothing can actually receive the payload.
     targetProvider = "google_drive";
@@ -269,7 +305,9 @@ export async function executeCloudBackup(
   }
 
   const { countProjectRecords } = await import("./backupDb");
-  const recordCounts = await countProjectRecords(userId, projectId).catch(() => null);
+  const recordCounts = await countProjectRecords(userId, projectId).catch(
+    () => null
+  );
 
   // Audit log the cloud backup — only claim created when the payload was stored.
   await financeDb.logAudit({

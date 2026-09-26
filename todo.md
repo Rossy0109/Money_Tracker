@@ -257,4 +257,3 @@
 - [x] Implement standalone username/password authentication mode with scrypt salt/hash.
 - [x] Verify full type safety (0 errors in `pnpm check`), 158/158 Vitest tests, and production build (`pnpm build`).
 - [x] Synchronize all completed features and migrations to the main GitHub repository.
-

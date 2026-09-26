@@ -8,19 +8,19 @@
 
 Vercel প্রজেক্টে **Settings** -> **Environment Variables** সেকশনে গিয়ে নিচের ভ্যারিয়েবলগুলো যুক্ত করুন:
 
-| ভ্যারিয়েবল নাম | এনভায়রনমেন্ট | বিবরণ ও উদাহরণ |
-|---|---|---|
-| `AUTH_MODE` | Preview, Production | মান দিন: `google` |
-| `VITE_AUTH_MODE` | Preview, Production | মান দিন: `google` |
-| `GOOGLE_OAUTH_CLIENT_ID` | Preview, Production | Google Cloud Console থেকে প্রাপ্ত OAuth Web Client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Preview, Production | Google OAuth Web Client Secret (সুরক্ষিত সিক্রেট) |
-| `GOOGLE_OAUTH_REDIRECT_URI` | Preview, Production | `https://<your-domain>.vercel.app/api/auth/google/callback` |
-| `DATABASE_URL` | Preview, Production | TiDB Serverless / MySQL connection string (TLS সহ) |
-| `SESSION_SECRET` | Preview, Production | ন্যূনতম ৩২ অক্ষরের ক্রিপ্টোগ্রাফিক র‍্যান্ডম স্ট্রিং |
-| `JWT_SECRET` | Preview, Production | ন্যূনতম ৩২ অক্ষরের র‍্যান্ডম সিক্রেট স্ট্রিং |
-| `ADMIN_BOOTSTRAP_EMAIL` | Preview, Production | আপনার ভেরিফাইড ইমেইল (যেমন: `kamrul01@gmail.com`) |
-| `ADMIN_ACCESS_PASSWORD` | Preview, Production | অ্যাডমিনিস্ট্রেটর ২FA যাচাইকরণের নিরাপদ পাসওয়ার্ড |
-| `BLOB_READ_WRITE_TOKEN` | Preview, Production | Vercel Storage ট্যাব থেকে Blob Store লিংক করলে অটো-ইনজেক্ট হয় |
+| ভ্যারিয়েবল নাম              | এনভায়রনমেন্ট       | বিবরণ ও উদাহরণ                                                |
+| ---------------------------- | ------------------- | ------------------------------------------------------------- |
+| `AUTH_MODE`                  | Preview, Production | মান দিন: `google`                                             |
+| `VITE_AUTH_MODE`             | Preview, Production | মান দিন: `google`                                             |
+| `GOOGLE_OAUTH_CLIENT_ID`     | Preview, Production | Google Cloud Console থেকে প্রাপ্ত OAuth Web Client ID         |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Preview, Production | Google OAuth Web Client Secret (সুরক্ষিত সিক্রেট)             |
+| `GOOGLE_OAUTH_REDIRECT_URI`  | Preview, Production | `https://<your-domain>.vercel.app/api/auth/google/callback`   |
+| `DATABASE_URL`               | Preview, Production | TiDB Serverless / MySQL connection string (TLS সহ)            |
+| `SESSION_SECRET`             | Preview, Production | ন্যূনতম ৩২ অক্ষরের ক্রিপ্টোগ্রাফিক র‍্যান্ডম স্ট্রিং          |
+| `JWT_SECRET`                 | Preview, Production | ন্যূনতম ৩২ অক্ষরের র‍্যান্ডম সিক্রেট স্ট্রিং                  |
+| `ADMIN_BOOTSTRAP_EMAIL`      | Preview, Production | আপনার ভেরিফাইড ইমেইল (যেমন: `kamrul01@gmail.com`)             |
+| `ADMIN_ACCESS_PASSWORD`      | Preview, Production | অ্যাডমিনিস্ট্রেটর ২FA যাচাইকরণের নিরাপদ পাসওয়ার্ড             |
+| `BLOB_READ_WRITE_TOKEN`      | Preview, Production | Vercel Storage ট্যাব থেকে Blob Store লিংক করলে অটো-ইনজেক্ট হয় |
 
 ---
 

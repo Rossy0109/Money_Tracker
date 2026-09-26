@@ -598,7 +598,9 @@ function SidebarMenuSkeleton({
   showIcon?: boolean;
 }) {
   // Random width between 50 to 90% — computed once on mount for stable decoration.
-  const [width] = React.useState(() => `${Math.floor(Math.random() * 40) + 50}%`);
+  const [width] = React.useState(
+    () => `${Math.floor(Math.random() * 40) + 50}%`
+  );
 
   return (
     <div
@@ -712,4 +714,3 @@ export {
   SidebarSeparator,
   SidebarTrigger,
 };
-

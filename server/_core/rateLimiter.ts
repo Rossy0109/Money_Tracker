@@ -20,14 +20,17 @@ interface RateLimitRecord {
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
 // Clean up expired entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  rateLimitStore.forEach((record, key) => {
-    if (now > record.resetAt) {
-      rateLimitStore.delete(key);
-    }
-  });
-}, 5 * 60 * 1000).unref?.();
+setInterval(
+  () => {
+    const now = Date.now();
+    rateLimitStore.forEach((record, key) => {
+      if (now > record.resetAt) {
+        rateLimitStore.delete(key);
+      }
+    });
+  },
+  5 * 60 * 1000
+).unref?.();
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -43,7 +46,9 @@ export interface RateLimitOptions {
  * hop's X-Forwarded-For entry is used). Never key on the raw X-Forwarded-For
  * header: clients can spoof it to mint fresh rate-limit buckets.
  */
-export function getClientIp(req?: Pick<Request, "ip" | "socket" | "headers"> | null): string {
+export function getClientIp(
+  req?: Pick<Request, "ip" | "socket" | "headers"> | null
+): string {
   if (req?.ip) return req.ip;
   const socketIp = req?.socket?.remoteAddress;
   if (socketIp) return socketIp;
@@ -62,7 +67,10 @@ export function checkRateLimit(
   options: RateLimitOptions
 ): { remaining: number; resetAt: number } {
   // Skip rate limiting in testing environments
-  if (process.env.NODE_ENV === "test" || process.env.ISOLATED_E2E_DATABASE === "true") {
+  if (
+    process.env.NODE_ENV === "test" ||
+    process.env.ISOLATED_E2E_DATABASE === "true"
+  ) {
     return { remaining: options.max, resetAt: Date.now() + options.windowMs };
   }
 

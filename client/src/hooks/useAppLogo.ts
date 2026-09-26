@@ -34,7 +34,9 @@ export function useAppLogo() {
 
   const uploadLogo = useCallback(async (file: File): Promise<string> => {
     if (!file.type.startsWith("image/")) {
-      throw new Error("শুধুমাত্র ইমেজ ফাইল (PNG, JPG, SVG, WebP) আপলোড করা যাবে");
+      throw new Error(
+        "শুধুমাত্র ইমেজ ফাইল (PNG, JPG, SVG, WebP) আপলোড করা যাবে"
+      );
     }
     if (file.size > 2 * 1024 * 1024) {
       throw new Error("ফাইলের সাইজ সর্বোচ্চ ২ মেগাবাইট (2MB) হতে পারে");
@@ -63,7 +65,9 @@ export function useAppLogo() {
       localStorage.removeItem(LOGO_STORAGE_KEY);
       setLogoUrl(DEFAULT_LOGO_URL);
       window.dispatchEvent(new CustomEvent(LOGO_CHANGE_EVENT));
-    } catch { /* storage may be unavailable */ }
+    } catch {
+      /* storage may be unavailable */
+    }
   }, []);
 
   const isCustom = logoUrl !== DEFAULT_LOGO_URL;

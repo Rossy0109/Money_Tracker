@@ -26,7 +26,11 @@ import {
 
 type AuthMeData = inferRouterOutputs<AppRouter>["auth"]["me"];
 
-export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null; email?: string | null } | null }) {
+export function AuthCard({
+  pendingUser,
+}: {
+  pendingUser?: { name?: string | null; email?: string | null } | null;
+}) {
   const { logoUrl } = useAppLogo();
   const [roleMode, setRoleMode] = useState<"user" | "admin">("user");
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -36,7 +40,9 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [pendingApprovalMsg, setPendingApprovalMsg] = useState<string | null>(null);
+  const [pendingApprovalMsg, setPendingApprovalMsg] = useState<string | null>(
+    null
+  );
 
   const utils = trpc.useUtils();
 
@@ -48,19 +54,21 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
   });
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async data => {
       setErrorMessage(null);
       setPendingApprovalMsg(null);
       utils.auth.me.setData(undefined, data.user as unknown as AuthMeData);
       await utils.auth.me.invalidate();
     },
-    onError: (err) => {
-      setErrorMessage(err.message || "লগইন করা যায়নি। তথ্য সঠিক কিনা যাচাই করুন।");
+    onError: err => {
+      setErrorMessage(
+        err.message || "লগইন করা যায়নি। তথ্য সঠিক কিনা যাচাই করুন।"
+      );
     },
   });
 
   const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async data => {
       setErrorMessage(null);
       if (data.pendingApproval) {
         setPendingApprovalMsg(data.message);
@@ -72,7 +80,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
         await utils.auth.me.invalidate();
       }
     },
-    onError: (err) => {
+    onError: err => {
       setErrorMessage(err.message || "রেজিস্ট্রেশন সম্পন্ন করা যায়নি।");
     },
   });
@@ -130,7 +138,14 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
         {/* Top App Identity */}
         <div className="text-center mb-5 sm:mb-6">
           <div className="inline-flex items-center justify-center h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-white p-1.5 shadow-xl shadow-green-950/10 mb-3 ring-4 ring-white/90 overflow-hidden">
-            <img src={logoUrl || "/logo.png"} alt="Ahmed's Financial Accounting" className="h-full w-full object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
+            <img
+              src={logoUrl || "/logo.png"}
+              alt="Ahmed's Financial Accounting"
+              className="h-full w-full object-contain"
+              onError={e => {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }}
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f]">
             Ahmed's Financial Accounting
@@ -151,10 +166,13 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                 অ্যাকাউন্ট অনুমোদনের অপেক্ষায়
               </h2>
               <div className="p-3.5 rounded-2xl bg-[#fafdfb] border border-[#d6e5db] text-xs text-[#3b5d50] space-y-1.5 text-left">
-                <p className="font-semibold text-[#14382f]">ব্যবহারকারী: {pendingUser.name || "নতুন সদস্য"}</p>
+                <p className="font-semibold text-[#14382f]">
+                  ব্যবহারকারী: {pendingUser.name || "নতুন সদস্য"}
+                </p>
                 <p className="text-[#59786a]">ইমেইল: {pendingUser.email}</p>
                 <p className="text-amber-700 font-medium pt-1 border-t border-[#e2ece5]">
-                  আপনার নিবন্ধন গ্রহণ করা হয়েছে। প্রধান অ্যাডমিনের অনুমোদন পাওয়ার পর আপনি ড্যাশবোর্ড ব্যবহার করতে পারবেন।
+                  আপনার নিবন্ধন গ্রহণ করা হয়েছে। প্রধান অ্যাডমিনের অনুমোদন
+                  পাওয়ার পর আপনি ড্যাশবোর্ড ব্যবহার করতে পারবেন।
                 </p>
               </div>
               <div className="flex flex-col gap-2 pt-2">
@@ -252,7 +270,10 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
               {roleMode === "admin" && (
                 <div className="mb-4 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-[#14532d] text-xs flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>অ্যাডমিনিস্ট্রেটর পোর্টাল: সম্পূর্ণ নিয়ন্ত্রণ ও সকল সিকিউরিটি অ্যাক্সেস।</span>
+                  <span>
+                    অ্যাডমিনিস্ট্রেটর পোর্টাল: সম্পূর্ণ নিয়ন্ত্রণ ও সকল
+                    সিকিউরিটি অ্যাক্সেস।
+                  </span>
                 </div>
               )}
 
@@ -266,7 +287,9 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                   <p>{pendingApprovalMsg}</p>
                   <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#15803d]">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>অ্যাডমিন অনুমোদন সম্পন্ন হলে এখান থেকে লগইন করুন।</span>
+                    <span>
+                      অ্যাডমিন অনুমোদন সম্পন্ন হলে এখান থেকে লগইন করুন।
+                    </span>
                   </div>
                 </div>
               )}
@@ -303,11 +326,20 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => { window.location.href = "/api/auth/github/login"; }}
+                  onClick={() => {
+                    window.location.href = "/api/auth/github/login";
+                  }}
                   className="w-full h-11 sm:h-12 rounded-xl border-[#c9dcd0] hover:bg-[#24292e] hover:text-white text-[#24292e] font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition-colors shadow-xs"
                 >
-                  <svg className="h-4 w-4 sm:h-5 sm:w-5 fill-current" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  <svg
+                    className="h-4 w-4 sm:h-5 sm:w-5 fill-current"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                    />
                   </svg>
                   GitHub দিয়ে সাইন ইন করুন
                 </Button>
@@ -325,13 +357,19 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
 
               {/* Error Alert */}
               {errorMessage && (
-                <Alert variant="destructive" className="mb-4 py-2.5 px-3.5 rounded-xl border-red-200 bg-red-50 text-red-800 text-xs">
+                <Alert
+                  variant="destructive"
+                  className="mb-4 py-2.5 px-3.5 rounded-xl border-red-200 bg-red-50 text-red-800 text-xs"
+                >
                   <AlertDescription>{errorMessage}</AlertDescription>
                 </Alert>
               )}
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-3.5 sm:space-y-4"
+              >
                 {mode === "register" && roleMode === "user" && (
                   <div>
                     <Label className="text-xs font-semibold text-[#2b4c40] mb-1.5 block">
@@ -344,7 +382,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                         required
                         placeholder="যেমন: কামরুল হাসান"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={e => setName(e.target.value)}
                         className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
                       />
                     </div>
@@ -362,7 +400,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                       required
                       placeholder="name@example.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={e => setEmail(e.target.value)}
                       className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
                     />
                   </div>
@@ -379,7 +417,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                       required
                       placeholder="কমপক্ষে ৬ অক্ষর"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={e => setPassword(e.target.value)}
                       className="pl-10 pr-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
                     />
                     <button
@@ -408,7 +446,7 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                         required
                         placeholder="একই পাসওয়ার্ড পুনরায় দিন"
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={e => setConfirmPassword(e.target.value)}
                         className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
                       />
                     </div>
@@ -427,7 +465,10 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
                     </span>
                   ) : mode === "login" ? (
                     <span className="flex items-center justify-center gap-2">
-                      {roleMode === "admin" ? "অ্যাডমিন হিসেবে প্রবেশ করুন" : "লগইন করুন"} <ArrowRight className="h-4 w-4" />
+                      {roleMode === "admin"
+                        ? "অ্যাডমিন হিসেবে প্রবেশ করুন"
+                        : "লগইন করুন"}{" "}
+                      <ArrowRight className="h-4 w-4" />
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
@@ -439,13 +480,16 @@ export function AuthCard({ pendingUser }: { pendingUser?: { name?: string | null
 
               {/* Mobile browser advice */}
               <div className="mt-4 p-2.5 rounded-xl bg-[#f6faf7] text-[11px] leading-4 text-[#5b7468]">
-                মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। cookies ও সেশন ডেটা অনুমতি দিন।
+                মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব
+                ব্যবহার করুন। cookies ও সেশন ডেটা অনুমতি দিন।
               </div>
 
               {/* Footer Features Info */}
               <div className="mt-4 pt-3 border-t border-[#eaf1ec] flex items-center justify-center gap-2 text-[11px] text-[#698579]">
                 <ShieldCheck className="h-3.5 w-3.5 text-[#166534]" />
-                <span>১০০% এনক্রিপ্টেড এবং সম্পূর্ণ সুরক্ষিত ব্যক্তিগত ক্লাউড</span>
+                <span>
+                  ১০০% এনক্রিপ্টেড এবং সম্পূর্ণ সুরক্ষিত ব্যক্তিগত ক্লাউড
+                </span>
               </div>
             </>
           )}

@@ -64,7 +64,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Unit tests
-        run: NODE_ENV=test npx vitest run
+        run: pnpm test
 
       - name: Upload coverage
         if: always()
@@ -103,6 +103,11 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Migration rehearsal
+        env:
+          ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+        run: pnpm test:migrations
 
       - name: Server E2E tests
         env:

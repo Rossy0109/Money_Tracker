@@ -4,10 +4,10 @@
 
 The dashboard, planning and analytics workspace, automation workspace, and backup workspace were checked in the live development preview without creating, editing, deleting, or restoring any financial data.
 
-| Viewport | Routes checked | Result |
-|---|---|---|
+| Viewport             | Routes checked                             | Result                                                                                                                                                                                                           |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Desktop (1280 × 720) | `/`, `/insights`, `/automation`, `/backup` | The dashboard shell, Bengali page headers, project selectors, cards, controls, charts, automation forms, and backup confirmation flow render without an application error. Desktop navigation remains available. |
-| Mobile (375 × 812) | `/`, `/insights`, `/automation`, `/backup` | The same workspaces render in the compact layout; the side navigation, primary controls, forms, and confirmation content remain present without horizontal clipping or a runtime error. |
+| Mobile (375 × 812)   | `/`, `/insights`, `/automation`, `/backup` | The same workspaces render in the compact layout; the side navigation, primary controls, forms, and confirmation content remain present without horizontal clipping or a runtime error.                          |
 
 ## Functional boundaries observed
 

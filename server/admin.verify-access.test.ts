@@ -33,10 +33,15 @@ const adminContext = {
 describe("admin.verifyAccess", () => {
   it("accepts the configured server-only administrator password and returns an elevation token", async () => {
     const configuredPassword = process.env.ADMIN_ACCESS_PASSWORD;
-    if (!configuredPassword) throw new Error("ADMIN_ACCESS_PASSWORD must be configured for administrator verification");
+    if (!configuredPassword)
+      throw new Error(
+        "ADMIN_ACCESS_PASSWORD must be configured for administrator verification"
+      );
 
     const caller = appRouter.createCaller(adminContext);
-    const result = await caller.admin.verifyAccess({ password: configuredPassword });
+    const result = await caller.admin.verifyAccess({
+      password: configuredPassword,
+    });
     expect(result.verified).toBe(true);
     expect(result.token).toBeDefined();
     expect(result.expiresInMs).toBe(15 * 60 * 1000);
@@ -45,6 +50,8 @@ describe("admin.verifyAccess", () => {
 
   it("rejects an incorrect administrator password", async () => {
     const caller = appRouter.createCaller(adminContext);
-    await expect(caller.admin.verifyAccess({ password: "incorrect-password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller.admin.verifyAccess({ password: "incorrect-password" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

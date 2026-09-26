@@ -34,13 +34,29 @@ import {
 } from "./accounting-core";
 
 function makeAccount(
-  id: number, code: string, name: string,
-  accountTypeCode: string, normalBalance: string, isDetail = true,
+  id: number,
+  code: string,
+  name: string,
+  accountTypeCode: string,
+  normalBalance: string,
+  isDetail = true
 ) {
-  return { id, code, name, nameBn: null, accountTypeCode, normalBalance, isDetail };
+  return {
+    id,
+    code,
+    name,
+    nameBn: null,
+    accountTypeCode,
+    normalBalance,
+    isDetail,
+  };
 }
 
-function makeLedgerEntry(accountId: number, entryType: "debit" | "credit", amount: string) {
+function makeLedgerEntry(
+  accountId: number,
+  entryType: "debit" | "credit",
+  amount: string
+) {
   return { accountId, entryType, amount };
 }
 
@@ -52,7 +68,10 @@ function makeLedgerEntry(accountId: number, entryType: "debit" | "credit", amoun
  *
  * We track which chain has .limit() called (account lookup) vs .orderBy() (ledger query).
  */
-function mockDbSelects(detailAccountsResult: any[], ledgerEntriesResult: any[]) {
+function mockDbSelects(
+  detailAccountsResult: any[],
+  ledgerEntriesResult: any[]
+) {
   mockGetDb.mockResolvedValue({
     select: vi.fn().mockImplementation(() => {
       let orderByCalled = false;
@@ -74,11 +93,13 @@ function mockDbSelects(detailAccountsResult: any[], ledgerEntriesResult: any[]) 
       // .orderBy() = multi-row query (accounts list or ledger entries)
       // No .orderBy() and no .limit() = ledger entries (accountBalances query)
       chain.then = (onFulfilled: any, onRejected: any) =>
-        Promise.resolve().then(() => {
-          if (limitCalled) return detailAccountsResult;
-          if (orderByCalled) return detailAccountsResult;
-          return ledgerEntriesResult;
-        }).then(onFulfilled, onRejected);
+        Promise.resolve()
+          .then(() => {
+            if (limitCalled) return detailAccountsResult;
+            if (orderByCalled) return detailAccountsResult;
+            return ledgerEntriesResult;
+          })
+          .then(onFulfilled, onRejected);
       chain.catch = (fn: any) => chain.then(undefined, fn);
       return chain;
     }),
@@ -97,7 +118,9 @@ function mockDbGroupBySelect(result: any[]) {
       chain.groupBy = vi.fn().mockReturnValue(chain);
       chain.orderBy = vi.fn().mockReturnValue(chain);
       chain.then = (onFulfilled: any, onRejected: any) =>
-        Promise.resolve().then(() => result).then(onFulfilled, onRejected);
+        Promise.resolve()
+          .then(() => result)
+          .then(onFulfilled, onRejected);
       chain.catch = (fn: any) => chain.then(undefined, fn);
       return chain;
     }),
@@ -122,7 +145,9 @@ function mockDbSequential(results: any[]) {
       chain.limit = vi.fn().mockReturnValue(chain);
       chain.for = vi.fn().mockReturnValue(chain);
       chain.then = (onFulfilled: any, onRejected: any) =>
-        Promise.resolve().then(() => result).then(onFulfilled, onRejected);
+        Promise.resolve()
+          .then(() => result)
+          .then(onFulfilled, onRejected);
       chain.catch = (fn: any) => chain.then(undefined, fn);
       return chain;
     }),
@@ -153,7 +178,9 @@ describe("Account Ledger Report", () => {
 
   it("throws for non-existent account", async () => {
     mockDbSequential([[]]);
-    await expect(generateAccountLedger(1, 1, 999)).rejects.toThrow("অ্যাকাউন্ট পাওয়া যায়নি");
+    await expect(generateAccountLedger(1, 1, 999)).rejects.toThrow(
+      "অ্যাকাউন্ট পাওয়া যায়নি"
+    );
   });
 
   it("handles empty ledger (no transactions)", async () => {
@@ -178,14 +205,14 @@ describe("Cash Flow Statement", () => {
       makeAccount(7, "3100", "Owner Capital", "EQUITY", "credit"),
     ];
     const ledgerEntries = [
-      makeLedgerEntry(1, "debit", "5000.00"),   // Cash received
-      makeLedgerEntry(3, "credit", "5000.00"),  // Revenue earned
-      makeLedgerEntry(1, "credit", "2000.00"),  // Cash paid
-      makeLedgerEntry(4, "debit", "2000.00"),   // Expense incurred
-      makeLedgerEntry(5, "debit", "3000.00"),   // Equipment purchased
-      makeLedgerEntry(6, "credit", "3000.00"),  // On credit
+      makeLedgerEntry(1, "debit", "5000.00"), // Cash received
+      makeLedgerEntry(3, "credit", "5000.00"), // Revenue earned
+      makeLedgerEntry(1, "credit", "2000.00"), // Cash paid
+      makeLedgerEntry(4, "debit", "2000.00"), // Expense incurred
+      makeLedgerEntry(5, "debit", "3000.00"), // Equipment purchased
+      makeLedgerEntry(6, "credit", "3000.00"), // On credit
       makeLedgerEntry(7, "credit", "10000.00"), // Capital
-      makeLedgerEntry(1, "debit", "10000.00"),  // Capital deposited
+      makeLedgerEntry(1, "debit", "10000.00"), // Capital deposited
     ];
     mockDbSelects(accounts, ledgerEntries);
 
@@ -210,8 +237,18 @@ describe("Cash Flow Statement", () => {
 describe("Daily Transaction Report", () => {
   it("groups vouchers by date", async () => {
     mockDbGroupBySelect([
-      { date: "2026-09-15", voucherCount: 3, totalDebit: "1500.00", totalCredit: "1500.00" },
-      { date: "2026-09-16", voucherCount: 2, totalDebit: "800.00", totalCredit: "800.00" },
+      {
+        date: "2026-09-15",
+        voucherCount: 3,
+        totalDebit: "1500.00",
+        totalCredit: "1500.00",
+      },
+      {
+        date: "2026-09-16",
+        voucherCount: 2,
+        totalDebit: "800.00",
+        totalCredit: "800.00",
+      },
     ]);
 
     const report = await generateDailyTransactions(1, 1);
@@ -236,8 +273,18 @@ describe("Daily Transaction Report", () => {
 describe("Monthly Transaction Report", () => {
   it("groups vouchers by month", async () => {
     mockDbGroupBySelect([
-      { monthKey: "2026-07", voucherCount: 10, totalDebit: "50000.00", totalCredit: "50000.00" },
-      { monthKey: "2026-08", voucherCount: 15, totalDebit: "75000.00", totalCredit: "75000.00" },
+      {
+        monthKey: "2026-07",
+        voucherCount: 10,
+        totalDebit: "50000.00",
+        totalCredit: "50000.00",
+      },
+      {
+        monthKey: "2026-08",
+        voucherCount: 15,
+        totalDebit: "75000.00",
+        totalCredit: "75000.00",
+      },
     ]);
 
     const report = await generateMonthlyTransactions(1, 1);
@@ -305,9 +352,7 @@ describe("Journal Entry Structure", () => {
       { accountId: 1, amount: 500 },
       { accountId: 3, amount: 300 },
     ];
-    const credits = [
-      { accountId: 2, amount: 800 },
-    ];
+    const credits = [{ accountId: 2, amount: 800 }];
     const totalDebit = debits.reduce((sum, d) => sum + d.amount, 0);
     const totalCredit = credits.reduce((sum, c) => sum + c.amount, 0);
     expect(totalDebit).toBe(totalCredit);
@@ -336,7 +381,7 @@ describe("Double-Entry Invariants", () => {
 
   it("accepts with rounding tolerance (1/3 split)", () => {
     const totalDebit = 33.34 + 33.33 + 33.33;
-    const totalCredit = 100.00;
+    const totalCredit = 100.0;
     expect(Math.abs(totalDebit - totalCredit)).toBeLessThanOrEqual(0.01);
   });
 
@@ -381,16 +426,16 @@ describe("Ledger Entry Invariants", () => {
 
   it("running balance is computed correctly for debit-normal account", () => {
     let balance = 0;
-    balance += 1000;  // debit
-    balance -= 300;   // credit
-    balance += 500;   // debit
+    balance += 1000; // debit
+    balance -= 300; // credit
+    balance += 500; // debit
     expect(balance).toBe(1200);
   });
 
   it("running balance is computed correctly for credit-normal account", () => {
     let balance = 0;
-    balance += 5000;  // credit
-    balance -= 2000;  // debit
+    balance += 5000; // credit
+    balance -= 2000; // debit
     expect(balance).toBe(3000);
   });
 });
@@ -451,7 +496,12 @@ describe("Cash Flow Account Classification", () => {
 describe("Transaction Report Edge Cases", () => {
   it("handles single transaction in daily report", async () => {
     mockDbGroupBySelect([
-      { date: "2026-09-18", voucherCount: 1, totalDebit: "250.00", totalCredit: "250.00" },
+      {
+        date: "2026-09-18",
+        voucherCount: 1,
+        totalDebit: "250.00",
+        totalCredit: "250.00",
+      },
     ]);
 
     const report = await generateDailyTransactions(1, 1);
@@ -462,7 +512,12 @@ describe("Transaction Report Edge Cases", () => {
 
   it("handles single month in monthly report", async () => {
     mockDbGroupBySelect([
-      { monthKey: "2026-09", voucherCount: 5, totalDebit: "1000.00", totalCredit: "1000.00" },
+      {
+        monthKey: "2026-09",
+        voucherCount: 5,
+        totalDebit: "1000.00",
+        totalCredit: "1000.00",
+      },
     ]);
 
     const report = await generateMonthlyTransactions(1, 1);
@@ -472,8 +527,18 @@ describe("Transaction Report Edge Cases", () => {
 
   it("maintains chronological order in daily report", async () => {
     mockDbGroupBySelect([
-      { date: "2026-09-18", voucherCount: 1, totalDebit: "100.00", totalCredit: "100.00" },
-      { date: "2026-09-15", voucherCount: 1, totalDebit: "200.00", totalCredit: "200.00" },
+      {
+        date: "2026-09-18",
+        voucherCount: 1,
+        totalDebit: "100.00",
+        totalCredit: "100.00",
+      },
+      {
+        date: "2026-09-15",
+        voucherCount: 1,
+        totalDebit: "200.00",
+        totalCredit: "200.00",
+      },
     ]);
 
     const report = await generateDailyTransactions(1, 1);
@@ -486,7 +551,14 @@ describe("Transaction Report Edge Cases", () => {
 
 describe("Voucher Types", () => {
   it("supports multiple voucher types", () => {
-    const validTypes = ["general", "journal", "receipt", "payment", "contra", "adjusting"];
+    const validTypes = [
+      "general",
+      "journal",
+      "receipt",
+      "payment",
+      "contra",
+      "adjusting",
+    ];
     expect(validTypes).toContain("general");
     expect(validTypes).toContain("journal");
     expect(validTypes.length).toBeGreaterThanOrEqual(6);

@@ -7,9 +7,21 @@
  */
 import { config as dotenvConfig } from "dotenv";
 
-const mode = process.argv[2] || (process.env.NODE_ENV === "production" ? "production" : "development");
-const DEV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"];
-const PROD_FILES = [".env", ".env.local", ".env.production", ".env.production.local"];
+const mode =
+  process.argv[2] ||
+  (process.env.NODE_ENV === "production" ? "production" : "development");
+const DEV_FILES = [
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.development.local",
+];
+const PROD_FILES = [
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".env.production.local",
+];
 const files = mode === "production" ? PROD_FILES : DEV_FILES;
 
 for (const [i, file] of files.entries()) {
@@ -34,7 +46,7 @@ if (!sm && !cm) {
 if (!sm || !cm) {
   console.warn(
     `[check-auth-mode] Warning: only one mode is set (AUTH_MODE=${serverMode ?? "unset"}, ` +
-      `VITE_AUTH_MODE=${clientMode ?? "unset"}). Both should be set in the same layer.`,
+      `VITE_AUTH_MODE=${clientMode ?? "unset"}). Both should be set in the same layer.`
   );
   process.exit(0);
 }
@@ -42,10 +54,12 @@ if (!sm || !cm) {
 if (sm !== cm) {
   console.error(
     `[check-auth-mode] Mode mismatch: AUTH_MODE=${sm} but VITE_AUTH_MODE=${cm}. ` +
-      "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel env).",
+      "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel env)."
   );
   process.exit(1);
 }
 
-console.log(`[check-auth-mode] OK: AUTH_MODE=${sm} === VITE_AUTH_MODE=${cm} (${mode} mode)`);
+console.log(
+  `[check-auth-mode] OK: AUTH_MODE=${sm} === VITE_AUTH_MODE=${cm} (${mode} mode)`
+);
 process.exit(0);

@@ -20,20 +20,21 @@ const getCombinedHomeSource = () => {
         combined += "\n" + readFileSync(resolve(dashboardDir, file), "utf8");
       }
     }
-  } catch { /* dir read ignored */ }
+  } catch {
+    /* dir read ignored */
+  }
   return combined;
 };
 
 const homeSource = getCombinedHomeSource();
-const categoriesSource = readFileSync(resolve(__dirname, "Categories.tsx"), "utf8");
+const categoriesSource = readFileSync(
+  resolve(__dirname, "Categories.tsx"),
+  "utf8"
+);
 
 describe("sidebar dashboard navigation", () => {
   it("maps each Bengali sidebar hash link to an in-page dashboard target", () => {
-    const destinations = [
-      "transactions",
-      "accounts",
-      "budgets",
-    ];
+    const destinations = ["transactions", "accounts", "budgets"];
 
     for (const destination of destinations) {
       expect(dashboardLayout).toContain(`href: "/#${destination}"`);
@@ -47,9 +48,9 @@ describe("sidebar dashboard navigation", () => {
       homeSource.indexOf('id="transactions"'),
       homeSource.indexOf('id="transactions"') + 400
     );
-    expect(transactionsSection).toContain('scroll-mt-20');
+    expect(transactionsSection).toContain("scroll-mt-20");
     expect(dashboardLayout).toContain('href: "/categories"');
-    expect(categoriesSource).toContain('href={`/categories/${type}`}');
+    expect(categoriesSource).toContain("href={`/categories/${type}`}");
     expect(categoriesSource).toContain('href="/categories"');
   });
 });

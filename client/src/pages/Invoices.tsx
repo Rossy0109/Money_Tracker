@@ -6,8 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   FileText,
@@ -20,7 +32,10 @@ import {
   Search,
   MessageCircle,
 } from "lucide-react";
-import { generateInvoiceReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
+import {
+  generateInvoiceReminderMessage,
+  getWhatsAppShareUrl,
+} from "@/lib/dueReminder";
 
 interface InvoiceItemState {
   description: string;
@@ -41,7 +56,9 @@ export default function Invoices() {
   const [clientEmail, setClientEmail] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [clientBinTin, setClientBinTin] = useState("");
-  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [issueDate, setIssueDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [dueDate, setDueDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
@@ -71,7 +88,7 @@ export default function Invoices() {
       resetForm();
       utils.finance.invoices.invalidate();
     },
-    onError: (err) => {
+    onError: err => {
       toast.error(err.message || "চালান তৈরি করা যায়নি");
     },
   });
@@ -81,7 +98,7 @@ export default function Invoices() {
       toast.success("চালানের অবস্থা আপডেট করা হয়েছে");
       utils.finance.invoices.invalidate();
     },
-    onError: (err) => {
+    onError: err => {
       toast.error(err.message || "আপডেট করা যায়নি");
     },
   });
@@ -91,7 +108,7 @@ export default function Invoices() {
       toast.success("চালান মুছে ফেলা হয়েছে");
       utils.finance.invoices.invalidate();
     },
-    onError: (err) => {
+    onError: err => {
       toast.error(err.message || "মুছে ফেলা যায়নি");
     },
   });
@@ -103,14 +120,19 @@ export default function Invoices() {
     setClientAddress("");
     setClientBinTin("");
     setIssueDate(new Date().toISOString().slice(0, 10));
-    setDueDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+    setDueDate(
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    );
     setDiscountAmount("0");
     setNotesTerms("");
     setItems([{ description: "", quantity: 1, unitPrice: 0, vatRate: 15 }]);
   };
 
   const handleAddItem = () => {
-    setItems([...items, { description: "", quantity: 1, unitPrice: 0, vatRate: 15 }]);
+    setItems([
+      ...items,
+      { description: "", quantity: 1, unitPrice: 0, vatRate: 15 },
+    ]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -127,7 +149,7 @@ export default function Invoices() {
     next[index] = { ...next[index], [field]: value };
     if (field === "description" && typeof value === "string") {
       const match = inventoryItems.find(
-        (i) => i.name.toLowerCase() === value.trim().toLowerCase()
+        i => i.name.toLowerCase() === value.trim().toLowerCase()
       );
       if (match && Number(match.sellingPrice) > 0) {
         next[index].unitPrice = Number(match.sellingPrice);
@@ -138,15 +160,20 @@ export default function Invoices() {
 
   // Calculations
   const calculatedSubtotal = items.reduce(
-    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+    (sum, item) =>
+      sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0
   );
   const calculatedVat = items.reduce((sum, item) => {
-    const itemTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+    const itemTotal =
+      (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
     return sum + itemTotal * ((Number(item.vatRate) || 0) / 100);
   }, 0);
   const discountNum = Number(discountAmount) || 0;
-  const calculatedGrandTotal = Math.max(0, calculatedSubtotal + calculatedVat - discountNum);
+  const calculatedGrandTotal = Math.max(
+    0,
+    calculatedSubtotal + calculatedVat - discountNum
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +197,7 @@ export default function Invoices() {
       dueDate: new Date(dueDate),
       discountAmount: discountNum,
       notesTerms: notesTerms.trim() || undefined,
-      items: items.map((item) => ({
+      items: items.map(item => ({
         description: item.description.trim() || "Item",
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(item.unitPrice) || 0,
@@ -195,7 +222,7 @@ export default function Invoices() {
     }
   };
 
-  const filteredInvoices = (invoicesQuery.data || []).filter((inv) => {
+  const filteredInvoices = (invoicesQuery.data || []).filter(inv => {
     const matchesSearch =
       inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -218,7 +245,8 @@ export default function Invoices() {
               ইনভয়েস ও ক্লায়েন্ট বিলিং
             </h1>
             <p className="text-xs sm:text-sm text-[#5a7a6c] mt-1">
-              পেশাদার ব্র্যান্ডেড ইনভয়েস, চালান এবং মানি রিসিট তৈরি ও পরিচালনা করুন।
+              পেশাদার ব্র্যান্ডেড ইনভয়েস, চালান এবং মানি রিসিট তৈরি ও পরিচালনা
+              করুন।
             </p>
           </div>
 
@@ -247,48 +275,56 @@ export default function Invoices() {
                       required
                       placeholder="যেমন: রহিম এন্টারপ্রাইজ / জনাব কামরুল"
                       value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
+                      onChange={e => setClientName(e.target.value)}
                       className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">ফোন নম্বর</Label>
+                    <Label className="text-xs font-semibold text-[#244b3c]">
+                      ফোন নম্বর
+                    </Label>
                     <Input
                       placeholder="01700-000000"
                       value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
+                      onChange={e => setClientPhone(e.target.value)}
                       className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">ইমেইল এড্রেস</Label>
+                    <Label className="text-xs font-semibold text-[#244b3c]">
+                      ইমেইল এড্রেস
+                    </Label>
                     <Input
                       type="email"
                       placeholder="client@example.com"
                       value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value)}
+                      onChange={e => setClientEmail(e.target.value)}
                       className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">BIN / TIN নম্বর</Label>
+                    <Label className="text-xs font-semibold text-[#244b3c]">
+                      BIN / TIN নম্বর
+                    </Label>
                     <Input
                       placeholder="ঐচ্ছিক (যদি থাকে)"
                       value={clientBinTin}
-                      onChange={(e) => setClientBinTin(e.target.value)}
+                      onChange={e => setClientBinTin(e.target.value)}
                       className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">ঠিকানা</Label>
+                    <Label className="text-xs font-semibold text-[#244b3c]">
+                      ঠিকানা
+                    </Label>
                     <Input
                       placeholder="গ্রাহকের ঠিকানা"
                       value={clientAddress}
-                      onChange={(e) => setClientAddress(e.target.value)}
+                      onChange={e => setClientAddress(e.target.value)}
                       className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
                     />
                   </div>
@@ -297,12 +333,14 @@ export default function Invoices() {
                 {/* Dates */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">ইস্যু তারিখ</Label>
+                    <Label className="text-xs font-semibold text-[#244b3c]">
+                      ইস্যু তারিখ
+                    </Label>
                     <Input
                       type="date"
                       required
                       value={issueDate}
-                      onChange={(e) => setIssueDate(e.target.value)}
+                      onChange={e => setIssueDate(e.target.value)}
                       className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
                     />
                   </div>
@@ -314,7 +352,7 @@ export default function Invoices() {
                       type="date"
                       required
                       value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
+                      onChange={e => setDueDate(e.target.value)}
                       className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
                     />
                   </div>
@@ -323,7 +361,9 @@ export default function Invoices() {
                 {/* Itemized Table */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-[#14382f]">পণ্য বা সেবার বিবরণ</Label>
+                    <Label className="text-xs font-bold text-[#14382f]">
+                      পণ্য বা সেবার বিবরণ
+                    </Label>
                     <Button
                       type="button"
                       variant="outline"
@@ -347,7 +387,13 @@ export default function Invoices() {
                             list="inventory-datalist"
                             required
                             value={item.description}
-                            onChange={(e) => handleItemChange(idx, "description", e.target.value)}
+                            onChange={e =>
+                              handleItemChange(
+                                idx,
+                                "description",
+                                e.target.value
+                              )
+                            }
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
@@ -358,7 +404,9 @@ export default function Invoices() {
                             placeholder="পরিমাণ"
                             required
                             value={item.quantity}
-                            onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                            onChange={e =>
+                              handleItemChange(idx, "quantity", e.target.value)
+                            }
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
@@ -369,7 +417,9 @@ export default function Invoices() {
                             placeholder="একক দর"
                             required
                             value={item.unitPrice}
-                            onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
+                            onChange={e =>
+                              handleItemChange(idx, "unitPrice", e.target.value)
+                            }
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
@@ -379,7 +429,9 @@ export default function Invoices() {
                             min="0"
                             placeholder="ভ্যাট %"
                             value={item.vatRate}
-                            onChange={(e) => handleItemChange(idx, "vatRate", e.target.value)}
+                            onChange={e =>
+                              handleItemChange(idx, "vatRate", e.target.value)
+                            }
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
@@ -399,9 +451,10 @@ export default function Invoices() {
                   </div>
 
                   <datalist id="inventory-datalist">
-                    {inventoryItems.map((inv) => (
+                    {inventoryItems.map(inv => (
                       <option key={inv.id} value={inv.name}>
-                        {inv.name} (স্টক: {inv.currentStock} {inv.unit} · বিক্রয়মূল্য: ৳{inv.sellingPrice})
+                        {inv.name} (স্টক: {inv.currentStock} {inv.unit} ·
+                        বিক্রয়মূল্য: ৳{inv.sellingPrice})
                       </option>
                     ))}
                   </datalist>
@@ -411,11 +464,15 @@ export default function Invoices() {
                 <div className="p-3.5 bg-[#f0f7f2] rounded-2xl border border-[#cbe4d3] space-y-1.5 text-xs text-[#204738]">
                   <div className="flex justify-between">
                     <span>সাবটোটাল:</span>
-                    <span className="font-semibold">৳ {calculatedSubtotal.toLocaleString()}</span>
+                    <span className="font-semibold">
+                      ৳ {calculatedSubtotal.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>ভ্যাট / কর:</span>
-                    <span className="font-semibold">৳ {calculatedVat.toLocaleString()}</span>
+                    <span className="font-semibold">
+                      ৳ {calculatedVat.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between pt-1">
                     <span>ডিসকাউন্ট (টাকা):</span>
@@ -423,7 +480,7 @@ export default function Invoices() {
                       type="number"
                       min="0"
                       value={discountAmount}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      onChange={e => setDiscountAmount(e.target.value)}
                       className="w-28 h-7 text-xs bg-white rounded-lg text-right"
                     />
                   </div>
@@ -442,7 +499,7 @@ export default function Invoices() {
                     placeholder="ব্যাংক অ্যাকাউন্ট বিবরণ বা বিকাশ মার্চেন্ট নম্বর..."
                     rows={2}
                     value={notesTerms}
-                    onChange={(e) => setNotesTerms(e.target.value)}
+                    onChange={e => setNotesTerms(e.target.value)}
                     className="mt-1 rounded-xl text-xs border-[#cfe0d5]"
                   />
                 </div>
@@ -452,7 +509,9 @@ export default function Invoices() {
                   disabled={createInvoiceMutation.isPending}
                   className="w-full h-11 rounded-xl bg-[#166534] hover:bg-[#14532d] text-white font-semibold text-sm shadow-md"
                 >
-                  {createInvoiceMutation.isPending ? "তৈরি হচ্ছে..." : "ইনভয়েস সংরক্ষণ করুন"}
+                  {createInvoiceMutation.isPending
+                    ? "তৈরি হচ্ছে..."
+                    : "ইনভয়েস সংরক্ষণ করুন"}
                 </Button>
               </form>
             </DialogContent>
@@ -466,7 +525,7 @@ export default function Invoices() {
             <Input
               placeholder="ইনভয়েস নম্বর বা ক্লায়েন্টের নাম দিয়ে খুঁজুন..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               className="pl-9 h-10 rounded-xl border-[#d4e4da] text-xs bg-[#f9fcfa]"
             />
           </div>
@@ -493,13 +552,15 @@ export default function Invoices() {
           ) : filteredInvoices.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-[#dce7df] space-y-3">
               <FileText className="h-12 w-12 text-[#9abfb0] mx-auto" />
-              <p className="text-base font-semibold text-[#1f473b]">কোনো ইনভয়েস পাওয়া যায়নি</p>
+              <p className="text-base font-semibold text-[#1f473b]">
+                কোনো ইনভয়েস পাওয়া যায়নি
+              </p>
               <p className="text-xs text-[#6e8a7d]">
                 আপনার প্রথম ক্লায়েন্ট বিল তৈরি করতে উপরের বাটনে ক্লিক করুন।
               </p>
             </div>
           ) : (
-            filteredInvoices.map((invoice) => {
+            filteredInvoices.map(invoice => {
               const isPaid = invoice.status === "paid";
               const grandTotal = Number(invoice.grandTotal);
               const paidAmount = Number(invoice.paidAmount);
@@ -520,8 +581,8 @@ export default function Invoices() {
                           isPaid
                             ? "bg-green-100 text-green-800"
                             : invoice.status === "unpaid"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-red-100 text-red-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-red-100 text-red-800"
                         }`}
                       >
                         {invoice.status}
@@ -540,10 +601,14 @@ export default function Invoices() {
 
                     <div className="flex items-center gap-4 text-xs text-[#668779]">
                       <span>
-                        ইস্যু: {new Date(invoice.issueDate).toLocaleDateString("en-GB")}
+                        ইস্যু:{" "}
+                        {new Date(invoice.issueDate).toLocaleDateString(
+                          "en-GB"
+                        )}
                       </span>
                       <span>
-                        মেয়াদ: {new Date(invoice.dueDate).toLocaleDateString("en-GB")}
+                        মেয়াদ:{" "}
+                        {new Date(invoice.dueDate).toLocaleDateString("en-GB")}
                       </span>
                     </div>
                   </div>
@@ -577,7 +642,10 @@ export default function Invoices() {
                               paidAmount: paidAmount,
                               dueDate: invoice.dueDate,
                             });
-                            const url = getWhatsAppShareUrl(invoice.clientPhone, msg);
+                            const url = getWhatsAppShareUrl(
+                              invoice.clientPhone,
+                              msg
+                            );
                             window.open(url, "_blank");
                           }}
                           className="h-9 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] font-semibold text-xs flex items-center gap-1.5 shadow-sm"
@@ -619,7 +687,11 @@ export default function Invoices() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          if (confirm("আপনি কি নিশ্চিতভাবে এই চালানটি মুছে ফেলতে চান?")) {
+                          if (
+                            confirm(
+                              "আপনি কি নিশ্চিতভাবে এই চালানটি মুছে ফেলতে চান?"
+                            )
+                          ) {
                             deleteInvoiceMutation.mutate({
                               projectId: activeProjectId!,
                               id: invoice.id,

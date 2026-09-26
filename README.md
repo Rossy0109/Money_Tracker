@@ -4,15 +4,15 @@
 
 ## What it includes
 
-| Area | Included capability |
-|---|---|
-| Dashboard | Total balance, income, expense, net amount, and a six-month income-versus-expense chart |
-| Transactions | Income and expense entry with category, date, payment method, note, filter, and deletion |
-| Accounts | Cash, bank, and mobile banking accounts with opening and auto-updated running balances |
-| Budgets | Per-expense-category monthly budgets with actual-spend progress |
-| Bills | Upcoming bill tracking with a paid/unpaid state |
-| Categories | Fixed defaults only: income — Salary, Business, Investment; expense — মেয়র স্যার, রছি ভাই, মুক্তার বাড়ির বাজার, ইউটিলিটি বিল, বেতন, বাজারের বাসা খরচ, যাতায়াত খরচ, ঠিকাদারী ব্যবসা, ঠিকাদার লাইসেন্স রেনুয়াল, দেনা পাওনা, রাজনৈতিক খরচ, অনুদান |
-| Privacy | All finance requests use the authenticated user's server-side identifier; records are scoped by `userId` |
+| Area         | Included capability                                                                                                                                                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard    | Total balance, income, expense, net amount, and a six-month income-versus-expense chart                                                                                                                                                            |
+| Transactions | Income and expense entry with category, date, payment method, note, filter, and deletion                                                                                                                                                           |
+| Accounts     | Cash, bank, and mobile banking accounts with opening and auto-updated running balances                                                                                                                                                             |
+| Budgets      | Per-expense-category monthly budgets with actual-spend progress                                                                                                                                                                                    |
+| Bills        | Upcoming bill tracking with a paid/unpaid state                                                                                                                                                                                                    |
+| Categories   | Fixed defaults only: income — Salary, Business, Investment; expense — মেয়র স্যার, রছি ভাই, মুক্তার বাড়ির বাজার, ইউটিলিটি বিল, বেতন, বাজারের বাসা খরচ, যাতায়াত খরচ, ঠিকাদারী ব্যবসা, ঠিকাদার লাইসেন্স রেনুয়াল, দেনা পাওনা, রাজনৈতিক খরচ, অনুদান |
+| Privacy      | All finance requests use the authenticated user's server-side identifier; records are scoped by `userId`                                                                                                                                           |
 
 ## Running locally
 
@@ -30,6 +30,18 @@ pnpm check
 pnpm test
 pnpm build
 ```
+
+For a disposable local MariaDB migration rehearsal:
+
+```bash
+ISOLATED_E2E_DATABASE_URL='mysql://root:password@127.0.0.1:3306/money_tracker' pnpm test:migrations
+```
+
+The rehearsal creates and removes its own database. If a local `DATABASE_URL` is configured in `.env`, the explicit E2E variable may be omitted. Run it before production migration validation.
+
+### Termux
+
+This project is pinned to pnpm 9.15.4; use pnpm commands. `npm`/`npx` launchers may fail because Termux has no `/usr/bin/env`; invoke `scripts/check-auth-mode.mjs` with `node` if needed. Do not install a `/usr/bin/env` symlink. Playwright browser E2E is unsupported on Android/Termux; run `pnpm test:browser:e2e` in CI or on Linux/macOS/Windows.
 
 ## Authentication and data isolation
 

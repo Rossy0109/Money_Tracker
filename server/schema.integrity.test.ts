@@ -50,6 +50,58 @@ function cascadeEdges(): string[] {
   return edges.sort();
 }
 
+describe("canonical accounting schema", () => {
+  it("uses a nullable transaction idempotency key with scoped uniqueness and fingerprint index", () => {
+    const config = getTableConfig(schema.financeTransactions);
+    const key = config.columns.find(column => column.name === "idempotencyKey");
+    const fingerprint = config.columns.find(
+      column => column.name === "requestFingerprint"
+    );
+    const indexes = config.indexes as any[];
+    const unique = indexes.find(
+      index => index.config.name === "finance_transactions_idempotency_unique"
+    );
+    const fingerprintIndex = indexes.find(
+      index => index.config.name === "finance_transactions_fingerprint_idx"
+    );
+    expect(key?.notNull).toBe(false);
+    expect(fingerprint?.notNull).toBe(false);
+    expect(unique?.config.unique).toBe(true);
+    expect(unique?.config.columns.map((column: any) => column.name)).toEqual([
+      "userId",
+      "projectId",
+      "idempotencyKey",
+    ]);
+    expect(fingerprintIndex?.config.name).toBe(
+      "finance_transactions_fingerprint_idx"
+    );
+  });
+
+  it("links transactions to vouchers and canonical lines to chart accounts", () => {
+    const transactionConfig = getTableConfig(schema.financeTransactions);
+    const debitConfig = getTableConfig(schema.financeVoucherDebits);
+    const ledgerConfig = getTableConfig(schema.financeLedgerEntries);
+    const transactionVoucher = transactionConfig.foreignKeys.find(
+      fk => fk.reference().columns[0].name === "voucherId"
+    );
+    const debitCoa = debitConfig.foreignKeys.find(
+      fk => fk.reference().columns[0].name === "chartOfAccountId"
+    );
+    const ledgerCoa = ledgerConfig.foreignKeys.find(
+      fk => fk.reference().columns[0].name === "chartOfAccountId"
+    );
+    expect(transactionVoucher?.reference().foreignTable).toBe(
+      schema.financeVouchers
+    );
+    expect(debitCoa?.reference().foreignTable).toBe(
+      schema.financeChartOfAccounts
+    );
+    expect(ledgerCoa?.reference().foreignTable).toBe(
+      schema.financeChartOfAccounts
+    );
+  });
+});
+
 describe("schema delete integrity", () => {
   it("allows CASCADE only on the audited allowlist", () => {
     expect(cascadeEdges()).toEqual([...EXPECTED_CASCADES].sort());

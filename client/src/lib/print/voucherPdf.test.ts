@@ -27,7 +27,13 @@ vi.mock("jspdf", () => ({
 
 const voucher: VoucherPrintData = {
   project: { id: 1, name: "খাতা" },
-  firm: { name: "Ahmed's Financial Accounting", tagline: "ট্যাগলাইন", phone: "+880", email: "x@y.com", address: "ঢাকা" },
+  firm: {
+    name: "Ahmed's Financial Accounting",
+    tagline: "ট্যাগলাইন",
+    phone: "+880",
+    email: "x@y.com",
+    address: "ঢাকা",
+  },
   transaction: {
     id: 7,
     projectId: 1,

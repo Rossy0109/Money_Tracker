@@ -5,8 +5,12 @@ import { appRouter } from "./routers";
 const { financeDb } = vi.hoisted(() => ({
   financeDb: {
     getDb: vi.fn().mockResolvedValue({
-      select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) }),
-      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([{ insertId: 1 }]) }),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+      }),
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue([{ insertId: 1 }]),
+      }),
     }),
     databaseRequired: vi.fn((db: any) => db),
     getStatementData: vi.fn(async () => ({
@@ -137,7 +141,9 @@ describe("print/report endpoints authorization", () => {
     const caller = appRouter.createCaller(createUserContext());
     await caller.finance.statementData({ projectId: 5 });
     expect(financeDb.getStatementData).toHaveBeenCalledTimes(1);
-    expect(financeDb.getStatementData).toHaveBeenCalledWith(7, { projectId: 5 });
+    expect(financeDb.getStatementData).toHaveBeenCalledWith(7, {
+      projectId: 5,
+    });
   });
 
   it("passes project scoping plus the transaction id for voucher print", async () => {

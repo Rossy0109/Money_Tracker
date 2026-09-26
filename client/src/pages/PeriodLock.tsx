@@ -3,8 +3,21 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -23,7 +36,12 @@ interface PeriodLock {
 
 export default function PeriodLock() {
   const { isAuthenticated } = useAuth();
-  const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
+  const {
+    activeProjectId,
+    projects,
+    isLoading: projectsLoading,
+    selectProject,
+  } = useActiveProject();
 
   const utils = trpc.useUtils();
 
@@ -42,7 +60,7 @@ export default function PeriodLock() {
       toast.success("পিরিয়ড লক করা হয়েছে");
       utils.finance.getPeriodLocks.invalidate({ projectId: activeProjectId! });
     },
-    onError: (err) => toast.error(err.message || "লক করা যায়নি"),
+    onError: err => toast.error(err.message || "লক করা যায়নি"),
   });
 
   const unlockPeriodMutation = trpc.finance.unlockPeriod.useMutation({
@@ -50,12 +68,14 @@ export default function PeriodLock() {
       toast.success("পিরিয়ড আনলক করা হয়েছে");
       utils.finance.getPeriodLocks.invalidate({ projectId: activeProjectId! });
     },
-    onError: (err) => toast.error(err.message || "আনলক করা যায়নি"),
+    onError: err => toast.error(err.message || "আনলক করা যায়নি"),
   });
 
   const [lockMonth, setLockMonth] = useState<string>("");
   const [lockReason, setLockReason] = useState("");
-  const [unlockConfirmMonth, setUnlockConfirmMonth] = useState<string | null>(null);
+  const [unlockConfirmMonth, setUnlockConfirmMonth] = useState<string | null>(
+    null
+  );
 
   const currentMonthKey = format(new Date(), "yyyy-MM");
 
@@ -78,8 +98,10 @@ export default function PeriodLock() {
   };
 
   const getMonthStatus = (key: string) => {
-    if (lockedMonths.has(key)) return { label: "লক করা", variant: "destructive" as const, icon: Lock };
-    if (key === currentMonthKey) return { label: "চলতি", variant: "default" as const, icon: Calendar };
+    if (lockedMonths.has(key))
+      return { label: "লক করা", variant: "destructive" as const, icon: Lock };
+    if (key === currentMonthKey)
+      return { label: "চলতি", variant: "default" as const, icon: Calendar };
     return { label: "খোলা", variant: "secondary" as const, icon: Unlock };
   };
 
@@ -95,8 +117,17 @@ export default function PeriodLock() {
   const confirmLock = () => {
     if (!lockMonth) return;
     lockPeriodMutation.mutate(
-      { projectId: activeProjectId!, monthKey: lockMonth, reason: lockReason.trim() || undefined },
-      { onSuccess: () => { setLockMonth(""); setLockReason(""); } }
+      {
+        projectId: activeProjectId!,
+        monthKey: lockMonth,
+        reason: lockReason.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setLockMonth("");
+          setLockReason("");
+        },
+      }
     );
   };
 
@@ -117,7 +148,11 @@ export default function PeriodLock() {
         onChange={event => selectProject(Number(event.target.value))}
         className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
       >
-        {projects.map((project: { id: number; name: string }) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        {projects.map((project: { id: number; name: string }) => (
+          <option key={project.id} value={project.id}>
+            {project.name}
+          </option>
+        ))}
       </select>
     </label>
   ) : null;
@@ -126,7 +161,9 @@ export default function PeriodLock() {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">পিরিয়ড লক লোড হচ্ছে…</div>
+          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+            পিরিয়ড লক লোড হচ্ছে…
+          </div>
         </main>
       </DashboardLayout>
     );
@@ -137,26 +174,32 @@ export default function PeriodLock() {
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
         <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
-            <a href="/" className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]">
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+            >
               <Calendar className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">পিরিয়ড লক / আনলক</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+            পিরিয়ড লক / আনলক
+          </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
-            হিসাবের পিরিয়ড লক করুন যাতে পুরনো লেনদেন পরিবর্তন করা যাবে না। শুধু অ্যাডমিন আনলক করতে পারবেন।
+            হিসাবের পিরিয়ড লক করুন যাতে পুরনো লেনদেন পরিবর্তন করা যাবে না। শুধু
+            অ্যাডমিন আনলক করতে পারবেন।
           </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            {projectSelector}
-          </div>
+          <div className="mt-5 flex flex-wrap gap-3">{projectSelector}</div>
         </header>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>মাস অনুযায়ী লক স্ট্যাটাস</CardTitle>
-              <CardDescription>লাল = লক করা, নীল = চলতি মাস, ধূসর = খোলা</CardDescription>
+              <CardDescription>
+                লাল = লক করা, নীল = চলতি মাস, ধূসর = খোলা
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -176,8 +219,13 @@ export default function PeriodLock() {
                       ${isFuture ? "opacity-60" : ""}
                     `}
                   >
-                    <div className="font-mono text-sm font-semibold text-[#173f36]">{formatMonth(monthKey)}</div>
-                    <Badge variant={status.variant} className="mt-1 w-full gap-1">
+                    <div className="font-mono text-sm font-semibold text-[#173f36]">
+                      {formatMonth(monthKey)}
+                    </div>
+                    <Badge
+                      variant={status.variant}
+                      className="mt-1 w-full gap-1"
+                    >
                       <status.icon className="h-3 w-3" /> {status.label}
                     </Badge>
                     <div className="mt-2 flex gap-1 justify-center">
@@ -212,11 +260,23 @@ export default function PeriodLock() {
         </Card>
 
         {lockMonth && (
-          <Dialog open onOpenChange={(open) => { if (!open) { setLockMonth(""); setLockReason(""); } }}>
+          <Dialog
+            open
+            onOpenChange={open => {
+              if (!open) {
+                setLockMonth("");
+                setLockReason("");
+              }
+            }}
+          >
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>পিরিয়ড লক করুন: {formatMonth(lockMonth)}</DialogTitle>
-                <DialogDescription>এই মাসের লেনদেন আর কোনোভাবে যোগ/সংশোধন/মুছে ফেলা যাবে না।</DialogDescription>
+                <DialogTitle>
+                  পিরিয়ড লক করুন: {formatMonth(lockMonth)}
+                </DialogTitle>
+                <DialogDescription>
+                  এই মাসের লেনদেন আর কোনোভাবে যোগ/সংশোধন/মুছে ফেলা যাবে না।
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div>
@@ -231,11 +291,27 @@ export default function PeriodLock() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => { setLockMonth(""); setLockReason(""); }} disabled={lockPeriodMutation.isPending}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setLockMonth("");
+                    setLockReason("");
+                  }}
+                  disabled={lockPeriodMutation.isPending}
+                >
                   বাতিল
                 </Button>
-                <Button variant="destructive" onClick={confirmLock} disabled={lockPeriodMutation.isPending}>
-                  {lockPeriodMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />} লক করুন
+                <Button
+                  variant="destructive"
+                  onClick={confirmLock}
+                  disabled={lockPeriodMutation.isPending}
+                >
+                  {lockPeriodMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Lock className="h-4 w-4 mr-2" />
+                  )}{" "}
+                  লক করুন
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -243,16 +319,39 @@ export default function PeriodLock() {
         )}
 
         {unlockConfirmMonth && (
-          <Dialog open onOpenChange={(open) => { if (!open) setUnlockConfirmMonth(null); }}>
+          <Dialog
+            open
+            onOpenChange={open => {
+              if (!open) setUnlockConfirmMonth(null);
+            }}
+          >
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>পিরিয়ড আনলক করুন: {formatMonth(unlockConfirmMonth)}</DialogTitle>
-                <DialogDescription>এই কাজটি hiruo করতে হবে। শুধু অ্যাডমিন করণীয়।</DialogDescription>
+                <DialogTitle>
+                  পিরিয়ড আনলক করুন: {formatMonth(unlockConfirmMonth)}
+                </DialogTitle>
+                <DialogDescription>
+                  এই কাজটি hiruo করতে হবে। শুধু অ্যাডমিন করণীয়।
+                </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setUnlockConfirmMonth(null)}>বাতিল</Button>
-                <Button variant="destructive" onClick={confirmUnlock} disabled={unlockPeriodMutation.isPending}>
-                  {unlockPeriodMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Unlock className="h-4 w-4 mr-2" />} আনলক করুন
+                <Button
+                  variant="outline"
+                  onClick={() => setUnlockConfirmMonth(null)}
+                >
+                  বাতিল
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmUnlock}
+                  disabled={unlockPeriodMutation.isPending}
+                >
+                  {unlockPeriodMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Unlock className="h-4 w-4 mr-2" />
+                  )}{" "}
+                  আনলক করুন
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -265,17 +364,31 @@ export default function PeriodLock() {
           </CardHeader>
           <CardContent>
             {locks.length === 0 ? (
-              <div className="text-center py-8 text-[#668076]">কোনো পিরিয়ড লক করা নেই</div>
+              <div className="text-center py-8 text-[#668076]">
+                কোনো পিরিয়ড লক করা নেই
+              </div>
             ) : (
               <div className="space-y-2">
                 {locks.map(lock => (
-                  <div key={lock.id} className="flex items-center justify-between p-3 rounded-lg border border-red-100 bg-red-50">
+                  <div
+                    key={lock.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-red-100 bg-red-50"
+                  >
                     <div className="flex items-center gap-3">
                       <Lock className="h-5 w-5 text-red-600" />
                       <div>
-                        <div className="font-mono font-semibold text-[#173f36]">{formatMonth(lock.monthKey)}</div>
-                        <div className="text-xs text-[#5f786d]">লক করা: {format(new Date(lock.lockedAt), "dd/MM/yyyy HH:mm")}</div>
-                        {lock.reason && <div className="text-xs text-[#5f786d] mt-1">কারণ: {lock.reason}</div>}
+                        <div className="font-mono font-semibold text-[#173f36]">
+                          {formatMonth(lock.monthKey)}
+                        </div>
+                        <div className="text-xs text-[#5f786d]">
+                          লক করা:{" "}
+                          {format(new Date(lock.lockedAt), "dd/MM/yyyy HH:mm")}
+                        </div>
+                        {lock.reason && (
+                          <div className="text-xs text-[#5f786d] mt-1">
+                            কারণ: {lock.reason}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <Button

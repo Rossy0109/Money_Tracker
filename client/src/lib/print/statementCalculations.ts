@@ -43,7 +43,14 @@ export function aggregateByDay(items: PrintTransaction[]): DayAggregate[] {
     const amount = toNumber(item.amount);
     const group =
       groups.get(dateKey) ??
-      ({ dateKey, dateLabel: formatter.format(date), income: 0, expense: 0, net: 0, count: 0 } as DayAggregate);
+      ({
+        dateKey,
+        dateLabel: formatter.format(date),
+        income: 0,
+        expense: 0,
+        net: 0,
+        count: 0,
+      } as DayAggregate);
     if (item.type === "income") group.income += amount;
     else group.expense += amount;
     group.net = group.income - group.expense;
@@ -69,12 +76,19 @@ export function aggregateByCategory(
     const amount = toNumber(item.amount);
     const group =
       groups.get(key) ??
-      ({ name: item.categoryName, type: item.type, count: 0, total: 0 } as CategoryAggregate);
+      ({
+        name: item.categoryName,
+        type: item.type,
+        count: 0,
+        total: 0,
+      } as CategoryAggregate);
     group.count += 1;
     group.total += amount;
     groups.set(key, group);
   }
-  return Array.from(groups.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "bn"));
+  return Array.from(groups.values()).sort(
+    (a, b) => b.total - a.total || a.name.localeCompare(b.name, "bn")
+  );
 }
 
 export type MonthSummaryRow = {
@@ -87,7 +101,10 @@ export type MonthSummaryRow = {
 };
 
 export function monthlySummary(items: PrintTransaction[]): MonthSummaryRow[] {
-  const formatter = new Intl.DateTimeFormat("bn-BD", { year: "numeric", month: "long" });
+  const formatter = new Intl.DateTimeFormat("bn-BD", {
+    year: "numeric",
+    month: "long",
+  });
   const groups = new Map<string, MonthSummaryRow>();
   for (const item of items) {
     const date = new Date(item.occurredAt);
@@ -96,14 +113,23 @@ export function monthlySummary(items: PrintTransaction[]): MonthSummaryRow[] {
     const amount = toNumber(item.amount);
     const group =
       groups.get(monthKey) ??
-      ({ monthKey, monthLabel, income: 0, expense: 0, net: 0, count: 0 } as MonthSummaryRow);
+      ({
+        monthKey,
+        monthLabel,
+        income: 0,
+        expense: 0,
+        net: 0,
+        count: 0,
+      } as MonthSummaryRow);
     if (item.type === "income") group.income += amount;
     else group.expense += amount;
     group.net = group.income - group.expense;
     group.count += 1;
     groups.set(monthKey, group);
   }
-  return Array.from(groups.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  return Array.from(groups.values()).sort((a, b) =>
+    a.monthKey.localeCompare(b.monthKey)
+  );
 }
 
 export function periodLabelFor(data: StatementData): string {

@@ -70,7 +70,10 @@ export class LongPressDetector {
 }
 
 // Orientation and mobile viewport helper
-export function resolveViewportMode(width: number, height: number): {
+export function resolveViewportMode(
+  width: number,
+  height: number
+): {
   isMobile: boolean;
   orientation: "portrait" | "landscape";
 } {

@@ -3,10 +3,30 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
@@ -34,7 +54,12 @@ interface ReverseVoucherResult {
 
 export default function VoucherReversal() {
   const { isAuthenticated } = useAuth();
-  const { activeProjectId, projects, isLoading: projectsLoading, selectProject } = useActiveProject();
+  const {
+    activeProjectId,
+    projects,
+    isLoading: projectsLoading,
+    selectProject,
+  } = useActiveProject();
 
   const utils = trpc.useUtils();
 
@@ -55,16 +80,25 @@ export default function VoucherReversal() {
 
   const reverseVoucherMutation = trpc.finance.reverseVoucher.useMutation({
     onSuccess: (data: ReverseVoucherResult) => {
-      toast.success(`ভাউচার রিভার্সাল সফল: ${data.originalVoucherId} → ${data.reversalVoucherNo}`);
-      utils.finance.voucherList.invalidate({ projectId: activeProjectId!, status: "posted" });
-      utils.finance.getVoucherReversals.invalidate({ projectId: activeProjectId! });
+      toast.success(
+        `ভাউচার রিভার্সাল সফল: ${data.originalVoucherId} → ${data.reversalVoucherNo}`
+      );
+      utils.finance.voucherList.invalidate({
+        projectId: activeProjectId!,
+        status: "posted",
+      });
+      utils.finance.getVoucherReversals.invalidate({
+        projectId: activeProjectId!,
+      });
     },
-    onError: (err) => toast.error(err.message || "রিভার্সাল করা যায়নি"),
+    onError: err => toast.error(err.message || "রিভার্সাল করা যায়নি"),
   });
 
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [reversalReason, setReversalReason] = useState("");
-  const [reversalDate, setReversalDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [reversalDate, setReversalDate] = useState(
+    format(new Date(), "yyyy-MM-dd")
+  );
   const [, setPreviewOpen] = useState(false);
 
   const projectSelector = projects.length ? (
@@ -76,24 +110,41 @@ export default function VoucherReversal() {
         onChange={event => selectProject(Number(event.target.value))}
         className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
       >
-        {projects.map((project: { id: number; name: string }) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        {projects.map((project: { id: number; name: string }) => (
+          <option key={project.id} value={project.id}>
+            {project.name}
+          </option>
+        ))}
       </select>
     </label>
   ) : null;
 
-  const vouchers = useMemo(() => voucherListQuery.data ?? [], [voucherListQuery.data]);
-  const reversals = useMemo(() => reversalsQuery.data ?? [], [reversalsQuery.data]);
+  const vouchers = useMemo(
+    () => voucherListQuery.data ?? [],
+    [voucherListQuery.data]
+  );
+  const reversals = useMemo(
+    () => reversalsQuery.data ?? [],
+    [reversalsQuery.data]
+  );
 
   const reversibleVouchers = useMemo(
     () => vouchers.filter(v => !v.reversal && v.status === "posted"),
     [vouchers]
   );
 
-  if (overview.isLoading || projectsLoading || voucherListQuery.isLoading || reversalsQuery.isLoading) {
+  if (
+    overview.isLoading ||
+    projectsLoading ||
+    voucherListQuery.isLoading ||
+    reversalsQuery.isLoading
+  ) {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">ভাউচার রিভার্সাল লোড হচ্ছে…</div>
+          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+            ভাউচার রিভার্সাল লোড হচ্ছে…
+          </div>
         </main>
       </DashboardLayout>
     );
@@ -122,25 +173,32 @@ export default function VoucherReversal() {
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
         <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
-            <a href="/" className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]">
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+            >
               <RotateCcw className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">ভাউচার রিভার্সাল</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+            ভাউচার রিভার্সাল
+          </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
-            পোস্ট করা ভাউচারটি রিভার্স (উল্টো) করুন। এটি ডেবিট/ক্রেডিট বিনিময় করে একটি নতুন ভাউচার তৈরি করবে এবং মূল ভাউচার ক্যান্সেল হবে।
+            পোস্ট করা ভাউচারটি রিভার্স (উল্টো) করুন। এটি ডেবিট/ক্রেডিট বিনিময়
+            করে একটি নতুন ভাউচার তৈরি করবে এবং মূল ভাউচার ক্যান্সেল হবে।
           </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            {projectSelector}
-          </div>
+          <div className="mt-5 flex flex-wrap gap-3">{projectSelector}</div>
         </header>
 
         <Card>
           <CardHeader>
             <CardTitle>রিভার্সবেল ভাউচারসমূহ</CardTitle>
-            <CardDescription>শুধু পোস্ট করা এবং এখনো রিভার্স করা নেই এমন ভাউচারগুলো দেখানো হয়েছে</CardDescription>
+            <CardDescription>
+              শুধু পোস্ট করা এবং এখনো রিভার্স করা নেই এমন ভাউচারগুলো দেখানো
+              হয়েছে
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {reversibleVouchers.length === 0 ? (
@@ -155,8 +213,12 @@ export default function VoucherReversal() {
                       <TableHead className="w-40">ভাউচার নম্বর</TableHead>
                       <TableHead className="w-32">তারিখ</TableHead>
                       <TableHead>বিবরণ</TableHead>
-                      <TableHead className="w-40 text-right">মোট ডেবিট</TableHead>
-                      <TableHead className="w-40 text-right">মোট ক্রেডিট</TableHead>
+                      <TableHead className="w-40 text-right">
+                        মোট ডেবিট
+                      </TableHead>
+                      <TableHead className="w-40 text-right">
+                        মোট ক্রেডিট
+                      </TableHead>
                       <TableHead className="w-24">স্ট্যাটাস</TableHead>
                       <TableHead className="w-32">অ্যাকশন</TableHead>
                     </TableRow>
@@ -164,14 +226,36 @@ export default function VoucherReversal() {
                   <TableBody>
                     {reversibleVouchers.map(voucher => (
                       <TableRow key={voucher.id} className="hover:bg-[#f6faf7]">
-                        <TableCell className="font-mono font-medium">{voucher.voucherNo}</TableCell>
-                        <TableCell>{format(new Date(voucher.date), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="max-w-xs truncate">{voucher.narration || "—"}</TableCell>
-                        <TableCell className="text-right font-mono">{voucher.totalDebit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-right font-mono">{voucher.totalCredit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="font-mono font-medium">
+                          {voucher.voucherNo}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant={voucher.status === "posted" ? "default" : "secondary"}>
-                            {voucher.status === "posted" ? "পোস্ট করা" : voucher.status}
+                          {format(new Date(voucher.date), "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {voucher.narration || "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {voucher.totalDebit.toLocaleString("bn-BD", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {voucher.totalCredit.toLocaleString("bn-BD", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              voucher.status === "posted"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {voucher.status === "posted"
+                              ? "পোস্ট করা"
+                              : voucher.status}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -197,11 +281,15 @@ export default function VoucherReversal() {
         <Card className="mt-4">
           <CardHeader>
             <CardTitle>রিভার্সাল হিস্ট্রি</CardTitle>
-            <CardDescription>স 사내 সফলভাবে সম্পন্ন রিভার্সালগুলো</CardDescription>
+            <CardDescription>
+              স 사내 সফলভাবে সম্পন্ন রিভার্সালগুলো
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {reversals.length === 0 ? (
-              <div className="text-center py-8 text-[#668076]">কোনো রিভার্সাল হিস্ট্রি নেই</div>
+              <div className="text-center py-8 text-[#668076]">
+                কোনো রিভার্সাল হিস্ট্রি নেই
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -216,10 +304,18 @@ export default function VoucherReversal() {
                   <TableBody>
                     {reversals.map(rev => (
                       <TableRow key={rev.id}>
-                        <TableCell className="font-mono font-medium">{rev.originalVoucherNo}</TableCell>
-                        <TableCell className="font-mono font-medium">{rev.reversalVoucherNo}</TableCell>
-                        <TableCell>{format(new Date(rev.reversedAt), "dd/MM/yyyy HH:mm")}</TableCell>
-                        <TableCell className="max-w-xs truncate">{rev.reason}</TableCell>
+                        <TableCell className="font-mono font-medium">
+                          {rev.originalVoucherNo}
+                        </TableCell>
+                        <TableCell className="font-mono font-medium">
+                          {rev.reversalVoucherNo}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(rev.reversedAt), "dd/MM/yyyy HH:mm")}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {rev.reason}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -233,25 +329,53 @@ export default function VoucherReversal() {
           <Dialog open onOpenChange={setPreviewOpen}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>রিভার্সাল প্রিভিউ: {selectedVoucher.voucherNo}</DialogTitle>
-                <DialogDescription>নিচের এন্ট্রিগুলো বিনিময় হবে (ডেবিট ↔ ক্রেডিট)</DialogDescription>
+                <DialogTitle>
+                  রিভার্সাল প্রিভিউ: {selectedVoucher.voucherNo}
+                </DialogTitle>
+                <DialogDescription>
+                  নিচের এন্ট্রিগুলো বিনিময় হবে (ডেবিট ↔ ক্রেডিট)
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="p-3 rounded-lg border border-blue-200 bg-blue-50">
-                  <div className="font-semibold text-blue-800">মূল ভাউচার: {selectedVoucher.voucherNo}</div>
+                  <div className="font-semibold text-blue-800">
+                    মূল ভাউচার: {selectedVoucher.voucherNo}
+                  </div>
                   <div className="text-sm text-blue-700 mt-1">
-                    ডেবিট: <span className="font-mono">{selectedVoucher.totalDebit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</span> | 
-                    ক্রেডিট: <span className="font-mono">{selectedVoucher.totalCredit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</span>
+                    ডেবিট:{" "}
+                    <span className="font-mono">
+                      {selectedVoucher.totalDebit.toLocaleString("bn-BD", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>{" "}
+                    | ক্রেডিট:{" "}
+                    <span className="font-mono">
+                      {selectedVoucher.totalCredit.toLocaleString("bn-BD", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-center my-2">
                   <ArrowLeftRight className="h-6 w-6 text-[#8da69c]" />
                 </div>
                 <div className="p-3 rounded-lg border border-red-200 bg-red-50">
-                  <div className="font-semibold text-red-800">রিভার্সাল ভাউচার (নতুন)</div>
+                  <div className="font-semibold text-red-800">
+                    রিভার্সাল ভাউচার (নতুন)
+                  </div>
                   <div className="text-sm text-red-700 mt-1">
-                    ডেবিট: <span className="font-mono">{selectedVoucher.totalCredit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</span> | 
-                    ক্রেডিট: <span className="font-mono">{selectedVoucher.totalDebit.toLocaleString("bn-BD", { minimumFractionDigits: 2 })}</span>
+                    ডেবিট:{" "}
+                    <span className="font-mono">
+                      {selectedVoucher.totalCredit.toLocaleString("bn-BD", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>{" "}
+                    | ক্রেডিট:{" "}
+                    <span className="font-mono">
+                      {selectedVoucher.totalDebit.toLocaleString("bn-BD", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -277,11 +401,29 @@ export default function VoucherReversal() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => { setSelectedVoucher(null); setPreviewOpen(false); }} disabled={reverseVoucherMutation.isPending}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedVoucher(null);
+                    setPreviewOpen(false);
+                  }}
+                  disabled={reverseVoucherMutation.isPending}
+                >
                   বাতিল
                 </Button>
-                <Button variant="destructive" onClick={confirmReverse} disabled={reverseVoucherMutation.isPending || !reversalReason.trim()}>
-                  {reverseVoucherMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} রিভার্সাল নিশ্চিত করুন
+                <Button
+                  variant="destructive"
+                  onClick={confirmReverse}
+                  disabled={
+                    reverseVoucherMutation.isPending || !reversalReason.trim()
+                  }
+                >
+                  {reverseVoucherMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                  )}{" "}
+                  রিভার্সাল নিশ্চিত করুন
                 </Button>
               </DialogFooter>
             </DialogContent>

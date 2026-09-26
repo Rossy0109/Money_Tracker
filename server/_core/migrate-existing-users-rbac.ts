@@ -1,6 +1,6 @@
-import { databaseRequired, getDb, logAudit } from "../db";
+import { databaseRequired, getDb, logAudit, systemActorUserId } from "../db";
 import { users } from "../../drizzle/schema";
-import { assignRole, clearRBACCache } from "./rbac";
+import { assignRole } from "./rbac";
 
 /**
  * One-time migration: assign default RBAC roles to all existing users
@@ -27,8 +27,8 @@ export async function migrateExistingUsersToRBAC() {
     }
 
     try {
-      await assignRole(user.id, rbacRole, user.id);
-      migrated++;
+      const inserted = await assignRole(user.id, rbacRole, user.id);
+      if (inserted) migrated++;
     } catch {
       // Skip if already assigned or role doesn't exist yet
     }
@@ -36,14 +36,10 @@ export async function migrateExistingUsersToRBAC() {
 
   if (migrated > 0) {
     await logAudit({
-      actorUserId: 0,
+      actorUserId: await systemActorUserId(),
       action: "create",
       entityType: "rbac_migration",
       summary: `Migrated ${migrated}/${allUsers.length} existing users to RBAC roles`,
     });
   }
-
-  // Role assignments changed; drop any stale in-memory RBAC cache so the next
-  // lookup reflects the migrated assignments.
-  clearRBACCache();
 }

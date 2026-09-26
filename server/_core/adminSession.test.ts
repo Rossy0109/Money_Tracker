@@ -24,12 +24,19 @@ describe("Admin Elevation Session Management", () => {
     const [payload, signature] = token.split(".");
 
     // Tamper with signature
-    const tamperedSig = signature.slice(0, -2) + (signature.slice(-2) === "00" ? "ff" : "00");
+    const tamperedSig =
+      signature.slice(0, -2) + (signature.slice(-2) === "00" ? "ff" : "00");
     expect(verifyAdminToken(`${payload}.${tamperedSig}`)).toBeNull();
 
     // Tamper with payload
     const modifiedPayload = Buffer.from(
-      JSON.stringify({ userId: 2, openId: "attacker", role: "admin", issuedAt: Date.now(), expiresAt: Date.now() + 60000 })
+      JSON.stringify({
+        userId: 2,
+        openId: "attacker",
+        role: "admin",
+        issuedAt: Date.now(),
+        expiresAt: Date.now() + 60000,
+      })
     ).toString("base64url");
     expect(verifyAdminToken(`${modifiedPayload}.${signature}`)).toBeNull();
   });

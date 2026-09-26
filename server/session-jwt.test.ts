@@ -59,7 +59,9 @@ describe("session JWT TTL", () => {
 
   it("falls back to the 15-minute access-token default", async () => {
     const before = Math.floor(Date.now() / 1000);
-    const token = await sdk.createSessionToken("google:test-user", { name: "Test" });
+    const token = await sdk.createSessionToken("google:test-user", {
+      name: "Test",
+    });
     const { exp } = decodeJwtPayload(token);
     expect(exp! - before).toBeLessThanOrEqual(15 * 60 + 5);
     expect(exp! - before).toBeGreaterThan(14 * 60);
@@ -68,7 +70,7 @@ describe("session JWT TTL", () => {
   it("rejects expired sessions without throwing unexpectedly", async () => {
     const expired = await sdk.signSession(
       { openId: "google:old", appId: "test-app", name: "Old" },
-      { expiresInMs: -1000 },
+      { expiresInMs: -1000 }
     );
     await expect(sdk.verifySession(expired)).resolves.toBeNull();
   });

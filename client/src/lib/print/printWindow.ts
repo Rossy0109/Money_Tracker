@@ -1,8 +1,7 @@
 import { PRINT_CSS } from "./printCss";
 
 export type PrintResult =
-  | { status: "opened"; window: Window }
-  | { status: "blocked" };
+  { status: "opened"; window: Window } | { status: "blocked" };
 
 /**
  * Opens a clean, standalone print window with only the report document and the

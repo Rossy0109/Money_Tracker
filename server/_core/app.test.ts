@@ -16,8 +16,8 @@ afterEach(async () => {
       server =>
         new Promise<void>((resolve, reject) => {
           server.close(error => (error ? reject(error) : resolve()));
-        }),
-    ),
+        })
+    )
   );
 });
 
@@ -28,7 +28,9 @@ describe("Vercel-compatible Express application", () => {
 
   it("preserves the public path after the Vercel function rewrite", () => {
     // API paths are passed through to the Express handler
-    expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe("/api/trpc/auth.me");
+    expect(normalizeVercelRequestPath("/api/trpc/auth.me")).toBe(
+      "/api/trpc/auth.me"
+    );
     expect(normalizeVercelRequestPath("/api/healthz")).toBe("/api/healthz");
   });
 
@@ -44,9 +46,12 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/healthz`);
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/healthz`
+    );
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).not.toContain("upgrade-insecure-requests");
     expect(csp).toContain("default-src 'self'");
@@ -70,13 +75,16 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
     const spa = await fetch(`http://127.0.0.1:${address.port}/`);
     expect(spa.status).toBe(200);
     await expect(spa.text()).resolves.toBe("spa-shell");
 
-    const api = await fetch(`http://127.0.0.1:${address.port}/api/no-such-route`);
+    const api = await fetch(
+      `http://127.0.0.1:${address.port}/api/no-such-route`
+    );
     expect(api.status).toBe(404);
     await expect(api.json()).resolves.toEqual({ error: "Not found" });
   });
@@ -93,12 +101,19 @@ describe("Vercel-compatible Express application", () => {
 
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("A TCP address was expected for the isolated health check");
+      throw new Error(
+        "A TCP address was expected for the isolated health check"
+      );
     }
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/healthz`);
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/healthz`
+    );
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, service: "money-tracker" });
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      service: "money-tracker",
+    });
   });
 
   it("keeps Google OAuth endpoints disabled when password mode is active", async () => {
@@ -116,13 +131,19 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/auth/google/login`, {
-      redirect: "manual",
-    });
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/auth/google/login`,
+      {
+        redirect: "manual",
+      }
+    );
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: "Google OAuth is not enabled" });
+    await expect(response.json()).resolves.toEqual({
+      error: "Google OAuth is not enabled",
+    });
     vi.unstubAllEnvs();
   });
 
@@ -136,11 +157,15 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/daily-sweep`, {
-      method: "GET",
-    });
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/scheduled/daily-sweep`,
+      {
+        method: "GET",
+      }
+    );
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
       ok: false,
@@ -158,20 +183,27 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/scheduled/finance-backup`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
     expect(response.status).toBe(403);
     const data = await response.json();
     expect(data.success).toBe(false);
 
     // Also verify GET request (Vercel Cron method) without auth is rejected
-    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
-      method: "GET",
-    });
+    const getResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/scheduled/finance-backup`,
+      {
+        method: "GET",
+      }
+    );
     expect(getResponse.status).toBe(403);
   });
 
@@ -185,28 +217,35 @@ describe("Vercel-compatible Express application", () => {
       server.listen(0, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("A TCP address was expected");
+    if (!address || typeof address === "string")
+      throw new Error("A TCP address was expected");
 
     process.env.CRON_SECRET = "test-cron-secret-token";
 
     // Vercel Cron method — must not 404/403 when authorized.
-    const getResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
-      method: "GET",
-      headers: {
-        Authorization: "Bearer test-cron-secret-token",
-      },
-    });
+    const getResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/scheduled/finance-backup`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer test-cron-secret-token",
+        },
+      }
+    );
     expect(getResponse.status).not.toBe(403);
     expect(getResponse.status).not.toBe(404);
 
     // GitHub Actions / manual POST still accepted (app.all).
-    const postResponse = await fetch(`http://127.0.0.1:${address.port}/api/scheduled/finance-backup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer test-cron-secret-token",
-      },
-    });
+    const postResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/scheduled/finance-backup`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer test-cron-secret-token",
+        },
+      }
+    );
     expect(postResponse.status).not.toBe(403);
     expect(postResponse.status).not.toBe(404);
 
@@ -216,9 +255,12 @@ describe("Vercel-compatible Express application", () => {
       "/api/scheduled/finance-bill-reminder",
       "/api/scheduled/daily-sweep",
     ]) {
-      const scheduledGet = await fetch(`http://127.0.0.1:${address.port}${path}`, {
-        method: "GET",
-      });
+      const scheduledGet = await fetch(
+        `http://127.0.0.1:${address.port}${path}`,
+        {
+          method: "GET",
+        }
+      );
       // Route must exist (not 404); auth may still reject with 500/403.
       expect(scheduledGet.status).not.toBe(404);
     }

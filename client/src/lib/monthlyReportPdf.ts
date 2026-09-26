@@ -5,7 +5,10 @@ import {
 } from "./accountingReportDefinitions";
 import { bdt } from "./utils";
 
-export { accountingReportOptions, type AccountingReportType } from "./accountingReportDefinitions";
+export {
+  accountingReportOptions,
+  type AccountingReportType,
+} from "./accountingReportDefinitions";
 
 type MonthlyReport = {
   projectName: string;
@@ -13,7 +16,11 @@ type MonthlyReport = {
   totalIncome: number;
   totalExpense: number;
   netAmount: number;
-  categoryTotals: Array<{ name: string; type: "income" | "expense"; total: number }>;
+  categoryTotals: Array<{
+    name: string;
+    type: "income" | "expense";
+    total: number;
+  }>;
   totalDebt: number;
   totalReceivable: number;
   transactionCount: number;
@@ -35,7 +42,11 @@ type MonthlyReport = {
     debts: number;
     netFinancialPosition: number;
   };
-  accountDetails?: Array<{ name: string; type: string; currentBalance: number }>;
+  accountDetails?: Array<{
+    name: string;
+    type: string;
+    currentBalance: number;
+  }>;
   dueDetails?: Array<{
     type: "debt" | "receivable";
     counterparty: string;
@@ -67,7 +78,10 @@ async function addBengaliFont(doc: jsPDF) {
 }
 
 function reportDefinition(reportType: AccountingReportType) {
-  return accountingReportOptions.find(option => option.value === reportType) ?? accountingReportOptions[0];
+  return (
+    accountingReportOptions.find(option => option.value === reportType) ??
+    accountingReportOptions[0]
+  );
 }
 
 async function buildAccountingReportPdf(
@@ -146,7 +160,10 @@ async function buildAccountingReportPdf(
   };
 
   const renderProfitAndLoss = () => {
-    addSectionHeading(isProfitAndLoss ? "লাভ ও ক্ষতির সারসংক্ষেপ" : "মাসের সারসংক্ষেপ", y);
+    addSectionHeading(
+      isProfitAndLoss ? "লাভ ও ক্ষতির সারসংক্ষেপ" : "মাসের সারসংক্ষেপ",
+      y
+    );
     y += 31;
     addValueRow("মোট আয়", bdt(profitAndLoss.income), y, [34, 110, 73]);
     y += 29;
@@ -160,7 +177,11 @@ async function buildAccountingReportPdf(
     );
     if (isFull) {
       y += 29;
-      addValueRow("মাসের লেনদেন", new Intl.NumberFormat("bn-BD").format(report.transactionCount), y);
+      addValueRow(
+        "মাসের লেনদেন",
+        new Intl.NumberFormat("bn-BD").format(report.transactionCount),
+        y
+      );
     }
     y += 47;
   };
@@ -203,9 +224,19 @@ async function buildAccountingReportPdf(
     y = ensureSpace(y, 170);
     addSectionHeading("আর্থিক অবস্থান", y);
     y += 31;
-    addValueRow("অ্যাকাউন্টে বর্তমান ব্যালেন্স", bdt(financialPosition.accountBalance), y, [34, 110, 73]);
+    addValueRow(
+      "অ্যাকাউন্টে বর্তমান ব্যালেন্স",
+      bdt(financialPosition.accountBalance),
+      y,
+      [34, 110, 73]
+    );
     y += 29;
-    addValueRow("মোট পাওনা", bdt(financialPosition.receivables), y, [34, 110, 73]);
+    addValueRow(
+      "মোট পাওনা",
+      bdt(financialPosition.receivables),
+      y,
+      [34, 110, 73]
+    );
     y += 29;
     addValueRow("মোট সম্পদ", bdt(financialPosition.assets), y, [34, 110, 73]);
     y += 29;
@@ -215,7 +246,9 @@ async function buildAccountingReportPdf(
       "নিট আর্থিক অবস্থান",
       bdt(financialPosition.netFinancialPosition),
       y,
-      financialPosition.netFinancialPosition >= 0 ? [34, 110, 73] : [157, 51, 51]
+      financialPosition.netFinancialPosition >= 0
+        ? [34, 110, 73]
+        : [157, 51, 51]
     );
     y += 47;
     const accounts = report.accountDetails ?? [];
@@ -232,7 +265,12 @@ async function buildAccountingReportPdf(
     }
     for (const account of accounts) {
       y = ensureSpace(y, 30);
-      addValueRow(account.name, bdt(account.currentBalance), y, account.currentBalance >= 0 ? [34, 110, 73] : [157, 51, 51]);
+      addValueRow(
+        account.name,
+        bdt(account.currentBalance),
+        y,
+        account.currentBalance >= 0 ? [34, 110, 73] : [157, 51, 51]
+      );
       y += 29;
     }
     y += 19;
@@ -242,34 +280,64 @@ async function buildAccountingReportPdf(
     const rows = (report.dueDetails ?? []).filter(due => due.type === type);
     const total = isDebtReport ? report.totalDebt : report.totalReceivable;
     y = ensureSpace(y, 75);
-    addSectionHeading(isDebtReport ? "বর্তমান দেনার হিসাব" : "বর্তমান পাওনার হিসাব", y);
+    addSectionHeading(
+      isDebtReport ? "বর্তমান দেনার হিসাব" : "বর্তমান পাওনার হিসাব",
+      y
+    );
     y += 31;
-    addValueRow(isDebtReport ? "মোট বকেয়া দেনা" : "মোট বকেয়া পাওনা", bdt(total), y, isDebtReport ? [157, 51, 51] : [34, 110, 73]);
+    addValueRow(
+      isDebtReport ? "মোট বকেয়া দেনা" : "মোট বকেয়া পাওনা",
+      bdt(total),
+      y,
+      isDebtReport ? [157, 51, 51] : [34, 110, 73]
+    );
     y += 46;
     y = ensureSpace(y, 55);
-    addSectionHeading(isDebtReport ? "দেনাদারভিত্তিক বিস্তারিত" : "পাওনাদারভিত্তিক বিস্তারিত", y);
+    addSectionHeading(
+      isDebtReport ? "দেনাদারভিত্তিক বিস্তারিত" : "পাওনাদারভিত্তিক বিস্তারিত",
+      y
+    );
     y += 30;
     if (!rows.length) {
       doc.setFontSize(10);
       doc.setTextColor(83, 110, 98);
-      doc.text(isDebtReport ? "কোনো বকেয়া দেনা নেই।" : "কোনো বকেয়া পাওনা নেই।", margin + 12, y);
+      doc.text(
+        isDebtReport ? "কোনো বকেয়া দেনা নেই।" : "কোনো বকেয়া পাওনা নেই।",
+        margin + 12,
+        y
+      );
       doc.setTextColor(20, 36, 30);
       y += 30;
       return;
     }
     for (const due of rows) {
       y = ensureSpace(y, 52);
-      doc.setFillColor(isDebtReport ? 254 : 240, isDebtReport ? 242 : 250, isDebtReport ? 242 : 244);
+      doc.setFillColor(
+        isDebtReport ? 254 : 240,
+        isDebtReport ? 242 : 250,
+        isDebtReport ? 242 : 244
+      );
       doc.rect(margin, y - 16, contentWidth, 42, "F");
       doc.setFontSize(9);
       doc.setTextColor(20, 36, 30);
       doc.text(due.counterparty, margin + 10, y);
       doc.setTextColor(76, 98, 88);
       doc.setFontSize(8);
-      doc.text(`${due.voucherNo} | ${new Intl.DateTimeFormat("bn-BD", { year: "numeric", month: "short", day: "numeric" }).format(new Date(due.openedAt))}`, margin + 10, y + 15);
-      const dueTone: [number, number, number] = isDebtReport ? [157, 51, 51] : [34, 110, 73];
+      doc.text(
+        `${due.voucherNo} | ${new Intl.DateTimeFormat("bn-BD", { year: "numeric", month: "short", day: "numeric" }).format(new Date(due.openedAt))}`,
+        margin + 10,
+        y + 15
+      );
+      const dueTone: [number, number, number] = isDebtReport
+        ? [157, 51, 51]
+        : [34, 110, 73];
       doc.setTextColor(...dueTone);
-      doc.text(`বকেয়া: ${bdt(due.outstandingAmount)}`, pageWidth - margin - 10, y, { align: "right" });
+      doc.text(
+        `বকেয়া: ${bdt(due.outstandingAmount)}`,
+        pageWidth - margin - 10,
+        y,
+        { align: "right" }
+      );
       doc.setTextColor(20, 36, 30);
       y += 55;
     }
@@ -289,14 +357,20 @@ async function buildAccountingReportPdf(
     doc.setTextColor(20, 36, 30);
     y += 21;
   };
-  const dateFormatter = new Intl.DateTimeFormat("bn-BD", { year: "numeric", month: "2-digit", day: "2-digit" });
+  const dateFormatter = new Intl.DateTimeFormat("bn-BD", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
   const renderTransactionSection = (
     type: "income" | "expense",
     heading: string,
     emptyMessage: string,
     amountTone: [number, number, number]
   ) => {
-    const transactions = report.transactionDetails.filter(transaction => transaction.type === type);
+    const transactions = report.transactionDetails.filter(
+      transaction => transaction.type === type
+    );
     y = ensureSpace(y, 55);
     addTransactionHeading(heading);
     if (!transactions.length) {
@@ -313,26 +387,45 @@ async function buildAccountingReportPdf(
       group.push(transaction);
       categoryGroups.set(transaction.categoryName, group);
     }
-    const sectionTotal = type === "income" ? report.totalIncome : report.totalExpense;
-    const percentageFormatter = new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 1 });
-    const categoryEntries = Array.from(categoryGroups.entries()).map(([categoryName, categoryTransactions]) => ({
-      categoryName,
-      categoryTransactions,
-      subtotal: categoryTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
-    }));
-    const getRowHeight = (transaction: typeof transactions[number]) =>
-      Math.max(30, doc.splitTextToSize(transaction.description, 320).length * 10 + 12);
+    const sectionTotal =
+      type === "income" ? report.totalIncome : report.totalExpense;
+    const percentageFormatter = new Intl.NumberFormat("bn-BD", {
+      maximumFractionDigits: 1,
+    });
+    const categoryEntries = Array.from(categoryGroups.entries()).map(
+      ([categoryName, categoryTransactions]) => ({
+        categoryName,
+        categoryTransactions,
+        subtotal: categoryTransactions.reduce(
+          (sum, transaction) => sum + transaction.amount,
+          0
+        ),
+      })
+    );
+    const getRowHeight = (transaction: (typeof transactions)[number]) =>
+      Math.max(
+        30,
+        doc.splitTextToSize(transaction.description, 320).length * 10 + 12
+      );
     const addCategorySubheading = (
       categoryName: string,
       transactionCount: number,
       subtotal: number,
       isContinuation = false
     ) => {
-      doc.setFillColor(type === "income" ? 232 : 252, type === "income" ? 246 : 237, type === "income" ? 237 : 237);
+      doc.setFillColor(
+        type === "income" ? 232 : 252,
+        type === "income" ? 246 : 237,
+        type === "income" ? 237 : 237
+      );
       doc.rect(margin, y - 14, contentWidth, 21, "F");
       doc.setFontSize(8);
       doc.setTextColor(...amountTone);
-      doc.text(`ক্যাটাগরি: ${categoryName}${isContinuation ? " (চলমান)" : ""}`, margin + 8, y);
+      doc.text(
+        `ক্যাটাগরি: ${categoryName}${isContinuation ? " (চলমান)" : ""}`,
+        margin + 8,
+        y
+      );
       doc.setTextColor(76, 98, 88);
       const percentage = sectionTotal > 0 ? (subtotal / sectionTotal) * 100 : 0;
       doc.text(
@@ -345,9 +438,18 @@ async function buildAccountingReportPdf(
       y += 22;
     };
     if (type === "expense") {
-      const previousTotals = new Map((report.previousExpenseCategoryTotals ?? []).map(category => [category.name, category.total]));
+      const previousTotals = new Map(
+        (report.previousExpenseCategoryTotals ?? []).map(category => [
+          category.name,
+          category.total,
+        ])
+      );
       const topExpenses = [...categoryEntries]
-        .sort((left, right) => right.subtotal - left.subtotal || left.categoryName.localeCompare(right.categoryName, "bn"))
+        .sort(
+          (left, right) =>
+            right.subtotal - left.subtotal ||
+            left.categoryName.localeCompare(right.categoryName, "bn")
+        )
         .slice(0, 3);
       if (topExpenses.length) {
         const summaryHeight = 27 + topExpenses.length * 39;
@@ -359,15 +461,26 @@ async function buildAccountingReportPdf(
         doc.text("শীর্ষ ব্যয়", margin + 8, y);
         y += 19;
         for (const [index, expense] of Array.from(topExpenses.entries())) {
-          const percentage = sectionTotal > 0 ? (expense.subtotal / sectionTotal) * 100 : 0;
+          const percentage =
+            sectionTotal > 0 ? (expense.subtotal / sectionTotal) * 100 : 0;
           const previousTotal = previousTotals.get(expense.categoryName) ?? 0;
           const change = expense.subtotal - previousTotal;
-          const changeText = change === 0 ? "অপরিবর্তিত" : change > 0 ? `বেড়েছে ${bdt(change)}` : `কমেছে ${bdt(Math.abs(change))}`;
+          const changeText =
+            change === 0
+              ? "অপরিবর্তিত"
+              : change > 0
+                ? `বেড়েছে ${bdt(change)}`
+                : `কমেছে ${bdt(Math.abs(change))}`;
           doc.setFontSize(8);
           doc.setTextColor(97, 45, 45);
           doc.text(`${index + 1}. ${expense.categoryName}`, margin + 12, y);
           doc.setTextColor(157, 51, 51);
-          doc.text(`${bdt(expense.subtotal)} | ${percentageFormatter.format(percentage)}%`, pageWidth - margin - 8, y, { align: "right" });
+          doc.text(
+            `${bdt(expense.subtotal)} | ${percentageFormatter.format(percentage)}%`,
+            pageWidth - margin - 8,
+            y,
+            { align: "right" }
+          );
           y += 13;
           doc.setFontSize(7);
           doc.setTextColor(112, 76, 76);
@@ -382,31 +495,58 @@ async function buildAccountingReportPdf(
         y += 5;
       }
     }
-    for (const { categoryName, categoryTransactions, subtotal } of categoryEntries) {
+    for (const {
+      categoryName,
+      categoryTransactions,
+      subtotal,
+    } of categoryEntries) {
       if (y + 22 + getRowHeight(categoryTransactions[0]) > 748) {
         doc.addPage();
         y = 52;
         addTransactionHeading(`${heading} (চলমান)`);
       }
-      addCategorySubheading(categoryName, categoryTransactions.length, subtotal);
+      addCategorySubheading(
+        categoryName,
+        categoryTransactions.length,
+        subtotal
+      );
       for (const transaction of categoryTransactions) {
-        const descriptionLines = doc.splitTextToSize(transaction.description, 320);
+        const descriptionLines = doc.splitTextToSize(
+          transaction.description,
+          320
+        );
         const rowHeight = Math.max(30, descriptionLines.length * 10 + 12);
         if (y + rowHeight > 748) {
           doc.addPage();
           y = 52;
           addTransactionHeading(`${heading} (চলমান)`);
-          addCategorySubheading(categoryName, categoryTransactions.length, subtotal, true);
+          addCategorySubheading(
+            categoryName,
+            categoryTransactions.length,
+            subtotal,
+            true
+          );
         }
         doc.setFontSize(7.5);
         doc.setTextColor(52, 76, 66);
-        doc.text(dateFormatter.format(new Date(transaction.occurredAt)), margin + 5, y);
+        doc.text(
+          dateFormatter.format(new Date(transaction.occurredAt)),
+          margin + 5,
+          y
+        );
         doc.text(transaction.voucherNo, margin + 64, y);
         doc.text(descriptionLines, margin + 126, y);
         doc.setTextColor(...amountTone);
-        doc.text(bdt(transaction.amount), pageWidth - margin - 5, y, { align: "right" });
+        doc.text(bdt(transaction.amount), pageWidth - margin - 5, y, {
+          align: "right",
+        });
         doc.setDrawColor(222, 232, 224);
-        doc.line(margin, y + rowHeight - 8, pageWidth - margin, y + rowHeight - 8);
+        doc.line(
+          margin,
+          y + rowHeight - 8,
+          pageWidth - margin,
+          y + rowHeight - 8
+        );
         doc.setTextColor(20, 36, 30);
         y += rowHeight;
       }
@@ -435,16 +575,30 @@ async function buildAccountingReportPdf(
   if (isFull || isDebt) renderDueSection("debt");
   if (isFull || isReceivable) renderDueSection("receivable");
   if (isFull || isIncome) {
-    renderTransactionSection("income", "আয়ের বিস্তারিত লেনদেন", "নির্বাচিত মাসে কোনো আয়ের লেনদেন নেই।", [34, 110, 73]);
+    renderTransactionSection(
+      "income",
+      "আয়ের বিস্তারিত লেনদেন",
+      "নির্বাচিত মাসে কোনো আয়ের লেনদেন নেই।",
+      [34, 110, 73]
+    );
   }
   if (isFull || isExpense) {
-    renderTransactionSection("expense", "ব্যয়ের বিস্তারিত লেনদেন", "নির্বাচিত মাসে কোনো ব্যয়ের লেনদেন নেই।", [157, 51, 51]);
+    renderTransactionSection(
+      "expense",
+      "ব্যয়ের বিস্তারিত লেনদেন",
+      "নির্বাচিত মাসে কোনো ব্যয়ের লেনদেন নেই।",
+      [157, 51, 51]
+    );
   }
   if (isFull || isProfitAndLoss) {
     y = ensureSpace(y, 30);
     doc.setFontSize(8);
     doc.setTextColor(94, 116, 105);
-    doc.text("দ্রষ্টব্য: দেনা বা পাওনা নিষ্পত্তি আয় বা ব্যয়ের সঙ্গে যুক্ত করা হয়নি।", margin, y + 12);
+    doc.text(
+      "দ্রষ্টব্য: দেনা বা পাওনা নিষ্পত্তি আয় বা ব্যয়ের সঙ্গে যুক্ত করা হয়নি।",
+      margin,
+      y + 12
+    );
     y += 18;
   }
 
@@ -459,7 +613,9 @@ async function buildAccountingReportPdf(
   doc.line(col1X, y, col1X + colWidth, y);
   doc.setFontSize(8.5);
   doc.setTextColor(52, 76, 66);
-  doc.text("প্রস্তুতকারকের স্বাক্ষর", col1X + colWidth / 2, y + 11, { align: "center" });
+  doc.text("প্রস্তুতকারকের স্বাক্ষর", col1X + colWidth / 2, y + 11, {
+    align: "center",
+  });
   doc.setFontSize(7);
   doc.setTextColor(110, 130, 120);
   doc.text("(Prepared By)", col1X + colWidth / 2, y + 21, { align: "center" });
@@ -470,10 +626,14 @@ async function buildAccountingReportPdf(
   doc.line(col2X, y, col2X + colWidth, y);
   doc.setFontSize(8.5);
   doc.setTextColor(52, 76, 66);
-  doc.text("যাচাইকারীর স্বাক্ষর", col2X + colWidth / 2, y + 11, { align: "center" });
+  doc.text("যাচাইকারীর স্বাক্ষর", col2X + colWidth / 2, y + 11, {
+    align: "center",
+  });
   doc.setFontSize(7);
   doc.setTextColor(110, 130, 120);
-  doc.text("(Checked / Accountant)", col2X + colWidth / 2, y + 21, { align: "center" });
+  doc.text("(Checked / Accountant)", col2X + colWidth / 2, y + 21, {
+    align: "center",
+  });
 
   // Column 3: Authorized Signature & Seal
   const col3X = margin + (colWidth + 20) * 2;
@@ -481,10 +641,14 @@ async function buildAccountingReportPdf(
   doc.line(col3X, y, col3X + colWidth, y);
   doc.setFontSize(8.5);
   doc.setTextColor(52, 76, 66);
-  doc.text("অনুমোদিত কর্মকর্তার স্বাক্ষর ও সিল", col3X + colWidth / 2, y + 11, { align: "center" });
+  doc.text("অনুমোদিত কর্মকর্তার স্বাক্ষর ও সিল", col3X + colWidth / 2, y + 11, {
+    align: "center",
+  });
   doc.setFontSize(7);
   doc.setTextColor(110, 130, 120);
-  doc.text("(Authorized Signature & Seal)", col3X + colWidth / 2, y + 21, { align: "center" });
+  doc.text("(Authorized Signature & Seal)", col3X + colWidth / 2, y + 21, {
+    align: "center",
+  });
 
   return { doc, definition };
 }
@@ -493,7 +657,10 @@ export async function downloadMonthlyReportPdf(
   report: MonthlyReport,
   reportType: AccountingReportType = "full"
 ) {
-  const { doc, definition } = await buildAccountingReportPdf(report, reportType);
+  const { doc, definition } = await buildAccountingReportPdf(
+    report,
+    reportType
+  );
   doc.save(`${definition.filename}-${report.monthKey}.pdf`);
 }
 
@@ -502,10 +669,16 @@ export async function shareMonthlyReportPdf(
   reportType: AccountingReportType = "full"
 ): Promise<"shared" | "unavailable"> {
   if (!navigator.share) return "unavailable";
-  const { doc, definition } = await buildAccountingReportPdf(report, reportType);
+  const { doc, definition } = await buildAccountingReportPdf(
+    report,
+    reportType
+  );
   const filename = `${definition.filename}-${report.monthKey}.pdf`;
-  const file = new File([doc.output("blob")], filename, { type: "application/pdf" });
-  if (navigator.canShare && !navigator.canShare({ files: [file] })) return "unavailable";
+  const file = new File([doc.output("blob")], filename, {
+    type: "application/pdf",
+  });
+  if (navigator.canShare && !navigator.canShare({ files: [file] }))
+    return "unavailable";
   await navigator.share({
     title: definition.title,
     text: `${definition.title} — ${report.projectName} — ${monthText(report.monthKey)}`,

@@ -23,8 +23,20 @@ const transactionInput = z.object({
 
 // Helper for detecting duplicate transactions within a time threshold
 export function isDuplicateTransaction(
-  existing: Array<{ amount: number; categoryId: number; type: string; occurredAt: Date; note?: string }>,
-  candidate: { amount: number; categoryId: number; type: string; occurredAt: Date; note?: string },
+  existing: Array<{
+    amount: number;
+    categoryId: number;
+    type: string;
+    occurredAt: Date;
+    note?: string;
+  }>,
+  candidate: {
+    amount: number;
+    categoryId: number;
+    type: string;
+    occurredAt: Date;
+    note?: string;
+  },
   windowSeconds = 60
 ): boolean {
   return existing.some(tx => {
@@ -33,7 +45,9 @@ export function isDuplicateTransaction(
     if (tx.type !== candidate.type) return false;
     if ((tx.note || "") !== (candidate.note || "")) return false;
 
-    const diffMs = Math.abs(tx.occurredAt.getTime() - candidate.occurredAt.getTime());
+    const diffMs = Math.abs(
+      tx.occurredAt.getTime() - candidate.occurredAt.getTime()
+    );
     return diffMs <= windowSeconds * 1000;
   });
 }
@@ -100,12 +114,16 @@ describe("server/transaction-validation.test.ts", () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toContain("৩০ দিনের বেশি পরের তারিখ");
+        expect(result.error.issues[0]?.message).toContain(
+          "৩০ দিনের বেশি পরের তারিখ"
+        );
       }
     });
 
     it("rejects invalid date strings", () => {
-      expect(transactionDate.safeParse("invalid-date-string").success).toBe(false);
+      expect(transactionDate.safeParse("invalid-date-string").success).toBe(
+        false
+      );
     });
   });
 
@@ -120,13 +138,17 @@ describe("server/transaction-validation.test.ts", () => {
 
     it("flags transaction as duplicate if identical entry submitted within 60 seconds", () => {
       const candidateSameTime = { ...baseTx };
-      expect(isDuplicateTransaction([baseTx], candidateSameTime, 60)).toBe(true);
+      expect(isDuplicateTransaction([baseTx], candidateSameTime, 60)).toBe(
+        true
+      );
 
       const candidate30sLater = {
         ...baseTx,
         occurredAt: new Date("2026-09-12T10:00:30Z"),
       };
-      expect(isDuplicateTransaction([baseTx], candidate30sLater, 60)).toBe(true);
+      expect(isDuplicateTransaction([baseTx], candidate30sLater, 60)).toBe(
+        true
+      );
     });
 
     it("does not flag transaction as duplicate if time difference exceeds window", () => {
@@ -134,14 +156,28 @@ describe("server/transaction-validation.test.ts", () => {
         ...baseTx,
         occurredAt: new Date("2026-09-12T10:10:00Z"),
       };
-      expect(isDuplicateTransaction([baseTx], candidateTenMinsLater, 60)).toBe(false);
+      expect(isDuplicateTransaction([baseTx], candidateTenMinsLater, 60)).toBe(
+        false
+      );
     });
 
     it("does not flag transaction if amount, note, or category differs", () => {
-      expect(isDuplicateTransaction([baseTx], { ...baseTx, amount: 2600 }, 60)).toBe(false);
-      expect(isDuplicateTransaction([baseTx], { ...baseTx, categoryId: 5 }, 60)).toBe(false);
-      expect(isDuplicateTransaction([baseTx], { ...baseTx, note: "Different note" }, 60)).toBe(false);
-      expect(isDuplicateTransaction([baseTx], { ...baseTx, type: "income" }, 60)).toBe(false);
+      expect(
+        isDuplicateTransaction([baseTx], { ...baseTx, amount: 2600 }, 60)
+      ).toBe(false);
+      expect(
+        isDuplicateTransaction([baseTx], { ...baseTx, categoryId: 5 }, 60)
+      ).toBe(false);
+      expect(
+        isDuplicateTransaction(
+          [baseTx],
+          { ...baseTx, note: "Different note" },
+          60
+        )
+      ).toBe(false);
+      expect(
+        isDuplicateTransaction([baseTx], { ...baseTx, type: "income" }, 60)
+      ).toBe(false);
     });
   });
 

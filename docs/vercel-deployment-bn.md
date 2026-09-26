@@ -8,11 +8,11 @@
 
 Vercel-এর root-level `server.ts` একই Express app-কে default export করে। `server/_core/index.ts` কেবল persistent local runtime-এ port bind করে। ফলে tRPC router, OAuth callback, storage proxy, scheduled route এবং finance authorization logic একবারই `server/_core/app.ts`-এ নিবন্ধিত থাকে। কোনো finance procedure, ownership rule, household permission, restore transaction, বা audit write-path পরিবর্তিত হয়নি।
 
-| উদ্বেগ | Vercel প্রস্তুতি | নিরাপত্তা ফলাফল |
-|---|---|---|
-| API ও হিসাবের লজিক | একই `appRouter` এবং `createContext` ব্যবহার | `userId + projectId` ও household permission contract অপরিবর্তিত |
-| OAuth | বিদ্যমান nonce, host-only state cookie এবং secure session cookie অপরিবর্তিত | callback CSRF/session-fixation guard অক্ষুণ্ণ |
-| Client routing | Vite bundle build-এর সময় generated `public/` directory-তে stage করা হয়; non-API SPA path `index.html`-এ rewrite | Vercel CDN static file serve করে; deep link কাজ করবে; API-কে SPA fallback গ্রাস করবে না |
+| উদ্বেগ                  | Vercel প্রস্তুতি                                                                                                                                                                                                                      | নিরাপত্তা ফলাফল                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| API ও হিসাবের লজিক      | একই `appRouter` এবং `createContext` ব্যবহার                                                                                                                                                                                           | `userId + projectId` ও household permission contract অপরিবর্তিত                                         |
+| OAuth                   | বিদ্যমান nonce, host-only state cookie এবং secure session cookie অপরিবর্তিত                                                                                                                                                           | callback CSRF/session-fixation guard অক্ষুণ্ণ                                                           |
+| Client routing          | Vite bundle build-এর সময় generated `public/` directory-তে stage করা হয়; non-API SPA path `index.html`-এ rewrite                                                                                                                       | Vercel CDN static file serve করে; deep link কাজ করবে; API-কে SPA fallback গ্রাস করবে না                 |
 | Vercel Function routing | source-controlled `api/[...path].js` Vercel-এর function discovery নিশ্চিত করে; `build:vercel` bundled shared Express handler-কে `dist/vercel-handler.js`-এ তৈরি করে। explicit `/api/(.*)` route nested tRPC path একই function-এ পাঠায় | private Blob object-এ metadata-backed owner/project/household authorization ছাড়া download grant হয় না |
 
 এই layout Vercel-এর source-based function discovery এবং Build Output API-র নথির সঙ্গে সামঞ্জস্যপূর্ণ। রেফারেন্স: <https://vercel.com/docs/functions/functions-api-reference>, <https://vercel.com/docs/project-configuration/vercel-json>, এবং <https://vercel.com/docs/build-output-api/v3>।
@@ -30,13 +30,13 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 
 নিচের মূল্যগুলো repository-তে commit করা যাবে না এবং এই নথিতে কোনো value রাখা হয়নি। Vercel project settings বা Vercel CLI-এর encrypted environment-variable command দিয়ে user-owned value বসাতে হবে। Production ও Preview আলাদা scope-এ রাখা উচিত; Preview-এ production customer database ব্যবহার করা যাবে না।
 
-| Variable | ব্যবহার | Preview নীতি |
-|---|---|---|
-| `DATABASE_URL` | MySQL/TiDB database সংযোগ | কেবল disposable/staging database; production database নয় |
-| `JWT_SECRET`, `SESSION_SECRET` | session token signing | আলাদা strong random secret |
+| Variable                                                                            | ব্যবহার                           | Preview নীতি                                                  |
+| ----------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------- |
+| `DATABASE_URL`                                                                      | MySQL/TiDB database সংযোগ         | কেবল disposable/staging database; production database নয়      |
+| `JWT_SECRET`, `SESSION_SECRET`                                                      | session token signing             | আলাদা strong random secret                                    |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` | Google OAuth (`AUTH_MODE=google`) | Preview-এ Preview-only client; Production-এ production client |
-| `OWNER_OPEN_ID` | owner bootstrap metadata | minimal approved metadata |
-| `ADMIN_ACCESS_PASSWORD` | administrator access guard | আলাদা, secret value |
+| `OWNER_OPEN_ID`                                                                     | owner bootstrap metadata          | minimal approved metadata                                     |
+| `ADMIN_ACCESS_PASSWORD`                                                             | administrator access guard        | আলাদা, secret value                                           |
 
 ### Preview environment বর্তমান অবস্থা (2026-09-24 যাচাই)
 
@@ -60,13 +60,13 @@ secret না থাকায় PR preview-এ API boot-এ FATAL হয়ে 
 
 নিচের নামগুলো provider-neutral adapter-এর জন্য। কোনো value এই repository-তে, browser variable-এ, বা chat-এ লেখা যাবে না।
 
-| Variable | Preview policy |
-|---|---|
-| `DATABASE_URL` | কেবল খালি TiDB TLS staging database |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | canonical Google callback implement হওয়ার পরে server-side Preview-only configuration |
-| `GOOGLE_OAUTH_REDIRECT_URI` | Google Console allowlist-এর সাথে exact match |
-| `SESSION_SECRET`, `ADMIN_BOOTSTRAP_EMAIL` | নতুন staged session/bootstrap guard |
-| `BLOB_READ_WRITE_TOKEN` | private Blob-এর Vercel-injected Development/Preview server credential; কোনো source, browser বা chat exposure নয় |
+| Variable                                               | Preview policy                                                                                                   |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                         | কেবল খালি TiDB TLS staging database                                                                              |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | canonical Google callback implement হওয়ার পরে server-side Preview-only configuration                            |
+| `GOOGLE_OAUTH_REDIRECT_URI`                            | Google Console allowlist-এর সাথে exact match                                                                     |
+| `SESSION_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`              | নতুন staged session/bootstrap guard                                                                              |
+| `BLOB_READ_WRITE_TOKEN`                                | private Blob-এর Vercel-injected Development/Preview server credential; কোনো source, browser বা chat exposure নয় |
 
 ## OAuth ও database cutover gate
 

@@ -17,7 +17,9 @@ const getCombinedSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch { /* dir read ignored */ }
+    } catch {
+      /* dir read ignored */
+    }
   }
   return combined;
 };
@@ -28,7 +30,9 @@ describe("voucher ledger and settlement history presentation", () => {
   it("uses automatic voucher settings and a description-only ledger interface", () => {
     expect(combinedSource).toContain("ভাউচার সেটিংস");
     expect(combinedSource).toContain("trpc.finance.voucherSettings.useQuery");
-    expect(combinedSource).toContain("trpc.finance.saveVoucherSettings.useMutation");
+    expect(combinedSource).toContain(
+      "trpc.finance.saveVoucherSettings.useMutation"
+    );
     expect(combinedSource).toContain("ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে");
     expect(combinedSource).toContain("টাকার পরিমাণ");
     expect(combinedSource).toContain("row.note");

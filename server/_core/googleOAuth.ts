@@ -7,7 +7,8 @@ import { ENV } from "./env";
 export const GOOGLE_CALLBACK_PATH = "/api/auth/google/callback";
 export const GOOGLE_LOGIN_PATH = "/api/auth/google/login";
 export const GOOGLE_TRANSACTION_COOKIE = "__Host-google_oauth";
-const GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration";
+const GOOGLE_DISCOVERY_URL =
+  "https://accounts.google.com/.well-known/openid-configuration";
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 const TRANSACTION_TTL_MS = 10 * 60 * 1000;
 
@@ -44,7 +45,11 @@ function requireGoogleConfiguration() {
   if (ENV.authMode !== "google") {
     throw new Error("Google OAuth is disabled outside AUTH_MODE=google");
   }
-  if (!ENV.googleOAuthClientId || !ENV.googleOAuthClientSecret || !ENV.googleOAuthRedirectUri) {
+  if (
+    !ENV.googleOAuthClientId ||
+    !ENV.googleOAuthClientSecret ||
+    !ENV.googleOAuthRedirectUri
+  ) {
     throw new Error("Google OAuth Preview configuration is incomplete");
   }
   if (!ENV.sessionSecret) {
@@ -52,8 +57,14 @@ function requireGoogleConfiguration() {
   }
 
   const redirect = new URL(ENV.googleOAuthRedirectUri);
-  if (redirect.pathname !== GOOGLE_CALLBACK_PATH || redirect.search || redirect.hash) {
-    throw new Error(`GOOGLE_OAUTH_REDIRECT_URI must end in ${GOOGLE_CALLBACK_PATH}`);
+  if (
+    redirect.pathname !== GOOGLE_CALLBACK_PATH ||
+    redirect.search ||
+    redirect.hash
+  ) {
+    throw new Error(
+      `GOOGLE_OAUTH_REDIRECT_URI must end in ${GOOGLE_CALLBACK_PATH}`
+    );
   }
 }
 
@@ -70,7 +81,9 @@ function assertGoogleEndpoint(value: string, field: keyof GoogleDiscovery) {
   return url;
 }
 
-export async function getGoogleDiscovery(fetchImpl: FetchLike = fetch): Promise<GoogleDiscovery> {
+export async function getGoogleDiscovery(
+  fetchImpl: FetchLike = fetch
+): Promise<GoogleDiscovery> {
   const response = await fetchImpl(GOOGLE_DISCOVERY_URL, {
     signal: AbortSignal.timeout(10_000),
   });
@@ -84,7 +97,10 @@ export async function getGoogleDiscovery(fetchImpl: FetchLike = fetch): Promise<
   ) {
     throw new Error("Google discovery response is incomplete");
   }
-  assertGoogleEndpoint(discovery.authorization_endpoint, "authorization_endpoint");
+  assertGoogleEndpoint(
+    discovery.authorization_endpoint,
+    "authorization_endpoint"
+  );
   assertGoogleEndpoint(discovery.token_endpoint, "token_endpoint");
   assertGoogleEndpoint(discovery.jwks_uri, "jwks_uri");
   return discovery as GoogleDiscovery;
@@ -102,10 +118,14 @@ export function encodeGoogleTransaction(transaction: GoogleTransaction) {
   return Buffer.from(JSON.stringify(transaction)).toString("base64url");
 }
 
-export function decodeGoogleTransaction(value: string | undefined): GoogleTransaction | null {
+export function decodeGoogleTransaction(
+  value: string | undefined
+): GoogleTransaction | null {
   if (!value) return null;
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<GoogleTransaction>;
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as Partial<GoogleTransaction>;
     if (
       typeof parsed.state !== "string" ||
       typeof parsed.nonce !== "string" ||
@@ -116,20 +136,32 @@ export function decodeGoogleTransaction(value: string | undefined): GoogleTransa
     ) {
       return null;
     }
-    return { state: parsed.state, nonce: parsed.nonce, verifier: parsed.verifier };
+    return {
+      state: parsed.state,
+      nonce: parsed.nonce,
+      verifier: parsed.verifier,
+    };
   } catch {
     return null;
   }
 }
 
-export function transactionMatchesState(transaction: GoogleTransaction | null, state: string | undefined) {
+export function transactionMatchesState(
+  transaction: GoogleTransaction | null,
+  state: string | undefined
+) {
   if (!transaction || !state) return false;
   const expected = Buffer.from(transaction.state);
   const received = Buffer.from(state);
-  return expected.length === received.length && timingSafeEqual(expected, received);
+  return (
+    expected.length === received.length && timingSafeEqual(expected, received)
+  );
 }
 
-export function createGoogleAuthorizationUrl(discovery: GoogleDiscovery, transaction: GoogleTransaction) {
+export function createGoogleAuthorizationUrl(
+  discovery: GoogleDiscovery,
+  transaction: GoogleTransaction
+) {
   requireGoogleConfiguration();
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set("client_id", ENV.googleOAuthClientId);
@@ -147,7 +179,7 @@ export async function exchangeGoogleAuthorizationCode(
   code: string,
   transaction: GoogleTransaction,
   discovery: GoogleDiscovery,
-  fetchImpl: FetchLike = fetch,
+  fetchImpl: FetchLike = fetch
 ) {
   requireGoogleConfiguration();
   const response = await fetchImpl(discovery.token_endpoint, {
@@ -179,7 +211,12 @@ function valuesMatch(expected: string, received: string) {
 
 function audienceMatches(audience: unknown, clientId: string) {
   if (typeof audience === "string") return valuesMatch(clientId, audience);
-  return Array.isArray(audience) && audience.some(value => typeof value === "string" && valuesMatch(clientId, value));
+  return (
+    Array.isArray(audience) &&
+    audience.some(
+      value => typeof value === "string" && valuesMatch(clientId, value)
+    )
+  );
 }
 
 /**
@@ -191,7 +228,7 @@ export function validateGoogleIdTokenClaims(
   payload: JWTPayload,
   expectedNonce: string,
   expectedAudience: string,
-  nowSeconds = Math.floor(Date.now() / 1000),
+  nowSeconds = Math.floor(Date.now() / 1000)
 ): GoogleIdentity {
   if (
     typeof payload.iss !== "string" ||
@@ -212,26 +249,37 @@ export function validateGoogleIdTokenClaims(
   return {
     openId: `google:${payload.sub}`,
     email: payload.email.trim().toLowerCase(),
-    name: typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : null,
+    name:
+      typeof payload.name === "string" && payload.name.trim()
+        ? payload.name.trim()
+        : null,
   };
 }
 
 export async function verifyGoogleIdToken(
   idToken: string,
   transaction: GoogleTransaction,
-  discovery: GoogleDiscovery,
+  discovery: GoogleDiscovery
 ): Promise<GoogleIdentity> {
   requireGoogleConfiguration();
-  const jwks = createRemoteJWKSet(assertGoogleEndpoint(discovery.jwks_uri, "jwks_uri"));
+  const jwks = createRemoteJWKSet(
+    assertGoogleEndpoint(discovery.jwks_uri, "jwks_uri")
+  );
   const { payload } = await jwtVerify(idToken, jwks, {
     issuer: GOOGLE_ISSUERS,
     audience: ENV.googleOAuthClientId,
   });
-  return validateGoogleIdTokenClaims(payload, transaction.nonce, ENV.googleOAuthClientId);
+  return validateGoogleIdTokenClaims(
+    payload,
+    transaction.nonce,
+    ENV.googleOAuthClientId
+  );
 }
 
 export function readGoogleTransaction(req: Request) {
-  return decodeGoogleTransaction(parseCookieHeader(req.headers.cookie ?? "")[GOOGLE_TRANSACTION_COOKIE]);
+  return decodeGoogleTransaction(
+    parseCookieHeader(req.headers.cookie ?? "")[GOOGLE_TRANSACTION_COOKIE]
+  );
 }
 
 export const googleTransactionCookieMaxAge = TRANSACTION_TTL_MS;

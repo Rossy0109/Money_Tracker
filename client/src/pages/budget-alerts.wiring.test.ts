@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { containsSnippet } from "@shared/sourceText";
 
 const getCombinedSource = () => {
-  const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
-  const dashboardDir = resolve(process.cwd(), "client/src/components/dashboard");
+  const home = readFileSync(
+    resolve(process.cwd(), "client/src/pages/Home.tsx"),
+    "utf8"
+  );
+  const dashboardDir = resolve(
+    process.cwd(),
+    "client/src/components/dashboard"
+  );
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {
@@ -14,7 +21,9 @@ const getCombinedSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch { /* dir read ignored */ }
+    } catch {
+      /* dir read ignored */
+    }
   }
   return combined;
 };
@@ -30,12 +39,21 @@ describe("Bengali category budget alert wiring", () => {
     expect(dashboardSource).toContain("budgetAlerts.length > 0");
     expect(dashboardSource).toContain("<Alert");
     expect(dashboardSource).toContain("বাজেট সীমা অতিক্রম হয়েছে");
-    expect(dashboardSource).toContain("সীমার চেয়ে {bdt(alert.exceededAmount)} বেশি");
+    expect(
+      containsSnippet(
+        dashboardSource,
+        "সীমার চেয়ে {bdt(alert.exceededAmount)} বেশি"
+      )
+    ).toBe(true);
   });
 
   it("refetches fresh overview data after expense mutations for immediate feedback", () => {
-    expect(dashboardSource).toContain("await refresh();\n      const budgetAlertStatus");
-    expect(dashboardSource).toContain("utils.finance.overview.fetch({ projectId })");
+    expect(dashboardSource).toContain(
+      "await refresh();\n      const budgetAlertStatus"
+    );
+    expect(dashboardSource).toContain(
+      "utils.finance.overview.fetch({ projectId })"
+    );
     expect(dashboardSource).toContain("showBudgetAlertForTransaction");
     expect(dashboardSource).toContain("ক্যাটাগরির বাজেট সীমা অতিক্রম হয়েছে");
     expect(dashboardSource).toContain("বাজেট সতর্কতা যাচাই করা যায়নি");
@@ -44,8 +62,12 @@ describe("Bengali category budget alert wiring", () => {
   it("renders 80% and 90% Bengali early warnings and uses fresh overview data for them", () => {
     expect(dashboardSource).toContain("budgetEarlyWarnings.length > 0");
     expect(dashboardSource).toContain("বাজেটের কাছাকাছি পৌঁছেছে");
-    expect(dashboardSource).toContain("বাজেটের {warning.threshold}% খরচ হয়েছে");
-    expect(dashboardSource).toContain("updatedOverview.budgetEarlyWarnings.find");
+    expect(dashboardSource).toContain(
+      "বাজেটের {warning.threshold}% খরচ হয়েছে"
+    );
+    expect(dashboardSource).toContain(
+      "updatedOverview.budgetEarlyWarnings.find"
+    );
     expect(dashboardSource).toContain("earlyWarning?.threshold === 90");
   });
 

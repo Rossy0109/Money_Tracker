@@ -63,7 +63,7 @@ describe("Vercel Cron method alignment", () => {
 
       expect(
         registersAll || registersGetAndPost,
-        `cron path ${cron.path} must be registered for GET (Vercel Cron) and POST`,
+        `cron path ${cron.path} must be registered for GET (Vercel Cron) and POST`
       ).toBe(true);
 
       // Explicitly fail if only POST is registered (the historical bug).
@@ -79,8 +79,12 @@ describe("Vercel Cron method alignment", () => {
     const config = loadVercelConfig();
     const appSource = readFileSync(appSourcePath, "utf8");
 
-    expect(config.crons?.some(c => c.path === "/api/scheduled/finance-backup")).toBe(true);
+    expect(
+      config.crons?.some(c => c.path === "/api/scheduled/finance-backup")
+    ).toBe(true);
     expect(appSource).toContain('"/api/scheduled/finance-backup"');
-    expect(appSource).toMatch(/app\.(all|get)\("\/api\/scheduled\/finance-backup"/);
+    expect(appSource).toMatch(
+      /app\.(all|get)\("\/api\/scheduled\/finance-backup"/
+    );
   });
 });

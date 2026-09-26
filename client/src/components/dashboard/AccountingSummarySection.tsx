@@ -66,17 +66,9 @@ export function AccountingSummarySection({
           tone="rose"
         />
         <AccountingMetric
-          label={
-            profitAndLoss.profitOrLoss >= 0
-              ? "নিট লাভ"
-              : "নিট ক্ষতি"
-          }
+          label={profitAndLoss.profitOrLoss >= 0 ? "নিট লাভ" : "নিট ক্ষতি"}
           value={bdt(Math.abs(profitAndLoss.profitOrLoss))}
-          tone={
-            profitAndLoss.profitOrLoss >= 0
-              ? "mint"
-              : "rose"
-          }
+          tone={profitAndLoss.profitOrLoss >= 0 ? "mint" : "rose"}
         />
         <AccountingMetric
           label="অ্যাকাউন্ট ব্যালেন্স"
@@ -91,11 +83,7 @@ export function AccountingSummarySection({
         <AccountingMetric
           label="নিট আর্থিক অবস্থান"
           value={bdt(financialPosition.netFinancialPosition)}
-          tone={
-            financialPosition.netFinancialPosition >= 0
-              ? "green"
-              : "rose"
-          }
+          tone={financialPosition.netFinancialPosition >= 0 ? "green" : "rose"}
         />
       </div>
       <p className="mt-4 text-sm text-[#668076]">

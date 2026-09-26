@@ -1,10 +1,5 @@
 import { Button } from "@/components/ui/button";
-import {
-  Download,
-  Plus,
-  ReceiptText,
-  ShieldCheck,
-} from "lucide-react";
+import { Download, Plus, ReceiptText, ShieldCheck } from "lucide-react";
 
 interface DashboardHeaderProps {
   userName?: string | null;
@@ -45,8 +40,8 @@ export function DashboardHeader({
           প্রোফাইল
         </h1>
         <p className="mt-2 max-w-xl text-sm text-[#5d776b]">
-          {userName ?? "আপনার"} প্রোফাইল থেকে প্রকল্প ও ব্যক্তিগত হিসাব
-          পরিচালনা করুন।
+          {userName ?? "আপনার"} প্রোফাইল থেকে প্রকল্প ও ব্যক্তিগত হিসাব পরিচালনা
+          করুন।
         </p>
       </div>
       <div className="grid w-full gap-2 rounded-2xl border border-[#d9e7da] bg-white/80 p-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-end">

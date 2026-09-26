@@ -51,10 +51,11 @@ export async function buildVoucherPdf(data: VoucherPrintData): Promise<jsPDF> {
   doc.setTextColor(190, 214, 200);
   doc.text("Professional Accounting & Financial Management", margin, 28);
   doc.text(
-    [data.firm.address, data.firm.phone, data.firm.email].filter(Boolean).join("  |  ") ||
-      " ",
+    [data.firm.address, data.firm.phone, data.firm.email]
+      .filter(Boolean)
+      .join("  |  ") || " ",
     margin,
-    37,
+    37
   );
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
@@ -62,18 +63,25 @@ export async function buildVoucherPdf(data: VoucherPrintData): Promise<jsPDF> {
     isIncome ? "আমানত রসিদ / VOUCHER" : "ব্যয় ভাউচার / VOUCHER",
     pageW - margin,
     18,
-    { align: "right" },
+    { align: "right" }
   );
 
   let y = 64;
   doc.setTextColor(22, 60, 50);
   doc.setFontSize(10);
   doc.text(`প্রজেক্ট: ${data.project.name}`, margin, y);
-  doc.text(`ভাউচার নং: ${t.voucherNo || "—"}`, pageW - margin, y, { align: "right" });
+  doc.text(`ভাউচার নং: ${t.voucherNo || "—"}`, pageW - margin, y, {
+    align: "right",
+  });
   y += 15;
   doc.setTextColor(94, 116, 105);
   doc.text(`তারিখ: ${dateBn(t.occurredAt)}`, margin, y);
-  doc.text(`তৈরির সময়: ${new Intl.DateTimeFormat("bn-BD", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`, pageW - margin, y, { align: "right" });
+  doc.text(
+    `তৈরির সময়: ${new Intl.DateTimeFormat("bn-BD", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`,
+    pageW - margin,
+    y,
+    { align: "right" }
+  );
 
   const fieldRow = (label: string, value: string, h: number) => {
     doc.setDrawColor(51, 73, 63);
@@ -89,13 +97,13 @@ export async function buildVoucherPdf(data: VoucherPrintData): Promise<jsPDF> {
 
   fieldRow("খাত / হেড (HEAD)", t.categoryName, 42);
   fieldRow("অ্যাকাউন্ট (ACCOUNT)", t.accountName ?? "—", 42);
-  fieldRow(
-    "নাম (NAME)",
-    t.reason?.trim() || "—",
-    42,
-  );
+  fieldRow("নাম (NAME)", t.reason?.trim() || "—", 42);
   fieldRow("ঠিকানা (ADDRESS)", "—", 42);
-  fieldRow("বিবরণ (DESCRIPTION)", t.note?.trim() || t.reason?.trim() || "—", 56);
+  fieldRow(
+    "বিবরণ (DESCRIPTION)",
+    t.note?.trim() || t.reason?.trim() || "—",
+    56
+  );
   fieldRow("পরিশোধ পদ্ধতি (PAYMENT METHOD)", t.paymentMethod, 42);
 
   const amountRowH = 46;
@@ -148,13 +156,15 @@ export async function buildVoucherPdf(data: VoucherPrintData): Promise<jsPDF> {
   doc.text(
     "এটি Money_Tracker সিস্টেম দ্বারা স্বয়ংক্রিয়ভাবে তৈরি কম্পিউটার-জেনারেটেড ভাউচার।",
     margin,
-    790,
+    790
   );
 
   return doc;
 }
 
-export async function downloadVoucherPdf(data: VoucherPrintData): Promise<void> {
+export async function downloadVoucherPdf(
+  data: VoucherPrintData
+): Promise<void> {
   const doc = await buildVoucherPdf(data);
   doc.save(`voucher-${data.transaction.voucherNo || data.transaction.id}.pdf`);
 }

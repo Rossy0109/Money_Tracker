@@ -6,9 +6,7 @@ import { createApiApp, registerFallbackHandlers } from "./app";
 import { ensureAuthModeConsistency, validateCriticalEnv } from "./env";
 import { serveStatic, setupVite } from "./vite";
 import logger from "./logger";
-import { seedDefaultRBAC } from "./seed-rbac";
-import { initializeRBAC } from "./rbac";
-import { migrateExistingUsersToRBAC } from "./migrate-existing-users-rbac";
+import { initializeRBACSystem } from "./rbac-initializer";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -43,7 +41,7 @@ async function startServer() {
   if (missingEnv.length > 0) {
     throw new Error(
       `FATAL: Missing critical environment variables: ${missingEnv.join(", ")}. ` +
-        "Set them in .env or your deployment environment.",
+        "Set them in .env or your deployment environment."
     );
   }
 
@@ -51,23 +49,23 @@ async function startServer() {
   if (!consistency.ok) {
     throw new Error(
       `AUTH_MODE=${consistency.serverMode} and VITE_AUTH_MODE=${consistency.clientMode} must match. ` +
-        "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel).",
+        "Set both to the same value in the same environment layer (.env / .env.development.local / Vercel)."
     );
   }
-  // Initialize RBAC: seed roles/permissions, migrate existing users, populate cache
   try {
-    await seedDefaultRBAC();
-    await migrateExistingUsersToRBAC();
-    await initializeRBAC();
+    await initializeRBACSystem();
     logger.info("RBAC system initialized");
   } catch (err) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
         "RBAC initialization failed — refusing to start with authorization disabled",
-        { cause: err },
+        { cause: err }
       );
     }
-    logger.error({ err }, "RBAC initialization failed in non-production — authorization checks will be unavailable");
+    logger.error(
+      { err },
+      "RBAC initialization failed in non-production — authorization checks will be unavailable"
+    );
   }
 
   const app = createApiApp();
@@ -93,14 +91,17 @@ async function startServer() {
   });
 }
 
-process.on("uncaughtException", (err) => {
+process.on("uncaughtException", err => {
   logger.fatal({ err }, "Uncaught exception — shutting down");
   Sentry.captureException(err);
   process.exit(1);
 });
 
-process.on("unhandledRejection", (reason) => {
-  logger.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, "Unhandled promise rejection");
+process.on("unhandledRejection", reason => {
+  logger.error(
+    { err: reason instanceof Error ? reason : new Error(String(reason)) },
+    "Unhandled promise rejection"
+  );
   if (reason instanceof Error) {
     Sentry.captureException(reason);
   } else {
@@ -108,7 +109,7 @@ process.on("unhandledRejection", (reason) => {
   }
 });
 
-startServer().catch((err) => {
+startServer().catch(err => {
   logger.fatal({ err }, "Failed to start server");
   process.exit(1);
 });

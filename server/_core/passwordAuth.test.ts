@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { hashPassword, verifyPassword, verifyPasswordConstantTime } from "./passwordAuth";
+import {
+  hashPassword,
+  verifyPassword,
+  verifyPasswordConstantTime,
+} from "./passwordAuth";
 
 describe("Password Authentication Hashing & Verification", () => {
   it("hashes password and verifies successfully with correct password", async () => {
@@ -23,7 +27,9 @@ describe("Password Authentication Hashing & Verification", () => {
   });
 
   it("enforces minimum password length of 8", async () => {
-    await expect(hashPassword("1234567")).rejects.toThrow("Password must be at least 8 characters long");
+    await expect(hashPassword("1234567")).rejects.toThrow(
+      "Password must be at least 8 characters long"
+    );
   });
 });
 
@@ -39,7 +45,9 @@ describe("Constant-Time Credential Verification", () => {
   });
 
   it("rejects login when no stored hash exists (e.g. unknown or OAuth-only account)", async () => {
-    expect(await verifyPasswordConstantTime("RandomP@ss123", undefined)).toBe(false);
+    expect(await verifyPasswordConstantTime("RandomP@ss123", undefined)).toBe(
+      false
+    );
     expect(await verifyPasswordConstantTime("RandomP@ss123", null)).toBe(false);
   });
 });

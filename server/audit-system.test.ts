@@ -18,7 +18,10 @@ import type { AuditAction, AuditContext } from "./db";
 describe("extractAuditContext", () => {
   it("extracts IP from x-forwarded-for (first entry)", () => {
     const req = {
-      headers: { "x-forwarded-for": "10.0.0.1, 10.0.0.2", "user-agent": "Chrome" },
+      headers: {
+        "x-forwarded-for": "10.0.0.1, 10.0.0.2",
+        "user-agent": "Chrome",
+      },
       ip: "127.0.0.1",
       socket: { remoteAddress: "127.0.0.1" },
     } as any;
@@ -46,20 +49,36 @@ describe("extractAuditContext", () => {
   });
 
   it("falls back to socket.remoteAddress", () => {
-    const req = { headers: {}, ip: undefined, socket: { remoteAddress: "10.0.0.5" } } as any;
+    const req = {
+      headers: {},
+      ip: undefined,
+      socket: { remoteAddress: "10.0.0.5" },
+    } as any;
     expect(extractAuditContext(req).ipAddress).toBe("10.0.0.5");
   });
 
   it("returns null for null request", () => {
-    expect(extractAuditContext(null)).toEqual({ ipAddress: null, userAgent: null, requestId: null });
+    expect(extractAuditContext(null)).toEqual({
+      ipAddress: null,
+      userAgent: null,
+      requestId: null,
+    });
   });
 
   it("returns null for undefined request", () => {
-    expect(extractAuditContext(undefined)).toEqual({ ipAddress: null, userAgent: null, requestId: null });
+    expect(extractAuditContext(undefined)).toEqual({
+      ipAddress: null,
+      userAgent: null,
+      requestId: null,
+    });
   });
 
   it("generates a requestId if none provided", () => {
-    const req = { headers: {}, ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" } } as any;
+    const req = {
+      headers: {},
+      ip: "127.0.0.1",
+      socket: { remoteAddress: "127.0.0.1" },
+    } as any;
     const ctx = extractAuditContext(req);
     expect(ctx.requestId).toBeTruthy();
     expect(typeof ctx.requestId).toBe("string");
@@ -109,11 +128,21 @@ describe("Audit Append-Only Guards", () => {
 describe("Audit Type System", () => {
   it("AuditAction includes all 15 required actions", () => {
     const allActions: AuditAction[] = [
-      "create", "update", "delete", "delete_attempt",
-      "approve", "reject", "post", "reverse",
-      "login", "logout", "login_failed",
-      "permission_denied", "user_suspended",
-      "backup_created", "backup_restored",
+      "create",
+      "update",
+      "delete",
+      "delete_attempt",
+      "approve",
+      "reject",
+      "post",
+      "reverse",
+      "login",
+      "logout",
+      "login_failed",
+      "permission_denied",
+      "user_suspended",
+      "backup_created",
+      "backup_restored",
     ];
     expect(allActions.length).toBe(15);
     const unique = new Set(allActions);
@@ -199,12 +228,18 @@ describe("Audit Integration Flow", () => {
 
 describe("Security-Sensitive Action Audit Verification", () => {
   it("verifies scheduledBackup and cloudBackupService audit with backup_created", () => {
-    const backupSrc = readFileSync(new URL("./scheduledBackup.ts", import.meta.url), "utf8");
+    const backupSrc = readFileSync(
+      new URL("./scheduledBackup.ts", import.meta.url),
+      "utf8"
+    );
     expect(backupSrc).toContain('"backup_created"');
     expect(backupSrc).toContain("storedCount");
-    const cloudBackupSrc = readFileSync(new URL("./cloudBackupService.ts", import.meta.url), "utf8");
+    const cloudBackupSrc = readFileSync(
+      new URL("./cloudBackupService.ts", import.meta.url),
+      "utf8"
+    );
     expect(cloudBackupSrc).toContain('"backup_created"');
-    expect(cloudBackupSrc).toContain("uploadSuccess ? \"backup_created\"");
+    expect(cloudBackupSrc).toContain('uploadSuccess ? "backup_created"');
   });
 
   it("verifies restoreProjectBackup audits with backup_restored", () => {
@@ -214,23 +249,33 @@ describe("Security-Sensitive Action Audit Verification", () => {
 
   it("verifies updateUserStatus audits user suspension", () => {
     const dbSrc = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
-    expect(dbSrc).toContain('action: status === "suspended" ? "user_suspended" : "update"');
+    expect(dbSrc).toContain(
+      'action: status === "suspended" ? "user_suspended" : "update"'
+    );
   });
 
   it("verifies permission denial is audited in authz.ts", () => {
-    const authzSrc = readFileSync(new URL("./_core/authz.ts", import.meta.url), "utf8");
+    const authzSrc = readFileSync(
+      new URL("./_core/authz.ts", import.meta.url),
+      "utf8"
+    );
     expect(authzSrc).toContain('action: "permission_denied"');
   });
 
-  it("verifies login, logout, and login_failed are audited in routers.ts and oauth.ts", () => {
-    const routerSrc = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
-    expect(routerSrc).toContain('action: "login_failed"');
-    expect(routerSrc).toContain('action: "login"');
-    expect(routerSrc).toContain('action: "logout"');
+  it("verifies login, logout, and login_failed are audited in auth.ts and oauth.ts", () => {
+    const authSrc = readFileSync(
+      new URL("./routers/auth.ts", import.meta.url),
+      "utf8"
+    );
+    expect(authSrc).toContain('action: "login_failed"');
+    expect(authSrc).toContain('action: "login"');
+    expect(authSrc).toContain('action: "logout"');
 
-    const oauthSrc = readFileSync(new URL("./_core/oauth.ts", import.meta.url), "utf8");
+    const oauthSrc = readFileSync(
+      new URL("./_core/oauth.ts", import.meta.url),
+      "utf8"
+    );
     expect(oauthSrc).toContain('action: "login_failed"');
     expect(oauthSrc).toContain('action: "login"');
   });
 });
-

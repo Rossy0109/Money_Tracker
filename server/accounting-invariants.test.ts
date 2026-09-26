@@ -7,30 +7,35 @@ function readFile(path: string): string {
 
 describe("Invariant 1: Debit must equal Credit", () => {
   it("rejects when debits != credits beyond tolerance", () => {
-    const totalDebit = 100; const totalCredit = 99.98;
+    const totalDebit = 100;
+    const totalCredit = 99.98;
     expect(Math.abs(totalDebit - totalCredit)).toBeGreaterThan(0.01);
   });
   it("accepts when debits == credits", () => {
     expect(Math.abs(800 - 800)).toBeLessThanOrEqual(0.01);
   });
   it("accepts within rounding tolerance (1/3 split)", () => {
-    expect(Math.abs(33.34 + 33.33 + 33.33 - 100.00)).toBeLessThanOrEqual(0.01);
+    expect(Math.abs(33.34 + 33.33 + 33.33 - 100.0)).toBeLessThanOrEqual(0.01);
   });
   it("source validates debit=credit in createVoucherWithEntries", () => {
     const s = readFile("./db.ts");
-    expect(s).toContain("totalDebit"); expect(s).toContain("totalCredit");
+    expect(s).toContain("totalDebit");
+    expect(s).toContain("totalCredit");
   });
   it("source validates debit=credit in voucherInput superRefine", () => {
     const s = readFile("./routers.ts");
-    expect(s).toContain("totalDebit"); expect(s).toContain("totalCredit");
+    expect(s).toContain("totalDebit");
+    expect(s).toContain("totalCredit");
   });
 });
 
 describe("Invariant 2: Posted voucher cannot be modified", () => {
   it("assertVoucherTransition blocks posted to draft/submitted/approved", () => {
     const allowed: Record<string, string[]> = {
-      draft: ["submitted"], submitted: ["approved", "draft"],
-      approved: ["posted", "draft"], posted: ["reversed"],
+      draft: ["submitted"],
+      submitted: ["approved", "draft"],
+      approved: ["posted", "draft"],
+      posted: ["reversed"],
     };
     expect(allowed.posted).not.toContain("draft");
     expect(allowed.posted).not.toContain("submitted");
@@ -49,23 +54,31 @@ describe("Invariant 2: Posted voucher cannot be modified", () => {
   });
   it("source enforces transition guard in approveVoucher", () => {
     const s = readFile("./db.ts");
-    expect(s).toContain("assertVoucherTransition(voucher.status, targetStatus)");
+    expect(s).toContain(
+      "assertVoucherTransition(voucher.status, targetStatus)"
+    );
   });
 });
 
 describe("Invariant 3: Posted voucher cannot be deleted", () => {
   it("no deleteVoucher function exists in db.ts", () => {
-    expect(readFile("./db.ts")).not.toContain("export async function deleteVoucher");
+    expect(readFile("./db.ts")).not.toContain(
+      "export async function deleteVoucher"
+    );
   });
   it("financial entry FKs reference vouchers with RESTRICT", () => {
     const s = readFile("../drizzle/schema.ts");
     // Journal entries, ledger entries, reversals reference voucher with RESTRICT
-    expect(s).toContain("references(() => financeVouchers.id, { onDelete: \"restrict\" })");
+    expect(s).toContain(
+      'references(() => financeVouchers.id, { onDelete: "restrict" })'
+    );
   });
   it("voucher debit/credit FKs use CASCADE (child entries die with parent)", () => {
     const s = readFile("../drizzle/schema.ts");
     // Debits and credits are child records that should cascade with the voucher
-    expect(s).toContain("references(() => financeVouchers.id, { onDelete: \"cascade\" })");
+    expect(s).toContain(
+      'references(() => financeVouchers.id, { onDelete: "cascade" })'
+    );
   });
   it("posted status only transitions to reversed", () => {
     const allowed = { posted: ["reversed"] };
@@ -91,10 +104,13 @@ describe("Invariant 4: Reversal creates a traceable reversal", () => {
 describe("Invariant 5: Input Operator cannot access admin API", () => {
   it("input-only-permissions blocks admin.users", () => {
     const s = readFile("./input-only-permissions.test.ts");
-    expect(s).toContain("admin.users"); expect(s).toContain("FORBIDDEN");
+    expect(s).toContain("admin.users");
+    expect(s).toContain("FORBIDDEN");
   });
   it("input-only-permissions blocks admin.auditLogs", () => {
-    expect(readFile("./input-only-permissions.test.ts")).toContain("admin.auditLogs");
+    expect(readFile("./input-only-permissions.test.ts")).toContain(
+      "admin.auditLogs"
+    );
   });
   it("input-operator-security blocks admin.verifyAccess", () => {
     const s = readFile("./input-operator-security.test.ts");
@@ -109,27 +125,36 @@ describe("Invariant 5: Input Operator cannot access admin API", () => {
 describe("Invariant 6: Input Operator cannot modify posted transactions", () => {
   it("blocked from updateTransaction", () => {
     const s = readFile("./input-operator-security.test.ts");
-    expect(s).toContain("updateTransaction"); expect(s).toContain("FORBIDDEN");
+    expect(s).toContain("updateTransaction");
+    expect(s).toContain("FORBIDDEN");
   });
   it("blocked from deleteTransaction", () => {
-    expect(readFile("./input-operator-security.test.ts")).toContain("deleteTransaction");
+    expect(readFile("./input-operator-security.test.ts")).toContain(
+      "deleteTransaction"
+    );
   });
   it("blocked from reverseVoucher", () => {
-    expect(readFile("./input-operator-security.test.ts")).toContain("reverseVoucher");
+    expect(readFile("./input-operator-security.test.ts")).toContain(
+      "reverseVoucher"
+    );
   });
   it("lacks voucher.submit and voucher.post permissions", () => {
     const s = readFile("./input-operator-security.test.ts");
-    expect(s).toContain("voucher.submit"); expect(s).toContain("voucher.post");
+    expect(s).toContain("voucher.submit");
+    expect(s).toContain("voucher.post");
   });
 });
 
 describe("Invariant 7: Unauthorized user gets authorization error", () => {
   it("unauthenticated access returns UNAUTHORIZED", () => {
-    expect(readFile("./input-operator-security.test.ts")).toContain("UNAUTHORIZED");
+    expect(readFile("./input-operator-security.test.ts")).toContain(
+      "UNAUTHORIZED"
+    );
   });
   it("pending user returns FORBIDDEN", () => {
     const s = readFile("./input-only-permissions.test.ts");
-    expect(s).toContain("pending"); expect(s).toContain("FORBIDDEN");
+    expect(s).toContain("pending");
+    expect(s).toContain("FORBIDDEN");
   });
   it("suspended user returns FORBIDDEN", () => {
     expect(readFile("./input-only-permissions.test.ts")).toContain("suspended");
@@ -147,10 +172,14 @@ describe("Invariant 8: Duplicate idempotency key prevents duplicates", () => {
     expect(readFile("./_core/idempotency.test.ts")).toContain("isReplay");
   });
   it("different payload with same key throws", () => {
-    expect(readFile("./_core/idempotency.test.ts")).toContain("different payload");
+    expect(readFile("./_core/idempotency.test.ts")).toContain(
+      "different payload"
+    );
   });
   it("unique constraint on (userId, idempotencyKey)", () => {
-    expect(readFile("../drizzle/schema.ts")).toContain("idempotency_keys_user_key_unique");
+    expect(readFile("../drizzle/schema.ts")).toContain(
+      "idempotency_keys_user_key_unique"
+    );
   });
   it("idempotent middleware intercepts replays", () => {
     const s = readFile("./_core/trpc.ts");
@@ -187,7 +216,9 @@ describe("Invariant 9: Failed multi-step posting rolls back completely", () => {
     const start = s.indexOf("export async function postVoucher(");
     const end = s.indexOf("\nexport async function ", start + 1);
     const fn = s.slice(start, end === -1 ? undefined : end);
-    expect(fn.replace(/\s+/g, "")).toContain("postVoucherInternals(tx,userId,projectId,voucherId,debitInput,creditInput)");
+    expect(fn.replace(/\s+/g, "")).toContain(
+      "postVoucherInternals(tx,userId,projectId,voucherId,debitInput,creditInput)"
+    );
   });
 });
 
@@ -195,11 +226,24 @@ describe("Invariant 10: Audit record is generated for state-changing operations"
   it("18 core mutations all call logAudit", () => {
     const s = readFile("./db.ts");
     const mutations = [
-      "createProject", "createAccount", "updateAccount", "deleteAccount",
-      "createTransaction", "updateTransaction", "deleteTransaction",
-      "upsertBudget", "createBill", "updateBill", "setBillPaid", "deleteBill",
-      "createHousehold", "inviteHouseholdMember", "acceptHouseholdInvitation",
-      "updateHouseholdMember", "saveSharedBudget", "addSharedExpense",
+      "createProject",
+      "createAccount",
+      "updateAccount",
+      "deleteAccount",
+      "createTransaction",
+      "updateTransaction",
+      "deleteTransaction",
+      "upsertBudget",
+      "createBill",
+      "updateBill",
+      "setBillPaid",
+      "deleteBill",
+      "createHousehold",
+      "inviteHouseholdMember",
+      "acceptHouseholdInvitation",
+      "updateHouseholdMember",
+      "saveSharedBudget",
+      "addSharedExpense",
     ];
     for (const m of mutations) {
       const start = s.indexOf(`export async function ${m}`);
@@ -209,7 +253,7 @@ describe("Invariant 10: Audit record is generated for state-changing operations"
     }
   });
   it("logAudit accepts all 15 audit actions", () => {
-    expect(readFile("./db.ts")).toContain("AuditAction");
+    expect(readFile("./audit.ts")).toContain("AuditAction");
   });
 });
 

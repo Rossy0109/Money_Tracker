@@ -52,14 +52,22 @@ class SystemWorkflowEngine {
   private nextHouseholdExpenseId = 1;
 
   // 1. Real OAuth Sign-In Simulation
-  simulateOAuthSignIn(provider: "google", payload: { sub: string; email: string; name: string }): User {
+  simulateOAuthSignIn(
+    provider: "google",
+    payload: { sub: string; email: string; name: string }
+  ): User {
     for (const u of this.users.values()) {
       if (u.openId === payload.sub || u.email === payload.email) {
         return u;
       }
     }
     const id = this.nextUserId++;
-    const user: User = { id, openId: payload.sub, email: payload.email, name: payload.name };
+    const user: User = {
+      id,
+      openId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    };
     this.users.set(id, user);
 
     // Auto-create default initial project on sign-up
@@ -87,7 +95,11 @@ class SystemWorkflowEngine {
   }
 
   // 3. Complete Transaction Lifecycle (Create -> Edit -> Delete)
-  createTransaction(userId: number, projectId: number, data: Omit<Transaction, "id" | "projectId">): Transaction {
+  createTransaction(
+    userId: number,
+    projectId: number,
+    data: Omit<Transaction, "id" | "projectId">
+  ): Transaction {
     const project = this.projects.get(projectId);
     if (!project || project.userId !== userId) {
       throw new Error("Access denied: Not your project");
@@ -98,7 +110,11 @@ class SystemWorkflowEngine {
     return tx;
   }
 
-  updateTransaction(userId: number, txId: number, updates: Partial<Omit<Transaction, "id" | "projectId">>): Transaction {
+  updateTransaction(
+    userId: number,
+    txId: number,
+    updates: Partial<Omit<Transaction, "id" | "projectId">>
+  ): Transaction {
     const tx = this.transactions.get(txId);
     if (!tx) throw new Error("Transaction not found");
     const project = this.projects.get(tx.projectId);
@@ -118,17 +134,37 @@ class SystemWorkflowEngine {
   }
 
   // 4. Household Workflows
-  addHouseholdMember(householdId: number, userId: number, role: "owner" | "editor" | "viewer") {
-    this.householdMembers.set(`${householdId}:${userId}`, { householdId, userId, role });
+  addHouseholdMember(
+    householdId: number,
+    userId: number,
+    role: "owner" | "editor" | "viewer"
+  ) {
+    this.householdMembers.set(`${householdId}:${userId}`, {
+      householdId,
+      userId,
+      role,
+    });
   }
 
-  addHouseholdExpense(householdId: number, userId: number, amount: number, description: string): HouseholdExpense {
+  addHouseholdExpense(
+    householdId: number,
+    userId: number,
+    amount: number,
+    description: string
+  ): HouseholdExpense {
     const membership = this.householdMembers.get(`${householdId}:${userId}`);
     if (!membership) throw new Error("Not a member of this household");
-    if (membership.role === "viewer") throw new Error("Viewers cannot add expenses");
+    if (membership.role === "viewer")
+      throw new Error("Viewers cannot add expenses");
 
     const id = this.nextHouseholdExpenseId++;
-    const expense: HouseholdExpense = { id, householdId, contributorUserId: userId, amount, description };
+    const expense: HouseholdExpense = {
+      id,
+      householdId,
+      contributorUserId: userId,
+      amount,
+      description,
+    };
     this.householdExpenses.set(id, expense);
     return expense;
   }
@@ -203,8 +239,12 @@ describe("Full User Workflows (E2E simulation)", () => {
         occurredAt: new Date().toISOString(),
       });
 
-      const p1Tx = Array.from(engine.transactions.values()).filter(t => t.projectId === defaultProject.id);
-      const p2Tx = Array.from(engine.transactions.values()).filter(t => t.projectId === secondProject.id);
+      const p1Tx = Array.from(engine.transactions.values()).filter(
+        t => t.projectId === defaultProject.id
+      );
+      const p2Tx = Array.from(engine.transactions.values()).filter(
+        t => t.projectId === secondProject.id
+      );
 
       expect(p1Tx).toHaveLength(1);
       expect(p1Tx[0].amount).toBe(1200);
@@ -239,9 +279,21 @@ describe("Full User Workflows (E2E simulation)", () => {
 
   describe("4. Household Multi-Role Collaboration", () => {
     it("enforces role permissions between household owner, editor, and viewer", () => {
-      const owner = engine.simulateOAuthSignIn("google", { sub: "o1", email: "o@test.com", name: "Owner" });
-      const editor = engine.simulateOAuthSignIn("google", { sub: "e1", email: "e@test.com", name: "Editor" });
-      const viewer = engine.simulateOAuthSignIn("google", { sub: "v1", email: "v@test.com", name: "Viewer" });
+      const owner = engine.simulateOAuthSignIn("google", {
+        sub: "o1",
+        email: "o@test.com",
+        name: "Owner",
+      });
+      const editor = engine.simulateOAuthSignIn("google", {
+        sub: "e1",
+        email: "e@test.com",
+        name: "Editor",
+      });
+      const viewer = engine.simulateOAuthSignIn("google", {
+        sub: "v1",
+        email: "v@test.com",
+        name: "Viewer",
+      });
 
       const householdId = 100;
       engine.addHouseholdMember(householdId, owner.id, "owner");
@@ -249,7 +301,12 @@ describe("Full User Workflows (E2E simulation)", () => {
       engine.addHouseholdMember(householdId, viewer.id, "viewer");
 
       // Editor can add expense
-      const expense = engine.addHouseholdExpense(householdId, editor.id, 350, "Groceries");
+      const expense = engine.addHouseholdExpense(
+        householdId,
+        editor.id,
+        350,
+        "Groceries"
+      );
       expect(expense.id).toBeDefined();
 
       // Viewer is blocked from adding expense

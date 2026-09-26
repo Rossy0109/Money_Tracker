@@ -14,6 +14,10 @@ export type AdminAccessState = {
  *
  * Legacy `users.role === "admin"` alone never unlocks admin data.
  */
-export function canLoadAdminData({ user, verified, password }: AdminAccessState) {
+export function canLoadAdminData({
+  user,
+  verified,
+  password,
+}: AdminAccessState) {
   return isAdminUser(user) && verified && password.trim().length > 0;
 }

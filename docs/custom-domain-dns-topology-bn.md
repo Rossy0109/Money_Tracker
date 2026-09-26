@@ -26,12 +26,12 @@
 
 DNS প্রোভাইডারে (যেমন: Cloudflare, Namecheap, GoDaddy) নিচের রেকর্ডসমূহ কনফিগার করতে হবে:
 
-| টাইপ (Type) | হোস্ট / নেম (Name) | টার্গেট / ভ্যালু (Value) | প্রক্সি / TTL | উদ্দেশ্য |
-|---|---|---|---|---|
-| **A / ALIAS** | `@` (Apex Domain) | `76.76.21.21` (Vercel IP) | Auto / DNS Only | Apex ডোমেইনকে মূল অ্যাপ্লিকেশনে পয়েন্ট করা |
-| **CNAME** | `app` | `cname.vercel-dns.com` | DNS Only | লাইভ ফুল-স্ট্যাক Vercel অ্যাপ্লিকেশনের জন্য |
-| **CNAME** | `www` | `rossy0109.github.io` | DNS Only | GitHub Pages রিডাইরেক্ট অ্যাপ্লিকেশনের জন্য |
-| **TXT** | `_github-pages-challenge-rossy0109` | GitHub ভেরিফিকেশন কোড | Auto | GitHub Pages কাস্টম ডোমেইন মালিকানা প্রমাণ |
+| টাইপ (Type)   | হোস্ট / নেম (Name)                  | টার্গেট / ভ্যালু (Value)  | প্রক্সি / TTL   | উদ্দেশ্য                                    |
+| ------------- | ----------------------------------- | ------------------------- | --------------- | ------------------------------------------- |
+| **A / ALIAS** | `@` (Apex Domain)                   | `76.76.21.21` (Vercel IP) | Auto / DNS Only | Apex ডোমেইনকে মূল অ্যাপ্লিকেশনে পয়েন্ট করা  |
+| **CNAME**     | `app`                               | `cname.vercel-dns.com`    | DNS Only        | লাইভ ফুল-স্ট্যাক Vercel অ্যাপ্লিকেশনের জন্য |
+| **CNAME**     | `www`                               | `rossy0109.github.io`     | DNS Only        | GitHub Pages রিডাইরেক্ট অ্যাপ্লিকেশনের জন্য |
+| **TXT**       | `_github-pages-challenge-rossy0109` | GitHub ভেরিফিকেশন কোড     | Auto            | GitHub Pages কাস্টম ডোমেইন মালিকানা প্রমাণ  |
 
 ---
 

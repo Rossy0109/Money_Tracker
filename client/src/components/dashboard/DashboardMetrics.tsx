@@ -70,7 +70,7 @@ export function Field({
     isValidElement<{ id?: string }>(children) &&
     typeof children.type === "string";
   const controlId = isNativeControl
-    ? children.props.id ?? generatedId
+    ? (children.props.id ?? generatedId)
     : undefined;
   const control = isNativeControl
     ? cloneElement(children, { id: controlId })

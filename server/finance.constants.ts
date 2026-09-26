@@ -90,7 +90,9 @@ export function calculateBurnRateAnomalies(
     .filter(candidate => candidate.budgetAmount > 0 && candidate.spent > 0)
     .map(candidate => {
       const dailyBurnRate = candidate.spent / currentDay;
-      const projectedSpend = Math.round(candidate.spent + dailyBurnRate * daysRemaining);
+      const projectedSpend = Math.round(
+        candidate.spent + dailyBurnRate * daysRemaining
+      );
       const projectedOverrun = projectedSpend - candidate.budgetAmount;
       return {
         ...candidate,
@@ -101,7 +103,8 @@ export function calculateBurnRateAnomalies(
         dailyBurnRate: Math.round(dailyBurnRate),
       };
     })
-    .filter(item => item.projectedOverrun > 0 && item.spent <= item.budgetAmount)
+    .filter(
+      item => item.projectedOverrun > 0 && item.spent <= item.budgetAmount
+    )
     .sort((a, b) => b.projectedOverrun - a.projectedOverrun);
 }
-

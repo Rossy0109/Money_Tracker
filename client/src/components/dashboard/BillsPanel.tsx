@@ -74,7 +74,9 @@ export function BillsPanel({
             </div>
           ))
         ) : (
-          <p className="py-5 text-center text-sm text-[#7b8d84]">এখনও কোনো বিল রিমাইন্ডার নেই</p>
+          <p className="py-5 text-center text-sm text-[#7b8d84]">
+            এখনও কোনো বিল রিমাইন্ডার নেই
+          </p>
         )}
       </div>
     </article>

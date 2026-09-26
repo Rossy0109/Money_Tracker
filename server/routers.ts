@@ -1,25 +1,34 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import * as financeDb from "./db";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
-import { sdk } from "./_core/sdk";
-import { hashPassword, verifyPasswordConstantTime } from "./_core/passwordAuth";
-import { checkRateLimit, resetRateLimit, getClientIp } from "./_core/rateLimiter";
+import {
+  checkRateLimit,
+  resetRateLimit,
+  getClientIp,
+} from "./_core/rateLimiter";
 import {
   getCloudStorageConfig,
   executeCloudBackup,
 } from "./cloudBackupService";
 import { systemRouter } from "./_core/systemRouter";
+import { authRouter } from "./routers/auth";
 import * as accountingCore from "./accounting-core";
-import { adminProcedure, elevatedAdminProcedure, inputOnlyProcedure, publicProcedure, router, idempotent } from "./_core/trpc";
+import {
+  adminProcedure,
+  elevatedAdminProcedure,
+  router,
+  idempotent,
+} from "./_core/trpc";
 import {
   protectedWithPermission,
   inputOnlyWithPermission,
 } from "./_core/rbac-procedures";
-import { clearAdminElevationCookie, issueAdminToken, setAdminElevationCookie } from "./_core/adminSession";
-import { getUserPermissions, getUserRoles } from "./_core/rbac";
+import {
+  clearAdminElevationCookie,
+  issueAdminToken,
+  setAdminElevationCookie,
+} from "./_core/adminSession";
 import { ADMIN_SESSION_TTL_MS } from "../shared/const";
 import { extractAuditContext } from "./_core/auditContext";
 
@@ -66,32 +75,38 @@ const voucherEntry = z.object({
   narration: z.string().max(300).optional(),
 });
 
-const voucherInput = z.object({
-  projectId,
-  idempotencyKey: z.string().min(8).max(255).optional(),
-  date: transactionDate,
-  narration: z.string().max(500).optional(),
-  debits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ডেবিট এন্ট্রি দরকার"),
-  credits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ক্রেডিট এন্ট্রি দরকার"),
-  references: z.array(z.object({
-    refType: z.enum(["cheque", "bill", "invoice", "challan", "other"]),
-    refNumber: z.string().trim().min(1).max(120),
-    refDate: z.coerce.date().optional(),
-    relatedEntityType: z.string().max(50).optional(),
-    relatedEntityId: z.number().int().positive().optional(),
-  })).optional(),
-}).superRefine((input, ctx) => {
-  const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
-  const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
-  // Exact cents — must match accounting-core trial-balance (integer cents) tolerance.
-  if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["credits"],
-      message: "ডেবিট ও ক্রেডিটের মোট সমান হতে হবে",
-    });
-  }
-});
+const voucherInput = z
+  .object({
+    projectId,
+    idempotencyKey: z.string().min(8).max(255).optional(),
+    date: transactionDate,
+    narration: z.string().max(500).optional(),
+    debits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ডেবিট এন্ট্রি দরকার"),
+    credits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ক্রেডিট এন্ট্রি দরকার"),
+    references: z
+      .array(
+        z.object({
+          refType: z.enum(["cheque", "bill", "invoice", "challan", "other"]),
+          refNumber: z.string().trim().min(1).max(120),
+          refDate: z.coerce.date().optional(),
+          relatedEntityType: z.string().max(50).optional(),
+          relatedEntityId: z.number().int().positive().optional(),
+        })
+      )
+      .optional(),
+  })
+  .superRefine((input, ctx) => {
+    const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
+    const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
+    // Exact cents — must match accounting-core trial-balance (integer cents) tolerance.
+    if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["credits"],
+        message: "ডেবিট ও ক্রেডিটের মোট সমান হতে হবে",
+      });
+    }
+  });
 
 const coaAccountInput = z.object({
   projectId,
@@ -313,7 +328,10 @@ const backupRecurring = z.object({
 });
 const projectBackupInput = z
   .object({
-    formatVersion: z.enum(["finance-project-backup-v1", "finance-project-backup-v2"]),
+    formatVersion: z.enum([
+      "finance-project-backup-v1",
+      "finance-project-backup-v2",
+    ]),
     exportedAt: backupDate,
     project: z.object({
       id: z.number().int().positive().optional(),
@@ -336,12 +354,24 @@ const projectBackupInput = z
       })
       .nullable()
       .optional(),
-    chartOfAccounts: z.array(z.record(z.string(), z.any())).max(20000).optional(),
-    vouchers: z.array(z.object({ id: z.number().int().positive() }).passthrough()).max(20000).optional(),
+    chartOfAccounts: z
+      .array(z.record(z.string(), z.any()))
+      .max(20000)
+      .optional(),
+    vouchers: z
+      .array(z.object({ id: z.number().int().positive() }).passthrough())
+      .max(20000)
+      .optional(),
     voucherDebits: z.array(z.record(z.string(), z.any())).max(50000).optional(),
-    voucherCredits: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    voucherCredits: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
     ledgerEntries: z.array(z.record(z.string(), z.any())).max(50000).optional(),
-    journalEntries: z.array(z.record(z.string(), z.any())).max(20000).optional(),
+    journalEntries: z
+      .array(z.record(z.string(), z.any()))
+      .max(20000)
+      .optional(),
     journalLines: z.array(z.record(z.string(), z.any())).max(50000).optional(),
   })
   .superRefine((backup, context) => {
@@ -358,456 +388,49 @@ const projectBackupInput = z
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(async opts => {
-      const user = opts.ctx.user;
-      if (!user) return null;
-      const {
-        passwordHash: _passwordHash,
-        resetToken: _resetToken,
-        resetTokenExpiresAt: _resetTokenExpiresAt,
-        ...safeUser
-      } = user;
-      try {
-        const [roles, permissions] = await Promise.all([
-          getUserRoles(user.id),
-          getUserPermissions(user.id),
-        ]);
-        return { ...safeUser, roles, permissions };
-      } catch {
-        // RBAC metadata unavailable (still authenticating / DB unreachable).
-        // Return deny-by-default: no roles and no permission grants.
-        return { ...safeUser, roles: [], permissions: [] };
-      }
-    }),
-    register: publicProcedure
-      .input(
-        z.object({
-          name: z.string().trim().min(1, "নাম প্রদান করুন").max(120),
-          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
-          password: z
-            .string()
-            .min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে")
-            .max(100),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        const clientIp = getClientIp(ctx.req);
-        checkRateLimit(String(clientIp), {
-          windowMs: 15 * 60 * 1000,
-          max: 20,
-          keyPrefix: "auth-register",
-          message:
-            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে রেজিস্ট্রেশন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
-        });
-
-        try {
-          const passwordHash = await hashPassword(input.password);
-          const user = await financeDb.createPasswordUser({
-            name: input.name,
-            email: input.email,
-            passwordHash,
-          });
-
-          if (user.status === "pending") {
-            return {
-              success: true,
-              pendingApproval: true,
-              message:
-                "রেজিস্ট্রেশন সফল হয়েছে! আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর আপনি লগইন করতে পারবেন।",
-              user: null,
-            };
-          }
-
-          const sessionToken = await sdk.createSessionToken(user.openId, {
-            name: user.name || user.email || "",
-            expiresInMs: ONE_YEAR_MS,
-          });
-          const cookieOptions = getSessionCookieOptions(ctx.req);
-          ctx.res.cookie(COOKIE_NAME, sessionToken, {
-            ...cookieOptions,
-            maxAge: ONE_YEAR_MS,
-          });
-          const [roles, permissions] = await Promise.all([
-            getUserRoles(user.id).catch(() => []),
-            getUserPermissions(user.id).catch(() => []),
-          ]);
-          return {
-            success: true,
-            pendingApproval: false,
-            message: "সফলভাবে নিবন্ধিত ও লগইন হয়েছে।",
-            user: {
-              id: user.id,
-              openId: user.openId,
-              name: user.name,
-              email: user.email,
-              role: user.role,
-              roles,
-              permissions,
-            },
-          };
-        } catch (error) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: error instanceof Error ? error.message : "রেজিস্ট্রেশন ব্যর্থ হয়েছে",
-          });
-        }
-      }),
-    login: publicProcedure
-      .input(
-        z.object({
-          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
-          password: z.string().min(1, "পাসওয়ার্ড দিন").max(100),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        const clientIp = getClientIp(ctx.req);
-        checkRateLimit(String(clientIp), {
-          windowMs: 15 * 60 * 1000,
-          max: 15,
-          keyPrefix: "auth-login",
-          message:
-            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে লগইন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
-        });
-
-        // DB-backed account lockout (multi-instance safe).
-        try {
-          const lockout = await financeDb.isLockedOut(input.email, String(clientIp));
-          if (lockout.locked) {
-            throw new TRPCError({
-              code: "TOO_MANY_REQUESTS",
-              message:
-                "অতিরিক্ত ভুল পাসওয়ার্ডের কারণে লগইন সাময়িকভাবে বন্ধ। ১৫ মিনিট পর আবার চেষ্টা করুন।",
-            });
-          }
-        } catch (error) {
-          if (error instanceof TRPCError) throw error;
-          // Non-blocking if lockout table unavailable (e.g. unit tests)
-        }
-
-        const user = await financeDb.getUserByEmail(input.email);
-        const credentialsValid = await verifyPasswordConstantTime(
-          input.password,
-          user?.passwordHash
-        );
-        if (!user || !credentialsValid) {
-          try {
-            await financeDb.recordFailedLoginAttempt(input.email, String(clientIp));
-            if (user) {
-              await financeDb.recordLoginHistory(
-                user.id,
-                "password",
-                String(clientIp),
-                typeof ctx.req?.headers?.["user-agent"] === "string"
-                  ? ctx.req.headers["user-agent"]
-                  : null,
-                false,
-                "invalid_credentials"
-              );
-            }
-          } catch {
-            // Non-blocking lockout tracking
-          }
-          try {
-            await financeDb.logAudit({
-              actorUserId: user?.id ?? 1,
-              actorRole: user?.role ?? "anonymous",
-              action: "login_failed",
-              entityType: "auth",
-              summary: `Failed login attempt for email: ${input.email}`,
-              auditContext: extractAuditContext(ctx.req),
-            });
-          } catch {
-            // Non-blocking audit failure
-          }
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।",
-          });
-        }
-
-        if (user.status === "pending") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
-          });
-        }
-
-        if (user.status === "suspended") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
-          });
-        }
-
-        resetRateLimit(String(clientIp), "auth-login");
-        try {
-          await financeDb.clearFailedLoginAttempts(input.email, String(clientIp));
-          await financeDb.recordLoginHistory(
-            user.id,
-            "password",
-            String(clientIp),
-            typeof ctx.req?.headers?.["user-agent"] === "string"
-              ? ctx.req.headers["user-agent"]
-              : null,
-            true
-          );
-        } catch {
-          // Non-blocking lockout/history tracking
-        }
-        await financeDb.upsertUser({
-          openId: user.openId,
-          lastSignedIn: new Date(),
-        });
-        try {
-          await financeDb.logAudit({
-            actorUserId: user.id,
-            actorRole: user.role,
-            action: "login",
-            entityType: "auth",
-            entityId: user.id,
-            summary: `User logged in: ${user.email ?? user.name ?? user.id}`,
-            auditContext: extractAuditContext(ctx.req),
-          });
-        } catch {
-          // Non-blocking audit failure
-        }
-        const sessionToken = await sdk.createSessionToken(user.openId, {
-          name: user.name || user.email || "",
-          expiresInMs: ONE_YEAR_MS,
-        });
-        // Record the session so logout / password-reset can revoke it.
-        try {
-          const expiresAt = new Date(Date.now() + ONE_YEAR_MS);
-          await financeDb.createUserSession(
-            user.id,
-            sessionToken,
-            sessionToken,
-            typeof ctx.req?.headers?.["user-agent"] === "string"
-              ? ctx.req.headers["user-agent"]
-              : null,
-            getClientIp(ctx.req),
-            expiresAt,
-            expiresAt
-          );
-        } catch {
-          // Non-blocking: session table unavailable (e.g. unit tests)
-        }
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, {
-          ...cookieOptions,
-          maxAge: ONE_YEAR_MS,
-        });
-        const [roles, permissions] = await Promise.all([
-          getUserRoles(user.id).catch(() => []),
-          getUserPermissions(user.id).catch(() => []),
-        ]);
-        return {
-          success: true,
-          user: {
-            id: user.id,
-            openId: user.openId,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            roles,
-            permissions,
-          },
-        };
-      }),
-    logout: publicProcedure.mutation(async ({ ctx }) => {
-      // Revoke the current session token server-side (kills the JWT early).
-      try {
-        const cookies = ctx.req?.headers?.cookie;
-        if (typeof cookies === "string" && cookies.includes(COOKIE_NAME)) {
-          const raw = cookies
-            .split(";")
-            .map(part => part.trim())
-            .find(part => part.startsWith(`${COOKIE_NAME}=`));
-          const token = raw?.slice(COOKIE_NAME.length + 1);
-          if (token) {
-            await financeDb.revokeSessionByToken(decodeURIComponent(token));
-          }
-        }
-      } catch {
-        // Non-blocking revoke
-      }
-      if (ctx.user) {
-        try {
-          await financeDb.logAudit({
-            actorUserId: ctx.user.id,
-            actorRole: ctx.user.role,
-            action: "logout",
-            entityType: "auth",
-            entityId: ctx.user.id,
-            summary: `User logged out: ${ctx.user.email ?? ctx.user.name ?? ctx.user.id}`,
-            auditContext: extractAuditContext(ctx.req),
-          });
-        } catch {
-          // Non-blocking audit failure
-        }
-      }
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
-    setPassword: inputOnlyProcedure
-      .input(
-        z.object({
-          password: z
-            .string()
-            .min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে")
-            .max(100),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        const clientIp = getClientIp(ctx.req);
-        checkRateLimit(String(clientIp), {
-          windowMs: 15 * 60 * 1000,
-          max: 5,
-          keyPrefix: "auth-set-password",
-          message:
-            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড পরিবর্তন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
-        });
-
-        const passwordHash = await hashPassword(input.password);
-        await financeDb.setUserPassword(ctx.user!.openId, passwordHash);
-        resetRateLimit(String(clientIp), "auth-set-password");
-        return {
-          success: true,
-          message: "পাসওয়ার্ড সফলভাবে সেট করা হয়েছে। এখন ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
-        } as const;
-      }),
-    forgotPassword: publicProcedure
-      .input(
-        z.object({
-          email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        const clientIp = getClientIp(ctx.req);
-        checkRateLimit(String(clientIp), {
-          windowMs: 60 * 60 * 1000,
-          max: 5,
-          keyPrefix: "auth-forgot-password",
-          message:
-            "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড রিসেট বন্ধ রাখা হয়েছে। ১ ঘণ্টা পর আবার চেষ্টা করুন।",
-        });
-
-        const { resetToken, resetTokenExpiresAt, user } =
-          await financeDb.createPasswordResetToken(input.email);
-
-        const isDev = process.env.NODE_ENV === "development";
-        const genericMessage =
-          "যদি ইমেইলটি রেজিস্টার্ড থাকে, পাসওয়ার্ড রিসেট লিংকটি পাঠানো হবে।";
-
-        // Unknown email — same generic response (no enumeration).
-        if (!resetToken || !user) {
-          return { success: true, message: genericMessage, resetToken: undefined } as const;
-        }
-
-        const { sendPasswordResetEmail, buildPasswordResetUrl, isEmailDeliveryConfigured } =
-          await import("./_core/mailer");
-
-        if (!isEmailDeliveryConfigured()) {
-          if (isDev) {
-            // Local testing only: surface token so the flow is usable without SMTP.
-            return {
-              success: true,
-              message: `${genericMessage} (ডেভেলপমেন্ট: টোকেন নিচে দেখানো হয়েছে)`,
-              resetToken,
-            } as const;
-          }
-          // Production without a transport — fail closed, never pretend delivery.
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message:
-              "পাসওয়ার্ড রিসেট ইমেইল ডেলিভারি কনফিগার করা হয়নি (EMAIL_WEBHOOK_URL বা RESEND_API_KEY সেট করুন)।",
-          });
-        }
-
-        const resetUrl = buildPasswordResetUrl(resetToken);
-        const delivered = await sendPasswordResetEmail({
-          to: user.email ?? input.email,
-          resetUrl,
-          token: resetToken,
-          expiresAt: resetTokenExpiresAt ?? new Date(Date.now() + 60 * 60 * 1000),
-        });
-
-        if (!delivered && !isDev) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "পাসওয়ার্ড রিসেট ইমেইল পাঠানো যায়নি। একটু পরে আবার চেষ্টা করুন।",
-          });
-        }
-
-        return {
-          success: true,
-          message: genericMessage,
-          resetToken: isDev ? resetToken : undefined,
-        } as const;
-      }),
-    resetPassword: publicProcedure
-      .input(
-        z.object({
-          token: z.string().min(1, "টোকেন প্রয়োজন"),
-          password: z
-            .string()
-            .min(8, "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে")
-            .max(100),
-        })
-      )
-      .mutation(async ({ input }) => {
-        const { valid, user } = await financeDb.validatePasswordResetToken(input.token);
-        
-        if (!valid || !user) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "অবৈধ বা মেয়াদোত্তীর্ণ রিসেট টোকেন।",
-          });
-        }
-        
-        const passwordHash = await hashPassword(input.password);
-        await financeDb.consumePasswordResetToken(user.openId, passwordHash);
-        
-        return {
-          success: true,
-          message: "পাসওয়ার্ড সফলভাবে রিসেট করা হয়েছে। এখন নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
-        } as const;
-      }),
-  }),
+  auth: authRouter,
   admin: router({
-    verifyAccess: adminProcedure.input(z.object({ password: z.string().min(1).max(128) })).mutation(({ ctx, input }) => {
-      const clientIp = getClientIp(ctx.req);
-      const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
+    verifyAccess: adminProcedure
+      .input(z.object({ password: z.string().min(1).max(128) }))
+      .mutation(({ ctx, input }) => {
+        const clientIp = getClientIp(ctx.req);
+        const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
 
-      checkRateLimit(String(rateLimitKey), {
-        windowMs: 15 * 60 * 1000,
-        max: 5,
-        keyPrefix: "admin-verify",
-        message: "অ্যাডমিন পাসওয়ার্ড একাধিকবার ভুল দেওয়ার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
-      });
+        checkRateLimit(String(rateLimitKey), {
+          windowMs: 15 * 60 * 1000,
+          max: 5,
+          keyPrefix: "admin-verify",
+          message:
+            "অ্যাডমিন পাসওয়ার্ড একাধিকবার ভুল দেওয়ার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+        });
 
-      if (!hasValidAdminPassword(input.password)) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Administrator verification failed" });
-      }
+        if (!hasValidAdminPassword(input.password)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Administrator verification failed",
+          });
+        }
 
-      resetRateLimit(String(rateLimitKey), "admin-verify");
-      const token = issueAdminToken(ctx.user!.id, ctx.user!.openId, ADMIN_SESSION_TTL_MS);
-      if (ctx.req && ctx.res) {
-        setAdminElevationCookie(ctx.req, ctx.res, token);
-      }
-      return {
-        verified: true,
-        token,
-        expiresInMs: ADMIN_SESSION_TTL_MS,
-      } as const;
-    }),
+        resetRateLimit(String(rateLimitKey), "admin-verify");
+        const token = issueAdminToken(
+          ctx.user!.id,
+          ctx.user!.openId,
+          ADMIN_SESSION_TTL_MS
+        );
+        if (ctx.req && ctx.res) {
+          setAdminElevationCookie(ctx.req, ctx.res, token);
+        }
+        return {
+          verified: true,
+          token,
+          expiresInMs: ADMIN_SESSION_TTL_MS,
+        } as const;
+      }),
     elevationStatus: adminProcedure.query(({ ctx }) => {
       return {
-        elevated: Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user!.id),
+        elevated: Boolean(
+          ctx.adminElevation && ctx.adminElevation.userId === ctx.user!.id
+        ),
         expiresAt: ctx.adminElevation?.expiresAt ?? null,
       };
     }),
@@ -820,10 +443,23 @@ export const appRouter = router({
     users: elevatedAdminProcedure.query(() => {
       return financeDb.listUsersForAdmin();
     }),
-    updateUserStatus: elevatedAdminProcedure.input(z.object({ password: z.string().max(128).optional(), targetUserId: z.number().int().positive(), status: z.enum(["pending", "active", "suspended"]) })).mutation(async ({ ctx, input }) => {
-      const updated = await financeDb.updateUserStatus(input.targetUserId, input.status, ctx.user?.id, extractAuditContext(ctx.req));
-      return { success: true, user: updated };
-    }),
+    updateUserStatus: elevatedAdminProcedure
+      .input(
+        z.object({
+          password: z.string().max(128).optional(),
+          targetUserId: z.number().int().positive(),
+          status: z.enum(["pending", "active", "suspended"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const updated = await financeDb.updateUserStatus(
+          input.targetUserId,
+          input.status,
+          ctx.user?.id,
+          extractAuditContext(ctx.req)
+        );
+        return { success: true, user: updated };
+      }),
     assignRole: elevatedAdminProcedure
       .input(
         z.object({
@@ -853,7 +489,10 @@ export const appRouter = router({
         } catch (error) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: error instanceof Error ? error.message : "ভূমিকা নির্ধারণ করা যায়নি",
+            message:
+              error instanceof Error
+                ? error.message
+                : "ভূমিকা নির্ধারণ করা যায়নি",
           });
         }
         try {
@@ -869,22 +508,57 @@ export const appRouter = router({
         } catch {
           // Non-blocking audit failure
         }
-        return { success: true, targetUserId: input.targetUserId, role: input.role } as const;
+        return {
+          success: true,
+          targetUserId: input.targetUserId,
+          role: input.role,
+        } as const;
       }),
     projects: elevatedAdminProcedure.query(() => {
       return financeDb.listProjectsForAdmin();
     }),
     // Admin queries never accept an inline password — elevation cookie only
     // (passwords must not ride on GET query strings / URLs).
-    auditLogs: elevatedAdminProcedure.input(auditFilters.extend({ page: z.number().int().positive().default(1), pageSize: z.number().int().min(10).max(100).default(25) })).query(({ input }) => {
-      return financeDb.listAuditLogsPage({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search, page: input.page, pageSize: input.pageSize });
-    }),
-    auditLogExport: elevatedAdminProcedure.input(auditFilters).query(({ input }) => {
-      return financeDb.listAuditLogsForExport({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
-    }),
-    auditActivity: elevatedAdminProcedure.input(auditFilters).query(({ input }) => {
-      return financeDb.getAuditLogActivity({ from: input.from, to: input.to, actorUserId: input.actorUserId, actorRole: input.actorRole, search: input.search });
-    }),
+    auditLogs: elevatedAdminProcedure
+      .input(
+        auditFilters.extend({
+          page: z.number().int().positive().default(1),
+          pageSize: z.number().int().min(10).max(100).default(25),
+        })
+      )
+      .query(({ input }) => {
+        return financeDb.listAuditLogsPage({
+          from: input.from,
+          to: input.to,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          search: input.search,
+          page: input.page,
+          pageSize: input.pageSize,
+        });
+      }),
+    auditLogExport: elevatedAdminProcedure
+      .input(auditFilters)
+      .query(({ input }) => {
+        return financeDb.listAuditLogsForExport({
+          from: input.from,
+          to: input.to,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          search: input.search,
+        });
+      }),
+    auditActivity: elevatedAdminProcedure
+      .input(auditFilters)
+      .query(({ input }) => {
+        return financeDb.getAuditLogActivity({
+          from: input.from,
+          to: input.to,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          search: input.search,
+        });
+      }),
   }),
   projects: router({
     list: protectedWithPermission("accounting", "read").query(({ ctx }) =>
@@ -895,14 +569,16 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.createProject(ctx.user!.id, input.name)
       ),
-    active: inputOnlyWithPermission("accounting", "create").query(async ({ ctx }) => {
-      const projects = await financeDb.listProjects(ctx.user!.id);
-      if (projects.length > 0) {
-        return { id: projects[0].id, name: projects[0].name } as const;
+    active: inputOnlyWithPermission("accounting", "create").query(
+      async ({ ctx }) => {
+        const projects = await financeDb.listProjects(ctx.user!.id);
+        if (projects.length > 0) {
+          return { id: projects[0].id, name: projects[0].name } as const;
+        }
+        const created = await financeDb.createProject(ctx.user!.id, "Default");
+        return { id: created.id, name: created.name } as const;
       }
-      const created = await financeDb.createProject(ctx.user!.id, "Default");
-      return { id: created.id, name: created.name } as const;
-    }),
+    ),
   }),
   finance: router({
     overview: protectedWithPermission("accounting", "read")
@@ -947,7 +623,11 @@ export const appRouter = router({
     monthlyReport: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId, monthKey }))
       .query(({ ctx, input }) =>
-        financeDb.getMonthlyReport(ctx.user!.id, input.projectId, input.monthKey)
+        financeDb.getMonthlyReport(
+          ctx.user!.id,
+          input.projectId,
+          input.monthKey
+        )
       ),
     voucherSettings: protectedWithPermission("voucher", "read")
       .input(z.object({ projectId }))
@@ -991,7 +671,9 @@ export const appRouter = router({
       .input(
         z.object({
           projectId,
-          status: z.enum(["draft", "submitted", "approved", "posted", "reversed"]).optional(),
+          status: z
+            .enum(["draft", "submitted", "approved", "posted", "reversed"])
+            .optional(),
           limit: z.number().int().positive().max(500).optional(),
         })
       )
@@ -1001,31 +683,54 @@ export const appRouter = router({
     // Voucher Lifecycle
     submitVoucher: inputOnlyWithPermission("voucher", "submit")
       .use(idempotent)
-      .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
+      .input(
+        z.object({
+          projectId,
+          voucherId: z.number().int().positive(),
+          idempotencyKey: z.string().min(8).max(255).optional(),
+        })
+      )
       .mutation(({ ctx, input }) =>
         financeDb.submitVoucher(ctx.user!.id, input.projectId, input.voucherId)
       ),
     approveVoucher: inputOnlyWithPermission("voucher", "approve")
       .use(idempotent)
-      .input(z.object({
-        projectId,
-        voucherId: z.number().int().positive(),
-        action: z.enum(["approve", "return"]).default("approve"),
-        idempotencyKey: z.string().min(8).max(255).optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          voucherId: z.number().int().positive(),
+          action: z.enum(["approve", "return"]).default("approve"),
+          idempotencyKey: z.string().min(8).max(255).optional(),
+        })
+      )
       .mutation(({ ctx, input }) =>
-        financeDb.approveVoucher(ctx.user!.id, input.projectId, input.voucherId, input.action)
+        financeDb.approveVoucher(
+          ctx.user!.id,
+          input.projectId,
+          input.voucherId,
+          input.action
+        )
       ),
     postVoucher: inputOnlyWithPermission("voucher", "post")
       .use(idempotent)
-      .input(z.object({ projectId, voucherId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(255).optional() }))
+      .input(
+        z.object({
+          projectId,
+          voucherId: z.number().int().positive(),
+          idempotencyKey: z.string().min(8).max(255).optional(),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         await checkRateLimit(`${ctx.user!.id}:voucher-post`, {
           windowMs: 15 * 60 * 1000,
           max: 30,
           keyPrefix: "user",
         });
-        return financeDb.postVoucher(ctx.user!.id, input.projectId, input.voucherId);
+        return financeDb.postVoucher(
+          ctx.user!.id,
+          input.projectId,
+          input.voucherId
+        );
       }),
     firmProfile: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
@@ -1086,8 +791,8 @@ export const appRouter = router({
     households: protectedWithPermission("accounting", "read").query(({ ctx }) =>
       financeDb.listHouseholds(ctx.user!.id)
     ),
-    householdInvitations: protectedWithPermission("accounting", "read").query(({ ctx }) =>
-      financeDb.listHouseholdInvitations(ctx.user!.id)
+    householdInvitations: protectedWithPermission("accounting", "read").query(
+      ({ ctx }) => financeDb.listHouseholdInvitations(ctx.user!.id)
     ),
     createHousehold: protectedWithPermission("accounting", "create")
       .input(z.object({ name: z.string().trim().min(1).max(120) }))
@@ -1172,9 +877,7 @@ export const appRouter = router({
     // Chart of Accounts
     getAccountTypes: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
-      .query(() =>
-        financeDb.getAccountTypes()
-      ),
+      .query(() => financeDb.getAccountTypes()),
     getChartOfAccounts: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
@@ -1196,15 +899,26 @@ export const appRouter = router({
         return financeDb.createChartOfAccount(ctx.user!.id, input);
       }),
     updateChartOfAccount: protectedWithPermission("accounting", "update")
-      .input(coaAccountUpdateInput.extend({ accountId: z.number().int().positive() }))
+      .input(
+        coaAccountUpdateInput.extend({ accountId: z.number().int().positive() })
+      )
       .mutation(({ ctx, input }) => {
         const { accountId, projectId, ...values } = input;
-        return financeDb.updateChartOfAccount(ctx.user!.id, projectId, accountId, values);
+        return financeDb.updateChartOfAccount(
+          ctx.user!.id,
+          projectId,
+          accountId,
+          values
+        );
       }),
     deleteChartOfAccount: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, accountId: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteChartOfAccount(ctx.user!.id, input.projectId, input.accountId)
+        financeDb.deleteChartOfAccount(
+          ctx.user!.id,
+          input.projectId,
+          input.accountId
+        )
       ),
     seedChartOfAccounts: inputOnlyWithPermission("accounting", "create")
       .input(z.object({ projectId }))
@@ -1215,7 +929,12 @@ export const appRouter = router({
     lockPeriod: inputOnlyWithPermission("accounting", "update")
       .input(periodLockInput)
       .mutation(({ ctx, input }) =>
-        financeDb.lockPeriod(ctx.user!.id, input.projectId, input.monthKey, input.reason)
+        financeDb.lockPeriod(
+          ctx.user!.id,
+          input.projectId,
+          input.monthKey,
+          input.reason
+        )
       ),
     unlockPeriod: inputOnlyWithPermission("accounting", "update")
       .input(z.object({ projectId, monthKey }))
@@ -1234,36 +953,49 @@ export const appRouter = router({
         financeDb.listAccountGroups(ctx.user!.id, input.projectId)
       ),
     createAccountGroup: inputOnlyWithPermission("accounting", "create")
-      .input(z.object({
-        projectId,
-        accountTypeId: z.number().int().positive(),
-        parentId: z.number().int().positive().optional(),
-        code: z.string().min(1).max(20),
-        name: z.string().min(1).max(120),
-        nameBn: z.string().max(120).optional(),
-        description: z.string().max(500).optional(),
-        sortOrder: z.number().int().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          accountTypeId: z.number().int().positive(),
+          parentId: z.number().int().positive().optional(),
+          code: z.string().min(1).max(20),
+          name: z.string().min(1).max(120),
+          nameBn: z.string().max(120).optional(),
+          description: z.string().max(500).optional(),
+          sortOrder: z.number().int().optional(),
+        })
+      )
       .mutation(({ ctx, input }) =>
         financeDb.createAccountGroup(ctx.user!.id, input)
       ),
     updateAccountGroup: protectedWithPermission("accounting", "update")
-      .input(z.object({
-        projectId,
-        groupId: z.number().int().positive(),
-        name: z.string().min(1).max(120).optional(),
-        nameBn: z.string().max(120).nullable().optional(),
-        description: z.string().max(500).nullable().optional(),
-        sortOrder: z.number().int().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          groupId: z.number().int().positive(),
+          name: z.string().min(1).max(120).optional(),
+          nameBn: z.string().max(120).nullable().optional(),
+          description: z.string().max(500).nullable().optional(),
+          sortOrder: z.number().int().optional(),
+        })
+      )
       .mutation(({ ctx, input }) => {
         const { projectId, groupId, ...values } = input;
-        return financeDb.updateAccountGroup(ctx.user!.id, projectId, groupId, values);
+        return financeDb.updateAccountGroup(
+          ctx.user!.id,
+          projectId,
+          groupId,
+          values
+        );
       }),
     deleteAccountGroup: protectedWithPermission("accounting", "delete")
       .input(z.object({ projectId, groupId: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.deleteAccountGroup(ctx.user!.id, input.projectId, input.groupId)
+        financeDb.deleteAccountGroup(
+          ctx.user!.id,
+          input.projectId,
+          input.groupId
+        )
       ),
     // Fiscal Periods
     listFiscalPeriods: protectedWithPermission("accounting", "read")
@@ -1272,12 +1004,14 @@ export const appRouter = router({
         accountingCore.listFiscalPeriods(ctx.user!.id, input.projectId)
       ),
     createFiscalPeriod: inputOnlyWithPermission("accounting", "create")
-      .input(z.object({
-        projectId,
-        name: z.string().min(1).max(120),
-        startDate: z.coerce.date(),
-        endDate: z.coerce.date(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          name: z.string().min(1).max(120),
+          startDate: z.coerce.date(),
+          endDate: z.coerce.date(),
+        })
+      )
       .mutation(({ ctx, input }) =>
         accountingCore.createFiscalPeriod(ctx.user!.id, input.projectId, {
           name: input.name,
@@ -1286,46 +1020,81 @@ export const appRouter = router({
         })
       ),
     closeFiscalPeriod: protectedWithPermission("accounting", "update")
-      .input(z.object({
-        projectId,
-        periodId: z.number().int().positive(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          periodId: z.number().int().positive(),
+        })
+      )
       .mutation(({ ctx, input }) =>
-        accountingCore.closeFiscalPeriod(ctx.user!.id, input.projectId, input.periodId)
+        accountingCore.closeFiscalPeriod(
+          ctx.user!.id,
+          input.projectId,
+          input.periodId
+        )
       ),
-    // Accounting Statements (Ledger-based)
-    trialBalance: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+    accountingReconciliation: protectedWithPermission("accounting", "read")
+      .input(z.object({ projectId }))
       .query(({ ctx, input }) =>
-        accountingCore.generateTrialBalance(ctx.user!.id, input.projectId, input.from, input.to)
+        financeDb.getAccountingReconciliation(ctx.user!.id, input.projectId)
+      ),
+    trialBalance: protectedWithPermission("accounting", "read")
+      .input(
+        z.object({
+          projectId,
+          // `from` is accepted for call-site compatibility but ignored: a trial
+          // balance is a cumulative as-of snapshot. Period-scoped it would drop
+          // opening balances and stop agreeing with the balance sheet.
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        accountingCore.generateTrialBalance(
+          ctx.user!.id,
+          input.projectId,
+          undefined,
+          input.to
+        )
       ),
     incomeStatement: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateIncomeStatement(ctx.user!.id, input.projectId, input.from, input.to)
+        accountingCore.generateIncomeStatement(
+          ctx.user!.id,
+          input.projectId,
+          input.from,
+          input.to
+        )
       ),
     balanceSheet: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        asOf: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          asOf: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateBalanceSheet(ctx.user!.id, input.projectId, input.asOf)
+        accountingCore.generateBalanceSheet(
+          ctx.user!.id,
+          input.projectId,
+          input.asOf
+        )
       ),
     accountingReport: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
         accountingCore.generateAccountingReport(ctx.user!.id, input.projectId, {
           from: input.from,
@@ -1334,41 +1103,70 @@ export const appRouter = router({
       ),
     // Phase 7: Account Ledger & Reports
     accountLedger: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        accountId: z.number().int().positive(),
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          accountId: z.number().int().positive(),
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateAccountLedger(ctx.user!.id, input.projectId, input.accountId, input.from, input.to)
+        accountingCore.generateAccountLedger(
+          ctx.user!.id,
+          input.projectId,
+          input.accountId,
+          input.from,
+          input.to
+        )
       ),
     cashFlowStatement: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateCashFlowStatement(ctx.user!.id, input.projectId, input.from, input.to)
+        accountingCore.generateCashFlowStatement(
+          ctx.user!.id,
+          input.projectId,
+          input.from,
+          input.to
+        )
       ),
     dailyTransactions: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateDailyTransactions(ctx.user!.id, input.projectId, input.from, input.to)
+        accountingCore.generateDailyTransactions(
+          ctx.user!.id,
+          input.projectId,
+          input.from,
+          input.to
+        )
       ),
     monthlyTransactions: protectedWithPermission("accounting", "read")
-      .input(z.object({
-        projectId,
-        from: z.coerce.date().optional(),
-        to: z.coerce.date().optional(),
-      }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        accountingCore.generateMonthlyTransactions(ctx.user!.id, input.projectId, input.from, input.to)
+        accountingCore.generateMonthlyTransactions(
+          ctx.user!.id,
+          input.projectId,
+          input.from,
+          input.to
+        )
       ),
     // Voucher Reversal
     reverseVoucher: inputOnlyWithPermission("voucher", "reverse")
@@ -1399,9 +1197,15 @@ export const appRouter = router({
         return financeDb.createBankReconciliation(ctx.user!.id, input);
       }),
     getBankReconciliation: protectedWithPermission("accounting", "read")
-      .input(z.object({ projectId, reconciliationId: z.number().int().positive() }))
+      .input(
+        z.object({ projectId, reconciliationId: z.number().int().positive() })
+      )
       .query(({ ctx, input }) =>
-        financeDb.getBankReconciliationById(ctx.user!.id, input.projectId, input.reconciliationId)
+        financeDb.getBankReconciliationById(
+          ctx.user!.id,
+          input.projectId,
+          input.reconciliationId
+        )
       ),
     getBankReconciliations: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))
@@ -1411,32 +1215,67 @@ export const appRouter = router({
     addBankReconciliationItem: protectedWithPermission("accounting", "create")
       .input(bankReconciliationItemInput)
       .mutation(({ ctx, input }) =>
-        financeDb.addBankReconciliationItem(ctx.user!.id, input.projectId, input)
+        financeDb.addBankReconciliationItem(
+          ctx.user!.id,
+          input.projectId,
+          input
+        )
       ),
     matchBankReconciliationItem: protectedWithPermission("accounting", "update")
-      .input(z.object({ projectId, itemId: z.number().int().positive(), ledgerEntryId: z.number().int().positive() }))
+      .input(
+        z.object({
+          projectId,
+          itemId: z.number().int().positive(),
+          ledgerEntryId: z.number().int().positive(),
+        })
+      )
       .mutation(({ ctx, input }) =>
-        financeDb.matchBankReconciliationItem(ctx.user!.id, input.projectId, input.itemId, input.ledgerEntryId)
+        financeDb.matchBankReconciliationItem(
+          ctx.user!.id,
+          input.projectId,
+          input.itemId,
+          input.ledgerEntryId
+        )
       ),
-    unmatchBankReconciliationItem: protectedWithPermission("accounting", "update")
+    unmatchBankReconciliationItem: protectedWithPermission(
+      "accounting",
+      "update"
+    )
       .input(z.object({ projectId, itemId: z.number().int().positive() }))
       .mutation(({ ctx, input }) =>
-        financeDb.unmatchBankReconciliationItem(ctx.user!.id, input.projectId, input.itemId)
+        financeDb.unmatchBankReconciliationItem(
+          ctx.user!.id,
+          input.projectId,
+          input.itemId
+        )
       ),
     completeBankReconciliation: protectedWithPermission("accounting", "update")
-      .input(z.object({ projectId, reconciliationId: z.number().int().positive() }))
+      .input(
+        z.object({ projectId, reconciliationId: z.number().int().positive() })
+      )
       .mutation(({ ctx, input }) =>
-        financeDb.completeBankReconciliation(ctx.user!.id, input.projectId, input.reconciliationId)
+        financeDb.completeBankReconciliation(
+          ctx.user!.id,
+          input.projectId,
+          input.reconciliationId
+        )
       ),
     getBankReconciliationItems: protectedWithPermission("accounting", "read")
       .input(z.object({ reconciliationId: z.number().int().positive() }))
       .query(({ ctx, input }) =>
-        financeDb.getBankReconciliationItems(ctx.user!.id, input.reconciliationId)
+        financeDb.getBankReconciliationItems(
+          ctx.user!.id,
+          input.reconciliationId
+        )
       ),
     getLedgerEntriesForReconciliation: protectedWithPermission("ledger", "read")
       .input(z.object({ projectId, accountId: z.number().int().positive() }))
       .query(({ ctx, input }) =>
-        financeDb.getLedgerEntriesForReconciliation(ctx.user!.id, input.projectId, input.accountId)
+        financeDb.getLedgerEntriesForReconciliation(
+          ctx.user!.id,
+          input.projectId,
+          input.accountId
+        )
       ),
     addTransaction: inputOnlyWithPermission("accounting", "create")
       .input(transactionInput)
@@ -1546,7 +1385,9 @@ export const appRouter = router({
           amount,
         })
       )
-      .mutation(({ ctx, input }) => financeDb.upsertBudget(ctx.user!.id, input)),
+      .mutation(({ ctx, input }) =>
+        financeDb.upsertBudget(ctx.user!.id, input)
+      ),
     addBill: inputOnlyWithPermission("accounting", "create")
       .input(
         z.object({
@@ -1703,9 +1544,23 @@ export const appRouter = router({
         financeDb.deleteInvoice(ctx.user!.id, input.projectId, input.id)
       ),
     financialStatements: protectedWithPermission("accounting", "read")
-      .input(z.object({ projectId }))
+      .input(
+        z.object({
+          projectId,
+          from: z.coerce.date().optional(),
+          to: z.coerce.date().optional(),
+        })
+      )
       .query(({ ctx, input }) =>
-        financeDb.getFinancialStatements(ctx.user!.id, input.projectId)
+        financeDb.getFinancialStatements(ctx.user!.id, input.projectId, {
+          from: input.from,
+          to: input.to,
+        })
+      ),
+    backfillOpeningBalances: inputOnlyWithPermission("accounting", "update")
+      .input(z.object({ projectId }))
+      .mutation(({ ctx, input }) =>
+        financeDb.backfillWalletOpeningBalances(ctx.user!.id, input.projectId)
       ),
     inventoryList: protectedWithPermission("accounting", "read")
       .input(z.object({ projectId }))

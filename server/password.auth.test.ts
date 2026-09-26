@@ -19,37 +19,45 @@ const { financeDb } = vi.hoisted(() => {
   return {
     financeDb: {
       usersTable,
-      createPasswordUser: vi.fn(async (input: { name: string; email: string; passwordHash: string }) => {
-        const normalized = input.email.trim().toLowerCase();
-        if (usersTable.has(normalized)) {
-          throw new Error("এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে।");
+      createPasswordUser: vi.fn(
+        async (input: {
+          name: string;
+          email: string;
+          passwordHash: string;
+        }) => {
+          const normalized = input.email.trim().toLowerCase();
+          if (usersTable.has(normalized)) {
+            throw new Error("এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে।");
+          }
+          const user = {
+            id: usersTable.size + 1,
+            openId: `local:${normalized}`,
+            name: input.name,
+            email: normalized,
+            passwordHash: input.passwordHash,
+            role: "user" as const,
+            status: "pending" as const,
+            loginMethod: "password",
+          };
+          usersTable.set(normalized, user);
+          return user;
         }
-        const user = {
-          id: usersTable.size + 1,
-          openId: `local:${normalized}`,
-          name: input.name,
-          email: normalized,
-          passwordHash: input.passwordHash,
-          role: "user" as const,
-          status: "pending" as const,
-          loginMethod: "password",
-        };
-        usersTable.set(normalized, user);
-        return user;
-      }),
+      ),
       getUserByEmail: vi.fn(async (email: string) => {
         const normalized = email.trim().toLowerCase();
         return usersTable.get(normalized) || undefined;
       }),
-      updateUserStatus: vi.fn(async (userId: number, status: "pending" | "active" | "suspended") => {
-        for (const user of usersTable.values()) {
-          if (user.id === userId) {
-            user.status = status;
-            return user;
+      updateUserStatus: vi.fn(
+        async (userId: number, status: "pending" | "active" | "suspended") => {
+          for (const user of usersTable.values()) {
+            if (user.id === userId) {
+              user.status = status;
+              return user;
+            }
           }
+          return undefined;
         }
-        return undefined;
-      }),
+      ),
       upsertUser: vi.fn(async () => {}),
       listUsersForAdmin: vi.fn(async () => Array.from(usersTable.values())),
     },
@@ -193,7 +201,10 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     const caller = appRouter.createCaller(ctx);
 
     await expect(
-      caller.auth.login({ email: "ghost@example.com", password: "RandomP@ss123" })
+      caller.auth.login({
+        email: "ghost@example.com",
+        password: "RandomP@ss123",
+      })
     ).rejects.toThrow("ভুল ইমেইল অথবা পাসওয়ার্ড");
 
     expect(spy).toHaveBeenCalledTimes(1);
@@ -201,19 +212,16 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
   });
 
   it("runs the constant-time verification for an OAuth-only account without a password hash", async () => {
-    financeDb.usersTable.set(
-      "oauth@example.com",
-      {
-        id: 41,
-        openId: "google:usr_oauth",
-        name: "OAuth User",
-        email: "oauth@example.com",
-        passwordHash: null,
-        role: "user",
-        status: "active",
-        loginMethod: "google",
-      },
-    );
+    financeDb.usersTable.set("oauth@example.com", {
+      id: 41,
+      openId: "google:usr_oauth",
+      name: "OAuth User",
+      email: "oauth@example.com",
+      passwordHash: null,
+      role: "user",
+      status: "active",
+      loginMethod: "google",
+    });
 
     const spy = vi.mocked(verifyPasswordConstantTime);
     spy.mockClear();

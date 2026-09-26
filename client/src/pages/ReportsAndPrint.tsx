@@ -35,11 +35,19 @@ const endOfDay = (date: Date) => {
   return copy;
 };
 
-function resolveRange(preset: PresetValue, customFrom?: string, customTo?: string) {
+function resolveRange(
+  preset: PresetValue,
+  customFrom?: string,
+  customTo?: string
+) {
   if (preset === "all") return { from: undefined, to: undefined };
   if (preset === "custom") {
-    const from = customFrom?.trim() ? startOfDay(new Date(`${customFrom}T00:00:00`)) : undefined;
-    const to = customTo?.trim() ? endOfDay(new Date(`${customTo}T00:00:00`)) : undefined;
+    const from = customFrom?.trim()
+      ? startOfDay(new Date(`${customFrom}T00:00:00`))
+      : undefined;
+    const to = customTo?.trim()
+      ? endOfDay(new Date(`${customTo}T00:00:00`))
+      : undefined;
     return { from, to };
   }
   const now = new Date();
@@ -73,7 +81,8 @@ function resolveRange(preset: PresetValue, customFrom?: string, customTo?: strin
   return { from, to };
 }
 
-const dateTextBn = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("bn-BD");
+const dateTextBn = (value: string) =>
+  new Date(`${value}T00:00:00`).toLocaleDateString("bn-BD");
 
 export default function ReportsAndPrint() {
   const { isAuthenticated } = useAuth();
@@ -89,7 +98,9 @@ export default function ReportsAndPrint() {
   const [preset, setPreset] = useState<PresetValue>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"both" | "income" | "expense">("both");
+  const [typeFilter, setTypeFilter] = useState<"both" | "income" | "expense">(
+    "both"
+  );
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [accountId, setAccountId] = useState<number | null>(null);
   const [isPdfBusy, setIsPdfBusy] = useState(false);
@@ -116,12 +127,20 @@ export default function ReportsAndPrint() {
   }, [kind, typeFilter]);
 
   const statementData = trpc.finance.statementData.useQuery(
-    { projectId: effectiveProjectId ?? 0, type: effectiveType, categoryId: categoryId ?? undefined, accountId: accountId ?? undefined, from, to },
+    {
+      projectId: effectiveProjectId ?? 0,
+      type: effectiveType,
+      categoryId: categoryId ?? undefined,
+      accountId: accountId ?? undefined,
+      from,
+      to,
+    },
     { enabled: isAuthenticated && effectiveProjectId != null }
   );
 
   const periodLabel = useMemo(() => {
-    if (from && to) return `${from.toLocaleDateString("bn-BD")} → ${to.toLocaleDateString("bn-BD")}`;
+    if (from && to)
+      return `${from.toLocaleDateString("bn-BD")} → ${to.toLocaleDateString("bn-BD")}`;
     if (from) return `${from.toLocaleDateString("bn-BD")} থেকে`;
     if (to) return `আগে ${to.toLocaleDateString("bn-BD")}`;
     return "সব সময়কাল";
@@ -129,15 +148,21 @@ export default function ReportsAndPrint() {
 
   const filteredBy = useMemo(() => {
     const parts: string[] = [];
-    if (effectiveType) parts.push(effectiveType === "income" ? "শুধু আয়/আমানত" : "শুধু ব্যয়/খরচ");
-    const category = overview.data?.categories.find(item => item.id === categoryId);
+    if (effectiveType)
+      parts.push(
+        effectiveType === "income" ? "শুধু আয়/আমানত" : "শুধু ব্যয়/খরচ"
+      );
+    const category = overview.data?.categories.find(
+      item => item.id === categoryId
+    );
     if (category) parts.push(`ক্যাটাগরি: ${category.name}`);
     const account = overview.data?.accounts.find(item => item.id === accountId);
     if (account) parts.push(`অ্যাকাউন্ট: ${account.name}`);
     return parts.length ? parts.join(" · ") : undefined;
   }, [effectiveType, categoryId, accountId, overview.data]);
 
-  const kindLabel = STATEMENT_KINDS.find(item => item.value === kind)?.label ?? "";
+  const kindLabel =
+    STATEMENT_KINDS.find(item => item.value === kind)?.label ?? "";
   const statementTitle = useMemo(() => {
     if (kind === "daily") return "দৈনিক আয়-ব্যয় বিবরণী";
     if (kind === "range") return "তারিখ রেঞ্জ বিবরণী";
@@ -146,7 +171,13 @@ export default function ReportsAndPrint() {
     return kindLabel;
   }, [kind, kindLabel]);
 
-  const [firmDraft, setFirmDraft] = useState({ name: "", tagline: "", phone: "", email: "", address: "" });
+  const [firmDraft, setFirmDraft] = useState({
+    name: "",
+    tagline: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
   const firmSourceKey = firmProfile.data
     ? `${firmProfile.data.name}|${firmProfile.data.tagline}|${firmProfile.data.phone}|${firmProfile.data.email}|${firmProfile.data.address}`
     : "";
@@ -186,7 +217,10 @@ export default function ReportsAndPrint() {
   );
 
   const previewHtml = useMemo(
-    () => (statementData.data ? buildStatementHtml(statementData.data, reportOptions) : ""),
+    () =>
+      statementData.data
+        ? buildStatementHtml(statementData.data, reportOptions)
+        : "",
     [statementData.data, reportOptions]
   );
 
@@ -214,7 +248,9 @@ export default function ReportsAndPrint() {
       doc.save(`statement-${kind}-${slug}.pdf`);
       toast.success("PDF ডাউনলোড প্রস্তুত");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "PDF তৈরি ব্যর্থ হয়েছে");
+      toast.error(
+        error instanceof Error ? error.message : "PDF তৈরি ব্যর্থ হয়েছে"
+      );
     } finally {
       setIsPdfBusy(false);
     }
@@ -228,7 +264,8 @@ export default function ReportsAndPrint() {
             <p className="section-kicker">রিপোর্ট ও প্রিন্ট</p>
             <h1 className="section-title">প্রফেশনাল প্রিন্ট ও PDF সিস্টেম</h1>
             <p className="mt-1 text-sm text-[#5c7a6e]">
-              লেনদেন ভাউচার ও অ্যাকাউন্টিং বিবরণী — ব্রাউজার প্রিন্ট / PDF আউটপুটে।
+              লেনদেন ভাউচার ও অ্যাকাউন্টিং বিবরণী — ব্রাউজার প্রিন্ট / PDF
+              আউটপুটে।
             </p>
           </div>
         </div>
@@ -239,13 +276,17 @@ export default function ReportsAndPrint() {
               <h2 className="section-title">বিবরণী ও ফিল্টার</h2>
               <div className="mt-4 space-y-4">
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">প্রজেক্ট</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    প্রজেক্ট
+                  </span>
                   {projects.data?.length ? (
                     <select
                       className="finance-input mt-1 h-10 w-full rounded-xl"
                       value={effectiveProjectId ?? ""}
                       onChange={event => {
-                        const value = event.target.value ? Number(event.target.value) : null;
+                        const value = event.target.value
+                          ? Number(event.target.value)
+                          : null;
                         setProjectId(value);
                       }}
                     >
@@ -263,11 +304,15 @@ export default function ReportsAndPrint() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">বিবরণীর ধরন</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    বিবরণীর ধরন
+                  </span>
                   <select
                     className="finance-input mt-1 h-10 w-full rounded-xl"
                     value={kind}
-                    onChange={event => setKind(event.target.value as StatementKind)}
+                    onChange={event =>
+                      setKind(event.target.value as StatementKind)
+                    }
                   >
                     {STATEMENT_KINDS.map(option => (
                       <option key={option.value} value={option.value}>
@@ -278,11 +323,15 @@ export default function ReportsAndPrint() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">সময়কাল</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    সময়কাল
+                  </span>
                   <select
                     className="finance-input mt-1 h-10 w-full rounded-xl"
                     value={preset}
-                    onChange={event => setPreset(event.target.value as PresetValue)}
+                    onChange={event =>
+                      setPreset(event.target.value as PresetValue)
+                    }
                   >
                     {PRESETS.map(option => (
                       <option key={option.value} value={option.value}>
@@ -295,7 +344,9 @@ export default function ReportsAndPrint() {
                 {preset === "custom" && (
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block">
-                      <span className="text-xs font-semibold text-[#5c7a6e]">শুরু</span>
+                      <span className="text-xs font-semibold text-[#5c7a6e]">
+                        শুরু
+                      </span>
                       <Input
                         type="date"
                         className="mt-1 h-10 rounded-xl border-[#dce7e0]"
@@ -304,7 +355,9 @@ export default function ReportsAndPrint() {
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs font-semibold text-[#5c7a6e]">শেষ</span>
+                      <span className="text-xs font-semibold text-[#5c7a6e]">
+                        শেষ
+                      </span>
                       <Input
                         type="date"
                         className="mt-1 h-10 rounded-xl border-[#dce7e0]"
@@ -324,11 +377,15 @@ export default function ReportsAndPrint() {
 
                 {kind !== "income" && kind !== "expense" && (
                   <label className="block">
-                    <span className="text-xs font-semibold text-[#5c7a6e]">লেনদেনের ধরন</span>
+                    <span className="text-xs font-semibold text-[#5c7a6e]">
+                      লেনদেনের ধরন
+                    </span>
                     <select
                       className="finance-input mt-1 h-10 w-full rounded-xl"
                       value={typeFilter}
-                      onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}
+                      onChange={event =>
+                        setTypeFilter(event.target.value as typeof typeFilter)
+                      }
                     >
                       <option value="both">আয় ও ব্যয়</option>
                       <option value="income">শুধু আয়/আমানত</option>
@@ -338,30 +395,39 @@ export default function ReportsAndPrint() {
                 )}
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ক্যাটাগরি / খাত</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ক্যাটাগরি / খাত
+                  </span>
                   <select
                     className="finance-input mt-1 h-10 w-full rounded-xl"
                     value={categoryId ?? ""}
                     onChange={event =>
-                      setCategoryId(event.target.value ? Number(event.target.value) : null)
+                      setCategoryId(
+                        event.target.value ? Number(event.target.value) : null
+                      )
                     }
                   >
                     <option value="">সব খাত</option>
                     {(overview.data?.categories ?? []).map(category => (
                       <option key={category.id} value={category.id}>
-                        {category.name} ({category.type === "income" ? "আয়" : "ব্যয়"})
+                        {category.name} (
+                        {category.type === "income" ? "আয়" : "ব্যয়"})
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">অ্যাকাউন্ট</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    অ্যাকাউন্ট
+                  </span>
                   <select
                     className="finance-input mt-1 h-10 w-full rounded-xl"
                     value={accountId ?? ""}
                     onChange={event =>
-                      setAccountId(event.target.value ? Number(event.target.value) : null)
+                      setAccountId(
+                        event.target.value ? Number(event.target.value) : null
+                      )
                     }
                   >
                     <option value="">সব অ্যাকাউন্ট</option>
@@ -376,13 +442,20 @@ export default function ReportsAndPrint() {
                 <div className="rounded-xl bg-[#eef5f0] p-3 text-xs text-[#33584a]">
                   <p className="font-semibold">{statementTitle}</p>
                   <p className="mt-1 text-[#5c7a6e]">সময়কাল: {periodLabel}</p>
-                  {filteredBy && <p className="text-[#5c7a6e]">ফিল্টার: {filteredBy}</p>}
-                  {statementData.isFetching && <p className="mt-1">লোড হচ্ছে...</p>}
+                  {filteredBy && (
+                    <p className="text-[#5c7a6e]">ফিল্টার: {filteredBy}</p>
+                  )}
+                  {statementData.isFetching && (
+                    <p className="mt-1">লোড হচ্ছে...</p>
+                  )}
                   {statementData.data && (
                     <p>
                       {statementData.data.totals.count}টি লেনদেন · আয়{" "}
-                      {statementData.data.totals.income.toLocaleString("bn-BD")} · ব্যয়{" "}
-                      {statementData.data.totals.expense.toLocaleString("bn-BD")}
+                      {statementData.data.totals.income.toLocaleString("bn-BD")}{" "}
+                      · ব্যয়{" "}
+                      {statementData.data.totals.expense.toLocaleString(
+                        "bn-BD"
+                      )}
                     </p>
                   )}
                 </div>
@@ -396,49 +469,78 @@ export default function ReportsAndPrint() {
               </p>
               <div className="mt-4 space-y-3">
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ফার্মের নাম</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ফার্মের নাম
+                  </span>
                   <Input
                     className="mt-1 h-10 rounded-xl border-[#dce7e0]"
                     value={firmDraft.name}
-                    onChange={event => setFirmDraft({ ...firmDraft, name: event.target.value })}
+                    onChange={event =>
+                      setFirmDraft({ ...firmDraft, name: event.target.value })
+                    }
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ট্যাগলাইন</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ট্যাগলাইন
+                  </span>
                   <Input
                     className="mt-1 h-10 rounded-xl border-[#dce7e0]"
                     value={firmDraft.tagline}
-                    onChange={event => setFirmDraft({ ...firmDraft, tagline: event.target.value })}
+                    onChange={event =>
+                      setFirmDraft({
+                        ...firmDraft,
+                        tagline: event.target.value,
+                      })
+                    }
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ফোন</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ফোন
+                  </span>
                   <Input
                     className="mt-1 h-10 rounded-xl border-[#dce7e0]"
                     value={firmDraft.phone}
-                    onChange={event => setFirmDraft({ ...firmDraft, phone: event.target.value })}
+                    onChange={event =>
+                      setFirmDraft({ ...firmDraft, phone: event.target.value })
+                    }
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ইমেইল</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ইমেইল
+                  </span>
                   <Input
                     className="mt-1 h-10 rounded-xl border-[#dce7e0]"
                     value={firmDraft.email}
-                    onChange={event => setFirmDraft({ ...firmDraft, email: event.target.value })}
+                    onChange={event =>
+                      setFirmDraft({ ...firmDraft, email: event.target.value })
+                    }
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">ঠিকানা</span>
+                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                    ঠিকানা
+                  </span>
                   <Input
                     className="mt-1 h-10 rounded-xl border-[#dce7e0]"
                     value={firmDraft.address}
-                    onChange={event => setFirmDraft({ ...firmDraft, address: event.target.value })}
+                    onChange={event =>
+                      setFirmDraft({
+                        ...firmDraft,
+                        address: event.target.value,
+                      })
+                    }
                   />
                 </label>
                 <Button
                   onClick={() =>
                     effectiveProjectId &&
-                    saveFirm.mutate({ projectId: effectiveProjectId, ...firmDraft })
+                    saveFirm.mutate({
+                      projectId: effectiveProjectId,
+                      ...firmDraft,
+                    })
                   }
                   disabled={!effectiveProjectId || saveFirm.isPending}
                   className="h-10 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
@@ -456,10 +558,17 @@ export default function ReportsAndPrint() {
                 <div>
                   <p className="section-kicker">প্রিভিউ</p>
                   <h2 className="section-title">
-                    {kind === "daily" ? "দৈনিক আয় এবং ব্যয় বিবরণী" : statementTitle}
+                    {kind === "daily"
+                      ? "দৈনিক আয় এবং ব্যয় বিবরণী"
+                      : statementTitle}
                   </h2>
                 </div>
-                <Button onClick={handlePrint} disabled={!previewHtml} variant="outline" className="h-10 rounded-xl border-[#dce7e0] text-[#173f36]">
+                <Button
+                  onClick={handlePrint}
+                  disabled={!previewHtml}
+                  variant="outline"
+                  className="h-10 rounded-xl border-[#dce7e0] text-[#173f36]"
+                >
                   <Printer className="mr-1.5 h-4 w-4" />
                   প্রিন্ট উইন্ডো
                 </Button>

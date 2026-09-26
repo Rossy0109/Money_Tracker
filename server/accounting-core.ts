@@ -14,7 +14,7 @@
  *   - Every voucher: sum(debits) === sum(credits)  (checked at insert time)
  */
 
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, inArray, lte, sql } from "drizzle-orm";
 import { assertOwnedProject, databaseRequired, getDb } from "./db";
 import {
   financeChartOfAccounts,
@@ -45,10 +45,10 @@ export interface TrialBalanceLine {
   accountCode: string;
   accountName: string;
   accountNameBn: string | null;
-  accountType: string;          // ASSET, LIABILITY, …
+  accountType: string; // ASSET, LIABILITY, …
   normalBalance: "debit" | "credit";
-  debit: number;                // always ≥ 0
-  credit: number;               // always ≥ 0
+  debit: number; // always ≥ 0
+  credit: number; // always ≥ 0
 }
 
 export interface TrialBalanceReport {
@@ -71,11 +71,12 @@ export interface IncomeStatementReport {
   totalRevenue: number;
   expenses: IncomeStatementLine[];
   totalExpenses: number;
-  netIncome: number;            // revenue − expenses
+  netIncome: number; // revenue − expenses
 }
 
 export interface BalanceSheetLine {
-  accountId: number;
+  /** `null` for the derived retained-earnings line when the chart has no 3200. */
+  accountId: number | null;
   accountCode: string;
   accountName: string;
   accountNameBn: string | null;
@@ -109,18 +110,18 @@ async function accountBalances(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<Map<number, { debitCents: number; creditCents: number }>> {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const conditions = [
-    eq(financeLedgerEntries.accountId, financeChartOfAccounts.id),
+    eq(financeLedgerEntries.chartOfAccountId, financeChartOfAccounts.id),
     eq(financeChartOfAccounts.projectId, projectId),
     eq(financeVouchers.id, financeLedgerEntries.voucherId),
     eq(financeVouchers.projectId, projectId),
     eq(financeVouchers.userId, userId),
-    eq(financeVouchers.status, "posted"),
+    inArray(financeVouchers.status, ["posted", "reversed"]),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
   if (to) conditions.push(lte(financeVouchers.date, to));
@@ -132,13 +133,22 @@ async function accountBalances(
       amount: financeLedgerEntries.amount,
     })
     .from(financeLedgerEntries)
-    .innerJoin(financeVouchers, eq(financeLedgerEntries.voucherId, financeVouchers.id))
-    .innerJoin(financeChartOfAccounts, eq(financeLedgerEntries.accountId, financeChartOfAccounts.id))
+    .innerJoin(
+      financeVouchers,
+      eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
+    .innerJoin(
+      financeChartOfAccounts,
+      eq(financeLedgerEntries.chartOfAccountId, financeChartOfAccounts.id)
+    )
     .where(and(...conditions));
 
   const map = new Map<number, { debitCents: number; creditCents: number }>();
   for (const row of rows) {
-    const existing = map.get(row.accountId) ?? { debitCents: 0, creditCents: 0 };
+    const existing = map.get(row.accountId) ?? {
+      debitCents: 0,
+      creditCents: 0,
+    };
     const amt = toCents(row.amount);
     if (row.entryType === "debit") {
       existing.debitCents += amt;
@@ -152,6 +162,11 @@ async function accountBalances(
 
 /**
  * Fetch all detail (leaf) accounts for a project with their account type info.
+ *
+ * Only `isDetail` accounts can receive voucher entries (see
+ * `assertCanonicalAccountTx` in db.ts), so header/group accounts would only ever
+ * carry a zero balance and are excluded to keep the statements readable and free
+ * of double-counted subtotals.
  */
 async function detailAccounts(userId: number, projectId: number) {
   await assertOwnedProject(userId, projectId);
@@ -165,14 +180,19 @@ async function detailAccounts(userId: number, projectId: number) {
       accountTypeCode: financeAccountTypes.code,
       normalBalance: financeAccountTypes.normalBalance,
       isDetail: financeChartOfAccounts.isDetail,
+      openingBalance: financeChartOfAccounts.openingBalance,
     })
     .from(financeChartOfAccounts)
-    .innerJoin(financeAccountTypes, eq(financeChartOfAccounts.accountTypeId, financeAccountTypes.id))
+    .innerJoin(
+      financeAccountTypes,
+      eq(financeChartOfAccounts.accountTypeId, financeAccountTypes.id)
+    )
     .where(
       and(
         eq(financeChartOfAccounts.userId, userId),
         eq(financeChartOfAccounts.projectId, projectId),
         eq(financeChartOfAccounts.isActive, true),
+        eq(financeChartOfAccounts.isDetail, true)
       )
     )
     .orderBy(financeChartOfAccounts.code);
@@ -194,7 +214,7 @@ export async function generateTrialBalance(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<TrialBalanceReport> {
   await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
@@ -208,18 +228,26 @@ export async function generateTrialBalance(
 
   for (const acc of accounts) {
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
-    // Net balance in normal direction
+    const openingCents = from ? 0 : toCents(acc.openingBalance ?? 0);
     const netNormal =
       acc.normalBalance === "debit"
-        ? bal.debitCents - bal.creditCents
-        : bal.creditCents - bal.debitCents;
+        ? openingCents + bal.debitCents - bal.creditCents
+        : openingCents + bal.creditCents - bal.debitCents;
 
     let debit = 0;
     let credit = 0;
     if (acc.normalBalance === "debit") {
-      if (netNormal >= 0) { debit = netNormal; } else { credit = -netNormal; }
+      if (netNormal >= 0) {
+        debit = netNormal;
+      } else {
+        credit = -netNormal;
+      }
     } else {
-      if (netNormal >= 0) { credit = netNormal; } else { debit = -netNormal; }
+      if (netNormal >= 0) {
+        credit = netNormal;
+      } else {
+        debit = -netNormal;
+      }
     }
 
     totalDebitCents += debit;
@@ -260,7 +288,7 @@ export async function generateIncomeStatement(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<IncomeStatementReport> {
   await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
@@ -275,10 +303,11 @@ export async function generateIncomeStatement(
 
   for (const acc of accounts) {
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
+    const openingCents = from ? 0 : toCents(acc.openingBalance ?? 0);
 
     if (acc.accountTypeCode === "REVENUE") {
       // Revenue: credit − debit = positive means earned
-      const net = bal.creditCents - bal.debitCents;
+      const net = openingCents + bal.creditCents - bal.debitCents;
       if (net > 0) {
         totalRevenueCents += net;
         revenueLines.push({
@@ -291,7 +320,7 @@ export async function generateIncomeStatement(
       }
     } else if (acc.accountTypeCode === "EXPENSE") {
       // Expense: debit − credit = positive means spent
-      const net = bal.debitCents - bal.creditCents;
+      const net = openingCents + bal.debitCents - bal.creditCents;
       if (net > 0) {
         totalExpenseCents += net;
         expenseLines.push({
@@ -316,17 +345,25 @@ export async function generateIncomeStatement(
 
 // ─── Balance Sheet ──────────────────────────────────────────────────────────
 
+/** Chart code the cumulative profit/loss is reported under in equity. */
+const RETAINED_EARNINGS_CODE = "3200";
+
 /**
  * Generate a Balance Sheet from ledger entries.
  *
  * Asset accounts     → debit balance
  * Liability accounts → credit balance
  * Equity accounts    → credit balance (capital, retained earnings)
+ *
+ * Equity also carries *retained earnings*: the cumulative profit or loss since
+ * inception (`to` as-of), because revenue and expense accounts are closed into
+ * equity rather than left to sit on the balance sheet. Without it a book that
+ * has earned or spent anything reports assets ≠ liabilities + equity.
  */
 export async function generateBalanceSheet(
   userId: number,
   projectId: number,
-  asOf?: Date,
+  asOf?: Date
 ): Promise<BalanceSheetReport> {
   await assertOwnedProject(userId, projectId);
   const [accounts, balances] = await Promise.all([
@@ -340,12 +377,18 @@ export async function generateBalanceSheet(
   let totalAssetsCents = 0;
   let totalLiabilitiesCents = 0;
   let totalEquityCents = 0;
+  let revenueCents = 0;
+  let expenseCents = 0;
+  // Retained earnings ride on the real 3200 account when the chart has one, so
+  // the balance sheet shows a single Retained Earnings row.
+  let retainedEarningsLine: BalanceSheetLine | null = null;
 
   for (const acc of accounts) {
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
 
+    const openingCents = toCents(acc.openingBalance ?? 0);
     if (acc.accountTypeCode === "ASSET") {
-      const net = bal.debitCents - bal.creditCents;
+      const net = openingCents + bal.debitCents - bal.creditCents;
       if (net !== 0) {
         totalAssetsCents += net;
         assetLines.push({
@@ -357,7 +400,7 @@ export async function generateBalanceSheet(
         });
       }
     } else if (acc.accountTypeCode === "LIABILITY") {
-      const net = bal.creditCents - bal.debitCents;
+      const net = openingCents + bal.creditCents - bal.debitCents;
       if (net !== 0) {
         totalLiabilitiesCents += net;
         liabilityLines.push({
@@ -369,18 +412,47 @@ export async function generateBalanceSheet(
         });
       }
     } else if (acc.accountTypeCode === "EQUITY") {
-      const net = bal.creditCents - bal.debitCents;
+      const net = openingCents + bal.creditCents - bal.debitCents;
       if (net !== 0) {
         totalEquityCents += net;
-        equityLines.push({
+        const line: BalanceSheetLine = {
           accountId: acc.id,
           accountCode: acc.code,
           accountName: acc.name,
           accountNameBn: acc.nameBn,
           amount: fromCents(net),
-        });
+        };
+        equityLines.push(line);
+        if (acc.code === RETAINED_EARNINGS_CODE) retainedEarningsLine = line;
       }
+    } else if (acc.accountTypeCode === "REVENUE") {
+      revenueCents += openingCents + bal.creditCents - bal.debitCents;
+    } else if (acc.accountTypeCode === "EXPENSE") {
+      expenseCents += openingCents + bal.debitCents - bal.creditCents;
     }
+  }
+
+  // Close the profit/loss accounts into equity so the statement ties.
+  const retainedCents = revenueCents - expenseCents;
+  if (retainedCents !== 0) {
+    if (retainedEarningsLine) {
+      retainedEarningsLine.amount = fromCents(
+        toCents(retainedEarningsLine.amount) + retainedCents
+      );
+    } else {
+      equityLines.push({
+        accountId: null,
+        accountCode: RETAINED_EARNINGS_CODE,
+        accountName: "Retained Earnings",
+        accountNameBn: "সঞ্চিত মুনাফা",
+        amount: fromCents(retainedCents),
+      });
+    }
+    totalEquityCents += retainedCents;
+  }
+  // A retained-earnings line that nets to zero is noise.
+  for (let index = equityLines.length - 1; index >= 0; index -= 1) {
+    if (toCents(equityLines[index].amount) === 0) equityLines.splice(index, 1);
   }
 
   const totalAssets = fromCents(totalAssetsCents);
@@ -394,7 +466,9 @@ export async function generateBalanceSheet(
     totalLiabilities,
     equity: equityLines,
     totalEquity,
-    isBalanced: Math.abs(totalAssetsCents - (totalLiabilitiesCents + totalEquityCents)) < 1,
+    isBalanced:
+      Math.abs(totalAssetsCents - (totalLiabilitiesCents + totalEquityCents)) <
+      1,
   };
 }
 
@@ -406,10 +480,13 @@ export async function generateBalanceSheet(
 export async function generateAccountingReport(
   userId: number,
   projectId: number,
-  period?: { from?: Date; to?: Date },
+  period?: { from?: Date; to?: Date }
 ): Promise<AccountingReport> {
   const [trialBalance, incomeStatement, balanceSheet] = await Promise.all([
-    generateTrialBalance(userId, projectId, period?.from, period?.to),
+    // Cumulative as-of `to`, never period-scoped: a trial balance that starts at
+    // `from` is a subtotal, it drops the opening balances that the balance sheet
+    // still carries, and the two statements then disagree for the same inputs.
+    generateTrialBalance(userId, projectId, undefined, period?.to),
     generateIncomeStatement(userId, projectId, period?.from, period?.to),
     generateBalanceSheet(userId, projectId, period?.to),
   ]);
@@ -427,7 +504,7 @@ export async function generateAccountingReport(
 export async function createFiscalPeriod(
   userId: number,
   projectId: number,
-  input: { name: string; startDate: Date; endDate: Date },
+  input: { name: string; startDate: Date; endDate: Date }
 ) {
   if (input.startDate >= input.endDate) {
     throw new Error("শুরুর তারিখ শেষের তারিখের আগে হতে হবে");
@@ -452,7 +529,7 @@ export async function listFiscalPeriods(userId: number, projectId: number) {
     .where(
       and(
         eq(financeFiscalPeriods.userId, userId),
-        eq(financeFiscalPeriods.projectId, projectId),
+        eq(financeFiscalPeriods.projectId, projectId)
       )
     )
     .orderBy(financeFiscalPeriods.startDate);
@@ -461,7 +538,7 @@ export async function listFiscalPeriods(userId: number, projectId: number) {
 export async function closeFiscalPeriod(
   userId: number,
   projectId: number,
-  periodId: number,
+  periodId: number
 ) {
   const db = databaseRequired(await getDb());
   const [period] = await db
@@ -471,7 +548,7 @@ export async function closeFiscalPeriod(
       and(
         eq(financeFiscalPeriods.id, periodId),
         eq(financeFiscalPeriods.userId, userId),
-        eq(financeFiscalPeriods.projectId, projectId),
+        eq(financeFiscalPeriods.projectId, projectId)
       )
     )
     .limit(1);
@@ -487,7 +564,7 @@ export async function closeFiscalPeriod(
       and(
         eq(financePeriodLocks.projectId, projectId),
         gte(financePeriodLocks.lockedAt, period.startDate),
-        lte(financePeriodLocks.lockedAt, period.endDate),
+        lte(financePeriodLocks.lockedAt, period.endDate)
       )
     );
 
@@ -511,7 +588,7 @@ export async function closeFiscalPeriod(
  */
 export async function assertPeriodNotLocked(
   projectId: number,
-  date: Date,
+  date: Date
 ): Promise<void> {
   const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
   const db = databaseRequired(await getDb());
@@ -521,7 +598,7 @@ export async function assertPeriodNotLocked(
     .where(
       and(
         eq(financePeriodLocks.projectId, projectId),
-        eq(financePeriodLocks.monthKey, monthKey),
+        eq(financePeriodLocks.monthKey, monthKey)
       )
     )
     .limit(1);
@@ -567,7 +644,7 @@ export async function generateAccountLedger(
   projectId: number,
   accountId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<AccountLedgerReport> {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -580,14 +657,18 @@ export async function generateAccountLedger(
       nameBn: financeChartOfAccounts.nameBn,
       accountTypeCode: financeAccountTypes.code,
       normalBalance: financeAccountTypes.normalBalance,
+      openingBalance: financeChartOfAccounts.openingBalance,
     })
     .from(financeChartOfAccounts)
-    .innerJoin(financeAccountTypes, eq(financeChartOfAccounts.accountTypeId, financeAccountTypes.id))
+    .innerJoin(
+      financeAccountTypes,
+      eq(financeChartOfAccounts.accountTypeId, financeAccountTypes.id)
+    )
     .where(
       and(
         eq(financeChartOfAccounts.id, accountId),
         eq(financeChartOfAccounts.projectId, projectId),
-        eq(financeChartOfAccounts.userId, userId),
+        eq(financeChartOfAccounts.userId, userId)
       )
     )
     .limit(1);
@@ -595,11 +676,11 @@ export async function generateAccountLedger(
   if (!account) throw new Error("অ্যাকাউন্ট পাওয়া যায়নি");
 
   const conditions = [
-    eq(financeLedgerEntries.accountId, accountId),
+    eq(financeLedgerEntries.chartOfAccountId, accountId),
     eq(financeVouchers.id, financeLedgerEntries.voucherId),
     eq(financeVouchers.projectId, projectId),
     eq(financeVouchers.userId, userId),
-    eq(financeVouchers.status, "posted"),
+    inArray(financeVouchers.status, ["posted", "reversed"]),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
   if (to) conditions.push(lte(financeVouchers.date, to));
@@ -615,7 +696,10 @@ export async function generateAccountLedger(
       voucherNarration: financeVouchers.narration,
     })
     .from(financeLedgerEntries)
-    .innerJoin(financeVouchers, eq(financeLedgerEntries.voucherId, financeVouchers.id))
+    .innerJoin(
+      financeVouchers,
+      eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
     .where(and(...conditions))
     .orderBy(financeVouchers.date, financeLedgerEntries.id);
 
@@ -640,9 +724,11 @@ export async function generateAccountLedger(
     });
   }
 
-  const netNormal = account.normalBalance === "debit"
-    ? totalDebitCents - totalCreditCents
-    : totalCreditCents - totalDebitCents;
+  const openingCents = toCents(account.openingBalance ?? 0);
+  const netNormal =
+    account.normalBalance === "debit"
+      ? openingCents + totalDebitCents - totalCreditCents
+      : openingCents + totalCreditCents - totalDebitCents;
 
   return {
     accountId: account.id,
@@ -662,7 +748,12 @@ export async function generateAccountLedger(
 
 export interface CashFlowSection {
   label: string;
-  items: Array<{ accountId: number; accountCode: string; accountName: string; amount: number }>;
+  items: Array<{
+    accountId: number;
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
   total: number;
 }
 
@@ -692,7 +783,7 @@ export async function generateCashFlowStatement(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<CashFlowReport> {
   const [accounts, balances] = await Promise.all([
     detailAccounts(userId, projectId),
@@ -708,8 +799,10 @@ export async function generateCashFlowStatement(
   let totalExpenseCents = 0;
   for (const acc of accounts) {
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
-    if (acc.accountTypeCode === "REVENUE") totalRevenueCents += bal.creditCents - bal.debitCents;
-    else if (acc.accountTypeCode === "EXPENSE") totalExpenseCents += bal.debitCents - bal.creditCents;
+    if (acc.accountTypeCode === "REVENUE")
+      totalRevenueCents += bal.creditCents - bal.debitCents;
+    else if (acc.accountTypeCode === "EXPENSE")
+      totalExpenseCents += bal.debitCents - bal.creditCents;
   }
   const netIncomeCents = totalRevenueCents - totalExpenseCents;
 
@@ -721,20 +814,35 @@ export async function generateCashFlowStatement(
     if (cashAccountIds.has(acc.id)) continue; // Skip cash accounts
     if (!acc.isDetail) continue;
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
-    const net = acc.normalBalance === "debit"
-      ? bal.debitCents - bal.creditCents
-      : bal.creditCents - bal.debitCents;
+    const net =
+      acc.normalBalance === "debit"
+        ? bal.debitCents - bal.creditCents
+        : bal.creditCents - bal.debitCents;
 
-    if (acc.accountTypeCode === "ASSET" && acc.code.startsWith("1") && !acc.code.startsWith("11")) {
+    if (
+      acc.accountTypeCode === "ASSET" &&
+      acc.code.startsWith("1") &&
+      !acc.code.startsWith("11")
+    ) {
       // Non-cash asset increase = cash outflow (negative)
       if (net !== 0) {
-        operatingItems.push({ accountId: acc.id, accountCode: acc.code, accountName: acc.name, amount: fromCents(-net) });
+        operatingItems.push({
+          accountId: acc.id,
+          accountCode: acc.code,
+          accountName: acc.name,
+          amount: fromCents(-net),
+        });
         operatingTotalCents -= net;
       }
     } else if (acc.accountTypeCode === "LIABILITY") {
       // Liability increase = cash inflow (positive)
       if (net !== 0) {
-        operatingItems.push({ accountId: acc.id, accountCode: acc.code, accountName: acc.name, amount: fromCents(net) });
+        operatingItems.push({
+          accountId: acc.id,
+          accountCode: acc.code,
+          accountName: acc.name,
+          amount: fromCents(net),
+        });
         operatingTotalCents += net;
       }
     }
@@ -745,13 +853,31 @@ export async function generateCashFlowStatement(
   let investingTotalCents = 0;
 
   for (const acc of accounts) {
-    if (!acc.isDetail || !acc.accountTypeCode || acc.accountTypeCode !== "ASSET") continue;
-    if (!acc.code.startsWith("13") && !acc.code.startsWith("14") && !acc.code.startsWith("15") &&
-        !acc.code.startsWith("16") && !acc.code.startsWith("17") && !acc.code.startsWith("18") && !acc.code.startsWith("19")) continue;
+    if (
+      !acc.isDetail ||
+      !acc.accountTypeCode ||
+      acc.accountTypeCode !== "ASSET"
+    )
+      continue;
+    if (
+      !acc.code.startsWith("13") &&
+      !acc.code.startsWith("14") &&
+      !acc.code.startsWith("15") &&
+      !acc.code.startsWith("16") &&
+      !acc.code.startsWith("17") &&
+      !acc.code.startsWith("18") &&
+      !acc.code.startsWith("19")
+    )
+      continue;
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
     const net = bal.debitCents - bal.creditCents;
     if (net !== 0) {
-      investingItems.push({ accountId: acc.id, accountCode: acc.code, accountName: acc.name, amount: fromCents(-net) });
+      investingItems.push({
+        accountId: acc.id,
+        accountCode: acc.code,
+        accountName: acc.name,
+        amount: fromCents(-net),
+      });
       investingTotalCents -= net;
     }
   }
@@ -766,27 +892,66 @@ export async function generateCashFlowStatement(
     if (acc.accountTypeCode === "EQUITY") {
       const net = bal.creditCents - bal.debitCents;
       if (net !== 0) {
-        financingItems.push({ accountId: acc.id, accountCode: acc.code, accountName: acc.name, amount: fromCents(net) });
+        financingItems.push({
+          accountId: acc.id,
+          accountCode: acc.code,
+          accountName: acc.name,
+          amount: fromCents(net),
+        });
         financingTotalCents += net;
       }
     }
   }
 
-  // Cash balances
+  // Cash balances.
+  //
+  // Opening cash = cash-account balances immediately before the period start
+  // (`from`), i.e. all posted ledger entries on or before the instant just
+  // before `from`. For a full-history report (`from` unset) the opening
+  // position is zero by definition.
+  const openingBalances = from
+    ? await accountBalances(
+        userId,
+        projectId,
+        undefined,
+        new Date(from.getTime() - 1)
+      )
+    : null;
+
   let openingCashCents = 0;
-  let closingCashCents = 0;
-  for (const acc of cashAccounts) {
-    const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
-    openingCashCents += 0; // Opening would need a separate query; approximate as 0 for now
-    closingCashCents += bal.debitCents - bal.creditCents;
+  if (openingBalances) {
+    for (const acc of cashAccounts) {
+      const bal = openingBalances.get(acc.id) ?? {
+        debitCents: 0,
+        creditCents: 0,
+      };
+      openingCashCents +=
+        toCents(acc.openingBalance ?? 0) + bal.debitCents - bal.creditCents;
+    }
   }
 
-  const netChangeCents = operatingTotalCents + investingTotalCents + financingTotalCents;
+  // Closing cash is derived from the same chain as the statement aggregates:
+  // opening + net change, so opening/closing/netChange are always consistent.
+  const netChangeCents =
+    operatingTotalCents + investingTotalCents + financingTotalCents;
+  const closingCashCents = openingCashCents + netChangeCents;
 
   return {
-    operatingActivities: { label: "Operating Activities", items: operatingItems, total: fromCents(operatingTotalCents) },
-    investingActivities: { label: "Investing Activities", items: investingItems, total: fromCents(investingTotalCents) },
-    financingActivities: { label: "Financing Activities", items: financingItems, total: fromCents(financingTotalCents) },
+    operatingActivities: {
+      label: "Operating Activities",
+      items: operatingItems,
+      total: fromCents(operatingTotalCents),
+    },
+    investingActivities: {
+      label: "Investing Activities",
+      items: investingItems,
+      total: fromCents(investingTotalCents),
+    },
+    financingActivities: {
+      label: "Financing Activities",
+      items: financingItems,
+      total: fromCents(financingTotalCents),
+    },
     netChangeInCash: fromCents(netChangeCents),
     openingCash: fromCents(openingCashCents),
     closingCash: fromCents(closingCashCents),
@@ -819,7 +984,7 @@ export async function generateDailyTransactions(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<DailyTransactionReport> {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -827,7 +992,7 @@ export async function generateDailyTransactions(
   const conditions = [
     eq(financeVouchers.projectId, projectId),
     eq(financeVouchers.userId, userId),
-    eq(financeVouchers.status, "posted"),
+    inArray(financeVouchers.status, ["posted", "reversed"]),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
   if (to) conditions.push(lte(financeVouchers.date, to));
@@ -896,7 +1061,7 @@ export async function generateMonthlyTransactions(
   userId: number,
   projectId: number,
   from?: Date,
-  to?: Date,
+  to?: Date
 ): Promise<MonthlyTransactionReport> {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -904,7 +1069,7 @@ export async function generateMonthlyTransactions(
   const conditions = [
     eq(financeVouchers.projectId, projectId),
     eq(financeVouchers.userId, userId),
-    eq(financeVouchers.status, "posted"),
+    inArray(financeVouchers.status, ["posted", "reversed"]),
   ];
   if (from) conditions.push(gte(financeVouchers.date, from));
   if (to) conditions.push(lte(financeVouchers.date, to));

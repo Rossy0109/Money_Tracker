@@ -85,23 +85,27 @@ describe("Express /api/auth/login timing-safe credential validation", () => {
     db.users.clear();
   });
 
-  it("rejects an unknown email but still runs the constant-time verification against a dummy hash", { timeout: 15000 }, async () => {
-    const baseUrl = await startServer();
-    const spy = vi.mocked(verifyPasswordConstantTime);
+  it(
+    "rejects an unknown email but still runs the constant-time verification against a dummy hash",
+    { timeout: 15000 },
+    async () => {
+      const baseUrl = await startServer();
+      const spy = vi.mocked(verifyPasswordConstantTime);
 
-    const response = await fetch(`${baseUrl}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: "ghost@example.com",
-        password: "randomPassword123",
-      }),
-    });
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "ghost@example.com",
+          password: "randomPassword123",
+        }),
+      });
 
-    expect(response.status).toBe(401);
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith("randomPassword123", undefined);
-  });
+      expect(response.status).toBe(401);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith("randomPassword123", undefined);
+    }
+  );
 
   it("rejects an OAuth-only account without a password hash after running verification", async () => {
     db.users.set("oauth@example.com", {
