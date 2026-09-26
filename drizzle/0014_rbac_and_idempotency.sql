@@ -76,4 +76,3 @@ CREATE TABLE IF NOT EXISTS `idempotency_keys` (
 	INDEX `idempotency_keys_expires_idx` (`expiresAt`),
 	INDEX `idempotency_keys_user_route_idx` (`userId`,`route`)
 );
---> statement-breakpoint

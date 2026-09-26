@@ -6,8 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
@@ -24,7 +35,11 @@ import {
 } from "lucide-react";
 
 const formatBdt = (val: number | string | null | undefined) =>
-  "৳ " + Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  "৳ " +
+  Number(val || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export default function Payroll() {
   const { activeProjectId } = useActiveProject();
@@ -33,7 +48,9 @@ export default function Payroll() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
-  const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(
+    null
+  );
   const [isDisburseModalOpen, setIsDisburseModalOpen] = useState(false);
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
 
@@ -43,8 +60,12 @@ export default function Payroll() {
   const [empDesignation, setEmpDesignation] = useState("");
   const [empDepartment, setEmpDepartment] = useState("");
   const [empBaseSalary, setEmpBaseSalary] = useState("");
-  const [empPaymentMethod, setEmpPaymentMethod] = useState<"cash" | "bank" | "mobile">("cash");
-  const [empStatus, setEmpStatus] = useState<"active" | "inactive" | "terminated">("active");
+  const [empPaymentMethod, setEmpPaymentMethod] = useState<
+    "cash" | "bank" | "mobile"
+  >("cash");
+  const [empStatus, setEmpStatus] = useState<
+    "active" | "inactive" | "terminated"
+  >("active");
   const [empNotes, setEmpNotes] = useState("");
 
   const [disburseEmpId, setDisburseEmpId] = useState<string>("");
@@ -94,7 +115,7 @@ export default function Payroll() {
       resetEmployeeForm();
       utils.finance.employeesList.invalidate();
     },
-    onError: (err) => toast.error(err.message || "কর্মচারী যোগ করা যায়নি"),
+    onError: err => toast.error(err.message || "কর্মচারী যোগ করা যায়নি"),
   });
 
   const updateEmployeeMutation = trpc.finance.updateEmployee.useMutation({
@@ -104,7 +125,7 @@ export default function Payroll() {
       resetEmployeeForm();
       utils.finance.employeesList.invalidate();
     },
-    onError: (err) => toast.error(err.message || "আপডেট করা যায়নি"),
+    onError: err => toast.error(err.message || "আপডেট করা যায়নি"),
   });
 
   const deleteEmployeeMutation = trpc.finance.deleteEmployee.useMutation({
@@ -112,7 +133,7 @@ export default function Payroll() {
       toast.success("কর্মচারী মুছে ফেলা হয়েছে");
       utils.finance.employeesList.invalidate();
     },
-    onError: (err) => toast.error(err.message || "মুছে ফেলা যায়নি"),
+    onError: err => toast.error(err.message || "মুছে ফেলা যায়নি"),
   });
 
   const disburseSalaryMutation = trpc.finance.disburseSalary.useMutation({
@@ -124,7 +145,7 @@ export default function Payroll() {
       utils.finance.employeeAdvancesList.invalidate();
       utils.finance.overview.invalidate();
     },
-    onError: (err) => toast.error(err.message || "বেতন প্রদান সম্পন্ন করা যায়নি"),
+    onError: err => toast.error(err.message || "বেতন প্রদান সম্পন্ন করা যায়নি"),
   });
 
   const createAdvanceMutation = trpc.finance.createEmployeeAdvance.useMutation({
@@ -135,7 +156,7 @@ export default function Payroll() {
       utils.finance.employeeAdvancesList.invalidate();
       utils.finance.overview.invalidate();
     },
-    onError: (err) => toast.error(err.message || "অগ্রিম প্রদান করা যায়নি"),
+    onError: err => toast.error(err.message || "অগ্রিম প্রদান করা যায়নি"),
   });
 
   const resetEmployeeForm = () => {
@@ -211,13 +232,20 @@ export default function Payroll() {
 
   const handleSelectDisburseEmployee = (idStr: string) => {
     setDisburseEmpId(idStr);
-    const emp = employees.find((e) => String(e.id) === idStr);
+    const emp = employees.find(e => String(e.id) === idStr);
     if (emp) {
       setDisburseBase(String(emp.baseSalary));
-      const empAdvances = advances.filter((a) => a.employeeId === emp.id && a.status === "open");
-      const totalUnpaidAdvance = empAdvances.reduce((sum, a) => sum + (Number(a.amount) - Number(a.repaidAmount)), 0);
+      const empAdvances = advances.filter(
+        a => a.employeeId === emp.id && a.status === "open"
+      );
+      const totalUnpaidAdvance = empAdvances.reduce(
+        (sum, a) => sum + (Number(a.amount) - Number(a.repaidAmount)),
+        0
+      );
       if (totalUnpaidAdvance > 0) {
-        setDisburseAdvanceDed(String(Math.min(totalUnpaidAdvance, Number(emp.baseSalary))));
+        setDisburseAdvanceDed(
+          String(Math.min(totalUnpaidAdvance, Number(emp.baseSalary)))
+        );
       } else {
         setDisburseAdvanceDed("0");
       }
@@ -261,16 +289,24 @@ export default function Payroll() {
   };
 
   const totalEmployeesCount = employees.length;
-  const activeEmployeesCount = employees.filter((e) => e.status === "active").length;
+  const activeEmployeesCount = employees.filter(
+    e => e.status === "active"
+  ).length;
   const totalBaseSalaryBudget = employees
-    .filter((e) => e.status === "active")
+    .filter(e => e.status === "active")
     .reduce((sum, e) => sum + Number(e.baseSalary || 0), 0);
-  const totalPaidThisMonth = salaryPayments.reduce((sum, p) => sum + Number(p.paidAmount || 0), 0);
+  const totalPaidThisMonth = salaryPayments.reduce(
+    (sum, p) => sum + Number(p.paidAmount || 0),
+    0
+  );
   const totalOutstandingAdvances = advances
-    .filter((a) => a.status === "open")
-    .reduce((sum, a) => sum + (Number(a.amount || 0) - Number(a.repaidAmount || 0)), 0);
+    .filter(a => a.status === "open")
+    .reduce(
+      (sum, a) => sum + (Number(a.amount || 0) - Number(a.repaidAmount || 0)),
+      0
+    );
 
-  const filteredEmployees = employees.filter((e) => {
+  const filteredEmployees = employees.filter(e => {
     const q = searchTerm.toLowerCase();
     return (
       e.name.toLowerCase().includes(q) ||
@@ -299,7 +335,8 @@ export default function Payroll() {
               কর্মচারী ও বেতন ব্যবস্থাপনা (Payroll)
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              কর্মচারীদের তালিকা, মূল বেতন, উৎসব ভাতা, অগ্রিম কর্তন ও পে-স্লিপ প্রিন্ট
+              কর্মচারীদের তালিকা, মূল বেতন, উৎসব ভাতা, অগ্রিম কর্তন ও পে-স্লিপ
+              প্রিন্ট
             </p>
           </div>
 
@@ -323,9 +360,14 @@ export default function Payroll() {
               <Users className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">মোট কর্মচারী</p>
+              <p className="text-xs font-semibold text-gray-500">
+                মোট কর্মচারী
+              </p>
               <h3 className="text-lg sm:text-xl font-bold text-[#14382f]">
-                {activeEmployeesCount} <span className="text-xs font-normal text-gray-400">/ {totalEmployeesCount} জন</span>
+                {activeEmployeesCount}{" "}
+                <span className="text-xs font-normal text-gray-400">
+                  / {totalEmployeesCount} জন
+                </span>
               </h3>
             </div>
           </div>
@@ -335,8 +377,12 @@ export default function Payroll() {
               <DollarSign className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">মাসিক মোট বেতন বাজেট</p>
-              <h3 className="text-lg sm:text-xl font-bold text-blue-900">{formatBdt(totalBaseSalaryBudget)}</h3>
+              <p className="text-xs font-semibold text-gray-500">
+                মাসিক মোট বেতন বাজেট
+              </p>
+              <h3 className="text-lg sm:text-xl font-bold text-blue-900">
+                {formatBdt(totalBaseSalaryBudget)}
+              </h3>
             </div>
           </div>
 
@@ -345,8 +391,12 @@ export default function Payroll() {
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">চলতি মাসে পরিশোধিত</p>
-              <h3 className="text-lg sm:text-xl font-bold text-[#1b5e20]">{formatBdt(totalPaidThisMonth)}</h3>
+              <p className="text-xs font-semibold text-gray-500">
+                চলতি মাসে পরিশোধিত
+              </p>
+              <h3 className="text-lg sm:text-xl font-bold text-[#1b5e20]">
+                {formatBdt(totalPaidThisMonth)}
+              </h3>
             </div>
           </div>
 
@@ -355,21 +405,34 @@ export default function Payroll() {
               <Clock className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">বকেয়া অগ্রিম ঋণ</p>
-              <h3 className="text-lg sm:text-xl font-bold text-amber-900">{formatBdt(totalOutstandingAdvances)}</h3>
+              <p className="text-xs font-semibold text-gray-500">
+                বকেয়া অগ্রিম ঋণ
+              </p>
+              <h3 className="text-lg sm:text-xl font-bold text-amber-900">
+                {formatBdt(totalOutstandingAdvances)}
+              </h3>
             </div>
           </div>
         </div>
 
         <Tabs defaultValue="employees" className="w-full">
           <TabsList className="bg-[#eef4f0] p-1 rounded-2xl h-12 grid grid-cols-3 max-w-lg mb-6">
-            <TabsTrigger value="employees" className="rounded-xl text-xs sm:text-sm font-semibold">
+            <TabsTrigger
+              value="employees"
+              className="rounded-xl text-xs sm:text-sm font-semibold"
+            >
               কর্মচারীদের তালিকা
             </TabsTrigger>
-            <TabsTrigger value="salaries" className="rounded-xl text-xs sm:text-sm font-semibold">
+            <TabsTrigger
+              value="salaries"
+              className="rounded-xl text-xs sm:text-sm font-semibold"
+            >
               মাসিক বেতন শীট
             </TabsTrigger>
-            <TabsTrigger value="advances" className="rounded-xl text-xs sm:text-sm font-semibold">
+            <TabsTrigger
+              value="advances"
+              className="rounded-xl text-xs sm:text-sm font-semibold"
+            >
               অগ্রিম বেতন
             </TabsTrigger>
           </TabsList>
@@ -382,7 +445,7 @@ export default function Payroll() {
                   type="text"
                   placeholder="নাম, পদবী বা মোবাইল দিয়ে খুঁজুন..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={e => setSearchTerm(e.target.value)}
                   className="pl-10 h-10 rounded-xl border-[#c9dcd0] bg-white text-sm"
                 />
               </div>
@@ -416,23 +479,33 @@ export default function Payroll() {
                   <tbody className="divide-y divide-[#edf5f0]">
                     {filteredEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-gray-400">
+                        <td
+                          colSpan={7}
+                          className="py-8 text-center text-gray-400"
+                        >
                           কোন কর্মচারী পাওয়া যায়নি। নতুন কর্মচারী যোগ করুন।
                         </td>
                       </tr>
                     ) : (
-                      filteredEmployees.map((emp) => (
-                        <tr key={emp.id} className="hover:bg-[#fafcfb] transition-colors">
+                      filteredEmployees.map(emp => (
+                        <tr
+                          key={emp.id}
+                          className="hover:bg-[#fafcfb] transition-colors"
+                        >
                           <td className="py-3.5 px-4 font-bold text-[#14382f]">
                             {emp.name}
                           </td>
                           <td className="py-3.5 px-4 text-gray-600">
                             <div>{emp.designation || "-"}</div>
-                            <div className="text-xs text-gray-400">{emp.department || ""}</div>
+                            <div className="text-xs text-gray-400">
+                              {emp.department || ""}
+                            </div>
                           </td>
                           <td className="py-3.5 px-4 text-gray-600 text-xs">
                             <div>{emp.phone || "-"}</div>
-                            <div className="text-gray-400">{emp.email || ""}</div>
+                            <div className="text-gray-400">
+                              {emp.email || ""}
+                            </div>
                           </td>
                           <td className="py-3.5 px-4 font-semibold text-[#1b5e20]">
                             {formatBdt(emp.baseSalary)}
@@ -442,12 +515,18 @@ export default function Payroll() {
                           </td>
                           <td className="py-3.5 px-4">
                             <span
-                              className={"px-2.5 py-0.5 rounded-full text-xs font-semibold " +
+                              className={
+                                "px-2.5 py-0.5 rounded-full text-xs font-semibold " +
                                 (emp.status === "active"
                                   ? "bg-green-50 text-green-700 border border-green-200"
-                                  : "bg-gray-100 text-gray-600")}
+                                  : "bg-gray-100 text-gray-600")
+                              }
                             >
-                              {emp.status === "active" ? "সক্রিয়" : emp.status === "inactive" ? "নিষ্ক্রিয়" : "বহিষ্কৃত"}
+                              {emp.status === "active"
+                                ? "সক্রিয়"
+                                : emp.status === "inactive"
+                                  ? "নিষ্ক্রিয়"
+                                  : "বহিষ্কৃত"}
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
@@ -463,8 +542,17 @@ export default function Payroll() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                if (confirm("আপনি কি নিশ্চিত " + emp.name + "-কে মুছে ফেলতে চান?")) {
-                                  deleteEmployeeMutation.mutate({ projectId: activeProjectId!, id: emp.id });
+                                if (
+                                  confirm(
+                                    "আপনি কি নিশ্চিত " +
+                                      emp.name +
+                                      "-কে মুছে ফেলতে চান?"
+                                  )
+                                ) {
+                                  deleteEmployeeMutation.mutate({
+                                    projectId: activeProjectId!,
+                                    id: emp.id,
+                                  });
                                 }
                               }}
                               className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
@@ -484,11 +572,13 @@ export default function Payroll() {
           <TabsContent value="salaries" className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Label className="text-xs font-semibold text-gray-600">বেতন মাস:</Label>
+                <Label className="text-xs font-semibold text-gray-600">
+                  বেতন মাস:
+                </Label>
                 <Input
                   type="month"
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={e => setSelectedMonth(e.target.value)}
                   className="h-10 w-44 rounded-xl border-[#c9dcd0] bg-white text-sm font-semibold"
                 />
               </div>
@@ -524,29 +614,50 @@ export default function Payroll() {
                   <tbody className="divide-y divide-[#edf5f0]">
                     {salaryPayments.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-gray-400">
+                        <td
+                          colSpan={9}
+                          className="py-8 text-center text-gray-400"
+                        >
                           {selectedMonth} মাসের কোনো বেতন রেকর্ড নেই।
                         </td>
                       </tr>
                     ) : (
-                      salaryPayments.map((p) => (
-                        <tr key={p.id} className="hover:bg-[#fafcfb] transition-colors">
+                      salaryPayments.map(p => (
+                        <tr
+                          key={p.id}
+                          className="hover:bg-[#fafcfb] transition-colors"
+                        >
                           <td className="py-3.5 px-4 font-mono text-xs font-bold text-gray-700">
                             {p.voucherNo || "-"}
                           </td>
                           <td className="py-3.5 px-4 font-bold text-[#14382f]">
                             <div>{p.employeeName}</div>
-                            <div className="text-xs text-gray-400">{p.employeeDesignation || ""}</div>
+                            <div className="text-xs text-gray-400">
+                              {p.employeeDesignation || ""}
+                            </div>
                           </td>
-                          <td className="py-3.5 px-4 text-gray-700">{formatBdt(p.baseSalary)}</td>
+                          <td className="py-3.5 px-4 text-gray-700">
+                            {formatBdt(p.baseSalary)}
+                          </td>
                           <td className="py-3.5 px-4 text-green-700 text-xs">
-                            + {formatBdt(Number(p.bonusAmount) + Number(p.allowanceAmount))}
+                            +{" "}
+                            {formatBdt(
+                              Number(p.bonusAmount) + Number(p.allowanceAmount)
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-red-600 text-xs">
-                            - {formatBdt(Number(p.advanceDeduction) + Number(p.otherDeduction))}
+                            -{" "}
+                            {formatBdt(
+                              Number(p.advanceDeduction) +
+                                Number(p.otherDeduction)
+                            )}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-[#14382f]">{formatBdt(p.netPayable)}</td>
-                          <td className="py-3.5 px-4 font-bold text-[#1b5e20]">{formatBdt(p.paidAmount)}</td>
+                          <td className="py-3.5 px-4 font-bold text-[#14382f]">
+                            {formatBdt(p.netPayable)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-[#1b5e20]">
+                            {formatBdt(p.paidAmount)}
+                          </td>
                           <td className="py-3.5 px-4">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                               {p.status === "paid" ? "পরিশোধিত" : "আংশিক"}
@@ -559,7 +670,8 @@ export default function Payroll() {
                               onClick={async () => {
                                 try {
                                   toast.info("পে-স্লিপ তৈরি হচ্ছে...");
-                                  const { generatePayslipPdf } = await import("@/lib/payslipPdf");
+                                  const { generatePayslipPdf } =
+                                    await import("@/lib/payslipPdf");
                                   await generatePayslipPdf({
                                     voucherNo: p.voucherNo,
                                     monthKey: p.monthKey,
@@ -578,7 +690,9 @@ export default function Payroll() {
                                     status: p.status,
                                     notes: p.notes,
                                   });
-                                  toast.success("পে-স্লিপ ডাউনলোড সম্পন্ন হয়েছে");
+                                  toast.success(
+                                    "পে-স্লিপ ডাউনলোড সম্পন্ন হয়েছে"
+                                  );
                                 } catch {
                                   toast.error("পে-স্লিপ তৈরি করা যায়নি");
                                 }
@@ -600,7 +714,9 @@ export default function Payroll() {
 
           <TabsContent value="advances" className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-xs text-gray-500">কর্মচারীদের প্রদত্ত অগ্রিম বেতন ও কিস্তি আদায়</p>
+              <p className="text-xs text-gray-500">
+                কর্মচারীদের প্রদত্ত অগ্রিম বেতন ও কিস্তি আদায়
+              </p>
               <Button
                 onClick={() => {
                   resetAdvanceForm();
@@ -630,15 +746,22 @@ export default function Payroll() {
                   <tbody className="divide-y divide-[#edf5f0]">
                     {advances.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-gray-400">
+                        <td
+                          colSpan={7}
+                          className="py-8 text-center text-gray-400"
+                        >
                           কোন অগ্রিম বেতনের রেকর্ড নেই।
                         </td>
                       </tr>
                     ) : (
-                      advances.map((a) => {
-                        const remaining = Number(a.amount) - Number(a.repaidAmount);
+                      advances.map(a => {
+                        const remaining =
+                          Number(a.amount) - Number(a.repaidAmount);
                         return (
-                          <tr key={a.id} className="hover:bg-[#fafcfb] transition-colors">
+                          <tr
+                            key={a.id}
+                            className="hover:bg-[#fafcfb] transition-colors"
+                          >
                             <td className="py-3.5 px-4 font-mono text-xs font-bold text-gray-700">
                               {a.voucherNo || "-"}
                             </td>
@@ -646,19 +769,31 @@ export default function Payroll() {
                               {a.employeeName}
                             </td>
                             <td className="py-3.5 px-4 text-xs text-gray-500">
-                              {new Date(a.disbursedDate).toLocaleDateString("en-GB")}
+                              {new Date(a.disbursedDate).toLocaleDateString(
+                                "en-GB"
+                              )}
                             </td>
-                            <td className="py-3.5 px-4 font-semibold text-gray-800">{formatBdt(a.amount)}</td>
-                            <td className="py-3.5 px-4 font-semibold text-green-700">{formatBdt(a.repaidAmount)}</td>
-                            <td className="py-3.5 px-4 font-bold text-amber-900">{formatBdt(remaining)}</td>
+                            <td className="py-3.5 px-4 font-semibold text-gray-800">
+                              {formatBdt(a.amount)}
+                            </td>
+                            <td className="py-3.5 px-4 font-semibold text-green-700">
+                              {formatBdt(a.repaidAmount)}
+                            </td>
+                            <td className="py-3.5 px-4 font-bold text-amber-900">
+                              {formatBdt(remaining)}
+                            </td>
                             <td className="py-3.5 px-4">
                               <span
-                                className={"px-2.5 py-0.5 rounded-full text-xs font-semibold " +
+                                className={
+                                  "px-2.5 py-0.5 rounded-full text-xs font-semibold " +
                                   (a.status === "settled"
                                     ? "bg-green-50 text-green-700 border border-green-200"
-                                    : "bg-amber-50 text-amber-700 border border-amber-200")}
+                                    : "bg-amber-50 text-amber-700 border border-amber-200")
+                                }
                               >
-                                {a.status === "settled" ? "সম্পূর্ণ পরিশোধিত" : "চলমান (বকেয়া)"}
+                                {a.status === "settled"
+                                  ? "সম্পূর্ণ পরিশোধিত"
+                                  : "চলমান (বকেয়া)"}
                               </span>
                             </td>
                           </tr>
@@ -672,42 +807,53 @@ export default function Payroll() {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={isEmployeeModalOpen} onOpenChange={setIsEmployeeModalOpen}>
+        <Dialog
+          open={isEmployeeModalOpen}
+          onOpenChange={setIsEmployeeModalOpen}
+        >
           <DialogContent className="max-w-md bg-white rounded-3xl p-6 sm:p-7">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-[#14382f]">
-                {editingEmployeeId ? "কর্মচারীর তথ্য পরিবর্তন" : "নতুন কর্মচারী যোগ করুন"}
+                {editingEmployeeId
+                  ? "কর্মচারীর তথ্য পরিবর্তন"
+                  : "নতুন কর্মচারী যোগ করুন"}
               </DialogTitle>
             </DialogHeader>
 
             <form onSubmit={handleSaveEmployee} className="space-y-4 pt-2">
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">নাম *</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  নাম *
+                </Label>
                 <Input
                   required
                   placeholder="যেমন: মোঃ কামরুল হাসান"
                   value={empName}
-                  onChange={(e) => setEmpName(e.target.value)}
+                  onChange={e => setEmpName(e.target.value)}
                   className="rounded-xl"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">পদবী</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    পদবী
+                  </Label>
                   <Input
                     placeholder="হিসাবরক্ষক / ম্যানেজার"
                     value={empDesignation}
-                    onChange={(e) => setEmpDesignation(e.target.value)}
+                    onChange={e => setEmpDesignation(e.target.value)}
                     className="rounded-xl"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">বিভাগ</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    বিভাগ
+                  </Label>
                   <Input
                     placeholder="অ্যাকাউন্টিং / সেলস"
                     value={empDepartment}
-                    onChange={(e) => setEmpDepartment(e.target.value)}
+                    onChange={e => setEmpDepartment(e.target.value)}
                     className="rounded-xl"
                   />
                 </div>
@@ -715,23 +861,27 @@ export default function Payroll() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">মোবাইল</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    মোবাইল
+                  </Label>
                   <Input
                     placeholder="01700-000000"
                     value={empPhone}
-                    onChange={(e) => setEmpPhone(e.target.value)}
+                    onChange={e => setEmpPhone(e.target.value)}
                     className="rounded-xl"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">মাসিক মূল বেতন (৳) *</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    মাসিক মূল বেতন (৳) *
+                  </Label>
                   <Input
                     type="number"
                     required
                     min="0"
                     placeholder="25000"
                     value={empBaseSalary}
-                    onChange={(e) => setEmpBaseSalary(e.target.value)}
+                    onChange={e => setEmpBaseSalary(e.target.value)}
                     className="rounded-xl font-semibold"
                   />
                 </div>
@@ -739,10 +889,14 @@ export default function Payroll() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">পেমেন্ট মেথড</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    পেমেন্ট মেথড
+                  </Label>
                   <Select
                     value={empPaymentMethod}
-                    onValueChange={(v: "cash" | "bank" | "mobile") => setEmpPaymentMethod(v)}
+                    onValueChange={(v: "cash" | "bank" | "mobile") =>
+                      setEmpPaymentMethod(v)
+                    }
                   >
                     <SelectTrigger className="rounded-xl">
                       <SelectValue />
@@ -750,34 +904,46 @@ export default function Payroll() {
                     <SelectContent>
                       <SelectItem value="cash">নগদ (Cash)</SelectItem>
                       <SelectItem value="bank">ব্যাংক (Bank)</SelectItem>
-                      <SelectItem value="mobile">মোবাইল ব্যাংকিং (bKash/Nagad)</SelectItem>
+                      <SelectItem value="mobile">
+                        মোবাইল ব্যাংকিং (bKash/Nagad)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">কাজের অবস্থা</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    কাজের অবস্থা
+                  </Label>
                   <Select
                     value={empStatus}
-                    onValueChange={(v: "active" | "inactive" | "terminated") => setEmpStatus(v)}
+                    onValueChange={(v: "active" | "inactive" | "terminated") =>
+                      setEmpStatus(v)
+                    }
                   >
                     <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">সক্রিয় (Active)</SelectItem>
-                      <SelectItem value="inactive">নিষ্ক্রিয় (Inactive)</SelectItem>
-                      <SelectItem value="terminated">বহিষ্কৃত (Terminated)</SelectItem>
+                      <SelectItem value="inactive">
+                        নিষ্ক্রিয় (Inactive)
+                      </SelectItem>
+                      <SelectItem value="terminated">
+                        বহিষ্কৃত (Terminated)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">মন্তব্য / নোট</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  মন্তব্য / নোট
+                </Label>
                 <Textarea
                   placeholder="অন্যান্য তথ্য..."
                   value={empNotes}
-                  onChange={(e) => setEmpNotes(e.target.value)}
+                  onChange={e => setEmpNotes(e.target.value)}
                   className="rounded-xl"
                   rows={2}
                 />
@@ -803,7 +969,10 @@ export default function Payroll() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isDisburseModalOpen} onOpenChange={setIsDisburseModalOpen}>
+        <Dialog
+          open={isDisburseModalOpen}
+          onOpenChange={setIsDisburseModalOpen}
+        >
           <DialogContent className="max-w-lg bg-white rounded-3xl p-6 sm:p-7">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-[#14382f]">
@@ -814,13 +983,18 @@ export default function Payroll() {
             <form onSubmit={handleSaveDisburse} className="space-y-4 pt-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">কর্মচারী নির্বাচন করুন *</Label>
-                  <Select value={disburseEmpId} onValueChange={handleSelectDisburseEmployee}>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    কর্মচারী নির্বাচন করুন *
+                  </Label>
+                  <Select
+                    value={disburseEmpId}
+                    onValueChange={handleSelectDisburseEmployee}
+                  >
                     <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="কর্মচারী বাছাই করুন" />
                     </SelectTrigger>
                     <SelectContent>
-                      {employees.map((emp) => (
+                      {employees.map(emp => (
                         <SelectItem key={emp.id} value={String(emp.id)}>
                           {emp.name} ({emp.designation || "Staff"})
                         </SelectItem>
@@ -830,12 +1004,14 @@ export default function Payroll() {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">বেতন মাস *</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    বেতন মাস *
+                  </Label>
                   <Input
                     type="month"
                     required
                     value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    onChange={e => setSelectedMonth(e.target.value)}
                     className="rounded-xl font-semibold"
                   />
                 </div>
@@ -843,33 +1019,39 @@ export default function Payroll() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">মূল বেতন (৳) *</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    মূল বেতন (৳) *
+                  </Label>
                   <Input
                     type="number"
                     required
                     min="0"
                     value={disburseBase}
-                    onChange={(e) => setDisburseBase(e.target.value)}
+                    onChange={e => setDisburseBase(e.target.value)}
                     className="rounded-xl font-semibold"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">বোনাস (৳)</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    বোনাস (৳)
+                  </Label>
                   <Input
                     type="number"
                     min="0"
                     value={disburseBonus}
-                    onChange={(e) => setDisburseBonus(e.target.value)}
+                    onChange={e => setDisburseBonus(e.target.value)}
                     className="rounded-xl text-green-700 font-semibold"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">ভাতা (৳)</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    ভাতা (৳)
+                  </Label>
                   <Input
                     type="number"
                     min="0"
                     value={disburseAllowance}
-                    onChange={(e) => setDisburseAllowance(e.target.value)}
+                    onChange={e => setDisburseAllowance(e.target.value)}
                     className="rounded-xl text-green-700 font-semibold"
                   />
                 </div>
@@ -877,47 +1059,67 @@ export default function Payroll() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">অগ্রিম কর্তন (৳)</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    অগ্রিম কর্তন (৳)
+                  </Label>
                   <Input
                     type="number"
                     min="0"
                     value={disburseAdvanceDed}
-                    onChange={(e) => setDisburseAdvanceDed(e.target.value)}
+                    onChange={e => setDisburseAdvanceDed(e.target.value)}
                     className="rounded-xl text-red-600 font-semibold"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">অন্যান্য কর্তন / জরিমানা (৳)</Label>
+                  <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                    অন্যান্য কর্তন / জরিমানা (৳)
+                  </Label>
                   <Input
                     type="number"
                     min="0"
                     value={disburseOtherDed}
-                    onChange={(e) => setDisburseOtherDed(e.target.value)}
+                    onChange={e => setDisburseOtherDed(e.target.value)}
                     className="rounded-xl text-red-600 font-semibold"
                   />
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">পরিশোধের অ্যাকাউন্ট</Label>
-                <Select value={disburseAccountId} onValueChange={setDisburseAccountId}>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  পরিশোধের অ্যাকাউন্ট
+                </Label>
+                <Select
+                  value={disburseAccountId}
+                  onValueChange={setDisburseAccountId}
+                >
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="ক্যাশ বা ব্যাংক অ্যাকাউন্ট নির্বাচন করুন" />
                   </SelectTrigger>
                   <SelectContent>
-                    {accounts.map((acc: { id: number; name: string; currentBalance: string | number }) => (
-                      <SelectItem key={acc.id} value={String(acc.id)}>
-                        {acc.name} (ব্যালেন্স: {formatBdt(acc.currentBalance)})
-                      </SelectItem>
-                    ))}
+                    {accounts.map(
+                      (acc: {
+                        id: number;
+                        name: string;
+                        currentBalance: string | number;
+                      }) => (
+                        <SelectItem key={acc.id} value={String(acc.id)}>
+                          {acc.name} (ব্যালেন্স: {formatBdt(acc.currentBalance)}
+                          )
+                        </SelectItem>
+                      )
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-green-800 font-medium">নিট প্রদেয় বেতন (Net Payable):</p>
-                  <p className="text-lg font-bold text-[#14532d]">{formatBdt(netDisbursePreview)}</p>
+                  <p className="text-xs text-green-800 font-medium">
+                    নিট প্রদেয় বেতন (Net Payable):
+                  </p>
+                  <p className="text-lg font-bold text-[#14532d]">
+                    {formatBdt(netDisbursePreview)}
+                  </p>
                 </div>
                 <span className="text-xs font-semibold text-green-700 bg-white px-2.5 py-1 rounded-lg border border-green-200">
                   অটো খরচ রেকর্ড হবে
@@ -955,13 +1157,15 @@ export default function Payroll() {
 
             <form onSubmit={handleSaveAdvance} className="space-y-4 pt-2">
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">কর্মচারী নির্বাচন করুন *</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  কর্মচারী নির্বাচন করুন *
+                </Label>
                 <Select value={advEmpId} onValueChange={setAdvEmpId}>
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="কর্মচারী বাছাই করুন" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map((emp) => (
+                    {employees.map(emp => (
                       <SelectItem key={emp.id} value={String(emp.id)}>
                         {emp.name} ({emp.designation || "Staff"})
                       </SelectItem>
@@ -971,40 +1175,53 @@ export default function Payroll() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">অগ্রিমের পরিমাণ (৳) *</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  অগ্রিমের পরিমাণ (৳) *
+                </Label>
                 <Input
                   type="number"
                   required
                   min="1"
                   placeholder="5000"
                   value={advAmount}
-                  onChange={(e) => setAdvAmount(e.target.value)}
+                  onChange={e => setAdvAmount(e.target.value)}
                   className="rounded-xl font-semibold text-lg text-[#14382f]"
                 />
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">প্রদানের অ্যাকাউন্ট</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  প্রদানের অ্যাকাউন্ট
+                </Label>
                 <Select value={advAccountId} onValueChange={setAdvAccountId}>
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="অ্যাকাউন্ট নির্বাচন করুন" />
                   </SelectTrigger>
                   <SelectContent>
-                    {accounts.map((acc: { id: number; name: string; currentBalance: string | number }) => (
-                      <SelectItem key={acc.id} value={String(acc.id)}>
-                        {acc.name} (ব্যালেন্স: {formatBdt(acc.currentBalance)})
-                      </SelectItem>
-                    ))}
+                    {accounts.map(
+                      (acc: {
+                        id: number;
+                        name: string;
+                        currentBalance: string | number;
+                      }) => (
+                        <SelectItem key={acc.id} value={String(acc.id)}>
+                          {acc.name} (ব্যালেন্স: {formatBdt(acc.currentBalance)}
+                          )
+                        </SelectItem>
+                      )
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-gray-700 mb-1 block">মন্তব্য / শর্ত</Label>
+                <Label className="text-xs font-semibold text-gray-700 mb-1 block">
+                  মন্তব্য / শর্ত
+                </Label>
                 <Textarea
                   placeholder="যেমন: আগামী মাসের বেতন থেকে এককালীন বা কিস্তিতে কর্তন হবে..."
                   value={advNotes}
-                  onChange={(e) => setAdvNotes(e.target.value)}
+                  onChange={e => setAdvNotes(e.target.value)}
                   className="rounded-xl"
                   rows={2}
                 />

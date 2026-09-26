@@ -47,7 +47,8 @@ const legacyAdminBase = {
 
 const legacyAdminUser = { ...legacyAdminBase, role: "admin" as const };
 
-type TestUser = typeof legacyAdminUser | (typeof legacyAdminBase & { role: "input_only" });
+type TestUser =
+  typeof legacyAdminUser | (typeof legacyAdminBase & { role: "input_only" });
 
 function ctxWithUser(user: TestUser | null) {
   return {
@@ -71,7 +72,11 @@ describe("legacy users.role cannot escalate privileges", () => {
     rbacMock.getUserRoles.mockResolvedValue([]);
     financeDb.listUsersForAdmin.mockResolvedValue([]);
     financeDb.listProjectsForAdmin.mockResolvedValue([]);
-    financeDb.listAuditLogsPage.mockResolvedValue({ logs: [], page: 1, pageSize: 25 });
+    financeDb.listAuditLogsPage.mockResolvedValue({
+      logs: [],
+      page: 1,
+      pageSize: 25,
+    });
     financeDb.listAuditLogsForExport.mockResolvedValue([]);
     financeDb.getAuditLogActivity.mockResolvedValue({});
     financeDb.updateUserStatus.mockResolvedValue({});
@@ -79,7 +84,9 @@ describe("legacy users.role cannot escalate privileges", () => {
 
   it("admin.users is FORBIDDEN when only legacy role=admin", async () => {
     const caller = appRouter.createCaller(ctxWithUser(legacyAdminUser));
-    await expect(caller.admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.admin.users()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
     expect(rbacMock.isAdminRoleUser).toHaveBeenCalledWith(77);
     expect(financeDb.listUsersForAdmin).not.toHaveBeenCalled();
   });
@@ -87,18 +94,22 @@ describe("legacy users.role cannot escalate privileges", () => {
   it("admin.verifyAccess is FORBIDDEN when only legacy role=admin", async () => {
     const caller = appRouter.createCaller(ctxWithUser(legacyAdminUser));
     await expect(
-      caller.admin.verifyAccess({ password: "any-password" }),
+      caller.admin.verifyAccess({ password: "any-password" })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("admin.elevationStatus is FORBIDDEN when only legacy role=admin", async () => {
     const caller = appRouter.createCaller(ctxWithUser(legacyAdminUser));
-    await expect(caller.admin.elevationStatus()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.admin.elevationStatus()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   it("admin.auditLogs is FORBIDDEN when only legacy role=admin", async () => {
     const caller = appRouter.createCaller(ctxWithUser(legacyAdminUser));
-    await expect(caller.admin.auditLogs({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.admin.auditLogs({})).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   it("RBAC SUPER_ADMIN still passes admin gate", async () => {
@@ -126,7 +137,9 @@ describe("legacy users.role cannot escalate privileges", () => {
       role: "input_only" as const,
     };
     const caller = appRouter.createCaller(ctxWithUser(inputOnly));
-    await expect(caller.finance.overview({ projectId: 1 })).rejects.toMatchObject({
+    await expect(
+      caller.finance.overview({ projectId: 1 })
+    ).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
   });

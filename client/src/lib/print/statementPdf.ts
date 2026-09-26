@@ -39,7 +39,11 @@ export type PdfTable = {
 };
 
 export type PdfMetaRow = { label: string; value: string };
-export type PdfTotalRow = { label: string; value: string; tone?: "normal" | "grand" };
+export type PdfTotalRow = {
+  label: string;
+  value: string;
+  tone?: "normal" | "grand";
+};
 
 async function renderHeader(
   doc: jsPDF,
@@ -73,11 +77,7 @@ async function renderHeader(
   }
 }
 
-function renderMeta(
-  doc: jsPDF,
-  meta: PdfMetaRow[],
-  startY: number
-): number {
+function renderMeta(doc: jsPDF, meta: PdfMetaRow[], startY: number): number {
   const margin = 40;
   const contentW = 515;
   doc.setDrawColor(207, 217, 211);
@@ -113,8 +113,14 @@ function renderTable(
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
     table.columns.forEach((col, index) => {
-      const x = margin + colWidths.slice(0, index).reduce((sum, w) => sum + w, 0);
-      doc.text(col.label, x + 4, y - 1, col.align === "right" ? { align: "right" } : undefined);
+      const x =
+        margin + colWidths.slice(0, index).reduce((sum, w) => sum + w, 0);
+      doc.text(
+        col.label,
+        x + 4,
+        y - 1,
+        col.align === "right" ? { align: "right" } : undefined
+      );
     });
     y += 4;
   };
@@ -122,7 +128,9 @@ function renderTable(
   const drawFooter = () => {
     doc.setFontSize(8);
     doc.setTextColor(107, 125, 115);
-    doc.text(`পৃষ্ঠা ${doc.getNumberOfPages()}`, margin + contentW, 800, { align: "right" });
+    doc.text(`পৃষ্ঠা ${doc.getNumberOfPages()}`, margin + contentW, 800, {
+      align: "right",
+    });
     doc.setDrawColor(210, 220, 214);
     doc.line(margin, 806, margin + contentW, 806);
     doc.setTextColor(140, 155, 147);
@@ -137,7 +145,8 @@ function renderTable(
   if (empty) {
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 106);
-    const message = table.emptyMessage ?? "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।";
+    const message =
+      table.emptyMessage ?? "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।";
     doc.text(message, margin + contentW / 2, y + 10, { align: "center" });
     y += 30;
   } else {
@@ -158,10 +167,12 @@ function renderTable(
         drawFooter();
       }
       table.columns.forEach((col, index) => {
-        const x = margin + colWidths.slice(0, index).reduce((sum, w) => sum + w, 0);
+        const x =
+          margin + colWidths.slice(0, index).reduce((sum, w) => sum + w, 0);
         let text: string;
         if (isMoney(col)) text = moneyBn(Number(row[index] ?? 0));
-        else if (isNumber(col)) text = String(Number(row[index] ?? 0).toLocaleString("bn-BD"));
+        else if (isNumber(col))
+          text = String(Number(row[index] ?? 0).toLocaleString("bn-BD"));
         else text = String(row[index] ?? "");
         doc.setTextColor(33, 52, 44);
         if (isMoney(col) || isNumber(col) || col.align === "right") {
@@ -174,7 +185,12 @@ function renderTable(
         doc.rect(x, y - 10, colWidths[index], rowHeight);
       });
       doc.setDrawColor(215, 223, 217);
-      doc.line(margin, y + rowHeight - 10, margin + contentW, y + rowHeight - 10);
+      doc.line(
+        margin,
+        y + rowHeight - 10,
+        margin + contentW,
+        y + rowHeight - 10
+      );
       y += rowHeight;
     }
   }
@@ -193,7 +209,11 @@ function renderTotals(
   let y = startY;
   for (const row of totals) {
     const isGrand = row.tone === "grand";
-    doc.setFillColor(isGrand ? 220 : 240, isGrand ? 235 : 245, isGrand ? 226 : 240);
+    doc.setFillColor(
+      isGrand ? 220 : 240,
+      isGrand ? 235 : 245,
+      isGrand ? 226 : 240
+    );
     doc.rect(margin + contentW - totalContentW, y - 10, totalContentW, 18, "F");
     doc.setFontSize(10);
     doc.setFont("NotoSansBengali", isGrand ? "bold" : "normal");
@@ -257,7 +277,7 @@ export async function buildStatementPdf(options: {
       `Money_Tracker · তৈরির সময়: ${printDateTime(new Date())} · পৃষ্ঠা ${page}/${pageCount}`,
       595 - 40,
       832,
-      { align: "right" },
+      { align: "right" }
     );
   }
   return doc;
@@ -269,11 +289,17 @@ export async function downloadStatementPdf(
   options: { title: string; periodLabel: string }
 ): Promise<jsPDF> {
   const { columns, rows, totals, subtitle } = statementTableForPdf(data, kind);
-  const table = { columns, rows, emptyMessage: "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।" };
+  const table = {
+    columns,
+    rows,
+    emptyMessage: "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।",
+  };
   return buildStatementPdf({
     firmName: data.firm.name,
     firmLine: data.firm.tagline,
-    firmContact: [data.firm.address, data.firm.phone, data.firm.email].filter(Boolean).join("  |  "),
+    firmContact: [data.firm.address, data.firm.phone, data.firm.email]
+      .filter(Boolean)
+      .join("  |  "),
     title: options.title,
     subtitle,
     meta: [
@@ -286,7 +312,10 @@ export async function downloadStatementPdf(
   });
 }
 
-function statementTableForPdf(data: StatementData, kind: StatementKind): {
+function statementTableForPdf(
+  data: StatementData,
+  kind: StatementKind
+): {
   columns: PdfColumn[];
   rows: PdfRow[];
   totals: PdfTotalRow[];
@@ -295,7 +324,7 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
   const totalsData = data.totals;
   const running = withRunningBalance(data.items, totalsData.openingBalance);
   const moneyCol = (label: string, width: number, _format: "money" = "money") =>
-    ({ label, width, align: "right" } as PdfColumn);
+    ({ label, width, align: "right" }) as PdfColumn;
   const detailedColumns: PdfColumn[] = [
     { label: "ক্র.", width: 0.05, align: "center" },
     { label: "তারিখ", width: 0.14 },
@@ -388,7 +417,11 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
             Number(row.amount),
           ]),
         totals: [
-          { label: "মোট আয়/আমানত", value: moneyBn(totalsData.income), tone: "grand" },
+          {
+            label: "মোট আয়/আমানত",
+            value: moneyBn(totalsData.income),
+            tone: "grand",
+          },
         ],
       };
     case "expense":
@@ -412,7 +445,11 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
             Number(row.amount),
           ]),
         totals: [
-          { label: "মোট ব্যয়/খরচ", value: moneyBn(totalsData.expense), tone: "grand" },
+          {
+            label: "মোট ব্যয়/খরচ",
+            value: moneyBn(totalsData.expense),
+            tone: "grand",
+          },
         ],
       };
     case "category":
@@ -422,7 +459,9 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
         totals: [
           {
             label: `মোট ${categoryRows.length}টি খাত`,
-            value: moneyBn(categoryRows.reduce((sum, row) => sum + row.total, 0)),
+            value: moneyBn(
+              categoryRows.reduce((sum, row) => sum + row.total, 0)
+            ),
             tone: "grand",
           },
         ],
@@ -435,7 +474,11 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
           { label: "উদ্বোধনী জের", value: moneyBn(totalsData.openingBalance) },
           { label: "মোট প্রাপ্তি", value: moneyBn(totalsData.income) },
           { label: "মোট প্রদান", value: moneyBn(totalsData.expense) },
-          { label: "সমাপনী জের", value: moneyBn(totalsData.closingBalance), tone: "grand" },
+          {
+            label: "সমাপনী জের",
+            value: moneyBn(totalsData.closingBalance),
+            tone: "grand",
+          },
         ],
       };
     case "ledger":
@@ -461,7 +504,11 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
           { label: "উদ্বোধনী জের", value: moneyBn(totalsData.openingBalance) },
           { label: "মোট ডেবিট", value: moneyBn(totalsData.income) },
           { label: "মোট ক্রেডিট", value: moneyBn(totalsData.expense) },
-          { label: "জের", value: moneyBn(totalsData.closingBalance), tone: "grand" },
+          {
+            label: "জের",
+            value: moneyBn(totalsData.closingBalance),
+            tone: "grand",
+          },
         ],
         subtitle: "প্রচলিত লেজার-শৈলীর খাতা",
       };
@@ -472,7 +519,11 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
         totals: [
           { label: "মোট আয়/আমানত", value: moneyBn(totalsData.income) },
           { label: "মোট ব্যয়/খরচ", value: moneyBn(totalsData.expense) },
-          { label: "নিট ব্যালেন্স", value: moneyBn(totalsData.netAmount), tone: "grand" },
+          {
+            label: "নিট ব্যালেন্স",
+            value: moneyBn(totalsData.netAmount),
+            tone: "grand",
+          },
         ],
         subtitle: "মাসিক/বার্ষিক সারসংক্ষেপ",
       };
@@ -483,12 +534,19 @@ function statementTableForPdf(data: StatementData, kind: StatementKind): {
     default:
       return {
         columns: detailedColumns,
-        rows: running.map((row, index) => [String(index + 1), ...detailedRow(row)]),
+        rows: running.map((row, index) => [
+          String(index + 1),
+          ...detailedRow(row),
+        ]),
         totals: [
           { label: "মোট আয়/আমানত", value: moneyBn(totalsData.income) },
           { label: "মোট ব্যয়/খরচ", value: moneyBn(totalsData.expense) },
           { label: "নিট পরিমাণ", value: moneyBn(totalsData.netAmount) },
-          { label: "শেষ জের", value: moneyBn(totalsData.closingBalance), tone: "grand" },
+          {
+            label: "শেষ জের",
+            value: moneyBn(totalsData.closingBalance),
+            tone: "grand",
+          },
         ],
       };
   }

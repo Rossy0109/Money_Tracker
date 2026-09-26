@@ -50,9 +50,7 @@ export function DueDialog({
             </TabsList>
           </Tabs>
           <Field
-            label={
-              form.type === "debt" ? "দেনাদারের নাম" : "পাওনাদারের নাম"
-            }
+            label={form.type === "debt" ? "দেনাদারের নাম" : "পাওনাদারের নাম"}
           >
             <Input
               required
@@ -96,7 +94,9 @@ export function DueDialog({
               />
             </Field>
           </div>
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।</p>
+          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+            ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।
+          </p>
           <Field label="বিবরণ">
             <Textarea
               value={form.note}

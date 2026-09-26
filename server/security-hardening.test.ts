@@ -132,8 +132,11 @@ describe("Secret Exposure Prevention", () => {
   });
   it("no hardcoded secrets in source files", () => {
     const files = [
-      "./_core/app.ts", "./_core/oauth.ts", "./_core/trpc.ts",
-      "./scheduledBackup.ts", "./cloudBackupService.ts",
+      "./_core/app.ts",
+      "./_core/oauth.ts",
+      "./_core/trpc.ts",
+      "./scheduledBackup.ts",
+      "./cloudBackupService.ts",
     ];
     for (const f of files) {
       const s = readFile(f);

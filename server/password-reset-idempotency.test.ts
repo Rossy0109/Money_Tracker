@@ -18,7 +18,13 @@ vi.mock("./_core/logger", () => ({
 }));
 
 import * as financeDb from "./db";
-import { hashRequest, claimIdempotency, completeIdempotency, clearIdempotency, PENDING_RESPONSE_STATUS } from "./_core/idempotency";
+import {
+  hashRequest,
+  claimIdempotency,
+  completeIdempotency,
+  clearIdempotency,
+  PENDING_RESPONSE_STATUS,
+} from "./_core/idempotency";
 import {
   sendPasswordResetEmail,
   isEmailDeliveryConfigured,
@@ -116,7 +122,9 @@ describe("hashRequest nested/array stability (regression)", () => {
     const withArray = hashRequest({ items: [1, 2, 3] });
     const withArrayShuffledNested = hashRequest({ items: [1, 2, 3] });
     expect(withArray).toBe(withArrayShuffledNested);
-    expect(hashRequest({ items: [1, 2, 3] })).not.toBe(hashRequest({ items: [3, 2, 1] }));
+    expect(hashRequest({ items: [1, 2, 3] })).not.toBe(
+      hashRequest({ items: [3, 2, 1] })
+    );
   });
 
   it("nested array field is included in fingerprint", () => {
@@ -140,7 +148,13 @@ function buildInsertFailThenSelect(existing: unknown) {
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockImplementation(() => {
             selectCalls += 1;
-            return Promise.resolve(selectCalls === 1 && existing !== undefined ? [existing] : existing === undefined ? [] : [existing]);
+            return Promise.resolve(
+              selectCalls === 1 && existing !== undefined
+                ? [existing]
+                : existing === undefined
+                  ? []
+                  : [existing]
+            );
           }),
         }),
       }),
@@ -191,7 +205,11 @@ describe("claimIdempotency INSERT-first flow", () => {
     vi.mocked(databaseRequired).mockImplementation(d => d as never);
 
     const result = await claimIdempotency(1, "key-1", "/r", "hash-1");
-    expect(result).toEqual({ outcome: "replay", status: 200, body: '{"ok":true}' });
+    expect(result).toEqual({
+      outcome: "replay",
+      status: 200,
+      body: '{"ok":true}',
+    });
   });
 
   it("returns in_progress for pending claim", async () => {
@@ -229,7 +247,9 @@ describe("claimIdempotency INSERT-first flow", () => {
   });
 
   it("completeIdempotency updates the claimed row", async () => {
-    const setFn = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue({ affectedRows: 1 }) });
+    const setFn = vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+    });
     const db = {
       update: vi.fn().mockReturnValue({ set: setFn }),
       insert: vi.fn(),
@@ -243,7 +263,10 @@ describe("claimIdempotency INSERT-first flow", () => {
     await completeIdempotency(1, "key-1", "/r", 200, { ok: true });
     expect(db.update).toHaveBeenCalled();
     expect(setFn).toHaveBeenCalledWith(
-      expect.objectContaining({ responseStatus: 200, responseBody: '{"ok":true}' })
+      expect.objectContaining({
+        responseStatus: 200,
+        responseBody: '{"ok":true}',
+      })
     );
   });
 

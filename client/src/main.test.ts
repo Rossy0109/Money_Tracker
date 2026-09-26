@@ -45,7 +45,9 @@ describe("client/src/main.ts - API error handling, network retry, error messages
     });
 
     it("handles malformed JSON responses without endless retry loops", () => {
-      const badJson = new SyntaxError("Unexpected token < in JSON at position 0");
+      const badJson = new SyntaxError(
+        "Unexpected token < in JSON at position 0"
+      );
       const classified = classifyNetworkError(badJson, true);
       expect(classified.kind).toBe("MALFORMED_RESPONSE");
       expect(classified.shouldRetry).toBe(false);
@@ -84,11 +86,17 @@ describe("client/src/main.ts - API error handling, network retry, error messages
       const toastSpy = vi.fn();
 
       notifyNetworkError({ data: { httpStatus: 502 } }, toastSpy, true);
-      expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining("502"), "error");
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("502"),
+        "error"
+      );
 
       resetNotificationThrottleForTest();
       notifyNetworkError({ data: { httpStatus: 429 } }, toastSpy, true);
-      expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining("খুব বেশি"), "warning");
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("খুব বেশি"),
+        "warning"
+      );
     });
   });
 
@@ -103,7 +111,9 @@ describe("client/src/main.ts - API error handling, network retry, error messages
       });
       vi.stubGlobal("fetch", slowFetch);
 
-      await expect(fetchWithTimeout("https://example.com/api", {}, 50)).rejects.toThrow();
+      await expect(
+        fetchWithTimeout("https://example.com/api", {}, 50)
+      ).rejects.toThrow();
       vi.unstubAllGlobals();
     });
   });

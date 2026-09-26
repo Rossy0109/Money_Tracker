@@ -27,16 +27,24 @@ const VoucherReversal = lazy(() => import("./pages/VoucherReversal"));
 
 function Router() {
   return (
-    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><div className="animate-pulse font-semibold text-sm">লোড হচ্ছে...</div></div>}>
+    <Suspense
+      fallback={
+        <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]">
+          <div className="animate-pulse font-semibold text-sm">
+            লোড হচ্ছে...
+          </div>
+        </div>
+      }
+    >
       <Switch>
         <Route path={"/"} component={Home} />
         <Route path={"/vouchers"} component={Vouchers} />
         <Route path={"/account"} component={Account} />
-<Route path={"/party-ledger"} component={PartyLedger} />
-<Route path={"/payroll"} component={Payroll} />
-<Route path={"/chart-of-accounts"} component={ChartOfAccounts} />
-<Route path={"/period-lock"} component={PeriodLock} />
-<Route path={"/voucher-reversal"} component={VoucherReversal} />
+        <Route path={"/party-ledger"} component={PartyLedger} />
+        <Route path={"/payroll"} component={Payroll} />
+        <Route path={"/chart-of-accounts"} component={ChartOfAccounts} />
+        <Route path={"/period-lock"} component={PeriodLock} />
+        <Route path={"/voucher-reversal"} component={VoucherReversal} />
         <Route path={"/invoices"} component={Invoices} />
         <Route path={"/inventory"} component={Inventory} />
         <Route path={"/statements"} component={FinancialStatements} />

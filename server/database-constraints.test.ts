@@ -4,8 +4,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 class MockRelationalDb {
   users = new Map<number, { id: number; openId: string; email: string }>();
   projects = new Map<number, { id: number; userId: number; name: string }>();
-  transactions = new Map<number, { id: number; projectId: number; amount: number }>();
-  categories = new Map<number, { id: number; projectId: number; name: string }>();
+  transactions = new Map<
+    number,
+    { id: number; projectId: number; amount: number }
+  >();
+  categories = new Map<
+    number,
+    { id: number; projectId: number; name: string }
+  >();
 
   private nextId = 1;
 
@@ -25,12 +31,19 @@ class MockRelationalDb {
   createProject(userId: number, name: string) {
     // Foreign key constraint on userId
     if (!this.users.has(userId)) {
-      throw new Error("Cannot add or update a child row: a foreign key constraint fails (userId)");
+      throw new Error(
+        "Cannot add or update a child row: a foreign key constraint fails (userId)"
+      );
     }
     // Compound unique constraint on (userId, name)
     for (const proj of this.projects.values()) {
-      if (proj.userId === userId && proj.name.toLowerCase() === name.toLowerCase()) {
-        throw new Error("Duplicate entry for key 'finance_projects_user_name_unique'");
+      if (
+        proj.userId === userId &&
+        proj.name.toLowerCase() === name.toLowerCase()
+      ) {
+        throw new Error(
+          "Duplicate entry for key 'finance_projects_user_name_unique'"
+        );
       }
     }
     const id = this.nextId++;
@@ -42,7 +55,9 @@ class MockRelationalDb {
   createTransaction(projectId: number, amount: number) {
     // Foreign key constraint on projectId
     if (!this.projects.has(projectId)) {
-      throw new Error("Cannot add or update a child row: a foreign key constraint fails (projectId)");
+      throw new Error(
+        "Cannot add or update a child row: a foreign key constraint fails (projectId)"
+      );
     }
     const id = this.nextId++;
     const tx = { id, projectId, amount };
@@ -104,7 +119,9 @@ describe("server/database-constraints.test.ts - Unique, Foreign Key, and Cascade
       db.createProject(user1.id, "দৈনিক হিসাব");
 
       // Same user cannot create project with same name
-      expect(() => db.createProject(user1.id, "দৈনিক হিসাব")).toThrow("finance_projects_user_name_unique");
+      expect(() => db.createProject(user1.id, "দৈনিক হিসাব")).toThrow(
+        "finance_projects_user_name_unique"
+      );
 
       // Different user CAN have a project with the same name
       expect(db.createProject(user2.id, "দৈনিক হিসাব")).toBeDefined();

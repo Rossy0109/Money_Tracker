@@ -23,13 +23,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  Check,
-  LockKeyhole,
-  Upload,
-  UserCheck,
-  UserX,
-} from "lucide-react";
+import { Check, LockKeyhole, Upload, UserCheck, UserX } from "lucide-react";
 import { dateText, auditActionText } from "../types";
 import type { DateRange } from "react-day-picker";
 
@@ -99,7 +93,10 @@ interface AdminDialogProps {
   setAuditPage: React.Dispatch<React.SetStateAction<number>>;
   onDownloadAuditLogs: (format: "csv" | "pdf") => void;
   isAuditExporting: boolean;
-  onUpdateUserStatus: (targetUserId: number, status: "active" | "suspended") => void;
+  onUpdateUserStatus: (
+    targetUserId: number,
+    status: "active" | "suspended"
+  ) => void;
   isUpdatingUserStatus: boolean;
   onAssignRole: (targetUserId: number, role: string) => void;
   isAssigningRole: boolean;
@@ -397,9 +394,7 @@ export function AdminDialog({
                     size="sm"
                     variant="outline"
                     disabled={!adminLogs.data || adminLogs.data.page <= 1}
-                    onClick={() =>
-                      setAuditPage(page => Math.max(1, page - 1))
-                    }
+                    onClick={() => setAuditPage(page => Math.max(1, page - 1))}
                   >
                     আগের পৃষ্ঠা
                   </Button>
@@ -526,7 +521,9 @@ export function AdminDialog({
                             type="button"
                             size="sm"
                             disabled={isUpdatingUserStatus}
-                            onClick={() => onUpdateUserStatus(member.id, "active")}
+                            onClick={() =>
+                              onUpdateUserStatus(member.id, "active")
+                            }
                             className="h-8 rounded-lg bg-[#173f36] hover:bg-[#12312a] text-white text-xs px-2.5 flex items-center gap-1"
                           >
                             <UserCheck className="h-3.5 w-3.5" />
@@ -537,18 +534,20 @@ export function AdminDialog({
                           !(member.rbacRoles ?? []).some(
                             r => r === "SUPER_ADMIN" || r === "SYSTEM_ADMIN"
                           ) && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isUpdatingUserStatus}
-                            onClick={() => onUpdateUserStatus(member.id, "suspended")}
-                            className="h-8 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 text-xs px-2.5 flex items-center gap-1"
-                          >
-                            <UserX className="h-3.5 w-3.5" />
-                            <span>স্থগিত করুন</span>
-                          </Button>
-                        )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isUpdatingUserStatus}
+                              onClick={() =>
+                                onUpdateUserStatus(member.id, "suspended")
+                              }
+                              className="h-8 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 text-xs px-2.5 flex items-center gap-1"
+                            >
+                              <UserX className="h-3.5 w-3.5" />
+                              <span>স্থগিত করুন</span>
+                            </Button>
+                          )}
                       </div>
                     </div>
                   ))
@@ -576,7 +575,8 @@ export function AdminDialog({
                 </div>
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <p className="text-xs text-[#527768]">
-                    আপনার পছন্দের নতুন লোগো (PNG, SVG, JPG, সর্বোচ্চ 2MB) আপলোড করতে পারেন।
+                    আপনার পছন্দের নতুন লোগো (PNG, SVG, JPG, সর্বোচ্চ 2MB) আপলোড
+                    করতে পারেন।
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-[#173f36] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#12312a] transition">

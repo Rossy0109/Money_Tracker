@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 import { createConnection } from "mysql2/promise";
 
 const MIGRATION_FILE = fileURLToPath(
-  new URL("../drizzle/0014_rbac_and_idempotency.sql", import.meta.url),
+  new URL("../drizzle/0014_rbac_and_idempotency.sql", import.meta.url)
 );
 
 function getDatabaseUrl() {
@@ -33,7 +33,7 @@ function getDatabaseUrl() {
   if (fromArg) return fromArg;
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   throw new Error(
-    "DATABASE_URL is required (set the env var or pass --url \"mysql://user:pass@host/db\")",
+    'DATABASE_URL is required (set the env var or pass --url "mysql://user:pass@host/db")'
   );
 }
 
@@ -44,20 +44,28 @@ async function run() {
   try {
     const statements = readFileSync(MIGRATION_FILE, "utf8")
       .split("--> statement-breakpoint")
-      .map((s) => s.trim())
+      .map(s => s.trim())
       .filter(Boolean);
 
-    console.log(`Applying ${statements.length} additive statements from ${MIGRATION_FILE}`);
+    console.log(
+      `Applying ${statements.length} additive statements from ${MIGRATION_FILE}`
+    );
     for (const [index, statement] of statements.entries()) {
       try {
         await connection.query(statement);
-        console.log(`  ok   [${index + 1}/${statements.length}] ${firstLine(statement)}`);
+        console.log(
+          `  ok   [${index + 1}/${statements.length}] ${firstLine(statement)}`
+        );
       } catch (error) {
         const msg = String(error?.message ?? error);
         if (isAlreadyExistsError(msg)) {
-          console.log(`  skip [${index + 1}/${statements.length}] target already exists`);
+          console.log(
+            `  skip [${index + 1}/${statements.length}] target already exists`
+          );
         } else {
-          throw new Error(`Statement ${index + 1} failed: ${msg}\nSQL: ${statement}`);
+          throw new Error(
+            `Statement ${index + 1} failed: ${msg}\nSQL: ${statement}`
+          );
         }
       }
     }
@@ -77,7 +85,7 @@ async function run() {
 async function ensureColumn(connection, table, column) {
   const [rows] = await connection.query(
     "SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
-    [table, column],
+    [table, column]
   );
   const exists = Number(rows[0]?.n ?? 0) > 0;
   const tableExists = await tableExistsIn(connection, table);
@@ -88,7 +96,7 @@ async function ensureColumn(connection, table, column) {
     return;
   }
   await connection.query(
-    `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP`,
+    `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP`
   );
   console.log(`  add  ${table}.${column}`);
 }
@@ -96,16 +104,16 @@ async function ensureColumn(connection, table, column) {
 async function tableExistsIn(connection, table) {
   const [rows] = await connection.query(
     "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
-    [table],
+    [table]
   );
   return Number(rows[0]?.n ?? 0) > 0;
 }
 
 async function reportState(connection) {
   const [tables] = await connection.query(
-    "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('roles','permissions','user_roles','role_permissions','idempotency_keys') ORDER BY table_name",
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('roles','permissions','user_roles','role_permissions','idempotency_keys') ORDER BY table_name"
   );
-  const present = tables.map((t) => t.TABLE_NAME);
+  const present = tables.map(t => t.TABLE_NAME);
   console.log("RBAC tables present:", present.join(", "));
 }
 
@@ -122,10 +130,15 @@ function isAlreadyExistsError(message) {
 }
 
 function firstLine(statement) {
-  return statement.split("\n").find((line) => line.trim().startsWith("CREATE"))?.trim() || "statement";
+  return (
+    statement
+      .split("\n")
+      .find(line => line.trim().startsWith("CREATE"))
+      ?.trim() || "statement"
+  );
 }
 
-run().catch((error) => {
+run().catch(error => {
   console.error("apply-rbac-schema failed:", error.message ?? error);
   process.exit(1);
 });

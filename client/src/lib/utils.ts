@@ -19,4 +19,3 @@ export const monthText = (key: string) =>
   new Intl.DateTimeFormat("bn-BD", { month: "short" }).format(
     new Date(`${key}-01T12:00:00Z`)
   );
-

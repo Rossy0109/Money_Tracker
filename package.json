@@ -21,7 +21,8 @@
     "test:browser:e2e": "node scripts/run-browser-e2e.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:reconcile": "node scripts/reconcile-migrations.mjs",
-    "db:rbac": "node scripts/apply-rbac-schema.mjs"
+    "db:rbac": "node scripts/apply-rbac-schema.mjs",
+    "test:migrations": "node scripts/verify-migrations.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1139.0",

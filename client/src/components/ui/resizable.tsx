@@ -28,7 +28,11 @@ function ResizablePanel({
   ...props
 }: React.ComponentProps<typeof Panel>) {
   return (
-    <Panel data-slot="resizable-panel" className={cn("flex size-full", className)} {...props} />
+    <Panel
+      data-slot="resizable-panel"
+      className={cn("flex size-full", className)}
+      {...props}
+    />
   );
 }
 

@@ -48,9 +48,9 @@ export function MonthlyReportDialog({
         </DialogHeader>
         <div className="grid gap-4">
           <p className="text-sm text-[#5d776b]">
-            আলাদা লাভ-ক্ষতি, আয়, ব্যয়, দেনা, পাওনা ও আর্থিক অবস্থানের
-            রিপোর্ট PDF হিসেবে ডাউনলোড বা ডিভাইসের শেয়ার স্ক্রিন থেকে
-            ইমেইল বা WhatsApp-এ পাঠানো যাবে।
+            আলাদা লাভ-ক্ষতি, আয়, ব্যয়, দেনা, পাওনা ও আর্থিক অবস্থানের রিপোর্ট
+            PDF হিসেবে ডাউনলোড বা ডিভাইসের শেয়ার স্ক্রিন থেকে ইমেইল বা
+            WhatsApp-এ পাঠানো যাবে।
           </p>
           <Field label="রিপোর্টের মাস">
             <Input
@@ -99,7 +99,9 @@ export function MonthlyReportDialog({
               ) : (
                 <Share2 className="mr-1.5 h-4 w-4" />
               )}
-              {isSharing ? "শেয়ার প্রস্তুত হচ্ছে..." : "ইমেইল / WhatsApp-এ শেয়ার"}
+              {isSharing
+                ? "শেয়ার প্রস্তুত হচ্ছে..."
+                : "ইমেইল / WhatsApp-এ শেয়ার"}
             </Button>
           </div>
         </div>

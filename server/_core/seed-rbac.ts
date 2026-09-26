@@ -1,10 +1,17 @@
-import { databaseRequired, getDb, logAudit } from "../db";
+import { databaseRequired, getDb, logAudit, systemActorUserId } from "../db";
 import { eq } from "drizzle-orm";
 import { roles, permissions, rolePermissions } from "../../drizzle/schema";
-import { ROLE_PERMISSIONS, ROLE_NAMES, PERMISSION_GROUPS, categoryForPermission } from "@shared/rbac";
-import { clearRBACCache } from "./rbac";
+import {
+  ROLE_PERMISSIONS,
+  ROLE_NAMES,
+  PERMISSION_GROUPS,
+  categoryForPermission,
+} from "@shared/rbac";
 
-const SYSTEM_ROLE_NAMES = new Set<string>([ROLE_NAMES.SUPER_ADMIN, ROLE_NAMES.SYSTEM_ADMIN]);
+const SYSTEM_ROLE_NAMES = new Set<string>([
+  ROLE_NAMES.SUPER_ADMIN,
+  ROLE_NAMES.SYSTEM_ADMIN,
+]);
 
 /** "accounting.create" → "Accounting Create"; "auth.login" → "Auth Login". */
 function displayNameForPermission(permission: string): string {
@@ -31,36 +38,50 @@ export async function seedDefaultRBAC() {
 
   const allPermissionNames = Object.values(PERMISSION_GROUPS).flat();
   const usedPermissionNames = Object.values(ROLE_PERMISSIONS).flat();
-  const catalog = Array.from(new Set([...allPermissionNames, ...usedPermissionNames]));
+  const catalog = Array.from(
+    new Set([...allPermissionNames, ...usedPermissionNames])
+  );
 
   let changed = false;
 
   // Upsert permissions from the shared catalog.
   for (const permName of catalog) {
-    const result = await db.insert(permissions).values({
-      name: permName,
-      displayName: displayNameForPermission(permName),
-      description: null,
-      category: categoryForPermission(permName),
-    }).onDuplicateKeyUpdate({
-      set: {
+    const result = await db
+      .insert(permissions)
+      .values({
+        name: permName,
         displayName: displayNameForPermission(permName),
+        description: null,
         category: categoryForPermission(permName),
-      },
-    });
+      })
+      .onDuplicateKeyUpdate({
+        set: {
+          displayName: displayNameForPermission(permName),
+          category: categoryForPermission(permName),
+        },
+      });
     if (Number(result[0]?.affectedRows ?? 0) > 0) changed = true;
   }
 
   // Upsert roles.
   const roleIdMap = new Map<string, number>();
   for (const roleName of Object.values(ROLE_NAMES)) {
-    await db.insert(roles).values({
-      name: roleName,
-      displayName: roleName,
-      description: "",
-      isSystem: SYSTEM_ROLE_NAMES.has(roleName),
-    }).onDuplicateKeyUpdate({ set: { name: roleName, isSystem: SYSTEM_ROLE_NAMES.has(roleName) } });
-    const [inserted] = await db.select({ id: roles.id }).from(roles).where(eq(roles.name, roleName)).limit(1);
+    await db
+      .insert(roles)
+      .values({
+        name: roleName,
+        displayName: roleName,
+        description: "",
+        isSystem: SYSTEM_ROLE_NAMES.has(roleName),
+      })
+      .onDuplicateKeyUpdate({
+        set: { name: roleName, isSystem: SYSTEM_ROLE_NAMES.has(roleName) },
+      });
+    const [inserted] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, roleName))
+      .limit(1);
     if (inserted) roleIdMap.set(roleName, inserted.id);
   }
 
@@ -75,22 +96,23 @@ export async function seedDefaultRBAC() {
         .where(eq(permissions.name, permName))
         .limit(1);
       if (!perm) continue;
-      await db.insert(rolePermissions).values({
-        roleId,
-        permissionId: perm.id,
-      }).onDuplicateKeyUpdate({ set: { roleId, permissionId: perm.id } });
+      await db
+        .insert(rolePermissions)
+        .values({
+          roleId,
+          permissionId: perm.id,
+        })
+        .onDuplicateKeyUpdate({ set: { roleId, permissionId: perm.id } });
     }
   }
 
-  // Keep the runtime RBAC cache in sync with the (possibly repaired) DB state.
-  clearRBACCache();
-
   if (changed) {
     await logAudit({
-      actorUserId: 0,
+      actorUserId: await systemActorUserId(),
       action: "create",
       entityType: "rbac_seed",
-      summary: "Default RBAC roles, permissions and grants reconciled from shared catalog",
+      summary:
+        "Default RBAC roles, permissions and grants reconciled from shared catalog",
     });
   }
 }

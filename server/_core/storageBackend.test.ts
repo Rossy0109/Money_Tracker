@@ -16,13 +16,13 @@ describe("selectStorageBackend", () => {
       selectStorageBackend({
         ...baseEnvironment,
         blobReadWriteToken: "configured-private-blob-credential",
-      }),
+      })
     ).toBe("vercel-blob");
   });
 
   it("fails closed when a configured Blob store lacks its credential", () => {
     expect(
-      selectStorageBackend({ ...baseEnvironment, blobStoreId: "store_staging" }),
+      selectStorageBackend({ ...baseEnvironment, blobStoreId: "store_staging" })
     ).toBe("missing");
   });
 });

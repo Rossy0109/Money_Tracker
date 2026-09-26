@@ -8,7 +8,13 @@ describe("isSecureRequest", () => {
   });
 
   it("returns true for direct HTTPS", () => {
-    expect(isSecureRequest({ protocol: "https", headers: {}, hostname: "example.com" } as any)).toBe(true);
+    expect(
+      isSecureRequest({
+        protocol: "https",
+        headers: {},
+        hostname: "example.com",
+      } as any)
+    ).toBe(true);
   });
 
   it("returns true when x-forwarded-proto is https (single header)", () => {
@@ -17,7 +23,7 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: { "x-forwarded-proto": "https" },
         hostname: "example.com",
-      } as any),
+      } as any)
     ).toBe(true);
   });
 
@@ -27,7 +33,7 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: { "x-forwarded-proto": "http, https" },
         hostname: "example.com",
-      } as any),
+      } as any)
     ).toBe(true);
   });
 
@@ -37,7 +43,7 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: {},
         hostname: "evil.example.com",
-      } as any),
+      } as any)
     ).toBe(false);
   });
 
@@ -47,7 +53,7 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: {},
         hostname: "localhost",
-      } as any),
+      } as any)
     ).toBe(true);
   });
 
@@ -57,7 +63,7 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: {},
         hostname: "127.0.0.1",
-      } as any),
+      } as any)
     ).toBe(true);
   });
 
@@ -67,14 +73,14 @@ describe("isSecureRequest", () => {
         protocol: "http",
         headers: {},
         hostname: "::1",
-      } as any),
+      } as any)
     ).toBe(true);
     expect(
       isSecureRequest({
         protocol: "http",
         headers: {},
         hostname: "[::1]",
-      } as any),
+      } as any)
     ).toBe(true);
   });
 });

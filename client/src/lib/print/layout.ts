@@ -99,7 +99,13 @@ export function reportGeneratedMeta(
   ];
 }
 
-export function totalsTableHtml(rows: Array<{ label: string; value: string; tone?: "normal" | "income" | "expense" | "grand" }>): string {
+export function totalsTableHtml(
+  rows: Array<{
+    label: string;
+    value: string;
+    tone?: "normal" | "income" | "expense" | "grand";
+  }>
+): string {
   return `
   <div class="totals">
     <table class="total-table">
@@ -120,6 +126,8 @@ export function totalsTableHtml(rows: Array<{ label: string; value: string; tone
   </div>`;
 }
 
-export function noDataHtml(message = "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।"): string {
+export function noDataHtml(
+  message = "নির্বাচিত সময়সীমায় কোনো লেনদেন পাওয়া যায়নি।"
+): string {
   return `<p style="text-align:center;color:#64786e;margin:14px 0;">${escapeHtml(message)}</p>`;
 }

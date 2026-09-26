@@ -20,7 +20,7 @@ export type PrivateObjectAccessContext = {
  */
 export function canDownloadPrivateObject(
   object: PrivateObjectAccessRecord,
-  context: PrivateObjectAccessContext,
+  context: PrivateObjectAccessContext
 ): boolean {
   if (object.scope === "owner") {
     return (

@@ -3,7 +3,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const readClientFile = (relativePath: string) =>
-  fs.readFileSync(path.resolve(process.cwd(), "client/src", relativePath), "utf8");
+  fs.readFileSync(
+    path.resolve(process.cwd(), "client/src", relativePath),
+    "utf8"
+  );
 
 describe("export lazy-loading wiring", () => {
   it("keeps accounting report labels lightweight and loads audit/PDF exporters only after a user action", () => {
@@ -30,7 +33,9 @@ describe("export lazy-loading wiring", () => {
     const source = readClientFile("pages/PartyLedger.tsx");
     expect(source).toContain('await import("jspdf")');
     // Runtime imports must stay lazy; type-only imports are erased at compile time.
-    const runtimeJspdfImports = source.match(/^\s*import\s+(?!type\s)[^\n]*from\s+"jspdf"/gm);
+    const runtimeJspdfImports = source.match(
+      /^\s*import\s+(?!type\s)[^\n]*from\s+"jspdf"/gm
+    );
     expect(runtimeJspdfImports).toBeNull();
     expect(source).not.toMatch(/^\s*import\s+["']jspdf["']/m);
   });

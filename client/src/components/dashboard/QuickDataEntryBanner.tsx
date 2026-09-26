@@ -14,8 +14,8 @@ export function QuickDataEntryBanner({
         <p className="section-kicker">দ্রুত ডেটা এন্ট্রি</p>
         <h2 className="section-title">হিসাব লেখা শুরু করুন</h2>
         <p className="mt-1 text-sm text-[#668076]">
-          আয় বা ব্যয় লিখতে <strong>লেনদেন যোগ করুন</strong> চাপুন।
-          অ্যাকাউন্ট, বাজেট ও বিল যোগ করার বাটন নিচের সংশ্লিষ্ট সেকশনে আছে।
+          আয় বা ব্যয় লিখতে <strong>লেনদেন যোগ করুন</strong> চাপুন। অ্যাকাউন্ট,
+          বাজেট ও বিল যোগ করার বাটন নিচের সংশ্লিষ্ট সেকশনে আছে।
         </p>
       </div>
       <Button

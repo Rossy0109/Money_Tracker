@@ -115,7 +115,9 @@ export function bengaliNumberWords(value: number): string {
   const hundred = Math.floor((n % 1_000) / 100);
   const rest = n % 100;
   if (crore > 0)
-    parts.push(`${bengaliNumberWords(crore)}${crore === 1 ? " কোটি" : " কোটি"}`);
+    parts.push(
+      `${bengaliNumberWords(crore)}${crore === 1 ? " কোটি" : " কোটি"}`
+    );
   if (lakh > 0) parts.push(`${bengaliNumberWords(lakh)} লাখ`);
   if (thousand > 0) parts.push(`${bengaliNumberWords(thousand)} হাজার`);
   if (hundred > 0) parts.push(`${bengaliNumberWords(hundred)}শ`);
@@ -176,8 +178,7 @@ export function englishNumberWords(value: number): string {
     const chunkWords: string[] = [];
     const hundred = Math.floor(chunk / 100);
     const rest = chunk % 100;
-    if (hundred > 0)
-      chunkWords.push(`${ENGLISH_ONES[hundred]} Hundred`);
+    if (hundred > 0) chunkWords.push(`${ENGLISH_ONES[hundred]} Hundred`);
     if (rest >= 20) {
       const tens = Math.floor(rest / 10);
       const ones = rest % 10;
@@ -186,7 +187,9 @@ export function englishNumberWords(value: number): string {
     } else if (rest > 0) {
       chunkWords.push(ENGLISH_ONES[rest]);
     }
-    words.push([...chunkWords, ENGLISH_SCALES[index]].filter(Boolean).join(" "));
+    words.push(
+      [...chunkWords, ENGLISH_SCALES[index]].filter(Boolean).join(" ")
+    );
   }
   return words.join(" ");
 }
@@ -201,9 +204,7 @@ export function amountToWords(amount: number): AmountInWords {
   const poisha = Math.round((Math.abs(amount) - taka) * 100) % 100;
   const sign = amount < 0 ? "ঋণাত্মক " : "";
   const bengaliPoisha =
-    poisha > 0
-      ? ` ও ${bengaliNumberWords(poisha)} পয়সা`
-      : "";
+    poisha > 0 ? ` ও ${bengaliNumberWords(poisha)} পয়সা` : "";
   const englishPoisha =
     poisha > 0 ? ` and ${englishNumberWords(poisha)} Poisha` : "";
   return {

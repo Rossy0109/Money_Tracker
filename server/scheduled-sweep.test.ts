@@ -40,6 +40,64 @@ function makeFakeDb(queues: {
     if (value instanceof Error) throw value;
     return value;
   };
+  const tableName = (table: any) =>
+    table?._?.name || table?.[Symbol.for("drizzle:Name")] || "";
+  const defaultRows = (table: any) => {
+    if (tableName(table).toLowerCase().includes("periodlock")) return [];
+    if (tableName(table).toLowerCase().includes("project"))
+      return [{ id: 7, userId: 1 }];
+    switch (tableName(table)) {
+      case "finance_projects":
+      case "financeProjects":
+        return [{ id: 7, userId: 1 }];
+      case "finance_account_types":
+      case "financeAccountTypes":
+        return [{ id: 1, code: "ASSET" }];
+      case "finance_chart_of_accounts":
+      case "financeChartOfAccounts":
+        return [
+          {
+            id: 101,
+            code: "1110",
+            isDetail: true,
+            isActive: true,
+            currentBalance: "0.00",
+          },
+          {
+            id: 104,
+            code: "5110",
+            isDetail: true,
+            isActive: true,
+            currentBalance: "0.00",
+          },
+        ];
+      case "finance_accounts":
+      case "financeAccounts":
+        return [{ id: 3, type: "cash", chartOfAccountId: 101 }];
+      case "finance_categories":
+      case "financeCategories":
+        return [{ id: 3, type: "expense", chartOfAccountId: 104 }];
+      case "finance_voucher_settings":
+      case "financeVoucherSettings":
+        return [
+          {
+            id: 2,
+            prefix: "V",
+            startNumber: 1,
+            endNumber: 999999,
+            nextNumber: 1,
+          },
+        ];
+      case "finance_period_locks":
+      case "financePeriodLocks":
+        return [];
+      case "finance_transactions":
+      case "financeTransactions":
+        return [];
+      default:
+        return [];
+    }
+  };
   // insert().values() doubles as a terminal and as a chainable for
   // .onDuplicateKeyUpdate() (used by claimNextVoucher).
   const makeValues = () => {
@@ -53,13 +111,11 @@ function makeFakeDb(queues: {
     };
     return chained;
   };
-  const makeWhere = (): WhereChain => {
+  const makeWhere = (table?: any): WhereChain => {
     const where = ((..._args: unknown[]) => where) as WhereChain;
-    where.limit = terminal(selectQueue, []);
+    const fallback = table ? defaultRows(table) : [{ affectedRows: 1 }];
+    where.limit = terminal(selectQueue, fallback);
     where.values = terminal(insertQueue, [{ insertId: 1 }]);
-    // Awaiting .where() directly ends select-all (sweep listing) and
-    // update/delete chains: prefer a queued select row when present,
-    // otherwise resolve as an update acknowledgement.
     where.then = (
       resolve: (value: unknown) => unknown,
       reject: (reason: unknown) => unknown
@@ -68,7 +124,7 @@ function makeFakeDb(queues: {
         ? selectQueue.shift()
         : updateQueue.length
           ? updateQueue.shift()
-          : [{ affectedRows: 1 }];
+          : fallback;
       return (
         value instanceof Error ? Promise.reject(value) : Promise.resolve(value)
       ).then(resolve, reject);
@@ -77,7 +133,7 @@ function makeFakeDb(queues: {
   };
   const chain = {
     select: (..._args: unknown[]) => ({
-      from: (..._args: unknown[]) => ({ where: makeWhere }),
+      from: (table: any) => ({ where: makeWhere(table) }),
     }),
     insert: (..._args: unknown[]) => ({
       values: (..._args: unknown[]) => makeValues(),
@@ -135,6 +191,7 @@ describe("processRecurringSweep", () => {
     mocks.db = makeFakeDb({
       select: [
         [template],
+        [{ id: 7, userId: 1 }],
         [], // no existing run for the key
         [settings], // claimNextVoucher settings lookup
       ],

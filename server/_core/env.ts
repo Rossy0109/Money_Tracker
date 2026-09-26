@@ -16,13 +16,18 @@ export const ENV = {
   googleDriveClientId: process.env.GOOGLE_DRIVE_CLIENT_ID ?? "",
   googleDriveClientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET ?? "",
   googleDriveRedirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI ?? "",
-  backupCronSecret: process.env.CRON_SECRET ?? process.env.BACKUP_CRON_SECRET ?? "",
+  backupCronSecret:
+    process.env.CRON_SECRET ?? process.env.BACKUP_CRON_SECRET ?? "",
   backupEncryptionKey: process.env.BACKUP_ENCRYPTION_KEY ?? "",
   backupRetentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS ?? "30", 10),
   adminBootstrapEmail: process.env.ADMIN_BOOTSTRAP_EMAIL ?? "",
 };
 
-export type AuthModeConsistency = { ok: boolean; serverMode?: AuthMode; clientMode?: AuthMode };
+export type AuthModeConsistency = {
+  ok: boolean;
+  serverMode?: AuthMode;
+  clientMode?: AuthMode;
+};
 
 /**
  * Validates that critical environment variables are present at startup.
@@ -32,29 +37,35 @@ export function validateCriticalEnv(): string[] {
   const required = ["DATABASE_URL"];
 
   const missing: string[] = [];
-  
+
   for (const key of required) {
     if (!process.env[key]) {
       missing.push(key);
     }
   }
-  
+
   // At least one auth secret must be set
-  const hasAuthSecret = ["SESSION_SECRET", "JWT_SECRET"].some(key => process.env[key]);
+  const hasAuthSecret = ["SESSION_SECRET", "JWT_SECRET"].some(
+    key => process.env[key]
+  );
   if (!hasAuthSecret) {
     missing.push("SESSION_SECRET", "JWT_SECRET");
   }
-  
+
   // If using Google OAuth, check required Google OAuth env vars
   if (process.env.AUTH_MODE === "google") {
-    const googleRequired = ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_REDIRECT_URI"];
+    const googleRequired = [
+      "GOOGLE_OAUTH_CLIENT_ID",
+      "GOOGLE_OAUTH_CLIENT_SECRET",
+      "GOOGLE_OAUTH_REDIRECT_URI",
+    ];
     for (const key of googleRequired) {
       if (!process.env[key]) {
         missing.push(key);
       }
     }
   }
-  
+
   return missing;
 }
 
@@ -67,8 +78,10 @@ export function validateCriticalEnv(): string[] {
  * `ensure` reads current process.env so tests can control it with vi.stubEnv.
  */
 export function ensureAuthModeConsistency(): AuthModeConsistency {
-  const serverMode = (process.env.AUTH_MODE as "google" | "password") ?? "password";
-  const clientMode = (process.env.VITE_AUTH_MODE as "google" | "password" | undefined);
+  const serverMode =
+    (process.env.AUTH_MODE as "google" | "password") ?? "password";
+  const clientMode = process.env.VITE_AUTH_MODE as
+    "google" | "password" | undefined;
   if (!clientMode) {
     return { ok: true, serverMode, clientMode: serverMode };
   }

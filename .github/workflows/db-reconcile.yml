@@ -12,7 +12,7 @@ on:
           - dry-run
           - apply
       confirm:
-        description: 'Required only for apply: type APPLY-TO-PROD to confirm'
+        description: "Required only for apply: type APPLY-TO-PROD to confirm"
         required: false
         default: ""
         type: string

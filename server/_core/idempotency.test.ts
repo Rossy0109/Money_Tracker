@@ -12,8 +12,19 @@ function buildMockDbChain(selectResult?: any) {
   const deleteWhereFn = vi.fn().mockResolvedValue({ affectedRows: 0 });
   const deleteFn = vi.fn().mockReturnValue({ where: deleteWhereFn });
   return {
-    select: selectFn, insert: insertFn, delete: deleteFn,
-    _fns: { selectFn, fromFn, whereFn, limitFn, insertFn, valuesFn, deleteFn, deleteWhereFn },
+    select: selectFn,
+    insert: insertFn,
+    delete: deleteFn,
+    _fns: {
+      selectFn,
+      fromFn,
+      whereFn,
+      limitFn,
+      insertFn,
+      valuesFn,
+      deleteFn,
+      deleteWhereFn,
+    },
   };
 }
 
@@ -29,16 +40,26 @@ vi.mock("../../drizzle/schema", () => ({
 }));
 
 import { getDb } from "../db";
-import { hashRequest, checkIdempotency, storeIdempotency, clearIdempotency, purgeExpiredIdempotencyKeys } from "./idempotency";
+import {
+  hashRequest,
+  checkIdempotency,
+  storeIdempotency,
+  clearIdempotency,
+  purgeExpiredIdempotencyKeys,
+} from "./idempotency";
 
 const mockGetDb = vi.mocked(getDb);
 
 describe("hashRequest", () => {
   it("produces consistent hash for same input", () => {
-    expect(hashRequest({ projectId: 1, amount: 100 })).toBe(hashRequest({ projectId: 1, amount: 100 }));
+    expect(hashRequest({ projectId: 1, amount: 100 })).toBe(
+      hashRequest({ projectId: 1, amount: 100 })
+    );
   });
   it("produces different hash for different input", () => {
-    expect(hashRequest({ projectId: 1, amount: 100 })).not.toBe(hashRequest({ projectId: 1, amount: 200 }));
+    expect(hashRequest({ projectId: 1, amount: 100 })).not.toBe(
+      hashRequest({ projectId: 1, amount: 200 })
+    );
   });
   it("produces same hash regardless of key insertion order", () => {
     expect(hashRequest({ b: 2, a: 1 })).toBe(hashRequest({ a: 1, b: 2 }));
@@ -62,20 +83,44 @@ describe("checkIdempotency", () => {
   });
 
   it("isReplay=true for existing key with same payload", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() + 60000), requestHash: "h", responseStatus: 200, responseBody: '{"v":1}' }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() + 60000),
+        requestHash: "h",
+        responseStatus: 200,
+        responseBody: '{"v":1}',
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     const r = await checkIdempotency(1, "k", "/r", "h");
     expect(r).toEqual({ isReplay: true, status: 200, body: '{"v":1}' });
   });
 
   it("throws for same key with different payload", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() + 60000), requestHash: "original", responseStatus: 200, responseBody: "{}" }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() + 60000),
+        requestHash: "original",
+        responseStatus: 200,
+        responseBody: "{}",
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     await expect(checkIdempotency(1, "k", "/r", "different")).rejects.toThrow();
   });
 
   it("treats expired record as fresh", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() - 1000), requestHash: "h", responseStatus: 200, responseBody: "{}" }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() - 1000),
+        requestHash: "h",
+        responseStatus: 200,
+        responseBody: "{}",
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     const r = await checkIdempotency(1, "k", "/r", "h");
     expect(r.isReplay).toBe(false);
@@ -169,34 +214,70 @@ describe("Concurrent & Protection Scenarios", () => {
   });
 
   it("double-click returns cached result", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() + 60000), requestHash: "h", responseStatus: 200, responseBody: '{"v":1}' }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() + 60000),
+        requestHash: "h",
+        responseStatus: 200,
+        responseBody: '{"v":1}',
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     const r = await checkIdempotency(1, "k", "/r", "h");
     expect(r.isReplay).toBe(true);
   });
 
   it("network retry returns cached result", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() + 60000), requestHash: "h", responseStatus: 200, responseBody: '{"posted":true}' }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() + 60000),
+        requestHash: "h",
+        responseStatus: 200,
+        responseBody: '{"posted":true}',
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     const r = await checkIdempotency(1, "k", "/r", "h");
     expect(r.isReplay).toBe(true);
   });
 
   it("different payload with same key throws", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() + 60000), requestHash: "orig", responseStatus: 200, responseBody: "{}" }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() + 60000),
+        requestHash: "orig",
+        responseStatus: 200,
+        responseBody: "{}",
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     await expect(checkIdempotency(1, "k", "/r", "tampered")).rejects.toThrow();
   });
 
   it("expired key allows fresh submission", async () => {
-    chain = buildMockDbChain([{ id: 1, expiresAt: new Date(Date.now() - 1), requestHash: "h", responseStatus: 200, responseBody: "{}" }]);
+    chain = buildMockDbChain([
+      {
+        id: 1,
+        expiresAt: new Date(Date.now() - 1),
+        requestHash: "h",
+        responseStatus: 200,
+        responseBody: "{}",
+      },
+    ]);
     mockGetDb.mockResolvedValue(chain as any);
     const r = await checkIdempotency(1, "k", "/r", "h");
     expect(r.isReplay).toBe(false);
   });
 
   it("unique constraint prevents cross-instance duplicates", () => {
-    const constraint = { table: "idempotency_keys", columns: ["userId", "idempotencyKey"], type: "unique" };
+    const constraint = {
+      table: "idempotency_keys",
+      columns: ["userId", "idempotencyKey"],
+      type: "unique",
+    };
     expect(constraint.type).toBe("unique");
     expect(constraint.columns).toContain("userId");
     expect(constraint.columns).toContain("idempotencyKey");

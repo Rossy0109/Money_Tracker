@@ -17,7 +17,9 @@ export interface SupabaseAuthClaims {
   exp?: number;
 }
 
-export function parseSupabaseConfig(env: Record<string, string | undefined>): SupabaseStagingConfig | null {
+export function parseSupabaseConfig(
+  env: Record<string, string | undefined>
+): SupabaseStagingConfig | null {
   const supabaseUrl = env.SUPABASE_URL;
   const supabaseAnonKey = env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -31,7 +33,11 @@ export function parseSupabaseConfig(env: Record<string, string | undefined>): Su
 }
 
 export function mapSupabaseUserToPrincipal(claims: SupabaseAuthClaims) {
-  if (!claims.sub || typeof claims.sub !== "string" || claims.sub.trim() === "") {
+  if (
+    !claims.sub ||
+    typeof claims.sub !== "string" ||
+    claims.sub.trim() === ""
+  ) {
     throw new Error("Invalid Supabase claims: missing subject identifier");
   }
   return {

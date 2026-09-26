@@ -10,13 +10,18 @@ export interface TransactionReportRow {
 }
 
 export function generateCsvReport(rows: TransactionReportRow[]): string {
-  const headers = ["তারিখ", "ধরন", "ক্যাটাগরি", "পরিমাণ", "পেমেন্ট মাধ্যম", "নোট"];
+  const headers = [
+    "তারিখ",
+    "ধরন",
+    "ক্যাটাগরি",
+    "পরিমাণ",
+    "পেমেন্ট মাধ্যম",
+    "নোট",
+  ];
   const lines: string[] = [headers.join(",")];
 
   for (const row of rows) {
-    const escapedNote = row.note
-      ? `"${row.note.replace(/"/g, '""')}"`
-      : '""';
+    const escapedNote = row.note ? `"${row.note.replace(/"/g, '""')}"` : '""';
     const escapedCategory = `"${row.category.replace(/"/g, '""')}"`;
     const typeText = row.type === "income" ? "আয়" : "ব্যয়";
 

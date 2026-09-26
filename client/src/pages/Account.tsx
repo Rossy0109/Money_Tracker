@@ -5,7 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck, User } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  KeyRound,
+  Lock,
+  Mail,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 import { getDisplayRole } from "@/lib/rbac";
 
@@ -18,15 +26,17 @@ export default function Account() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const setPasswordMutation = trpc.auth.setPassword.useMutation({
-    onSuccess: (data) => {
+    onSuccess: data => {
       setPassword("");
       setConfirmPassword("");
       setErrorMessage(null);
       toast.success(data.message);
       utils.auth.me.invalidate();
     },
-    onError: (err) => {
-      setErrorMessage(err.message || "পাসওয়ার্ড সেট করা যায়নি। আবার চেষ্টা করুন।");
+    onError: err => {
+      setErrorMessage(
+        err.message || "পাসওয়ার্ড সেট করা যায়নি। আবার চেষ্টা করুন।"
+      );
     },
   });
 
@@ -55,7 +65,8 @@ export default function Account() {
           <p className="section-kicker">আমার অ্যাকাউন্ট</p>
           <h1 className="section-heading">অ্যাকাউন্ট ও পাসওয়ার্ড</h1>
           <p className="mt-1 text-sm text-[#5c7a6e]">
-            আপনার লগইন তথ্য দেখুন এবং একটি পাসওয়ার্ড সেট করুন, যাতে পরে ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারেন।
+            আপনার লগইন তথ্য দেখুন এবং একটি পাসওয়ার্ড সেট করুন, যাতে পরে ইমেইল ও
+            পাসওয়ার্ড দিয়ে লগইন করতে পারেন।
           </p>
         </div>
 
@@ -67,7 +78,9 @@ export default function Account() {
               </span>
               <div>
                 <div className="text-xs text-[#5c7a6e]">নাম</div>
-                <div className="font-semibold text-[#14382f]">{user?.name || "—"}</div>
+                <div className="font-semibold text-[#14382f]">
+                  {user?.name || "—"}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -76,7 +89,9 @@ export default function Account() {
               </span>
               <div>
                 <div className="text-xs text-[#5c7a6e]">ইমেইল</div>
-                <div className="font-semibold text-[#14382f]">{user?.email || "—"}</div>
+                <div className="font-semibold text-[#14382f]">
+                  {user?.email || "—"}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -118,7 +133,8 @@ export default function Account() {
 
           {isGoogleOnly && (
             <p className="mb-4 rounded-xl border border-[#d6e5db] bg-[#f6faf7] p-3 text-xs leading-5 text-[#3b5d50]">
-              এই অ্যাকাউন্টটি এখন Google দিয়ে লগইন করে। একটি পাসওয়ার্ড সেট করলে আপনি চাইলে ইমেইল ও পাসওয়ার্ড দিয়েও লগইন করতে পারবেন।
+              এই অ্যাকাউন্টটি এখন Google দিয়ে লগইন করে। একটি পাসওয়ার্ড সেট
+              করলে আপনি চাইলে ইমেইল ও পাসওয়ার্ড দিয়েও লগইন করতে পারবেন।
             </p>
           )}
 
@@ -140,7 +156,7 @@ export default function Account() {
                   required
                   placeholder="কমপক্ষে ৬ অক্ষর"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   className="h-11 rounded-xl border-[#c9dcd0] pl-10 pr-10 focus-visible:ring-[#166534]"
                 />
                 <button
@@ -148,7 +164,11 @@ export default function Account() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#8da69c] hover:text-[#166534]"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -164,7 +184,7 @@ export default function Account() {
                   required
                   placeholder="একই পাসওয়ার্ড পুনরায় দিন"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={e => setConfirmPassword(e.target.value)}
                   className="h-11 rounded-xl border-[#c9dcd0] pl-10 pr-10 focus-visible:ring-[#166534]"
                 />
               </div>
@@ -175,7 +195,9 @@ export default function Account() {
               disabled={setPasswordMutation.isPending}
               className="h-11 w-full rounded-xl bg-gradient-to-r from-[#173f36] to-[#14532d] text-white font-semibold text-sm shadow-md transition-all hover:from-[#11322b] hover:to-[#0f3f22]"
             >
-              {setPasswordMutation.isPending ? "সংরক্ষণ হচ্ছে..." : "পাসওয়ার্ড সেট করুন"}
+              {setPasswordMutation.isPending
+                ? "সংরক্ষণ হচ্ছে..."
+                : "পাসওয়ার্ড সেট করুন"}
             </Button>
           </form>
         </div>

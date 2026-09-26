@@ -1,5 +1,8 @@
 import { protectedProcedure, inputOnlyProcedure } from "./trpc";
-import { requireResourcePermission, requireAnyResourcePermission } from "./authz";
+import {
+  requireResourcePermission,
+  requireAnyResourcePermission,
+} from "./authz";
 
 /**
  * RBAC-enhanced procedure factories.
@@ -23,11 +26,21 @@ export function inputOnlyWithPermission(resource: string, action: string) {
 }
 
 /** Base procedure + any-of resource permission check (OR logic). */
-export function protectedWithAnyPermission(resource: string, actions: string[]) {
-  return protectedProcedure.use(requireAnyResourcePermission(resource, actions));
+export function protectedWithAnyPermission(
+  resource: string,
+  actions: string[]
+) {
+  return protectedProcedure.use(
+    requireAnyResourcePermission(resource, actions)
+  );
 }
 
 /** inputOnlyProcedure + any-of resource permission check (OR logic). */
-export function inputOnlyWithAnyPermission(resource: string, actions: string[]) {
-  return inputOnlyProcedure.use(requireAnyResourcePermission(resource, actions));
+export function inputOnlyWithAnyPermission(
+  resource: string,
+  actions: string[]
+) {
+  return inputOnlyProcedure.use(
+    requireAnyResourcePermission(resource, actions)
+  );
 }

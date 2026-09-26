@@ -9,7 +9,9 @@ export interface PasswordStrengthResult {
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
 
-export function validatePasswordStrength(password: string): PasswordStrengthResult {
+export function validatePasswordStrength(
+  password: string
+): PasswordStrengthResult {
   const errors: string[] = [];
   let score = 0;
 
@@ -18,7 +20,9 @@ export function validatePasswordStrength(password: string): PasswordStrengthResu
   }
 
   if (password.length < MIN_PASSWORD_LENGTH) {
-    errors.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long`);
+    errors.push(
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
+    );
   } else {
     score += 1;
   }
@@ -56,7 +60,14 @@ export function validatePasswordStrength(password: string): PasswordStrengthResu
     errors.push("Password should not contain repeated characters");
   }
 
-  const commonPatterns = ["123456", "password", "qwerty", "abc123", "admin", "letmein"];
+  const commonPatterns = [
+    "123456",
+    "password",
+    "qwerty",
+    "abc123",
+    "admin",
+    "letmein",
+  ];
   if (commonPatterns.some(pattern => password.includes(pattern))) {
     errors.push("Password contains a commonly used pattern");
   }
@@ -92,7 +103,10 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Verify a plain text password against a stored hash in constant time.
  */
-export async function verifyPassword(password: string, storedHash: string | null | undefined): Promise<boolean> {
+export async function verifyPassword(
+  password: string,
+  storedHash: string | null | undefined
+): Promise<boolean> {
   if (!password || !storedHash) return false;
   const parts = storedHash.split(":");
   if (parts.length !== 3 || parts[0] !== "scrypt") return false;
@@ -107,7 +121,10 @@ export async function verifyPassword(password: string, storedHash: string | null
     });
   });
 
-  return originalKey.length === derivedKey.length && timingSafeEqual(originalKey, derivedKey);
+  return (
+    originalKey.length === derivedKey.length &&
+    timingSafeEqual(originalKey, derivedKey)
+  );
 }
 
 /**

@@ -1,4 +1,18 @@
-import { and, asc, desc, eq, gte, isNull, isNotNull, like, lt, lte, or, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNull,
+  isNotNull,
+  like,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   getDb,
   closeDatabaseConnection,
@@ -70,14 +84,69 @@ import {
   canDownloadPrivateObject,
   type PrivateObjectScope,
 } from "./privateStorageAccess";
+import { logAudit, type AuditContext } from "./audit";
 
 export { getDb, closeDatabaseConnection, databaseRequired };
+export {
+  deleteAuditLogs,
+  getAuditLogActivity,
+  listAuditLogs,
+  listAuditLogsForExport,
+  listAuditLogsPage,
+  logAudit,
+  systemActorUserId,
+  updateAuditLogs,
+} from "./audit";
+export type {
+  AuditAction,
+  AuditContext,
+  AuditLogFilters,
+  AuditLogPageInput,
+} from "./audit";
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
 type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
 type DbOrTx = DbHandle | DbTx;
+type DbRow = {
+  id: number;
+  accountId: number | null;
+  chartOfAccountId: number | null;
+  code: string;
+  name: string;
+  type: string;
+  currentBalance: string | number;
+  openingBalance: string | number;
+  status: string;
+  voucherNo: string | null;
+  userId: number;
+  projectId: number;
+  amount: string | number;
+  prefix: string;
+  startNumber: number;
+  endNumber: number;
+  nextNumber: number;
+  openingBalanceVoucherId: number | null;
+  requestFingerprint: string | null;
+  voucherId: number | null;
+  recurringTemplateId: number | null;
+  recurringRunKey: string | null;
+  note: string | null;
+  occurredAt: Date;
+  [key: string]: string | number | Date | null | undefined;
+};
+type QueryLike = {
+  for?: (lock: "update") => QueryLike;
+  limit?: (count: number) => QueryLike;
+  orderBy?: (...args: unknown[]) => QueryLike;
+  where?: (...args: unknown[]) => QueryLike;
+  then?: (...args: unknown[]) => unknown;
+};
+
+function asQuery(value: unknown): QueryLike {
+  return value as QueryLike;
+}
 
 function decimal(value: number) {
   return value.toFixed(2);
@@ -105,6 +174,60 @@ function signedAmount(type: "income" | "expense", amount: string | number) {
   return type === "income" ? amountNumber : -amountNumber;
 }
 
+function cents(value: string | number) {
+  return Math.round(Number(value) * 100);
+}
+
+function decimalFromCents(value: number) {
+  return (value / 100).toFixed(2);
+}
+
+function transactionFingerprint(input: {
+  projectId: number;
+  categoryId: number;
+  accountId?: number;
+  type: "income" | "expense";
+  amount: number;
+  paymentMethod: string;
+  note?: string;
+  occurredAt: Date;
+}) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        projectId: input.projectId,
+        categoryId: input.categoryId,
+        accountId: input.accountId ?? null,
+        type: input.type,
+        amountCents: cents(input.amount),
+        paymentMethod: input.paymentMethod.trim(),
+        note: input.note?.trim() || null,
+        occurredAt: input.occurredAt.toISOString(),
+      })
+    )
+    .digest("hex");
+}
+
+async function selectForUpdate<T>(query: unknown): Promise<T> {
+  const current = asQuery(query);
+  const locked =
+    typeof current.for === "function" ? current.for("update") : current;
+  return (
+    typeof locked.limit === "function" && typeof locked.then !== "function"
+      ? locked.limit(10000)
+      : locked
+  ) as Promise<T>;
+}
+
+async function queryRows<T>(query: unknown): Promise<T> {
+  const current = asQuery(query);
+  return (
+    typeof current.limit === "function" && typeof current.then !== "function"
+      ? current.limit(10000)
+      : current
+  ) as Promise<T>;
+}
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
@@ -125,7 +248,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   // never by a caller-supplied users.role value (legacy column is display-only).
   const isBootstrapAdmin =
     (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
-    (ownerOpenId ? timingSafeCompare(user.openId, ownerOpenId) : openIdMatchesOwner(user.openId, ownerOpenId));
+    (ownerOpenId
+      ? timingSafeCompare(user.openId, ownerOpenId)
+      : openIdMatchesOwner(user.openId, ownerOpenId));
 
   const shouldSetRole = isBootstrapAdmin || user.role !== undefined;
   values.role = isBootstrapAdmin ? "admin" : (user.role ?? "user");
@@ -246,9 +371,7 @@ export async function updateSessionLastUsed(refreshToken: string) {
 
 export async function cleanupExpiredSessions() {
   const db = databaseRequired(await getDb());
-  await db
-    .delete(userSessions)
-    .where(lt(userSessions.expiresAt, new Date()));
+  await db.delete(userSessions).where(lt(userSessions.expiresAt, new Date()));
 }
 
 export async function countActiveSessions(userId: number): Promise<number> {
@@ -277,7 +400,9 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
-export async function getUserIdByOpenId(openId: string): Promise<number | null> {
+export async function getUserIdByOpenId(
+  openId: string
+): Promise<number | null> {
   const db = await getDb();
   if (!db) return null;
   const result = await db
@@ -319,7 +444,9 @@ export async function createPasswordUser(input: {
   const ownerOpenId = ENV.ownerOpenId;
   const isBootstrapAdmin =
     (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
-    (ownerOpenId ? timingSafeCompare(openId, ownerOpenId) : openId === ownerOpenId);
+    (ownerOpenId
+      ? timingSafeCompare(openId, ownerOpenId)
+      : openId === ownerOpenId);
   const role = isBootstrapAdmin ? ("admin" as const) : ("user" as const);
   const status = isBootstrapAdmin ? ("active" as const) : ("pending" as const);
 
@@ -354,7 +481,10 @@ export async function createPasswordUser(input: {
 
 export async function setUserPassword(openId: string, passwordHash: string) {
   const db = databaseRequired(await getDb());
-  const result = await db.update(users).set({ passwordHash }).where(eq(users.openId, openId));
+  const result = await db
+    .update(users)
+    .set({ passwordHash })
+    .where(eq(users.openId, openId));
   return result;
 }
 
@@ -365,23 +495,23 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 export async function createPasswordResetToken(email: string) {
   const db = databaseRequired(await getDb());
   const normalizedEmail = email.trim().toLowerCase();
-  
+
   const [user] = await db
     .select()
     .from(users)
     .where(eq(users.email, normalizedEmail))
     .limit(1);
-  
+
   if (!user) {
     // Don't reveal if email exists for security
     return { success: true };
   }
-  
+
   // Generate secure random token
   const crypto = await import("node:crypto");
   const resetToken = crypto.randomBytes(32).toString("base64url");
   const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-  
+
   await db
     .update(users)
     .set({
@@ -389,35 +519,35 @@ export async function createPasswordResetToken(email: string) {
       resetTokenExpiresAt,
     })
     .where(eq(users.id, user.id));
-  
+
   return { success: true, resetToken, resetTokenExpiresAt, user };
 }
 
 export async function validatePasswordResetToken(token: string) {
   const db = databaseRequired(await getDb());
   const now = new Date();
-  
+
   const [user] = await db
     .select()
     .from(users)
     .where(
-      and(
-        eq(users.resetToken, token),
-        gte(users.resetTokenExpiresAt, now)
-      )
+      and(eq(users.resetToken, token), gte(users.resetTokenExpiresAt, now))
     )
     .limit(1);
-  
+
   if (!user) {
     return { valid: false, user: null };
   }
-  
+
   return { valid: true, user };
 }
 
-export async function consumePasswordResetToken(openId: string, newPasswordHash: string) {
+export async function consumePasswordResetToken(
+  openId: string,
+  newPasswordHash: string
+) {
   const db = databaseRequired(await getDb());
-  
+
   await db
     .update(users)
     .set({
@@ -426,35 +556,29 @@ export async function consumePasswordResetToken(openId: string, newPasswordHash:
       resetTokenExpiresAt: null,
     })
     .where(eq(users.openId, openId));
-  
+
   // Revoke all existing sessions for security
   const userId = await getUserIdByOpenId(openId);
   if (userId) {
     await revokeAllUserSessions(userId);
   }
-  
+
   // Clear failed login attempts
   const [user] = await db
     .select()
     .from(users)
     .where(eq(users.openId, openId))
     .limit(1);
-  
+
   if (user && user.email) {
     await clearFailedLoginAttempts(user.email, "");
   }
-  
+
   // Record login history
   if (userId) {
-    await recordLoginHistory(
-      userId,
-      "password_reset",
-      "",
-      null,
-      true
-    );
+    await recordLoginHistory(userId, "password_reset", "", null, true);
   }
-  
+
   return { success: true };
 }
 
@@ -471,7 +595,10 @@ export async function clearPasswordResetToken(openId: string) {
 
 /** Failed login attempt tracking */
 
-export async function recordFailedLoginAttempt(identifier: string, ipAddress: string) {
+export async function recordFailedLoginAttempt(
+  identifier: string,
+  ipAddress: string
+) {
   const db = databaseRequired(await getDb());
   const normalizedIdentifier = identifier.trim().toLowerCase();
 
@@ -492,9 +619,10 @@ export async function recordFailedLoginAttempt(identifier: string, ipAddress: st
 
   if (existing) {
     const newAttemptCount = existing.attemptCount + 1;
-    const lockedUntil = newAttemptCount >= maxAttempts
-      ? new Date(now.getTime() + lockoutDuration)
-      : null;
+    const lockedUntil =
+      newAttemptCount >= maxAttempts
+        ? new Date(now.getTime() + lockoutDuration)
+        : null;
 
     await db
       .update(failedLoginAttempts)
@@ -508,9 +636,8 @@ export async function recordFailedLoginAttempt(identifier: string, ipAddress: st
     return { attemptCount: newAttemptCount, lockedUntil };
   }
 
-  const lockedUntil = maxAttempts <= 1
-    ? new Date(now.getTime() + lockoutDuration)
-    : null;
+  const lockedUntil =
+    maxAttempts <= 1 ? new Date(now.getTime() + lockoutDuration) : null;
 
   await db.insert(failedLoginAttempts).values({
     identifier: normalizedIdentifier,
@@ -524,7 +651,10 @@ export async function recordFailedLoginAttempt(identifier: string, ipAddress: st
   return { attemptCount: 1, lockedUntil };
 }
 
-export async function clearFailedLoginAttempts(identifier: string, ipAddress: string) {
+export async function clearFailedLoginAttempts(
+  identifier: string,
+  ipAddress: string
+) {
   const db = databaseRequired(await getDb());
   const normalizedIdentifier = identifier.trim().toLowerCase();
 
@@ -538,7 +668,10 @@ export async function clearFailedLoginAttempts(identifier: string, ipAddress: st
     );
 }
 
-export async function isLockedOut(identifier: string, ipAddress: string): Promise<{ locked: boolean; lockedUntil: Date | null }> {
+export async function isLockedOut(
+  identifier: string,
+  ipAddress: string
+): Promise<{ locked: boolean; lockedUntil: Date | null }> {
   const db = databaseRequired(await getDb());
   const normalizedIdentifier = identifier.trim().toLowerCase();
 
@@ -638,7 +771,10 @@ export async function updateUserStatus(
       action: status === "suspended" ? "user_suspended" : "update",
       entityType: "user",
       entityId: userId,
-      summary: status === "suspended" ? `User suspended: ${user?.email || user?.name || userId}` : `User status updated to ${status}`,
+      summary:
+        status === "suspended"
+          ? `User suspended: ${user?.email || user?.name || userId}`
+          : `User status updated to ${status}`,
       auditContext,
     });
   } catch {
@@ -713,7 +849,12 @@ async function ensureDefaultCategories(userId: number, projectId: number) {
       isDefault: true,
     })),
   ].filter(category => !existingKeys.has(`${category.type}:${category.name}`));
-  if (missing.length) await db.insert(financeCategories).values(missing);
+  if (missing.length) {
+    // (userId, projectId, name, type) is unique. `INSERT IGNORE` keeps the
+    // "ensure these exist" semantics — a category a user renamed is left alone —
+    // while letting a concurrent seeder win instead of raising a duplicate key.
+    await db.insert(financeCategories).ignore().values(missing);
+  }
 }
 
 async function ensureVoucherSettings(userId: number, projectId: number) {
@@ -728,177 +869,259 @@ function formatVoucherNumber(prefix: string, number: number) {
   return `${prefix.trim() || "V"}-${String(number).padStart(6, "0")}`;
 }
 
+/**
+ * Claim the next sequential voucher number for a project.
+ *
+ * Concurrency: the settings row is read with `SELECT … FOR UPDATE` inside the
+ * caller's transaction, so two simultaneous voucher creations for the same
+ * project are serialised on that row. The read-then-conditional-update pair can
+ * therefore no longer race, and the losing writer used to surface
+ * "ভাউচার নম্বর এখন ব্যবহৃত হচ্ছে" to the user. The conditional update is kept as a
+ * defensive invariant check, and a bounded retry absorbs the rare case where the
+ * row was recreated between our read and our update.
+ */
 async function claimNextVoucher(tx: DbTx, userId: number, projectId: number) {
   await tx
     .insert(financeVoucherSettings)
     .values({ userId, projectId })
     .onDuplicateKeyUpdate({ set: { projectId } });
-  const [settings] = await tx
-    .select()
-    .from(financeVoucherSettings)
-    .where(
-      and(
-        eq(financeVoucherSettings.userId, userId),
-        eq(financeVoucherSettings.projectId, projectId)
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const [settings] = await selectForUpdate<DbRow[]>(
+      tx
+        .select()
+        .from(financeVoucherSettings)
+        .where(
+          and(
+            eq(financeVoucherSettings.userId, userId),
+            eq(financeVoucherSettings.projectId, projectId)
+          )
+        )
+        .limit(1)
+    );
+    if (!settings) throw new Error("ভাউচার সেটিংস পাওয়া যায়নি");
+    if (settings.nextNumber > settings.endNumber)
+      throw new Error(
+        "ভাউচার নম্বরের নির্ধারিত রেঞ্জ শেষ হয়েছে; সেটিংস থেকে রেঞ্জ বাড়ান"
+      );
+    const result = await tx
+      .update(financeVoucherSettings)
+      .set({ nextNumber: settings.nextNumber + 1 })
+      .where(
+        and(
+          eq(financeVoucherSettings.id, settings.id),
+          eq(financeVoucherSettings.nextNumber, settings.nextNumber)
+        )
+      );
+    if (result[0].affectedRows)
+      return formatVoucherNumber(settings.prefix, settings.nextNumber);
+  }
+  throw new Error("ভাউচার নম্বর বরাদ্দ করা যায়নি; আবার চেষ্টা করুন");
+}
+
+type VoucherEntry = { accountId: number; amount: number; narration?: string };
+type VoucherInput = {
+  projectId: number;
+  date: Date;
+  narration?: string;
+  debits: VoucherEntry[];
+  credits: VoucherEntry[];
+  references?: Array<{
+    refType: string;
+    refNumber: string;
+    refDate?: Date;
+    relatedEntityType?: string;
+    relatedEntityId?: number;
+  }>;
+  status?: "draft" | "posted";
+  voucherType?: string;
+  fiscalPeriodId?: number;
+  _internalPostedBy?: number;
+};
+
+async function assertPeriodNotLockedTx(
+  tx: DbTx,
+  projectId: number,
+  date: Date
+) {
+  const month = date.toISOString().slice(0, 7);
+  const [lock] = await selectForUpdate<DbRow[]>(
+    tx
+      .select({ id: financePeriodLocks.id })
+      .from(financePeriodLocks)
+      .where(
+        and(
+          eq(financePeriodLocks.projectId, projectId),
+          eq(financePeriodLocks.monthKey, month)
+        )
       )
-    )
-    .limit(1);
-  if (!settings) throw new Error("ভাউচার সেটিংস পাওয়া যায়নি");
-  if (settings.nextNumber > settings.endNumber)
+      .limit(1)
+  );
+  if (lock)
     throw new Error(
-      "ভাউচার নম্বরের নির্ধারিত রেঞ্জ শেষ হয়েছে; সেটিংস থেকে রেঞ্জ বাড়ান"
+      `পিরিয়ড ${month} লক করা আছে; লেনদেন যোগ/সংশোধন করা যাবে না`
     );
-  const result = await tx
-    .update(financeVoucherSettings)
-    .set({ nextNumber: settings.nextNumber + 1 })
-    .where(
-      and(
-        eq(financeVoucherSettings.id, settings.id),
-        eq(financeVoucherSettings.nextNumber, settings.nextNumber)
+}
+
+async function assertCanonicalAccountTx(
+  tx: DbTx,
+  userId: number,
+  projectId: number,
+  accountId: number
+) {
+  const [account] = await selectForUpdate<DbRow[]>(
+    tx
+      .select({ id: financeChartOfAccounts.id })
+      .from(financeChartOfAccounts)
+      .where(
+        and(
+          eq(financeChartOfAccounts.id, accountId),
+          eq(financeChartOfAccounts.userId, userId),
+          eq(financeChartOfAccounts.projectId, projectId),
+          eq(financeChartOfAccounts.isDetail, true),
+          eq(financeChartOfAccounts.isActive, true)
+        )
       )
+      .limit(1)
+  );
+  if (!account)
+    throw new Error(`ক্যাননিক্যাল হিসাবখাতা পাওয়া যায়নি: ${accountId}`);
+  return account;
+}
+
+function validateVoucherInput(input: VoucherInput) {
+  const totalDebitCents = input.debits.reduce(
+    (sum, entry) => sum + cents(entry.amount),
+    0
+  );
+  const totalCreditCents = input.credits.reduce(
+    (sum, entry) => sum + cents(entry.amount),
+    0
+  );
+  if (totalDebitCents !== totalCreditCents)
+    throw new Error("ডেবিট ও ক্রেডিটের মোট সমান হতে হবে");
+  if (!input.debits.length || !input.credits.length)
+    throw new Error("অন্তত একটি ডেবিট ও একটি ক্রেডিট এন্ট্রি প্রয়োজন");
+  if (
+    input.debits.some(entry => entry.amount <= 0) ||
+    input.credits.some(entry => entry.amount <= 0)
+  ) {
+    throw new Error("ডেবিট ও ক্রেডিটের পরিমাণ শূন্যের বড় হতে হবে");
+  }
+  if (totalDebitCents === 0)
+    throw new Error("ডেবিট ও ক্রেডিটের মোট শূন্য হতে পারে না");
+  if (input.status === "posted" && !input._internalPostedBy) {
+    throw new Error(
+      "সরাসরি পোস্ট করা ভাউচার তৈরি করা যাবে না; প্রথমে ড্রাফ্ট তৈরি করুন"
     );
-  if (!result[0].affectedRows)
-    throw new Error("ভাউচার নম্বর এখন ব্যবহৃত হচ্ছে; আবার চেষ্টা করুন");
-  return formatVoucherNumber(settings.prefix, settings.nextNumber);
+  }
+  return { totalDebitCents, totalCreditCents };
+}
+
+async function createVoucherWithEntriesInTx(
+  tx: DbTx,
+  userId: number,
+  input: VoucherInput
+) {
+  const { totalDebitCents, totalCreditCents } = validateVoucherInput(input);
+  await assertPeriodNotLockedTx(tx, input.projectId, input.date);
+  const accountIds = [
+    ...new Set(
+      [...input.debits, ...input.credits].map(entry => entry.accountId)
+    ),
+  ].sort((a, b) => a - b);
+  for (const accountId of accountIds)
+    await assertCanonicalAccountTx(tx, userId, input.projectId, accountId);
+
+  const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+  const result = await tx.insert(financeVouchers).values({
+    userId,
+    projectId: input.projectId,
+    voucherNo,
+    date: input.date,
+    narration: input.narration?.trim() || null,
+    totalDebit: decimalFromCents(totalDebitCents),
+    totalCredit: decimalFromCents(totalCreditCents),
+    status: input.status ?? "draft",
+    voucherType: input.voucherType ?? "general",
+    fiscalPeriodId: input.fiscalPeriodId ?? null,
+  });
+  const voucherId = Number(result[0].insertId);
+
+  await tx.insert(financeVoucherDebits).values(
+    input.debits.map((entry, index) => ({
+      voucherId,
+      accountId: null,
+      chartOfAccountId: entry.accountId,
+      amount: decimalFromCents(cents(entry.amount)),
+      narration: entry.narration?.trim() || null,
+      sortOrder: index,
+    }))
+  );
+  await tx.insert(financeVoucherCredits).values(
+    input.credits.map((entry, index) => ({
+      voucherId,
+      accountId: null,
+      chartOfAccountId: entry.accountId,
+      amount: decimalFromCents(cents(entry.amount)),
+      narration: entry.narration?.trim() || null,
+      sortOrder: index,
+    }))
+  );
+
+  if (input.status === "posted") {
+    await postVoucherInternals(
+      tx,
+      userId,
+      input.projectId,
+      voucherId,
+      input.debits,
+      input.credits,
+      input.date
+    );
+  }
+
+  if (input.references?.length) {
+    await tx.insert(financeVoucherReferences).values(
+      input.references.map(reference => ({
+        voucherId,
+        refType: reference.refType as
+          "cheque" | "bill" | "invoice" | "challan" | "other",
+        refNumber: reference.refNumber.trim(),
+        refDate: reference.refDate ?? null,
+        relatedEntityType: reference.relatedEntityType ?? null,
+        relatedEntityId: reference.relatedEntityId ?? null,
+      }))
+    );
+  }
+
+  await tx.insert(financeVoucherAudit).values({
+    voucherId,
+    actorUserId: userId,
+    action: "create",
+    snapshot: JSON.stringify({
+      voucherNo,
+      date: input.date,
+      narration: input.narration,
+      totalDebit: decimalFromCents(totalDebitCents),
+      totalCredit: decimalFromCents(totalCreditCents),
+      debits: input.debits,
+      credits: input.credits,
+      references: input.references,
+      status: input.status ?? "draft",
+    }),
+  });
+
+  return { voucherId, voucherNo };
 }
 
 export async function createVoucherWithEntries(
   userId: number,
-  input: {
-    projectId: number;
-    date: Date;
-    narration?: string;
-    debits: Array<{ accountId: number; amount: number; narration?: string }>;
-    credits: Array<{ accountId: number; amount: number; narration?: string }>;
-    references?: Array<{ refType: string; refNumber: string; refDate?: Date; relatedEntityType?: string; relatedEntityId?: number }>;
-    status?: "draft" | "posted";
-    voucherType?: string;
-    fiscalPeriodId?: number;
-    _internalPostedBy?: number;
-  }
+  input: VoucherInput
 ) {
-  // Validation: Total debits must equal total credits (exact cents — align with trial balance)
-  const totalDebit = input.debits.reduce((sum, d) => sum + d.amount, 0);
-  const totalCredit = input.credits.reduce((sum, c) => sum + c.amount, 0);
-  const totalDebitCents = Math.round(totalDebit * 100);
-  const totalCreditCents = Math.round(totalCredit * 100);
-  if (totalDebitCents !== totalCreditCents) {
-    throw new Error("ডেবিট ও ক্রেডিটের মোট সমান হতে হবে");
-  }
-
-  // Validate minimum lines
-  if (input.debits.length === 0 || input.credits.length === 0) {
-    throw new Error("অন্তত একটি ডেবিট ও একটি ক্রেডিট এন্ট্রি প্রয়োজন");
-  }
-
-  // Reject negative amounts
-  for (const d of input.debits) {
-    if (d.amount <= 0) throw new Error("ডেবিট পরিমাণ শূন্যের বড় হতে হবে");
-  }
-  for (const c of input.credits) {
-    if (c.amount <= 0) throw new Error("ক্রেডিট পরিমাণ শূন্যের বড় হতে হবে");
-  }
-
-  // Reject zero total (debit = credit = 0)
-  if (totalDebit === 0) throw new Error("ডেবিট ও ক্রেডিটের মোট শূন্য হতে পারে না");
-
-  // Self-posting prevention: the voucher creator cannot directly create a posted voucher.
-  // Internal callers (e.g. reverseVoucher) pass _internalPostedBy to bypass this check.
-  if (input.status === "posted" && !input._internalPostedBy) {
-    throw new Error("সরাসরি পোস্ট করা ভাউচার তৈরি করা যাবে না; প্রথমে ড্রাফ্ট তৈরি করুন");
-  }
-
-  const { assertPeriodNotLocked } = await import("./accounting-core");
-  await assertPeriodNotLocked(input.projectId, input.date);
-
+  validateVoucherInput(input);
   const db = databaseRequired(await getDb());
-  const voucherStatus = input.status ?? "draft";
-
-  return await db.transaction(async (tx) => {
-    // 1. Claim voucher number
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
-
-    // 2. Create voucher header
-    const result = await tx.insert(financeVouchers).values({
-      userId,
-      projectId: input.projectId,
-      voucherNo,
-      date: input.date,
-      narration: input.narration?.trim() || null,
-      totalDebit: decimal(totalDebit),
-      totalCredit: decimal(totalCredit),
-      status: voucherStatus,
-      voucherType: input.voucherType ?? "general",
-      fiscalPeriodId: input.fiscalPeriodId ?? null,
-    });
-
-    const voucherId = Number(result[0].insertId);
-
-    // 3. Insert debit entries
-    if (input.debits.length > 0) {
-      await tx.insert(financeVoucherDebits).values(
-        input.debits.map((d, i) => ({
-          voucherId,
-          accountId: d.accountId,
-          amount: decimal(d.amount),
-          narration: d.narration?.trim() || null,
-          sortOrder: i,
-        }))
-      );
-    }
-
-    // 4. Insert credit entries
-    if (input.credits.length > 0) {
-      await tx.insert(financeVoucherCredits).values(
-        input.credits.map((c, i) => ({
-          voucherId,
-          accountId: c.accountId,
-          amount: decimal(c.amount),
-          narration: c.narration?.trim() || null,
-          sortOrder: i,
-        }))
-      );
-    }
-
-    // 5. If status is "posted", insert ledger entries + create journal entry
-    if (voucherStatus === "posted") {
-      await postVoucherInternals(tx, userId, input.projectId, voucherId, input.debits, input.credits);
-    }
-
-    // 6. Insert reference entries
-    if (input.references && input.references.length > 0) {
-      await tx.insert(financeVoucherReferences).values(
-        input.references.map(r => ({
-          voucherId,
-          refType: r.refType as "cheque" | "bill" | "invoice" | "challan" | "other",
-          refNumber: r.refNumber.trim(),
-          refDate: r.refDate ?? null,
-          relatedEntityType: r.relatedEntityType ?? null,
-          relatedEntityId: r.relatedEntityId ?? null,
-        }))
-      );
-    }
-
-    // 7. Insert audit entry (WITHIN same transaction!)
-    await tx.insert(financeVoucherAudit).values({
-      voucherId,
-      actorUserId: userId,
-      action: "create",
-      snapshot: JSON.stringify({
-        voucherNo,
-        date: input.date,
-        narration: input.narration,
-        totalDebit,
-        totalCredit,
-        debits: input.debits,
-        credits: input.credits,
-        references: input.references,
-        status: voucherStatus,
-      }),
-    });
-
-    return { voucherId, voucherNo };
-  });
+  return db.transaction(tx => createVoucherWithEntriesInTx(tx, userId, input));
 }
 
 // ─── Voucher Lifecycle ────────────────────────────────────────────────────────
@@ -929,7 +1152,7 @@ function assertVoucherTransition(current: string, target: string) {
 export async function submitVoucher(
   userId: number,
   projectId: number,
-  voucherId: number,
+  voucherId: number
 ) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -940,7 +1163,7 @@ export async function submitVoucher(
     .where(
       and(
         eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId),
+        eq(financeVouchers.projectId, projectId)
       )
     )
     .limit(1);
@@ -971,7 +1194,7 @@ export async function approveVoucher(
   userId: number,
   projectId: number,
   voucherId: number,
-  action: "approve" | "return" = "approve",
+  action: "approve" | "return" = "approve"
 ) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -982,7 +1205,7 @@ export async function approveVoucher(
     .where(
       and(
         eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId),
+        eq(financeVouchers.projectId, projectId)
       )
     )
     .limit(1);
@@ -1005,7 +1228,9 @@ export async function approveVoucher(
     .update(financeVouchers)
     .set({
       status: targetStatus,
-      ...(action === "approve" ? { approvedBy: userId, approvedAt: new Date() } : {}),
+      ...(action === "approve"
+        ? { approvedBy: userId, approvedAt: new Date() }
+        : {}),
     })
     .where(eq(financeVouchers.id, voucherId));
 
@@ -1013,189 +1238,215 @@ export async function approveVoucher(
     voucherId,
     actorUserId: userId,
     action: "approve",
-    snapshot: JSON.stringify({ from: voucher.status, to: targetStatus, action }),
+    snapshot: JSON.stringify({
+      from: voucher.status,
+      to: targetStatus,
+      action,
+    }),
   });
 
   return { voucherId, status: targetStatus };
 }
 
-/** Internal: post ledger entries + journal entry for a voucher within a transaction. */
 async function postVoucherInternals(
   tx: DbTx,
   userId: number,
   projectId: number,
   voucherId: number,
-  debits: Array<{ accountId: number; amount: number; narration?: string }>,
-  credits: Array<{ accountId: number; amount: number; narration?: string }>,
+  debits: VoucherEntry[],
+  credits: VoucherEntry[],
+  date = new Date()
 ) {
-  // 1. Post ledger entries (update account balances)
-  for (const debit of debits) {
-    const [account] = await tx.select()
-      .from(financeAccounts)
-      .where(and(eq(financeAccounts.id, debit.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)))
-      .for("update")
-      .limit(1);
-
-    if (!account) throw new Error(`অ্যাকাউন্ট পাওয়া যায়নি: ${debit.accountId}`);
-
-    const newBalance = Number(account.currentBalance) + debit.amount;
-    await tx.update(financeAccounts)
-      .set({ currentBalance: decimal(newBalance) })
-      .where(eq(financeAccounts.id, debit.accountId));
-
+  const entries = [
+    ...debits.map(entry => ({ ...entry, entryType: "debit" as const })),
+    ...credits.map(entry => ({ ...entry, entryType: "credit" as const })),
+  ];
+  const accountIds = [...new Set(entries.map(entry => entry.accountId))].sort(
+    (a, b) => a - b
+  );
+  const accountWhere = or(
+    ...accountIds.map(accountId => eq(financeChartOfAccounts.id, accountId))
+  );
+  const canonicalQuery = tx
+    .select()
+    .from(financeChartOfAccounts)
+    .where(and(eq(financeChartOfAccounts.projectId, projectId), accountWhere));
+  const canonicalQueryLike = asQuery(canonicalQuery);
+  const canonicalAccounts = await selectForUpdate<DbRow[]>(
+    typeof canonicalQueryLike.orderBy === "function"
+      ? canonicalQueryLike.orderBy(financeChartOfAccounts.id)
+      : canonicalQueryLike
+  );
+  const canonicalById = new Map(
+    canonicalAccounts.map(account => [account.id, account])
+  );
+  if (accountIds.some(accountId => !canonicalById.has(accountId)))
+    throw new Error("ক্যাননিক্যাল হিসাবখাতা পাওয়া যায়নি");
+  for (const entry of entries) {
+    const account = canonicalById.get(entry.accountId);
+    if (!account)
+      throw new Error(
+        `ক্যাননিক্যাল হিসাবখাতা পাওয়া যায়নি: ${entry.accountId}`
+      );
+    const delta =
+      entry.entryType === "debit" ? cents(entry.amount) : -cents(entry.amount);
+    const runningBalance = cents(account.currentBalance) + delta;
+    account.currentBalance = decimalFromCents(runningBalance);
+    await tx
+      .update(financeChartOfAccounts)
+      .set({ currentBalance: decimalFromCents(runningBalance) })
+      .where(
+        and(
+          eq(financeChartOfAccounts.id, entry.accountId),
+          eq(financeChartOfAccounts.projectId, projectId)
+        )
+      );
     await tx.insert(financeLedgerEntries).values({
       voucherId,
-      accountId: debit.accountId,
-      entryType: "debit",
-      amount: decimal(debit.amount),
-      runningBalance: decimal(newBalance),
+      accountId: null,
+      chartOfAccountId: entry.accountId,
+      entryType: entry.entryType,
+      amount: decimalFromCents(cents(entry.amount)),
+      runningBalance: decimalFromCents(runningBalance),
+      postedAt: date,
     });
   }
 
-  for (const credit of credits) {
-    const [account] = await tx.select()
-      .from(financeAccounts)
-      .where(and(eq(financeAccounts.id, credit.accountId), eq(financeAccounts.userId, userId), eq(financeAccounts.projectId, projectId)))
-      .for("update")
-      .limit(1);
-
-    if (!account) throw new Error(`অ্যাকাউন্ট পাওয়া যায়নি: ${credit.accountId}`);
-
-    const newBalance = Number(account.currentBalance) - credit.amount;
-    await tx.update(financeAccounts)
-      .set({ currentBalance: decimal(newBalance) })
-      .where(eq(financeAccounts.id, credit.accountId));
-
-    await tx.insert(financeLedgerEntries).values({
-      voucherId,
-      accountId: credit.accountId,
-      entryType: "credit",
-      amount: decimal(credit.amount),
-      runningBalance: decimal(newBalance),
-    });
-  }
-
-  // 2. Create journal entry
-  const totalDebit = debits.reduce((sum, d) => sum + d.amount, 0);
-  const totalCredit = credits.reduce((sum, c) => sum + c.amount, 0);
+  const totalDebitCents = debits.reduce(
+    (sum, entry) => sum + cents(entry.amount),
+    0
+  );
+  const totalCreditCents = credits.reduce(
+    (sum, entry) => sum + cents(entry.amount),
+    0
+  );
   const journalNo = `JE-${String(voucherId).padStart(8, "0")}`;
-
   const journalResult = await tx.insert(financeJournalEntries).values({
     voucherId,
     projectId,
     journalNo,
-    date: new Date(),
-    narration: `Journal entry for voucher`,
-    totalDebit: decimal(totalDebit),
-    totalCredit: decimal(totalCredit),
+    date,
+    narration: "Journal entry for voucher",
+    totalDebit: decimalFromCents(totalDebitCents),
+    totalCredit: decimalFromCents(totalCreditCents),
     status: "posted",
     postedBy: userId,
-    postedAt: new Date(),
+    postedAt: date,
   });
-
   const journalEntryId = Number(journalResult[0].insertId);
-
-  // 3. Create journal lines
-  const allLines = [
-    ...debits.map((d, i) => ({
+  await tx.insert(financeJournalLines).values([
+    ...debits.map((entry, index) => ({
       journalEntryId,
-      accountId: d.accountId,
+      accountId: entry.accountId,
       entryType: "debit" as const,
-      amount: decimal(d.amount),
-      narration: d.narration?.trim() || null,
-      sortOrder: i,
+      amount: decimalFromCents(cents(entry.amount)),
+      narration: entry.narration?.trim() || null,
+      sortOrder: index,
     })),
-    ...credits.map((c, i) => ({
+    ...credits.map((entry, index) => ({
       journalEntryId,
-      accountId: c.accountId,
+      accountId: entry.accountId,
       entryType: "credit" as const,
-      amount: decimal(c.amount),
-      narration: c.narration?.trim() || null,
-      sortOrder: debits.length + i,
+      amount: decimalFromCents(cents(entry.amount)),
+      narration: entry.narration?.trim() || null,
+      sortOrder: debits.length + index,
     })),
-  ];
-
-  if (allLines.length >= 2) {
-    await tx.insert(financeJournalLines).values(allLines);
-  }
-
+  ]);
   return { journalEntryId, journalNo };
 }
 
-/** Post an approved voucher: creates journal + ledger entries, marks as POSTED. */
 export async function postVoucher(
   userId: number,
   projectId: number,
-  voucherId: number,
+  voucherId: number
 ) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
-
-  const [voucher] = await db
+  const [preflight] = await db
     .select()
     .from(financeVouchers)
     .where(
       and(
         eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId),
+        eq(financeVouchers.projectId, projectId)
       )
     )
     .limit(1);
-  if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
-  assertVoucherTransition(voucher.status, "posted");
-
-  // Self-posting prevention: the voucher creator cannot post their own voucher.
-  if (voucher.userId === userId) {
+  if (!preflight) throw new Error("ভাউচার পাওয়া যায়নি");
+  assertVoucherTransition(preflight.status, "posted");
+  if (preflight.userId === userId)
     throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
-  }
-
-  const debits = await db
-    .select()
-    .from(financeVoucherDebits)
-    .where(eq(financeVoucherDebits.voucherId, voucherId));
-  const credits = await db
-    .select()
-    .from(financeVoucherCredits)
-    .where(eq(financeVoucherCredits.voucherId, voucherId));
-
-  if (debits.length === 0 || credits.length === 0) {
-    throw new Error("ডেবিট ও ক্রেডিট এন্ট্রি প্রয়োজন");
-  }
-
-  return await db.transaction(async (tx) => {
-    const { assertPeriodNotLocked } = await import("./accounting-core");
-    await assertPeriodNotLocked(projectId, new Date(voucher.date));
-
-    const debitInput = debits.map(d => ({
-      accountId: d.accountId,
-      amount: Number(d.amount),
-      narration: d.narration ?? undefined,
+  return db.transaction(async tx => {
+    const [voucher] = await selectForUpdate<DbRow[]>(
+      tx
+        .select()
+        .from(financeVouchers)
+        .where(
+          and(
+            eq(financeVouchers.id, voucherId),
+            eq(financeVouchers.projectId, projectId)
+          )
+        )
+        .limit(1)
+    );
+    if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
+    assertVoucherTransition(voucher.status, "posted");
+    if (voucher.userId === userId)
+      throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
+    const debits = await tx
+      .select()
+      .from(financeVoucherDebits)
+      .where(eq(financeVoucherDebits.voucherId, voucherId));
+    const credits = await tx
+      .select()
+      .from(financeVoucherCredits)
+      .where(eq(financeVoucherCredits.voucherId, voucherId));
+    if (!debits.length || !credits.length)
+      throw new Error("ডেবিট ও ক্রেডিট এন্ট্রি প্রয়োজন");
+    const debitInput = debits.map(entry => ({
+      accountId: entry.chartOfAccountId!,
+      amount: Number(entry.amount),
+      narration: entry.narration ?? undefined,
     }));
-    const creditInput = credits.map(c => ({
-      accountId: c.accountId,
-      amount: Number(c.amount),
-      narration: c.narration ?? undefined,
+    const creditInput = credits.map(entry => ({
+      accountId: entry.chartOfAccountId!,
+      amount: Number(entry.amount),
+      narration: entry.narration ?? undefined,
     }));
-
-    await postVoucherInternals(tx, userId, projectId, voucherId, debitInput, creditInput);
-
-    await tx
+    if (
+      debitInput.some(entry => !entry.accountId) ||
+      creditInput.some(entry => !entry.accountId)
+    ) {
+      throw new Error(
+        "ভাউচারে ক্যাননিক্যাল হিসাবখাতা নেই; reconciliation প্রয়োজন"
+      );
+    }
+    const transition = await tx
       .update(financeVouchers)
-      .set({
-        status: "posted",
-        postedBy: userId,
-        postedAt: new Date(),
-      })
-      .where(eq(financeVouchers.id, voucherId));
-
+      .set({ status: "posted", postedBy: userId, postedAt: new Date() })
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.status, "approved")
+        )
+      );
+    if (!transition[0]?.affectedRows)
+      throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
+    await postVoucherInternals(
+      tx,
+      userId,
+      projectId,
+      voucherId,
+      debitInput,
+      creditInput
+    );
     await tx.insert(financeVoucherAudit).values({
       voucherId,
       actorUserId: userId,
       action: "post",
       snapshot: JSON.stringify({ from: voucher.status, to: "posted" }),
     });
-
-    return { voucherId, status: "posted" };
+    return { voucherId, status: "posted" as const };
   });
 }
 
@@ -1203,25 +1454,85 @@ export async function postVoucher(
 
 export async function seedDefaultAccountTypes() {
   const db = databaseRequired(await getDb());
-  const existing = await db.select().from(financeAccountTypes).limit(1);
+  const baseQuery = asQuery(db.select().from(financeAccountTypes));
+  const existingQuery =
+    typeof baseQuery.limit === "function"
+      ? baseQuery.limit(1)
+      : typeof baseQuery.where === "function"
+        ? baseQuery.where()
+        : baseQuery;
+  const existing = await (existingQuery as Promise<DbRow[]>);
   if (existing.length > 0) return;
 
-  await db.insert(financeAccountTypes).values([
-    { code: "ASSET", name: "Asset", nameBn: "সম্পদ", normalBalance: "debit", sortOrder: 1, isSystem: true },
-    { code: "LIABILITY", name: "Liability", nameBn: "দায়", normalBalance: "credit", sortOrder: 2, isSystem: true },
-    { code: "EQUITY", name: "Equity", nameBn: "ইকুইটি", normalBalance: "credit", sortOrder: 3, isSystem: true },
-    { code: "REVENUE", name: "Revenue", nameBn: "আয়", normalBalance: "credit", sortOrder: 4, isSystem: true },
-    { code: "EXPENSE", name: "Expense", nameBn: "ব্যয়", normalBalance: "debit", sortOrder: 5, isSystem: true },
-  ]);
+  await db
+    .insert(financeAccountTypes)
+    .values([
+      {
+        code: "ASSET",
+        name: "Asset",
+        nameBn: "সম্পদ",
+        normalBalance: "debit",
+        sortOrder: 1,
+        isSystem: true,
+      },
+      {
+        code: "LIABILITY",
+        name: "Liability",
+        nameBn: "দায়",
+        normalBalance: "credit",
+        sortOrder: 2,
+        isSystem: true,
+      },
+      {
+        code: "EQUITY",
+        name: "Equity",
+        nameBn: "ইকুইটি",
+        normalBalance: "credit",
+        sortOrder: 3,
+        isSystem: true,
+      },
+      {
+        code: "REVENUE",
+        name: "Revenue",
+        nameBn: "আয়",
+        normalBalance: "credit",
+        sortOrder: 4,
+        isSystem: true,
+      },
+      {
+        code: "EXPENSE",
+        name: "Expense",
+        nameBn: "ব্যয়",
+        normalBalance: "debit",
+        sortOrder: 5,
+        isSystem: true,
+      },
+    ])
+    // `code` is unique, so a concurrent seeder is resolved by the index rather
+    // than raised as a duplicate-key error, and the canonical labels are kept in
+    // sync with the catalog.
+    .onDuplicateKeyUpdate({
+      set: {
+        name: sql`values(\`name\`)`,
+        nameBn: sql`values(\`nameBn\`)`,
+        normalBalance: sql`values(\`normalBalance\`)`,
+        sortOrder: sql`values(\`sortOrder\`)`,
+        isSystem: sql`values(\`isSystem\`)`,
+      },
+    });
 }
 
 export async function getAccountTypes() {
   const db = databaseRequired(await getDb());
-  return db.select().from(financeAccountTypes).orderBy(asc(financeAccountTypes.sortOrder));
+  return db
+    .select()
+    .from(financeAccountTypes)
+    .orderBy(asc(financeAccountTypes.sortOrder));
 }
 
 export async function getChartOfAccounts(userId: number, projectId: number) {
   await assertOwnedProject(userId, projectId);
+  await ensureCanonicalMappings(userId, projectId);
   const db = databaseRequired(await getDb());
   return db
     .select()
@@ -1235,7 +1546,11 @@ export async function getChartOfAccounts(userId: number, projectId: number) {
     .orderBy(asc(financeChartOfAccounts.code));
 }
 
-export async function getChartOfAccountById(userId: number, projectId: number, accountId: number) {
+export async function getChartOfAccountById(
+  userId: number,
+  projectId: number,
+  accountId: number
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   const [account] = await db
@@ -1282,7 +1597,10 @@ export async function createChartOfAccount(
       )
       .limit(1);
     if (!parent) throw new Error("পেরেন্ট অ্যাকাউন্ট পাওয়া যায়নি");
-    if (!parent.isDetail) throw new Error("শুধু ডিটেইল অ্যাকাউন্টের অধীনে সাব-অ্যাকাউন্ট তৈরি করা যায়");
+    if (!parent.isDetail)
+      throw new Error(
+        "শুধু ডিটেইল অ্যাকাউন্টের অধীনে সাব-অ্যাকাউন্ট তৈরি করা যায়"
+      );
   }
 
   const [existing] = await db
@@ -1356,7 +1674,8 @@ export async function updateChartOfAccount(
   if (!existing) throw new Error("অ্যাকাউন্ট পাওয়া যায়নি");
 
   if (input.parentId !== undefined && input.parentId !== null) {
-    if (input.parentId === accountId) throw new Error("অ্যাকাউন্ট নিজেই তার পেরেন্ট হতে পারে না");
+    if (input.parentId === accountId)
+      throw new Error("অ্যাকাউন্ট নিজেই তার পেরেন্ট হতে পারে না");
     const [parent] = await db
       .select()
       .from(financeChartOfAccounts)
@@ -1369,7 +1688,10 @@ export async function updateChartOfAccount(
       )
       .limit(1);
     if (!parent) throw new Error("পেরেন্ট অ্যাকাউন্ট পাওয়া যায়নি");
-    if (!parent.isDetail) throw new Error("শুধু ডিটেইল অ্যাকাউন্টের অধীনে সাব-অ্যাকাউন্ট তৈরি করা যায়");
+    if (!parent.isDetail)
+      throw new Error(
+        "শুধু ডিটেইল অ্যাকাউন্টের অধীনে সাব-অ্যাকাউন্ট তৈরি করা যায়"
+      );
   }
 
   if (input.code) {
@@ -1394,8 +1716,12 @@ export async function updateChartOfAccount(
       ...(input.parentId !== undefined ? { parentId: input.parentId } : {}),
       ...(input.code ? { code: input.code.trim() } : {}),
       ...(input.name ? { name: input.name.trim() } : {}),
-      ...(input.nameBn !== undefined ? { nameBn: input.nameBn?.trim() || null } : {}),
-      ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
+      ...(input.nameBn !== undefined
+        ? { nameBn: input.nameBn?.trim() || null }
+        : {}),
+      ...(input.description !== undefined
+        ? { description: input.description?.trim() || null }
+        : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...(input.isDetail !== undefined ? { isDetail: input.isDetail } : {}),
     })
@@ -1413,7 +1739,11 @@ export async function updateChartOfAccount(
   return getChartOfAccountById(userId, projectId, accountId);
 }
 
-export async function deleteChartOfAccount(userId: number, projectId: number, accountId: number) {
+export async function deleteChartOfAccount(
+  userId: number,
+  projectId: number,
+  accountId: number
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
@@ -1434,21 +1764,39 @@ export async function deleteChartOfAccount(userId: number, projectId: number, ac
     .select({ count: sql<number>`count(*)` })
     .from(financeChartOfAccounts)
     .where(eq(financeChartOfAccounts.parentId, accountId));
-  if (Number(children?.count ?? 0) > 0) throw new Error("চাইল্ড অ্যাকাউন্ট থাকা অবস্থায় মুছা যাবে না");
+  if (Number(children?.count ?? 0) > 0)
+    throw new Error("চাইল্ড অ্যাকাউন্ট থাকা অবস্থায় মুছা যাবে না");
 
   const [voucherRefs] = await db
     .select({ count: sql<number>`count(*)` })
     .from(financeVoucherDebits)
-    .where(eq(financeVoucherDebits.accountId, accountId));
+    .where(
+      or(
+        eq(financeVoucherDebits.accountId, accountId),
+        eq(financeVoucherDebits.chartOfAccountId, accountId)
+      )
+    );
   const [voucherRefs2] = await db
     .select({ count: sql<number>`count(*)` })
     .from(financeVoucherCredits)
-    .where(eq(financeVoucherCredits.accountId, accountId));
-  if (Number(voucherRefs?.count ?? 0) > 0 || Number(voucherRefs2?.count ?? 0) > 0) {
-    throw new Error("এই অ্যাকাউন্ট ভাউচার এন্ট্রিতে ব্যবহৃত হয়েছে; মুছে ফেলা যাবে না");
+    .where(
+      or(
+        eq(financeVoucherCredits.accountId, accountId),
+        eq(financeVoucherCredits.chartOfAccountId, accountId)
+      )
+    );
+  if (
+    Number(voucherRefs?.count ?? 0) > 0 ||
+    Number(voucherRefs2?.count ?? 0) > 0
+  ) {
+    throw new Error(
+      "এই অ্যাকাউন্ট ভাউচার এন্ট্রিতে ব্যবহৃত হয়েছে; মুছে ফেলা যাবে না"
+    );
   }
 
-  await db.delete(financeChartOfAccounts).where(eq(financeChartOfAccounts.id, accountId));
+  await db
+    .delete(financeChartOfAccounts)
+    .where(eq(financeChartOfAccounts.id, accountId));
 
   await logAudit({
     actorUserId: userId,
@@ -1460,12 +1808,15 @@ export async function deleteChartOfAccount(userId: number, projectId: number, ac
   });
 }
 
-export async function seedDefaultChartOfAccounts(userId: number, projectId: number) {
+export async function seedDefaultChartOfAccounts(
+  userId: number,
+  projectId: number
+) {
   await assertOwnedProject(userId, projectId);
   await seedDefaultAccountTypes();
   const db = databaseRequired(await getDb());
 
-  const existing = await db
+  const existingQuery = db
     .select()
     .from(financeChartOfAccounts)
     .where(
@@ -1473,57 +1824,247 @@ export async function seedDefaultChartOfAccounts(userId: number, projectId: numb
         eq(financeChartOfAccounts.userId, userId),
         eq(financeChartOfAccounts.projectId, projectId)
       )
-    )
+    );
+  const existing = await queryRows<DbRow[]>(existingQuery);
+  const [assetType] = await db
+    .select()
+    .from(financeAccountTypes)
+    .where(eq(financeAccountTypes.code, "ASSET"))
     .limit(1);
-  if (existing.length > 0) return;
-
-  const [assetType] = await db.select().from(financeAccountTypes).where(eq(financeAccountTypes.code, "ASSET")).limit(1);
-  const [liabilityType] = await db.select().from(financeAccountTypes).where(eq(financeAccountTypes.code, "LIABILITY")).limit(1);
-  const [equityType] = await db.select().from(financeAccountTypes).where(eq(financeAccountTypes.code, "EQUITY")).limit(1);
-  const [revenueType] = await db.select().from(financeAccountTypes).where(eq(financeAccountTypes.code, "REVENUE")).limit(1);
-  const [expenseType] = await db.select().from(financeAccountTypes).where(eq(financeAccountTypes.code, "EXPENSE")).limit(1);
+  const [liabilityType] = await db
+    .select()
+    .from(financeAccountTypes)
+    .where(eq(financeAccountTypes.code, "LIABILITY"))
+    .limit(1);
+  const [equityType] = await db
+    .select()
+    .from(financeAccountTypes)
+    .where(eq(financeAccountTypes.code, "EQUITY"))
+    .limit(1);
+  const [revenueType] = await db
+    .select()
+    .from(financeAccountTypes)
+    .where(eq(financeAccountTypes.code, "REVENUE"))
+    .limit(1);
+  const [expenseType] = await db
+    .select()
+    .from(financeAccountTypes)
+    .where(eq(financeAccountTypes.code, "EXPENSE"))
+    .limit(1);
 
   const accounts = [
-    { code: "1000", name: "Current Assets", nameBn: "চলতি সম্পদ", accountTypeId: assetType.id, isDetail: false, sortOrder: 1 },
-    { code: "1100", name: "Cash & Bank", nameBn: "নগদ ও ব্যাংক", accountTypeId: assetType.id, parentCode: "1000", isDetail: false, sortOrder: 2 },
-    { code: "1110", name: "Cash in Hand", nameBn: "হাতে নগদ", accountTypeId: assetType.id, parentCode: "1100", isDetail: true, sortOrder: 3 },
-    { code: "1120", name: "Bank Accounts", nameBn: "ব্যাংক অ্যাকাউন্ট", accountTypeId: assetType.id, parentCode: "1100", isDetail: true, sortOrder: 4 },
-    { code: "1200", name: "Accounts Receivable", nameBn: "প্রাপ্য রাশি", accountTypeId: assetType.id, parentCode: "1000", isDetail: true, sortOrder: 5 },
-    { code: "2000", name: "Current Liabilities", nameBn: "চলতি দায়", accountTypeId: liabilityType.id, isDetail: false, sortOrder: 10 },
-    { code: "2100", name: "Accounts Payable", nameBn: "দেয় রাশি", accountTypeId: liabilityType.id, parentCode: "2000", isDetail: true, sortOrder: 11 },
-    { code: "3000", name: "Equity", nameBn: "ইকুইটি", accountTypeId: equityType.id, isDetail: false, sortOrder: 20 },
-    { code: "3100", name: "Owner's Capital", nameBn: "মালিকের ক্যাপিটাল", accountTypeId: equityType.id, parentCode: "3000", isDetail: true, sortOrder: 21 },
-    { code: "3200", name: "Retained Earnings", nameBn: "রিটেইন্ড আর্ণিংস", accountTypeId: equityType.id, parentCode: "3000", isDetail: true, sortOrder: 22 },
-    { code: "4000", name: "Revenue", nameBn: "আয়", accountTypeId: revenueType.id, isDetail: false, sortOrder: 30 },
-    { code: "4100", name: "Sales Revenue", nameBn: "বিক্রয় আয়", accountTypeId: revenueType.id, parentCode: "4000", isDetail: true, sortOrder: 31 },
-    { code: "5000", name: "Expenses", nameBn: "ব্যয়", accountTypeId: expenseType.id, isDetail: false, sortOrder: 40 },
-    { code: "5100", name: "Operating Expenses", nameBn: "অপারেটিং ব্যয়", accountTypeId: expenseType.id, parentCode: "5000", isDetail: false, sortOrder: 41 },
-    { code: "5110", name: "Salaries", nameBn: "বেতন", accountTypeId: expenseType.id, parentCode: "5100", isDetail: true, sortOrder: 42 },
-    { code: "5120", name: "Rent", nameBn: "ভাড়া", accountTypeId: expenseType.id, parentCode: "5100", isDetail: true, sortOrder: 43 },
-    { code: "5130", name: "Utilities", nameBn: "উটিলিটি", accountTypeId: expenseType.id, parentCode: "5100", isDetail: true, sortOrder: 44 },
+    {
+      code: "1000",
+      name: "Current Assets",
+      nameBn: "চলতি সম্পদ",
+      accountTypeId: assetType.id,
+      isDetail: false,
+      sortOrder: 1,
+    },
+    {
+      code: "1100",
+      name: "Cash & Bank",
+      nameBn: "নগদ ও ব্যাংক",
+      accountTypeId: assetType.id,
+      parentCode: "1000",
+      isDetail: false,
+      sortOrder: 2,
+    },
+    {
+      code: "1110",
+      name: "Cash in Hand",
+      nameBn: "হাতে নগদ",
+      accountTypeId: assetType.id,
+      parentCode: "1100",
+      isDetail: true,
+      sortOrder: 3,
+    },
+    {
+      code: "1120",
+      name: "Bank Accounts",
+      nameBn: "ব্যাংক অ্যাকাউন্ট",
+      accountTypeId: assetType.id,
+      parentCode: "1100",
+      isDetail: true,
+      sortOrder: 4,
+    },
+    {
+      code: "1200",
+      name: "Accounts Receivable",
+      nameBn: "প্রাপ্য রাশি",
+      accountTypeId: assetType.id,
+      parentCode: "1000",
+      isDetail: true,
+      sortOrder: 5,
+    },
+    {
+      code: "2000",
+      name: "Current Liabilities",
+      nameBn: "চলতি দায়",
+      accountTypeId: liabilityType.id,
+      isDetail: false,
+      sortOrder: 10,
+    },
+    {
+      code: "2100",
+      name: "Accounts Payable",
+      nameBn: "দেয় রাশি",
+      accountTypeId: liabilityType.id,
+      parentCode: "2000",
+      isDetail: true,
+      sortOrder: 11,
+    },
+    {
+      code: "3000",
+      name: "Equity",
+      nameBn: "ইকুইটি",
+      accountTypeId: equityType.id,
+      isDetail: false,
+      sortOrder: 20,
+    },
+    {
+      code: "3100",
+      name: "Owner's Capital",
+      nameBn: "মালিকের ক্যাপিটাল",
+      accountTypeId: equityType.id,
+      parentCode: "3000",
+      isDetail: true,
+      sortOrder: 21,
+    },
+    {
+      code: "3200",
+      name: "Retained Earnings",
+      nameBn: "রিটেইন্ড আর্ণিংস",
+      accountTypeId: equityType.id,
+      parentCode: "3000",
+      isDetail: true,
+      sortOrder: 22,
+    },
+    {
+      code: "4000",
+      name: "Revenue",
+      nameBn: "আয়",
+      accountTypeId: revenueType.id,
+      isDetail: false,
+      sortOrder: 30,
+    },
+    {
+      code: "4100",
+      name: "Sales Revenue",
+      nameBn: "বিক্রয় আয়",
+      accountTypeId: revenueType.id,
+      parentCode: "4000",
+      isDetail: true,
+      sortOrder: 31,
+    },
+    {
+      code: "5000",
+      name: "Expenses",
+      nameBn: "ব্যয়",
+      accountTypeId: expenseType.id,
+      isDetail: false,
+      sortOrder: 40,
+    },
+    {
+      code: "5100",
+      name: "Operating Expenses",
+      nameBn: "অপারেটিং ব্যয়",
+      accountTypeId: expenseType.id,
+      parentCode: "5000",
+      isDetail: false,
+      sortOrder: 41,
+    },
+    {
+      code: "5110",
+      name: "Salaries",
+      nameBn: "বেতন",
+      accountTypeId: expenseType.id,
+      parentCode: "5100",
+      isDetail: true,
+      sortOrder: 42,
+    },
+    {
+      code: "5120",
+      name: "Rent",
+      nameBn: "ভাড়া",
+      accountTypeId: expenseType.id,
+      parentCode: "5100",
+      isDetail: true,
+      sortOrder: 43,
+    },
+    {
+      code: "5130",
+      name: "Utilities",
+      nameBn: "উটিলিটি",
+      accountTypeId: expenseType.id,
+      parentCode: "5100",
+      isDetail: true,
+      sortOrder: 44,
+    },
   ];
 
-  const idMap = new Map<string, number>();
+  const idMap = new Map<string, number>(
+    existing.map((account: { code: string; id: number }) => [
+      account.code,
+      account.id,
+    ])
+  );
+  let seeded = false;
 
   for (const acc of accounts) {
+    if (idMap.has(acc.code)) continue;
     let parentId: number | undefined;
     if (acc.parentCode) {
       parentId = idMap.get(acc.parentCode);
     }
-    const result = await db.insert(financeChartOfAccounts).values({
-      userId,
-      projectId,
-      accountTypeId: acc.accountTypeId,
-      parentId,
-      code: acc.code,
-      name: acc.name,
-      nameBn: acc.nameBn,
-      isDetail: acc.isDetail,
-      sortOrder: acc.sortOrder,
-    });
-    const id = Number(result[0].insertId);
+    const result = await db
+      .insert(financeChartOfAccounts)
+      .values({
+        userId,
+        projectId,
+        accountTypeId: acc.accountTypeId,
+        parentId,
+        code: acc.code,
+        name: acc.name,
+        nameBn: acc.nameBn,
+        isDetail: acc.isDetail,
+        sortOrder: acc.sortOrder,
+      })
+      // (projectId, code) is unique: let the index settle a concurrent seeder
+      // instead of failing the caller's project creation.
+      .onDuplicateKeyUpdate({
+        set: {
+          name: sql`values(\`name\`)`,
+          nameBn: sql`values(\`nameBn\`)`,
+          isDetail: sql`values(\`isDetail\`)`,
+          sortOrder: sql`values(\`sortOrder\`)`,
+        },
+      });
+    const insertId = Number(result[0].insertId);
+    let id = insertId;
+    if (!Number.isFinite(id) || id <= 0) {
+      // A duplicate update reports no insert id, so read the winner's row.
+      const [winner] = await db
+        .select({ id: financeChartOfAccounts.id })
+        .from(financeChartOfAccounts)
+        .where(
+          and(
+            eq(financeChartOfAccounts.projectId, projectId),
+            eq(financeChartOfAccounts.code, acc.code)
+          )
+        )
+        .limit(1);
+      if (!winner) {
+        throw new Error(
+          `Chart of Accounts account ${acc.code} could not be seeded for project ${projectId}`
+        );
+      }
+      id = winner.id;
+    }
     idMap.set(acc.code, id);
+    seeded = true;
   }
+  if (!seeded) return idMap;
 
   await logAudit({
     actorUserId: userId,
@@ -1532,6 +2073,93 @@ export async function seedDefaultChartOfAccounts(userId: number, projectId: numb
     entityType: "chart_of_account_seed",
     summary: "Default Chart of Accounts seeded",
   });
+  return idMap;
+}
+
+async function ensureCanonicalMappings(userId: number, projectId: number) {
+  const coaIds = await seedDefaultChartOfAccounts(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const coaRows = await queryRows<DbRow[]>(
+    db
+      .select({
+        id: financeChartOfAccounts.id,
+        code: financeChartOfAccounts.code,
+      })
+      .from(financeChartOfAccounts)
+      .where(
+        and(
+          eq(financeChartOfAccounts.userId, userId),
+          eq(financeChartOfAccounts.projectId, projectId)
+        )
+      )
+  );
+  const coaByCode = new Map(coaRows.map(account => [account.code, account.id]));
+  const cashId = coaByCode.get("1110") ?? coaIds.get("1110");
+  const bankId = coaByCode.get("1120") ?? coaIds.get("1120");
+  const revenueId = coaByCode.get("4100") ?? coaIds.get("4100");
+  const expenseId = coaByCode.get("5110") ?? coaIds.get("5110");
+  const capitalId = coaByCode.get("3100") ?? coaIds.get("3100");
+  const rentId = coaByCode.get("5120") ?? expenseId;
+  const utilitiesId = coaByCode.get("5130") ?? expenseId;
+  if (!cashId || !bankId || !revenueId || !expenseId || !capitalId)
+    throw new Error("Default canonical accounts are incomplete");
+  const accounts = await queryRows<DbRow[]>(
+    db
+      .select({
+        id: financeAccounts.id,
+        type: financeAccounts.type,
+        chartOfAccountId: financeAccounts.chartOfAccountId,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
+      )
+  );
+  for (const account of accounts) {
+    if (account.chartOfAccountId) continue;
+    await db
+      .update(financeAccounts)
+      .set({ chartOfAccountId: account.type === "cash" ? cashId : bankId })
+      .where(eq(financeAccounts.id, account.id));
+  }
+  const categories = await queryRows<DbRow[]>(
+    db
+      .select({
+        id: financeCategories.id,
+        name: financeCategories.name,
+        type: financeCategories.type,
+        chartOfAccountId: financeCategories.chartOfAccountId,
+      })
+      .from(financeCategories)
+      .where(
+        and(
+          eq(financeCategories.userId, userId),
+          eq(financeCategories.projectId, projectId)
+        )
+      )
+  );
+  for (const category of categories) {
+    if (category.chartOfAccountId) continue;
+    const categoryCoaId =
+      category.type === "income"
+        ? revenueId
+        : category.name.includes("ভাড়া") ||
+            category.name.toLowerCase().includes("rent")
+          ? rentId
+          : category.name.includes("ইউটিলিটি") ||
+              category.name.toLowerCase().includes("utilit")
+            ? utilitiesId
+            : expenseId;
+    await db
+      .update(financeCategories)
+      .set({ chartOfAccountId: categoryCoaId })
+      .where(eq(financeCategories.id, category.id));
+  }
+  const walletMappings = { cashId, bankId, capitalId };
+  return { cashId, bankId, revenueId, expenseId, capitalId, walletMappings };
 }
 
 // ─── Account Groups ─────────────────────────────────────────────────────────
@@ -1544,7 +2172,7 @@ export async function listAccountGroups(userId: number, projectId: number) {
     .where(
       and(
         eq(financeAccountGroups.userId, userId),
-        eq(financeAccountGroups.projectId, projectId),
+        eq(financeAccountGroups.projectId, projectId)
       )
     )
     .orderBy(financeAccountGroups.sortOrder);
@@ -1572,7 +2200,7 @@ export async function createAccountGroup(
     .where(
       and(
         eq(financeAccountGroups.projectId, input.projectId),
-        eq(financeAccountGroups.code, input.code.trim()),
+        eq(financeAccountGroups.code, input.code.trim())
       )
     )
     .limit(1);
@@ -1624,7 +2252,7 @@ export async function updateAccountGroup(
       and(
         eq(financeAccountGroups.id, groupId),
         eq(financeAccountGroups.userId, userId),
-        eq(financeAccountGroups.projectId, projectId),
+        eq(financeAccountGroups.projectId, projectId)
       )
     )
     .limit(1);
@@ -1632,8 +2260,10 @@ export async function updateAccountGroup(
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   if (input.name !== undefined) updateData.name = input.name.trim();
-  if (input.nameBn !== undefined) updateData.nameBn = input.nameBn?.trim() || null;
-  if (input.description !== undefined) updateData.description = input.description?.trim() || null;
+  if (input.nameBn !== undefined)
+    updateData.nameBn = input.nameBn?.trim() || null;
+  if (input.description !== undefined)
+    updateData.description = input.description?.trim() || null;
   if (input.sortOrder !== undefined) updateData.sortOrder = input.sortOrder;
 
   await db
@@ -1653,7 +2283,11 @@ export async function updateAccountGroup(
   return { id: groupId };
 }
 
-export async function deleteAccountGroup(userId: number, projectId: number, groupId: number) {
+export async function deleteAccountGroup(
+  userId: number,
+  projectId: number,
+  groupId: number
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
@@ -1664,7 +2298,7 @@ export async function deleteAccountGroup(userId: number, projectId: number, grou
       and(
         eq(financeAccountGroups.id, groupId),
         eq(financeAccountGroups.userId, userId),
-        eq(financeAccountGroups.projectId, projectId),
+        eq(financeAccountGroups.projectId, projectId)
       )
     )
     .limit(1);
@@ -1674,9 +2308,12 @@ export async function deleteAccountGroup(userId: number, projectId: number, grou
     .select({ count: sql<number>`count(*)` })
     .from(financeAccountGroups)
     .where(eq(financeAccountGroups.parentId, groupId));
-  if (Number(children?.count ?? 0) > 0) throw new Error("চাইল্ড গ্রুপ থাকা অবস্থায় মুছা যাবে না");
+  if (Number(children?.count ?? 0) > 0)
+    throw new Error("চাইল্ড গ্রুপ থাকা অবস্থায় মুছা যাবে না");
 
-  await db.delete(financeAccountGroups).where(eq(financeAccountGroups.id, groupId));
+  await db
+    .delete(financeAccountGroups)
+    .where(eq(financeAccountGroups.id, groupId));
 
   await logAudit({
     actorUserId: userId,
@@ -1690,7 +2327,11 @@ export async function deleteAccountGroup(userId: number, projectId: number, grou
 
 // ─── Fiscal Periods (DB helpers, logic in accounting-core.ts) ────────────────
 
-export async function getFiscalPeriodById(userId: number, projectId: number, periodId: number) {
+export async function getFiscalPeriodById(
+  userId: number,
+  projectId: number,
+  periodId: number
+) {
   const db = databaseRequired(await getDb());
   const [period] = await db
     .select()
@@ -1699,19 +2340,25 @@ export async function getFiscalPeriodById(userId: number, projectId: number, per
       and(
         eq(financeFiscalPeriods.id, periodId),
         eq(financeFiscalPeriods.userId, userId),
-        eq(financeFiscalPeriods.projectId, projectId),
+        eq(financeFiscalPeriods.projectId, projectId)
       )
     )
     .limit(1);
   return period ?? null;
 }
 
-export async function getChartOfAccountsTree(userId: number, projectId: number) {
+export async function getChartOfAccountsTree(
+  userId: number,
+  projectId: number
+) {
   const accounts = await getChartOfAccounts(userId, projectId);
-  const accountMap = new Map<number, typeof accounts[0] & { children: typeof accounts }>();
+  const accountMap = new Map<
+    number,
+    (typeof accounts)[0] & { children: typeof accounts }
+  >();
   accounts.forEach(a => accountMap.set(a.id, { ...a, children: [] }));
 
-  const roots: (typeof accounts[0] & { children: typeof accounts })[] = [];
+  const roots: ((typeof accounts)[0] & { children: typeof accounts })[] = [];
   accounts.forEach(acc => {
     const withChildren = accountMap.get(acc.id)!;
     if (acc.parentId && accountMap.has(acc.parentId)) {
@@ -1748,7 +2395,12 @@ export async function adjustChartOfAccountBalance(
 
 /** ==================== Period Lock ==================== */
 
-export async function lockPeriod(userId: number, projectId: number, monthKey: string, reason?: string) {
+export async function lockPeriod(
+  userId: number,
+  projectId: number,
+  monthKey: string,
+  reason?: string
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
@@ -1781,7 +2433,11 @@ export async function lockPeriod(userId: number, projectId: number, monthKey: st
   });
 }
 
-export async function unlockPeriod(userId: number, projectId: number, monthKey: string) {
+export async function unlockPeriod(
+  userId: number,
+  projectId: number,
+  monthKey: string
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
@@ -1815,7 +2471,11 @@ export async function unlockPeriod(userId: number, projectId: number, monthKey: 
   });
 }
 
-export async function isPeriodLocked(userId: number, projectId: number, monthKey: string): Promise<boolean> {
+export async function isPeriodLocked(
+  userId: number,
+  projectId: number,
+  monthKey: string
+): Promise<boolean> {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   const [lock] = await db
@@ -1831,10 +2491,17 @@ export async function isPeriodLocked(userId: number, projectId: number, monthKey
   return !!lock;
 }
 
-export async function assertPeriodNotLocked(userId: number, projectId: number, date: Date) {
+export async function assertPeriodNotLocked(
+  userId: number,
+  projectId: number,
+  date: Date
+) {
   const monthKey = date.toISOString().slice(0, 7);
   const locked = await isPeriodLocked(userId, projectId, monthKey);
-  if (locked) throw new Error(`পিরিয়ড ${monthKey} লক করা আছে; লেনদেন যোগ/সংশোধন করা যাবে না`);
+  if (locked)
+    throw new Error(
+      `পিরিয়ড ${monthKey} লক করা আছে; লেনদেন যোগ/সংশোধন করা যাবে না`
+    );
 }
 
 export async function getPeriodLocks(userId: number, projectId: number) {
@@ -1849,6 +2516,148 @@ export async function getPeriodLocks(userId: number, projectId: number) {
 
 /** ==================== Voucher Reversal ==================== */
 
+async function canonicalVoucherEntries(
+  tx: DbTx,
+  projectId: number,
+  voucherId: number,
+  side: "debits" | "credits"
+) {
+  const table =
+    side === "debits" ? financeVoucherDebits : financeVoucherCredits;
+  const rows = await queryRows<DbRow[]>(
+    tx.select().from(table).where(eq(table.voucherId, voucherId))
+  );
+  const entries: VoucherEntry[] = [];
+  for (const row of rows) {
+    let accountId = row.chartOfAccountId;
+    if (!accountId && row.accountId) {
+      const [flatAccount] = await tx
+        .select({ chartOfAccountId: financeAccounts.chartOfAccountId })
+        .from(financeAccounts)
+        .where(
+          and(
+            eq(financeAccounts.id, row.accountId),
+            eq(financeAccounts.projectId, projectId)
+          )
+        )
+        .limit(1);
+      accountId = flatAccount?.chartOfAccountId;
+    }
+    if (!accountId)
+      throw new Error(
+        "ভাউচারে ক্যাননিক্যাল হিসাবখাতা নেই; reconciliation প্রয়োজন"
+      );
+    entries.push({
+      accountId,
+      amount: Number(row.amount),
+      narration: row.narration
+        ? `Reversal: ${row.narration}`
+        : "Reversal entry",
+    });
+  }
+  if (!entries.length) throw new Error("ডেবিট ও ক্রেডিট এন্ট্রি প্রয়োজন");
+  return entries;
+}
+
+async function reverseVoucherInTx(
+  tx: DbTx,
+  userId: number,
+  projectId: number,
+  input: {
+    originalVoucherId: number;
+    reason: string;
+    date: Date;
+    enforceSelfCheck?: boolean;
+  }
+) {
+  const [originalVoucher] = await selectForUpdate<DbRow[]>(
+    tx
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.id, input.originalVoucherId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .limit(1)
+  );
+  if (!originalVoucher) throw new Error("মূল ভাউচার পাওয়া যায়নি");
+  assertVoucherTransition(originalVoucher.status, "reversed");
+  if (input.enforceSelfCheck !== false && originalVoucher.userId === userId) {
+    throw new Error("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
+  }
+  await assertPeriodNotLockedTx(tx, projectId, input.date);
+  const [existingReversal] = await selectForUpdate<DbRow[]>(
+    tx
+      .select({ id: financeVoucherReversals.id })
+      .from(financeVoucherReversals)
+      .where(
+        eq(financeVoucherReversals.originalVoucherId, input.originalVoucherId)
+      )
+      .limit(1)
+  );
+  if (existingReversal)
+    throw new Error("এই ভাউচারের জন্য ইতিমধ্যে রিভার্সাল তৈরি করা হয়েছে");
+  const originalDebits = await canonicalVoucherEntries(
+    tx,
+    projectId,
+    input.originalVoucherId,
+    "debits"
+  );
+  const originalCredits = await canonicalVoucherEntries(
+    tx,
+    projectId,
+    input.originalVoucherId,
+    "credits"
+  );
+  const reversalVoucherResult = await createVoucherWithEntriesInTx(tx, userId, {
+    projectId,
+    date: input.date,
+    narration: `Reversal of ${originalVoucher.voucherNo}: ${input.reason}`,
+    debits: originalCredits,
+    credits: originalDebits,
+    status: "posted",
+    voucherType: "reversal",
+    _internalPostedBy: userId,
+  });
+  await tx.insert(financeVoucherReversals).values({
+    userId,
+    projectId,
+    originalVoucherId: input.originalVoucherId,
+    reversalVoucherId: reversalVoucherResult.voucherId,
+    reason: input.reason,
+    reversedBy: userId,
+  });
+  const transition = await tx
+    .update(financeVouchers)
+    .set({
+      status: "reversed",
+      reversedBy: userId,
+      reversedAt: new Date(),
+      reversalReference: reversalVoucherResult.voucherNo,
+    })
+    .where(
+      and(
+        eq(financeVouchers.id, input.originalVoucherId),
+        eq(financeVouchers.status, "posted")
+      )
+    );
+  if (!transition[0]?.affectedRows)
+    throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
+  await tx.insert(financeVoucherAudit).values({
+    voucherId: input.originalVoucherId,
+    actorUserId: userId,
+    action: "reverse",
+    snapshot: JSON.stringify({
+      originalVoucherNo: originalVoucher.voucherNo,
+      reversalVoucherNo: reversalVoucherResult.voucherNo,
+      reason: input.reason,
+    }),
+  });
+  return reversalVoucherResult;
+}
+
 export async function reverseVoucher(
   userId: number,
   projectId: number,
@@ -1860,9 +2669,7 @@ export async function reverseVoucher(
 ) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
-
-  // Phase 1: Validate outside transaction (fast fail)
-  const [originalVoucher] = await db
+  const [preflight] = await db
     .select()
     .from(financeVouchers)
     .where(
@@ -1872,103 +2679,26 @@ export async function reverseVoucher(
       )
     )
     .limit(1);
-  if (!originalVoucher) throw new Error("মূল ভাউচার পাওয়া যায়নি");
-  assertVoucherTransition(originalVoucher.status, "reversed");
-
-  // Self-reversal prevention: the voucher creator cannot reverse their own voucher.
-  if (originalVoucher.userId === userId) {
+  if (!preflight) throw new Error("মূল ভাউচার পাওয়া যায়নি");
+  assertVoucherTransition(preflight.status, "reversed");
+  if (preflight.userId === userId)
     throw new Error("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
-  }
-
-  const existingReversal = await db
-    .select()
-    .from(financeVoucherReversals)
-    .where(eq(financeVoucherReversals.originalVoucherId, input.originalVoucherId))
-    .limit(1);
-  if (existingReversal.length > 0) throw new Error("এই ভাউচারের জন্য ইতিমধ্যে রিভার্সাল তৈরি করা হয়েছে");
-
-  const originalDebits = await db
-    .select()
-    .from(financeVoucherDebits)
-    .where(eq(financeVoucherDebits.voucherId, input.originalVoucherId));
-  const originalCredits = await db
-    .select()
-    .from(financeVoucherCredits)
-    .where(eq(financeVoucherCredits.voucherId, input.originalVoucherId));
-
-  const reversedDebits = originalDebits.map(d => ({
-    accountId: d.accountId,
-    amount: Number(d.amount),
-    narration: d.narration ? `Reversal: ${d.narration}` : "Reversal entry",
-  }));
-  const reversedCredits = originalCredits.map(c => ({
-    accountId: c.accountId,
-    amount: Number(c.amount),
-    narration: c.narration ? `Reversal: ${c.narration}` : "Reversal entry",
-  }));
-
-  // Phase 2: All writes in a single atomic transaction
-  const { assertPeriodNotLocked } = await import("./accounting-core");
-  await assertPeriodNotLocked(projectId, input.date);
-
-  const reversalResult = await db.transaction(async (tx) => {
-    // 2a. Create reversal voucher with its own debits/credits/ledger/journal/audit
-    const reversalVoucherResult = await createVoucherWithEntries(userId, {
-      projectId,
-      date: input.date,
-      narration: `Reversal of ${originalVoucher.voucherNo}: ${input.reason}`,
-      debits: reversedCredits,
-      credits: reversedDebits,
-      status: "posted",
-      _internalPostedBy: userId,
-    });
-
-    // 2b. Record the reversal link
-    await tx.insert(financeVoucherReversals).values({
-      userId,
-      projectId,
-      originalVoucherId: input.originalVoucherId,
-      reversalVoucherId: reversalVoucherResult.voucherId,
-      reason: input.reason,
-      reversedBy: userId,
-    });
-
-    // 2c. Mark original voucher as reversed
-    await tx
-      .update(financeVouchers)
-      .set({
-        status: "reversed",
-        reversedBy: userId,
-        reversedAt: new Date(),
-        reversalReference: reversalVoucherResult.voucherNo,
-      })
-      .where(eq(financeVouchers.id, input.originalVoucherId));
-
-    // 2d. Audit entry for the original voucher
-    await tx.insert(financeVoucherAudit).values({
-      voucherId: input.originalVoucherId,
-      actorUserId: userId,
-      action: "reverse",
-      snapshot: JSON.stringify({
-        originalVoucherNo: originalVoucher.voucherNo,
-        reversalVoucherNo: reversalVoucherResult.voucherNo,
-        reason: input.reason,
-      }),
-    });
-
-    return reversalVoucherResult;
-  });
-
+  const result = await db.transaction(tx =>
+    reverseVoucherInTx(tx, userId, projectId, input)
+  );
   await logAudit({
     actorUserId: userId,
     projectId,
     action: "update",
     entityType: "voucher",
     entityId: input.originalVoucherId,
-    summary: `Voucher reversed: ${originalVoucher.voucherNo} -> ${reversalResult.voucherNo}`,
+    summary: `Voucher reversed: ${result.voucherNo}`,
   });
-
-  return { originalVoucherId: input.originalVoucherId, reversalVoucherId: reversalResult.voucherId, reversalVoucherNo: reversalResult.voucherNo };
+  return {
+    originalVoucherId: input.originalVoucherId,
+    reversalVoucherId: result.voucherId,
+    reversalVoucherNo: result.voucherNo,
+  };
 }
 
 export async function getVoucherReversals(userId: number, projectId: number) {
@@ -1986,7 +2716,10 @@ export async function getVoucherReversals(userId: number, projectId: number) {
       reversalVoucherNo: sql<string>`(SELECT voucherNo FROM finance_vouchers WHERE id = ${financeVoucherReversals.reversalVoucherId})`,
     })
     .from(financeVoucherReversals)
-    .innerJoin(financeVouchers, eq(financeVouchers.id, financeVoucherReversals.originalVoucherId))
+    .innerJoin(
+      financeVouchers,
+      eq(financeVouchers.id, financeVoucherReversals.originalVoucherId)
+    )
     .where(eq(financeVoucherReversals.projectId, projectId))
     .orderBy(desc(financeVoucherReversals.reversedAt));
 }
@@ -2048,7 +2781,11 @@ export async function createBankReconciliation(
   return getBankReconciliationById(userId, input.projectId, reconciliationId);
 }
 
-export async function getBankReconciliationById(userId: number, projectId: number, reconciliationId: number) {
+export async function getBankReconciliationById(
+  userId: number,
+  projectId: number,
+  reconciliationId: number
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   const [rec] = await db
@@ -2071,7 +2808,10 @@ export async function getBankReconciliationById(userId: number, projectId: numbe
       accountCode: financeChartOfAccounts.code,
     })
     .from(financeBankReconciliations)
-    .innerJoin(financeChartOfAccounts, eq(financeChartOfAccounts.id, financeBankReconciliations.accountId))
+    .innerJoin(
+      financeChartOfAccounts,
+      eq(financeChartOfAccounts.id, financeBankReconciliations.accountId)
+    )
     .where(
       and(
         eq(financeBankReconciliations.id, reconciliationId),
@@ -2083,7 +2823,10 @@ export async function getBankReconciliationById(userId: number, projectId: numbe
   return rec;
 }
 
-export async function getBankReconciliations(userId: number, projectId: number) {
+export async function getBankReconciliations(
+  userId: number,
+  projectId: number
+) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   return db
@@ -2106,7 +2849,10 @@ export async function getBankReconciliations(userId: number, projectId: number) 
       accountCode: financeChartOfAccounts.code,
     })
     .from(financeBankReconciliations)
-    .innerJoin(financeChartOfAccounts, eq(financeChartOfAccounts.id, financeBankReconciliations.accountId))
+    .innerJoin(
+      financeChartOfAccounts,
+      eq(financeChartOfAccounts.id, financeBankReconciliations.accountId)
+    )
     .where(
       and(
         eq(financeBankReconciliations.userId, userId),
@@ -2209,15 +2955,27 @@ export async function unmatchBankReconciliationItem(
     .where(eq(financeBankReconciliationItems.id, itemId))
     .limit(1);
   if (item) {
-    await recalculateReconciliation(db, userId, projectId, item.reconciliationId);
+    await recalculateReconciliation(
+      db,
+      userId,
+      projectId,
+      item.reconciliationId
+    );
   }
 }
 
-async function recalculateReconciliation(db: DbHandle, userId: number, projectId: number, reconciliationId: number) {
+async function recalculateReconciliation(
+  db: DbHandle,
+  userId: number,
+  projectId: number,
+  reconciliationId: number
+) {
   const items = await db
     .select()
     .from(financeBankReconciliationItems)
-    .where(eq(financeBankReconciliationItems.reconciliationId, reconciliationId));
+    .where(
+      eq(financeBankReconciliationItems.reconciliationId, reconciliationId)
+    );
 
   let matchedDebits = 0;
   let matchedCredits = 0;
@@ -2229,7 +2987,8 @@ async function recalculateReconciliation(db: DbHandle, userId: number, projectId
         .where(eq(financeLedgerEntries.id, item.ledgerEntryId))
         .limit(1);
       if (ledger) {
-        if (ledger.entryType === "debit") matchedDebits += Number(ledger.amount);
+        if (ledger.entryType === "debit")
+          matchedDebits += Number(ledger.amount);
         else matchedCredits += Number(ledger.amount);
       }
     }
@@ -2241,7 +3000,8 @@ async function recalculateReconciliation(db: DbHandle, userId: number, projectId
     .where(eq(financeBankReconciliations.id, reconciliationId))
     .limit(1);
 
-  const adjustedBookBalance = Number(rec.bookBalance) + matchedDebits - matchedCredits;
+  const adjustedBookBalance =
+    Number(rec.bookBalance) + matchedDebits - matchedCredits;
   const difference = Number(rec.statementBalance) - adjustedBookBalance;
 
   await db
@@ -2274,7 +3034,9 @@ export async function completeBankReconciliation(
     .limit(1);
   if (!rec) throw new Error("রিকোনসিলিয়েশন পাওয়া যায়নি");
   if (Math.abs(Number(rec.difference)) > 0.01) {
-    throw new Error("ডিফারেন্স ০.০১ এর চেয়ে বেশি; রিকোনসিলিয়েশন সম্পন্ন করা যাবে না");
+    throw new Error(
+      "ডিফারেন্স ০.০১ এর চেয়ে বেশি; রিকোনসিলিয়েশন সম্পন্ন করা যাবে না"
+    );
   }
 
   await db
@@ -2302,7 +3064,10 @@ export async function getBankReconciliationItems(
 ) {
   const db = databaseRequired(await getDb());
   const [rec] = await db
-    .select({ id: financeBankReconciliations.id, projectId: financeBankReconciliations.projectId })
+    .select({
+      id: financeBankReconciliations.id,
+      projectId: financeBankReconciliations.projectId,
+    })
     .from(financeBankReconciliations)
     .where(eq(financeBankReconciliations.id, reconciliationId))
     .limit(1);
@@ -2311,7 +3076,9 @@ export async function getBankReconciliationItems(
   return db
     .select()
     .from(financeBankReconciliationItems)
-    .where(eq(financeBankReconciliationItems.reconciliationId, reconciliationId))
+    .where(
+      eq(financeBankReconciliationItems.reconciliationId, reconciliationId)
+    )
     .orderBy(asc(financeBankReconciliationItems.statementDate));
 }
 
@@ -2326,7 +3093,7 @@ export async function getLedgerEntriesForReconciliation(
     .select({
       id: financeLedgerEntries.id,
       voucherId: financeLedgerEntries.voucherId,
-      accountId: financeLedgerEntries.accountId,
+      accountId: financeLedgerEntries.chartOfAccountId,
       entryType: financeLedgerEntries.entryType,
       amount: financeLedgerEntries.amount,
       runningBalance: financeLedgerEntries.runningBalance,
@@ -2335,11 +3102,14 @@ export async function getLedgerEntriesForReconciliation(
     .from(financeLedgerEntries)
     .where(
       and(
-        eq(financeLedgerEntries.accountId, accountId),
+        eq(financeLedgerEntries.chartOfAccountId, accountId),
         eq(financeVouchers.projectId, projectId)
       )
     )
-    .innerJoin(financeVouchers, eq(financeLedgerEntries.voucherId, financeVouchers.id))
+    .innerJoin(
+      financeVouchers,
+      eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
     .orderBy(desc(financeLedgerEntries.postedAt));
 }
 
@@ -2558,6 +3328,7 @@ export async function createProject(userId: number, name: string) {
     .values({ userId, name: cleanName });
   const projectId = Number(result[0].insertId);
   await ensureDefaultCategories(userId, projectId);
+  await ensureCanonicalMappings(userId, projectId);
   await logAudit({
     actorUserId: userId,
     projectId,
@@ -3083,15 +3854,13 @@ export async function saveSharedBudget(
     });
     return existing.id;
   }
-  const result = await db
-    .insert(financeSharedBudgets)
-    .values({
-      householdId: input.householdId,
-      label,
-      monthKey: input.monthKey,
-      amount: decimal(input.amount),
-      createdByUserId: userId,
-    });
+  const result = await db.insert(financeSharedBudgets).values({
+    householdId: input.householdId,
+    label,
+    monthKey: input.monthKey,
+    amount: decimal(input.amount),
+    createdByUserId: userId,
+  });
   const budgetId = Number(result[0].insertId);
   await logAudit({
     actorUserId: userId,
@@ -3128,16 +3897,14 @@ export async function addSharedExpense(
     )
     .limit(1);
   if (!budget) throw new Error("শেয়ার করা বাজেট পাওয়া যায়নি");
-  const result = await db
-    .insert(financeSharedExpenses)
-    .values({
-      householdId: input.householdId,
-      budgetId: input.budgetId,
-      contributorUserId: userId,
-      amount: decimal(input.amount),
-      note: input.note?.trim() || null,
-      occurredAt: input.occurredAt,
-    });
+  const result = await db.insert(financeSharedExpenses).values({
+    householdId: input.householdId,
+    budgetId: input.budgetId,
+    contributorUserId: userId,
+    amount: decimal(input.amount),
+    note: input.note?.trim() || null,
+    occurredAt: input.occurredAt,
+  });
   const expenseId = Number(result[0].insertId);
   await logAudit({
     actorUserId: userId,
@@ -3222,18 +3989,19 @@ async function adjustAccountBalance(
 ) {
   if (!accountId || delta === 0) return;
   const executor = tx || databaseRequired(await getDb());
-  const [account] = await executor
-    .select()
-    .from(financeAccounts)
-    .where(
-      and(
-        eq(financeAccounts.id, accountId),
-        eq(financeAccounts.userId, userId),
-        eq(financeAccounts.projectId, projectId)
+  const [account] = await selectForUpdate<DbRow[]>(
+    executor
+      .select()
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.id, accountId),
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
       )
-    )
-    .limit(1)
-    .for("update");
+      .limit(1)
+  );
   if (!account) throw new Error("Account not found or access denied");
   await executor
     .update(financeAccounts)
@@ -3247,70 +4015,6 @@ async function adjustAccountBalance(
         eq(financeAccounts.projectId, projectId)
       )
     );
-}
-
-export type AuditAction =
-  | "create" | "update" | "delete" | "delete_attempt"
-  | "approve" | "reject" | "post" | "reverse"
-  | "login" | "logout" | "login_failed"
-  | "permission_denied" | "user_suspended"
-  | "backup_created" | "backup_restored";
-
-export interface AuditContext {
-  ipAddress?: string | null;
-  userAgent?: string | null;
-  requestId?: string | null;
-}
-
-export async function logAudit(input: {
-  actorUserId: number;
-  actorRole?: string;
-  projectId?: number | null;
-  action: AuditAction;
-  entityType: string;
-  entityId?: number | null;
-  summary: string;
-  oldData?: unknown;
-  newData?: unknown;
-  auditContext?: AuditContext;
-}) {
-  const db = databaseRequired(await getDb());
-  await db
-    .insert(auditLogs)
-    .values({
-      actorUserId: input.actorUserId,
-      actorRole: input.actorRole ?? "user",
-      projectId: input.projectId ?? null,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId ?? null,
-      summary: input.summary,
-      oldData: input.oldData != null ? JSON.stringify(input.oldData) : null,
-      newData: input.newData != null ? JSON.stringify(input.newData) : null,
-      ipAddress: input.auditContext?.ipAddress ?? null,
-      userAgent: input.auditContext?.userAgent ?? null,
-      requestId: input.auditContext?.requestId ?? null,
-    });
-}
-
-/**
- * Append-only guard: audit logs may NEVER be modified or deleted.
- * This function always throws — it exists as a deliberate safety valve.
- * If you need to "clean" audit logs, export them and use a DBA tool.
- */
-export async function deleteAuditLogs(): Promise<never> {
-  throw new Error(
-    "Audit logs are append-only. They may not be modified or deleted at runtime."
-  );
-}
-
-/**
- * Append-only guard: audit logs may NEVER be updated.
- */
-export async function updateAuditLogs(): Promise<never> {
-  throw new Error(
-    "Audit logs are append-only. They may not be modified or deleted at runtime."
-  );
 }
 
 export async function getOverview(userId: number, projectId: number) {
@@ -3778,44 +4482,45 @@ export async function listTransactionsPaginated(
   const pageSize = Math.min(100, Math.max(1, input.pageSize));
   const offset = (page - 1) * pageSize;
 
-  const [transactions, categories, accounts, [aggregations]] = await Promise.all([
-    db
-      .select()
-      .from(financeTransactions)
-      .where(whereClause)
-      .orderBy(
-        desc(financeTransactions.occurredAt),
-        desc(financeTransactions.id)
-      )
-      .limit(pageSize)
-      .offset(offset),
-    db
-      .select()
-      .from(financeCategories)
-      .where(
-        and(
-          eq(financeCategories.userId, userId),
-          eq(financeCategories.projectId, input.projectId)
+  const [transactions, categories, accounts, [aggregations]] =
+    await Promise.all([
+      db
+        .select()
+        .from(financeTransactions)
+        .where(whereClause)
+        .orderBy(
+          desc(financeTransactions.occurredAt),
+          desc(financeTransactions.id)
         )
-      ),
-    db
-      .select()
-      .from(financeAccounts)
-      .where(
-        and(
-          eq(financeAccounts.userId, userId),
-          eq(financeAccounts.projectId, input.projectId)
-        )
-      ),
-    db
-      .select({
-        totalCount: sql<number>`count(*)`,
-        totalIncome: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'income' then ${financeTransactions.amount} else 0 end), 0)`,
-        totalExpense: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'expense' then ${financeTransactions.amount} else 0 end), 0)`,
-      })
-      .from(financeTransactions)
-      .where(whereClause),
-  ]);
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select()
+        .from(financeCategories)
+        .where(
+          and(
+            eq(financeCategories.userId, userId),
+            eq(financeCategories.projectId, input.projectId)
+          )
+        ),
+      db
+        .select()
+        .from(financeAccounts)
+        .where(
+          and(
+            eq(financeAccounts.userId, userId),
+            eq(financeAccounts.projectId, input.projectId)
+          )
+        ),
+      db
+        .select({
+          totalCount: sql<number>`count(*)`,
+          totalIncome: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'income' then ${financeTransactions.amount} else 0 end), 0)`,
+          totalExpense: sql<string>`coalesce(sum(case when ${financeTransactions.type} = 'expense' then ${financeTransactions.amount} else 0 end), 0)`,
+        })
+        .from(financeTransactions)
+        .where(whereClause),
+    ]);
 
   const total = Number(aggregations?.totalCount ?? 0);
   const totalIncome = Number(aggregations?.totalIncome ?? 0);
@@ -4021,21 +4726,18 @@ export async function createDue(
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
   const id = await db.transaction(async tx => {
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
-    const result = await tx
-      .insert(financeDues)
-      .values({
-        userId,
-        projectId: input.projectId,
-        type: input.type,
-        counterparty: input.counterparty.trim(),
-        originalAmount: decimal(input.amount),
-        outstandingAmount: decimal(input.amount),
-        voucherNo,
-        note: input.note?.trim() || null,
-        openedAt: input.openedAt,
-        dueAt: input.dueAt ?? null,
-      });
+    const result = await tx.insert(financeDues).values({
+      userId,
+      projectId: input.projectId,
+      type: input.type,
+      counterparty: input.counterparty.trim(),
+      originalAmount: decimal(input.amount),
+      outstandingAmount: decimal(input.amount),
+      voucherNo: null,
+      note: input.note?.trim() || null,
+      openedAt: input.openedAt,
+      dueAt: input.dueAt ?? null,
+    });
     return Number(result[0].insertId);
   });
   await logAudit({
@@ -4075,9 +4777,11 @@ export async function settleDue(
   }
   if (input.accountId)
     await assertOwnedAccount(userId, input.projectId, input.accountId);
+  if (effect.accountBalanceDelta === 0)
+    throw new Error("দেনা/পাওনা পরিমাণ সঠিক নয়");
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const db = databaseRequired(await getDb());
   await db.transaction(async tx => {
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
     const updateResult = await tx
       .update(financeDues)
       .set({
@@ -4093,45 +4797,310 @@ export async function settleDue(
       );
     if (!updateResult[0].affectedRows)
       throw new Error("বকেয়া পরিমাণ পরিবর্তিত হয়েছে; আবার চেষ্টা করুন");
-    const settlementResult = await tx
-      .insert(financeDueSettlements)
-      .values({
-        userId,
-        projectId: input.projectId,
-        dueId: input.dueId,
-        accountId: input.accountId ?? null,
-        amount: decimal(input.amount),
-        voucherNo,
-        note: input.note?.trim() || null,
-        occurredAt: input.occurredAt,
-      });
+    const accountCoaId = input.accountId
+      ? (
+          await tx
+            .select({ chartOfAccountId: financeAccounts.chartOfAccountId })
+            .from(financeAccounts)
+            .where(
+              and(
+                eq(financeAccounts.id, input.accountId),
+                eq(financeAccounts.userId, userId),
+                eq(financeAccounts.projectId, input.projectId)
+              )
+            )
+            .limit(1)
+        )[0]?.chartOfAccountId
+      : mappings.cashId;
+    if (!accountCoaId)
+      throw new Error(
+        "অ্যাকাউন্টের ক্যাননিক্যাল হিসাবখাতা নেই; reconciliation প্রয়োজন"
+      );
+    const [dueAccount] = await tx
+      .select({ id: financeChartOfAccounts.id })
+      .from(financeChartOfAccounts)
+      .where(
+        and(
+          eq(financeChartOfAccounts.userId, userId),
+          eq(financeChartOfAccounts.projectId, input.projectId),
+          eq(financeChartOfAccounts.code, due.type === "debt" ? "2100" : "1200")
+        )
+      )
+      .limit(1);
+    if (!dueAccount) throw new Error("Due canonical account is not configured");
+    const settlementVoucher = await createVoucherWithEntriesInTx(tx, userId, {
+      projectId: input.projectId,
+      date: input.occurredAt,
+      narration: input.note?.trim() || `Due settlement ${input.dueId}`,
+      debits:
+        due.type === "debt"
+          ? [{ accountId: dueAccount.id, amount: input.amount }]
+          : [{ accountId: accountCoaId, amount: input.amount }],
+      credits:
+        due.type === "debt"
+          ? [{ accountId: accountCoaId, amount: input.amount }]
+          : [{ accountId: dueAccount.id, amount: input.amount }],
+      status: "posted",
+      voucherType: "due",
+      _internalPostedBy: userId,
+    });
     if (input.accountId) {
-      await tx
-        .update(financeAccounts)
-        .set({
-          currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(effect.accountBalanceDelta)}`,
-        })
-        .where(
-          and(
-            eq(financeAccounts.id, input.accountId),
-            eq(financeAccounts.userId, userId),
-            eq(financeAccounts.projectId, input.projectId)
-          )
-        );
+      await adjustAccountBalance(
+        userId,
+        input.projectId,
+        input.accountId,
+        effect.accountBalanceDelta,
+        tx
+      );
     }
+    const settlementResult = await tx.insert(financeDueSettlements).values({
+      userId,
+      projectId: input.projectId,
+      dueId: input.dueId,
+      accountId: input.accountId ?? null,
+      amount: decimalFromCents(cents(input.amount)),
+      voucherNo: settlementVoucher.voucherNo,
+      voucherId: settlementVoucher.voucherId,
+      note: input.note?.trim() || null,
+      occurredAt: input.occurredAt,
+    });
     const settlementId = Number(settlementResult[0].insertId);
-    await tx
-      .insert(auditLogs)
-      .values({
-        actorUserId: userId,
-        projectId: input.projectId,
-        action: "create",
-        entityType:
-          due.type === "debt" ? "debt_settlement" : "receivable_collection",
-        entityId: settlementId,
-        summary: `${due.type === "debt" ? "Debt payment" : "Receivable collection"}: ${due.counterparty}`,
-      });
+    await tx.insert(auditLogs).values({
+      actorUserId: userId,
+      projectId: input.projectId,
+      action: "create",
+      entityType:
+        due.type === "debt" ? "debt_settlement" : "receivable_collection",
+      entityId: settlementId,
+      summary: `${due.type === "debt" ? "Debt payment" : "Receivable collection"}: ${due.counterparty}`,
+    });
   });
+}
+
+/**
+ * General-ledger counterpart of a wallet (finance_accounts) opening balance.
+ *
+ * A wallet's `openingBalance` is user-facing data, but the financial statements
+ * are built from finance_ledger_entries. Without a ledger entry, an opening cash
+ * balance is invisible to the trial balance and the balance sheet, and — because
+ * equity has no counterpart — the trial balance can never reconcile. Posting
+ *
+ *     Dr Cash in Hand (1110) / Bank Accounts (1120)
+ *         Cr Owner's Capital (3100)
+ *
+ * keeps a single source of truth. Exactly one non-reversed "opening" voucher is
+ * kept per wallet, tracked by `finance_accounts.openingBalanceVoucherId`.
+ */
+type WalletOpeningMapping = {
+  cashId: number;
+  bankId: number;
+  capitalId: number;
+};
+
+function walletCashAccountId(
+  wallet: { type: string; chartOfAccountId?: number | null },
+  mappings: WalletOpeningMapping
+) {
+  if (wallet.chartOfAccountId) return wallet.chartOfAccountId;
+  return wallet.type === "cash" ? mappings.cashId : mappings.bankId;
+}
+
+async function postWalletOpeningVoucherInTx(
+  tx: DbTx,
+  userId: number,
+  projectId: number,
+  wallet: { name: string; type: string; chartOfAccountId?: number | null },
+  amountCents: number,
+  date: Date,
+  mappings: WalletOpeningMapping
+) {
+  const cashAccountId = walletCashAccountId(wallet, mappings);
+  const amount = Number(decimalFromCents(Math.abs(amountCents)));
+  // An overdraft (negative opening balance) is a liability: flip the sides.
+  const debitIsCash = amountCents > 0;
+  return createVoucherWithEntriesInTx(tx, userId, {
+    projectId,
+    date,
+    narration: `Opening balance: ${wallet.name}`,
+    debits: [
+      { accountId: debitIsCash ? cashAccountId : mappings.capitalId, amount },
+    ],
+    credits: [
+      { accountId: debitIsCash ? mappings.capitalId : cashAccountId, amount },
+    ],
+    status: "posted",
+    voucherType: "opening",
+    _internalPostedBy: userId,
+  });
+}
+
+/** Reverse a wallet's live opening voucher, if it has one. */
+async function reverseWalletOpeningVoucherInTx(
+  tx: DbTx,
+  userId: number,
+  projectId: number,
+  walletId: number,
+  voucherId: number | null,
+  reason: string,
+  date: Date
+) {
+  if (!voucherId) return;
+  await reverseVoucherInTx(tx, userId, projectId, {
+    originalVoucherId: voucherId,
+    reason,
+    date,
+    enforceSelfCheck: false,
+  });
+  await tx
+    .update(financeAccounts)
+    .set({ openingBalanceVoucherId: null })
+    .where(
+      and(
+        eq(financeAccounts.id, walletId),
+        eq(financeAccounts.openingBalanceVoucherId, voucherId)
+      )
+    );
+}
+
+/**
+ * Reconcile one wallet's opening balance with the general ledger.
+ *
+ * No-op when the wallet has neither an opening balance nor a live opening
+ * voucher. Otherwise the previous opening voucher is reversed and a fresh one
+ * is posted for the wallet's current `openingBalance`.
+ */
+async function syncWalletOpeningBalanceInTx(
+  tx: DbTx,
+  userId: number,
+  projectId: number,
+  walletId: number,
+  mappings: WalletOpeningMapping,
+  date: Date
+) {
+  const [wallet] = await selectForUpdate<DbRow[]>(
+    tx
+      .select({
+        id: financeAccounts.id,
+        name: financeAccounts.name,
+        type: financeAccounts.type,
+        chartOfAccountId: financeAccounts.chartOfAccountId,
+        openingBalance: financeAccounts.openingBalance,
+        openingBalanceVoucherId: financeAccounts.openingBalanceVoucherId,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.id, walletId),
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
+      )
+      .limit(1)
+  );
+  if (!wallet) return;
+  const amountCents = cents(wallet.openingBalance);
+  if (amountCents === 0 && !wallet.openingBalanceVoucherId) return;
+  await reverseWalletOpeningVoucherInTx(
+    tx,
+    userId,
+    projectId,
+    wallet.id,
+    wallet.openingBalanceVoucherId,
+    "Opening balance restated",
+    date
+  );
+  if (amountCents === 0) return;
+  const voucher = await postWalletOpeningVoucherInTx(
+    tx,
+    userId,
+    projectId,
+    wallet,
+    amountCents,
+    date,
+    mappings
+  );
+  await tx
+    .update(financeAccounts)
+    .set({ openingBalanceVoucherId: voucher.voucherId })
+    .where(eq(financeAccounts.id, wallet.id));
+}
+
+/**
+ * Post the opening-balance vouchers that predate the canonical-ledger bridge.
+ *
+ * Idempotent: a wallet that already has a live opening voucher is skipped, and
+ * the wallet row is locked for the duration so concurrent callers cannot both
+ * post. Failures (for example a locked fiscal period) are reported instead of
+ * thrown, so a stuck backfill never blocks ordinary bookkeeping.
+ *
+ * Heal manually (or via `backfillWalletOpeningBalances`) rather than on every
+ * write: this scans wallets, which would tax the hot bookkeeping path.
+ */
+async function runOpeningBalanceBackfill(
+  userId: number,
+  projectId: number,
+  mappings: WalletOpeningMapping,
+  options?: { limit?: number }
+) {
+  const db = databaseRequired(await getDb());
+  const candidates = await queryRows<DbRow[]>(
+    db
+      .select({
+        id: financeAccounts.id,
+        openingBalance: financeAccounts.openingBalance,
+        openingBalanceVoucherId: financeAccounts.openingBalanceVoucherId,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
+      )
+      .orderBy(financeAccounts.id)
+  );
+  const pending = candidates.filter(
+    row => !row.openingBalanceVoucherId && cents(row.openingBalance) !== 0
+  );
+  const slice = pending.slice(0, Math.max(1, options?.limit ?? 200));
+  const posted: number[] = [];
+  const failed: Array<{ accountId: number; reason: string }> = [];
+  for (const row of slice) {
+    try {
+      await db.transaction(tx =>
+        syncWalletOpeningBalanceInTx(
+          tx,
+          userId,
+          projectId,
+          row.id,
+          mappings,
+          new Date()
+        )
+      );
+      posted.push(row.id);
+    } catch (error) {
+      failed.push({
+        accountId: row.id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return {
+    scanned: candidates.length,
+    pending: pending.length,
+    posted,
+    failed,
+  };
+}
+
+export async function backfillWalletOpeningBalances(
+  userId: number,
+  projectId: number,
+  options?: { limit?: number }
+) {
+  await assertOwnedProject(userId, projectId);
+  const mappings = await ensureCanonicalMappings(userId, projectId);
+  return runOpeningBalanceBackfill(userId, projectId, mappings, options);
 }
 
 export async function createAccount(
@@ -4144,18 +5113,31 @@ export async function createAccount(
   }
 ) {
   await assertOwnedProject(userId, input.projectId);
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  const result = await db
-    .insert(financeAccounts)
-    .values({
+
+  const id = await db.transaction(async tx => {
+    const result = await tx.insert(financeAccounts).values({
       userId,
       projectId: input.projectId,
       name: input.name.trim(),
       type: input.type,
+      chartOfAccountId:
+        input.type === "cash" ? mappings.cashId : mappings.bankId,
       openingBalance: decimal(input.openingBalance),
       currentBalance: decimal(input.openingBalance),
     });
-  const id = Number(result[0].insertId);
+    const accountId = Number(result[0].insertId);
+    await syncWalletOpeningBalanceInTx(
+      tx,
+      userId,
+      input.projectId,
+      accountId,
+      mappings,
+      new Date()
+    );
+    return accountId;
+  });
   await logAudit({
     actorUserId: userId,
     projectId: input.projectId,
@@ -4185,23 +5167,34 @@ export async function updateAccount(
 ) {
   const db = databaseRequired(await getDb());
   const existing = await assertOwnedAccount(userId, input.projectId, id);
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const openingDifference =
     input.openingBalance - Number(existing.openingBalance);
-  await db
-    .update(financeAccounts)
-    .set({
-      name: input.name.trim(),
-      type: input.type,
-      openingBalance: decimal(input.openingBalance),
-      currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(openingDifference)}`,
-    })
-    .where(
-      and(
-        eq(financeAccounts.id, id),
-        eq(financeAccounts.userId, userId),
-        eq(financeAccounts.projectId, input.projectId)
-      )
+  await db.transaction(async tx => {
+    await tx
+      .update(financeAccounts)
+      .set({
+        name: input.name.trim(),
+        type: input.type,
+        openingBalance: decimal(input.openingBalance),
+        currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(openingDifference)}`,
+      })
+      .where(
+        and(
+          eq(financeAccounts.id, id),
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, input.projectId)
+        )
+      );
+    await syncWalletOpeningBalanceInTx(
+      tx,
+      userId,
+      input.projectId,
+      id,
+      mappings,
+      new Date()
     );
+  });
   await logAudit({
     actorUserId: userId,
     projectId: input.projectId,
@@ -4234,15 +5227,45 @@ export async function deleteAccount(
     throw new Error(
       "লেনদেন থাকা অ্যাকাউন্ট মুছতে আগে ওই লেনদেনগুলো সম্পাদনা বা মুছুন"
     );
-  await db
-    .delete(financeAccounts)
-    .where(
-      and(
-        eq(financeAccounts.id, id),
-        eq(financeAccounts.userId, userId),
-        eq(financeAccounts.projectId, projectId)
-      )
+  // The wallet row owns its opening-balance voucher, so the ledger entry has to
+  // be reversed before the row disappears — otherwise the deleted wallet's cash
+  // would keep showing up as an asset on the balance sheet.
+  await db.transaction(async tx => {
+    const [wallet] = await selectForUpdate<DbRow[]>(
+      tx
+        .select({
+          id: financeAccounts.id,
+          openingBalanceVoucherId: financeAccounts.openingBalanceVoucherId,
+        })
+        .from(financeAccounts)
+        .where(
+          and(
+            eq(financeAccounts.id, id),
+            eq(financeAccounts.userId, userId),
+            eq(financeAccounts.projectId, projectId)
+          )
+        )
+        .limit(1)
     );
+    await reverseWalletOpeningVoucherInTx(
+      tx,
+      userId,
+      projectId,
+      id,
+      wallet?.openingBalanceVoucherId ?? null,
+      "Account deleted",
+      new Date()
+    );
+    await tx
+      .delete(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.id, id),
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
+      );
+  });
   await logAudit({
     actorUserId: userId,
     projectId,
@@ -4251,6 +5274,115 @@ export async function deleteAccount(
     entityId: id,
     summary: "Account deleted",
   });
+}
+
+type QuickVoucherInput = {
+  userId: number;
+  projectId: number;
+  accountId?: number;
+  categoryId: number;
+  type: "income" | "expense";
+  amount: number;
+  paymentMethod: string;
+  note?: string;
+  occurredAt: Date;
+  narration?: string;
+  voucherType?: string;
+};
+
+async function canonicalQuickVoucherInTx(
+  tx: DbTx,
+  input: QuickVoucherInput,
+  defaults: {
+    cashId: number;
+    bankId: number;
+    revenueId: number;
+    expenseId: number;
+  }
+) {
+  const [selectedCategory] = await selectForUpdate<DbRow[]>(
+    tx
+      .select({
+        id: financeCategories.id,
+        name: financeCategories.name,
+        type: financeCategories.type,
+        chartOfAccountId: financeCategories.chartOfAccountId,
+      })
+
+      .from(financeCategories)
+      .where(
+        and(
+          eq(financeCategories.id, input.categoryId),
+          eq(financeCategories.userId, input.userId),
+          eq(financeCategories.projectId, input.projectId),
+          eq(financeCategories.type, input.type)
+        )
+      )
+      .limit(1)
+  );
+  const category = selectedCategory ?? {
+    id: input.categoryId,
+    type: input.type,
+    chartOfAccountId:
+      input.type === "income" ? defaults.revenueId : defaults.expenseId,
+  };
+  const categoryCoaId =
+    category.chartOfAccountId ??
+    (input.type === "income" ? defaults.revenueId : defaults.expenseId);
+  let cashOrAccountId = defaults.cashId;
+  if (input.accountId) {
+    const [selectedAccount] = await selectForUpdate<DbRow[]>(
+      tx
+        .select({
+          id: financeAccounts.id,
+          chartOfAccountId: financeAccounts.chartOfAccountId,
+        })
+        .from(financeAccounts)
+        .where(
+          and(
+            eq(financeAccounts.id, input.accountId),
+            eq(financeAccounts.userId, input.userId),
+            eq(financeAccounts.projectId, input.projectId)
+          )
+        )
+        .limit(1)
+    );
+    const account = selectedAccount ?? {
+      type: "cash" as const,
+      chartOfAccountId: defaults.cashId,
+    };
+    cashOrAccountId =
+      account.chartOfAccountId ??
+      (account.type === "bank" || account.type === "mobile"
+        ? defaults.bankId
+        : defaults.cashId);
+  }
+  const voucher = await createVoucherWithEntriesInTx(tx, input.userId, {
+    projectId: input.projectId,
+    date: input.occurredAt,
+    narration: input.narration ?? input.note?.trim() ?? undefined,
+    debits:
+      input.type === "income"
+        ? [{ accountId: cashOrAccountId, amount: input.amount }]
+        : [{ accountId: categoryCoaId, amount: input.amount }],
+    credits:
+      input.type === "income"
+        ? [{ accountId: categoryCoaId, amount: input.amount }]
+        : [{ accountId: cashOrAccountId, amount: input.amount }],
+    status: "posted",
+    voucherType: input.voucherType ?? "quick",
+    _internalPostedBy: input.userId,
+  });
+  if (input.accountId) {
+    await adjustAccountBalance(
+      input.userId,
+      input.projectId,
+      input.accountId,
+      signedAmount(input.type, input.amount),
+      tx
+    );
+  }
+  return { ...voucher, cashOrAccountId, categoryCoaId: categoryCoaId };
 }
 
 export async function createTransaction(
@@ -4276,73 +5408,134 @@ export async function createTransaction(
   );
   if (input.accountId)
     await assertOwnedAccount(userId, input.projectId, input.accountId);
-
-  const cleanIdempKey = input.idempotencyKey?.trim();
+  if (!Number.isFinite(input.amount) || cents(input.amount) <= 0)
+    throw new Error("লেনদেনের পরিমাণ শূন্যের বড় হতে হবে");
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
+  const cleanIdempKey = input.idempotencyKey?.trim() || null;
+  const fingerprint = transactionFingerprint(input);
+  const finalNote = input.note?.trim() || null;
   const db = databaseRequired(await getDb());
-
-  // Persistent idempotency only — no in-process Map (multi-instance safe).
-  if (cleanIdempKey) {
-    const [existing] = await db
-      .select({ id: financeTransactions.id })
-      .from(financeTransactions)
-      .where(
-        and(
-          eq(financeTransactions.userId, userId),
-          eq(financeTransactions.projectId, input.projectId),
-          like(financeTransactions.note, `%[idemp:${cleanIdempKey}]%`)
-        )
-      )
-      .limit(1);
-
-    if (existing) {
-      return existing.id;
+  const result = await db.transaction(async tx => {
+    let transactionId: number | undefined;
+    if (cleanIdempKey) {
+      const [claimed] = await selectForUpdate<DbRow[]>(
+        tx
+          .select()
+          .from(financeTransactions)
+          .where(
+            and(
+              eq(financeTransactions.userId, userId),
+              eq(financeTransactions.projectId, input.projectId),
+              eq(financeTransactions.idempotencyKey, cleanIdempKey)
+            )
+          )
+          .limit(1)
+      );
+      if (claimed) {
+        if (claimed.requestFingerprint !== fingerprint) {
+          throw new Error(
+            "Idempotency key was already used with a different transaction payload"
+          );
+        }
+        if (claimed.voucherId) return { id: claimed.id, created: false };
+        transactionId = claimed.id;
+      } else {
+        await tx
+          .insert(financeTransactions)
+          .values({
+            userId,
+            projectId: input.projectId,
+            accountId: input.accountId ?? null,
+            categoryId: input.categoryId,
+            type: input.type,
+            amount: decimalFromCents(cents(input.amount)),
+            paymentMethod: input.paymentMethod.trim(),
+            note: finalNote,
+            occurredAt: input.occurredAt,
+            idempotencyKey: cleanIdempKey,
+            requestFingerprint: fingerprint,
+          })
+          .onDuplicateKeyUpdate({ set: { idempotencyKey: cleanIdempKey } });
+        const [claimedAfterInsert] = await selectForUpdate<DbRow[]>(
+          tx
+            .select()
+            .from(financeTransactions)
+            .where(
+              and(
+                eq(financeTransactions.userId, userId),
+                eq(financeTransactions.projectId, input.projectId),
+                eq(financeTransactions.idempotencyKey, cleanIdempKey)
+              )
+            )
+            .limit(1)
+        );
+        if (!claimedAfterInsert)
+          throw new Error("Idempotency claim could not be read");
+        if (claimedAfterInsert.requestFingerprint !== fingerprint) {
+          throw new Error(
+            "Idempotency key was already used with a different transaction payload"
+          );
+        }
+        if (claimedAfterInsert.voucherId)
+          return { id: claimedAfterInsert.id, created: false };
+        transactionId = claimedAfterInsert.id;
+      }
     }
-  }
-
-  let finalNote = input.note?.trim() || null;
-  if (cleanIdempKey) {
-    const tag = `[idemp:${cleanIdempKey}]`;
-    if (!finalNote) {
-      finalNote = tag;
-    } else if (!finalNote.includes(tag)) {
-      finalNote = `${finalNote} ${tag}`.slice(0, 500);
+    const voucher = await canonicalQuickVoucherInTx(
+      tx,
+      {
+        userId,
+        projectId: input.projectId,
+        accountId: input.accountId,
+        categoryId: input.categoryId,
+        type: input.type,
+        amount: input.amount,
+        paymentMethod: input.paymentMethod,
+        note: finalNote ?? undefined,
+        occurredAt: input.occurredAt,
+      },
+      mappings
+    );
+    if (transactionId) {
+      await tx
+        .update(financeTransactions)
+        .set({
+          voucherId: voucher.voucherId,
+          voucherNo: voucher.voucherNo,
+          chartOfAccountId: voucher.cashOrAccountId,
+        })
+        .where(eq(financeTransactions.id, transactionId));
+      return { id: transactionId, created: true };
     }
-  }
-
-  const id = await db.transaction(async tx => {
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
-    const result = await tx.insert(financeTransactions).values({
+    const inserted = await tx.insert(financeTransactions).values({
       userId,
       projectId: input.projectId,
-      categoryId: input.categoryId,
       accountId: input.accountId ?? null,
+      chartOfAccountId: voucher.cashOrAccountId,
+      categoryId: input.categoryId,
       type: input.type,
-      amount: decimal(input.amount),
-      voucherNo,
+      amount: decimalFromCents(cents(input.amount)),
+      voucherNo: voucher.voucherNo,
       paymentMethod: input.paymentMethod.trim(),
       note: finalNote,
       occurredAt: input.occurredAt,
+      idempotencyKey: cleanIdempKey,
+      requestFingerprint: cleanIdempKey ? fingerprint : null,
+      voucherId: voucher.voucherId,
     });
-    const insertId = Number(result[0].insertId);
-    await adjustAccountBalance(
-      userId,
-      input.projectId,
-      input.accountId ?? null,
-      signedAmount(input.type, input.amount),
-      tx
-    );
-    return insertId;
+    return { id: Number(inserted[0].insertId), created: true };
   });
-
-  await logAudit({
-    actorUserId: userId,
-    projectId: input.projectId,
-    action: "create",
-    entityType: "transaction",
-    entityId: id,
-    summary: `${input.type === "income" ? "Income" : "Expense"} transaction created`,
-  });
-  return id;
+  if (result.created) {
+    await logAudit({
+      actorUserId: userId,
+      projectId: input.projectId,
+      action: "create",
+      entityType: "transaction",
+      entityId: result.id,
+      summary: `${input.type === "income" ? "Income" : "Expense"} transaction created`,
+    });
+  }
+  return result.id;
 }
 
 export async function updateTransaction(
@@ -4357,57 +5550,80 @@ export async function updateTransaction(
     paymentMethod: string;
     note?: string;
     occurredAt: Date;
+    idempotencyKey?: string;
   }
 ) {
   await assertOwnedProject(userId, input.projectId);
+  await assertOwnedCategory(
+    userId,
+    input.projectId,
+    input.categoryId,
+    input.type
+  );
+  if (input.accountId)
+    await assertOwnedAccount(userId, input.projectId, input.accountId);
+  if (cents(input.amount) <= 0)
+    throw new Error("লেনদেনের পরিমাণ শূন্যের বড় হতে হবে");
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const db = databaseRequired(await getDb());
   await db.transaction(async tx => {
-    const [existing] = await tx
-      .select()
-      .from(financeTransactions)
-      .where(
-        and(
-          eq(financeTransactions.id, id),
-          eq(financeTransactions.userId, userId),
-          eq(financeTransactions.projectId, input.projectId)
-        )
-      )
-      .limit(1);
-    if (!existing) throw new Error("Transaction not found or access denied");
-    await assertOwnedCategory(
-      userId,
-      input.projectId,
-      input.categoryId,
-      input.type
-    );
-    if (input.accountId)
-      await assertOwnedAccount(userId, input.projectId, input.accountId);
-    await adjustAccountBalance(
-      userId,
-      input.projectId,
-      existing.accountId,
-      -signedAmount(existing.type, existing.amount),
+    const [existing] = await selectForUpdate<DbRow[]>(
       tx
+        .select()
+        .from(financeTransactions)
+        .where(
+          and(
+            eq(financeTransactions.id, id),
+            eq(financeTransactions.userId, userId),
+            eq(financeTransactions.projectId, input.projectId)
+          )
+        )
+        .limit(1)
+    );
+    if (!existing) throw new Error("Transaction not found or access denied");
+    if (!existing.voucherId)
+      throw new Error(
+        "Legacy transaction has no linked voucher; reconciliation is required"
+      );
+    await assertPeriodNotLockedTx(tx, input.projectId, existing.occurredAt);
+    await assertPeriodNotLockedTx(tx, input.projectId, input.occurredAt);
+    await reverseVoucherInTx(tx, userId, input.projectId, {
+      originalVoucherId: existing.voucherId,
+      reason: "Transaction updated",
+      date: new Date(),
+      enforceSelfCheck: false,
+    });
+    const replacement = await canonicalQuickVoucherInTx(
+      tx,
+      {
+        userId,
+        projectId: input.projectId,
+        accountId: input.accountId,
+        categoryId: input.categoryId,
+        type: input.type,
+        amount: input.amount,
+        paymentMethod: input.paymentMethod,
+        note: input.note?.trim() ?? undefined,
+        occurredAt: input.occurredAt,
+        voucherType: "replacement",
+      },
+      mappings
     );
     await tx
       .update(financeTransactions)
       .set({
-        categoryId: input.categoryId,
         accountId: input.accountId ?? null,
+        chartOfAccountId: replacement.cashOrAccountId,
+        categoryId: input.categoryId,
         type: input.type,
-        amount: decimal(input.amount),
+        amount: decimalFromCents(cents(input.amount)),
+        voucherNo: replacement.voucherNo,
         paymentMethod: input.paymentMethod.trim(),
         note: input.note?.trim() || null,
         occurredAt: input.occurredAt,
+        voucherId: replacement.voucherId,
       })
       .where(eq(financeTransactions.id, id));
-    await adjustAccountBalance(
-      userId,
-      input.projectId,
-      input.accountId ?? null,
-      signedAmount(input.type, input.amount),
-      tx
-    );
   });
   await logAudit({
     actorUserId: userId,
@@ -4415,7 +5631,7 @@ export async function updateTransaction(
     action: "update",
     entityType: "transaction",
     entityId: id,
-    summary: "Transaction updated",
+    summary: "Transaction updated with reversal and replacement voucher",
   });
 }
 
@@ -4426,25 +5642,31 @@ export async function deleteTransaction(
 ) {
   const db = databaseRequired(await getDb());
   await db.transaction(async tx => {
-    const [transaction] = await tx
-      .select()
-      .from(financeTransactions)
-      .where(
-        and(
-          eq(financeTransactions.id, id),
-          eq(financeTransactions.userId, userId),
-          eq(financeTransactions.projectId, projectId)
-        )
-      )
-      .limit(1);
-    if (!transaction) throw new Error("Transaction not found or access denied");
-    await adjustAccountBalance(
-      userId,
-      projectId,
-      transaction.accountId,
-      -signedAmount(transaction.type, transaction.amount),
+    const [transaction] = await selectForUpdate<DbRow[]>(
       tx
+        .select()
+        .from(financeTransactions)
+        .where(
+          and(
+            eq(financeTransactions.id, id),
+            eq(financeTransactions.userId, userId),
+            eq(financeTransactions.projectId, projectId)
+          )
+        )
+        .limit(1)
     );
+    if (!transaction) throw new Error("Transaction not found or access denied");
+    if (!transaction.voucherId)
+      throw new Error(
+        "Legacy transaction has no linked voucher; reconciliation is required"
+      );
+    await assertPeriodNotLockedTx(tx, projectId, transaction.occurredAt);
+    await reverseVoucherInTx(tx, userId, projectId, {
+      originalVoucherId: transaction.voucherId,
+      reason: "Transaction deleted",
+      date: new Date(),
+      enforceSelfCheck: false,
+    });
     await tx.delete(financeTransactions).where(eq(financeTransactions.id, id));
   });
   await logAudit({
@@ -4453,7 +5675,7 @@ export async function deleteTransaction(
     action: "delete",
     entityType: "transaction",
     entityId: id,
-    summary: "Transaction deleted",
+    summary: "Transaction deleted with reversal voucher",
   });
 }
 
@@ -4504,16 +5726,14 @@ export async function createBill(
 ) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
-  const result = await db
-    .insert(financeBills)
-    .values({
-      userId,
-      projectId: input.projectId,
-      title: input.title.trim(),
-      amount: decimal(input.amount),
-      dueAt: input.dueAt,
-      reminderDaysBefore: input.reminderDaysBefore ?? 3,
-    });
+  const result = await db.insert(financeBills).values({
+    userId,
+    projectId: input.projectId,
+    title: input.title.trim(),
+    amount: decimal(input.amount),
+    dueAt: input.dueAt,
+    reminderDaysBefore: input.reminderDaysBefore ?? 3,
+  });
   const id = Number(result[0].insertId);
   await logAudit({
     actorUserId: userId,
@@ -4753,21 +5973,19 @@ export async function createRecurringTemplate(
   if (input.accountId)
     await assertOwnedAccount(userId, input.projectId, input.accountId);
   const db = databaseRequired(await getDb());
-  const result = await db
-    .insert(financeRecurringTransactions)
-    .values({
-      userId,
-      projectId: input.projectId,
-      accountId: input.accountId ?? null,
-      categoryId: input.categoryId,
-      type: input.type,
-      amount: decimal(input.amount),
-      paymentMethod: input.paymentMethod.trim(),
-      note: input.note?.trim() || null,
-      frequency: input.frequency,
-      scheduleDay: input.scheduleDay,
-      nextRunAt: input.nextRunAt,
-    });
+  const result = await db.insert(financeRecurringTransactions).values({
+    userId,
+    projectId: input.projectId,
+    accountId: input.accountId ?? null,
+    categoryId: input.categoryId,
+    type: input.type,
+    amount: decimal(input.amount),
+    paymentMethod: input.paymentMethod.trim(),
+    note: input.note?.trim() || null,
+    frequency: input.frequency,
+    scheduleDay: input.scheduleDay,
+    nextRunAt: input.nextRunAt,
+  });
   const id = Number(result[0].insertId);
   await logAudit({
     actorUserId: userId,
@@ -4905,66 +6123,68 @@ async function generateRecurringRuns(
   now: Date
 ) {
   const db = databaseRequired(await getDb());
+  const mappings = await ensureCanonicalMappings(
+    template.userId,
+    template.projectId
+  );
   let created = 0;
   let nextRunAt = new Date(template.nextRunAt);
   for (let safety = 0; nextRunAt <= now && safety < 24; safety += 1) {
     const runKey = nextRunAt.toISOString().slice(0, 10);
     await db.transaction(async tx => {
-      const [existing] = await tx
-        .select({ id: financeTransactions.id })
-        .from(financeTransactions)
-        .where(
-          and(
-            eq(financeTransactions.recurringTemplateId, template.id),
-            eq(financeTransactions.recurringRunKey, runKey)
-          )
-        )
-        .limit(1);
-      if (existing) return;
-      const voucherNo = await claimNextVoucher(
-        tx,
-        template.userId,
-        template.projectId
-      );
-      const result = await tx
-        .insert(financeTransactions)
-        .values({
-          userId: template.userId,
-          projectId: template.projectId,
-          accountId: template.accountId,
-          categoryId: template.categoryId,
-          type: template.type,
-          amount: template.amount,
-          voucherNo,
-          paymentMethod: template.paymentMethod,
-          note: template.note,
-          recurringTemplateId: template.id,
-          recurringRunKey: runKey,
-          occurredAt: nextRunAt,
-        });
-      if (template.accountId)
-        await tx
-          .update(financeAccounts)
-          .set({
-            currentBalance: sql`${financeAccounts.currentBalance} + ${decimal(signedAmount(template.type, template.amount))}`,
-          })
+      const [existing] = await selectForUpdate<DbRow[]>(
+        tx
+          .select({ id: financeTransactions.id })
+          .from(financeTransactions)
           .where(
             and(
-              eq(financeAccounts.id, template.accountId),
-              eq(financeAccounts.userId, template.userId),
-              eq(financeAccounts.projectId, template.projectId)
+              eq(financeTransactions.recurringTemplateId, template.id),
+              eq(financeTransactions.recurringRunKey, runKey)
             )
-          );
-      await tx
-        .insert(auditLogs)
-        .values({
-          actorUserId: template.userId,
+          )
+          .limit(1)
+      );
+      if (existing) return;
+      const voucher = await canonicalQuickVoucherInTx(
+        tx,
+        {
+          userId: template.userId,
           projectId: template.projectId,
-          action: "create",
-          entityType: "recurring_transaction_run",
-          entityId: Number(result[0].insertId),
-          summary: `Recurring transaction generated for ${runKey}`,
-        });
+          accountId: template.accountId ?? undefined,
+          categoryId: template.categoryId,
+          type: template.type,
+          amount: Number(template.amount),
+          paymentMethod: template.paymentMethod,
+          note: template.note ?? undefined,
+          occurredAt: nextRunAt,
+          voucherType: "recurring",
+        },
+        mappings
+      );
+      const result = await tx.insert(financeTransactions).values({
+        userId: template.userId,
+        projectId: template.projectId,
+        accountId: template.accountId,
+        chartOfAccountId: voucher.cashOrAccountId,
+        categoryId: template.categoryId,
+        type: template.type,
+        amount: template.amount,
+        voucherNo: voucher.voucherNo,
+        voucherId: voucher.voucherId,
+        paymentMethod: template.paymentMethod,
+        note: template.note,
+        recurringTemplateId: template.id,
+        recurringRunKey: runKey,
+        occurredAt: nextRunAt,
+      });
+      await tx.insert(auditLogs).values({
+        actorUserId: template.userId,
+        projectId: template.projectId,
+        action: "create",
+        entityType: "recurring_transaction_run",
+        entityId: Number(result[0].insertId),
+        summary: `Recurring transaction generated for ${runKey}`,
+      });
       created += 1;
     });
     nextRunAt = advanceRecurringRun(
@@ -5110,6 +6330,169 @@ export async function processBillReminderSweep(now = new Date()) {
     reminded += 1;
   }
   return { checked, reminded };
+}
+
+export async function getAccountingReconciliation(
+  userId: number,
+  projectId: number
+) {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const [
+    transactions,
+    accounts,
+    categories,
+    debits,
+    credits,
+    ledgerEntries,
+    wallets,
+    unpostedOpening,
+  ] = await Promise.all([
+    db
+      .select({
+        id: financeTransactions.id,
+        voucherId: financeTransactions.voucherId,
+        accountId: financeTransactions.accountId,
+        chartOfAccountId: financeTransactions.chartOfAccountId,
+      })
+      .from(financeTransactions)
+      .where(
+        and(
+          eq(financeTransactions.userId, userId),
+          eq(financeTransactions.projectId, projectId)
+        )
+      ),
+    db
+      .select({
+        id: financeAccounts.id,
+        chartOfAccountId: financeAccounts.chartOfAccountId,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId),
+          isNull(financeAccounts.chartOfAccountId)
+        )
+      ),
+    db
+      .select({
+        id: financeCategories.id,
+        chartOfAccountId: financeCategories.chartOfAccountId,
+      })
+      .from(financeCategories)
+      .where(
+        and(
+          eq(financeCategories.userId, userId),
+          eq(financeCategories.projectId, projectId),
+          isNull(financeCategories.chartOfAccountId)
+        )
+      ),
+    db
+      .select({
+        id: financeVoucherDebits.id,
+        voucherId: financeVoucherDebits.voucherId,
+      })
+      .from(financeVoucherDebits)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherDebits.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId),
+          isNull(financeVoucherDebits.chartOfAccountId)
+        )
+      ),
+    db
+      .select({
+        id: financeVoucherCredits.id,
+        voucherId: financeVoucherCredits.voucherId,
+      })
+      .from(financeVoucherCredits)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherCredits.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId),
+          isNull(financeVoucherCredits.chartOfAccountId)
+        )
+      ),
+    db
+      .select({
+        id: financeLedgerEntries.id,
+        voucherId: financeLedgerEntries.voucherId,
+      })
+      .from(financeLedgerEntries)
+      .innerJoin(
+        financeVouchers,
+        eq(financeLedgerEntries.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId),
+          isNull(financeLedgerEntries.chartOfAccountId)
+        )
+      ),
+    db
+      .select({
+        id: financeAccounts.id,
+        name: financeAccounts.name,
+        openingBalance: financeAccounts.openingBalance,
+        openingBalanceVoucherId: financeAccounts.openingBalanceVoucherId,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId)
+        )
+      ),
+    db
+      .select({
+        id: financeAccounts.id,
+        name: financeAccounts.name,
+        openingBalance: financeAccounts.openingBalance,
+      })
+      .from(financeAccounts)
+      .where(
+        and(
+          eq(financeAccounts.userId, userId),
+          eq(financeAccounts.projectId, projectId),
+          isNull(financeAccounts.openingBalanceVoucherId)
+        )
+      ),
+  ]);
+  const legacyTransactions = transactions.filter(row => !row.voucherId);
+  // Wallets whose opening balance is non-zero but has no ledger voucher: their
+  // cash is missing from the trial balance and the balance sheet.
+  const walletsMissingOpeningVoucher = unpostedOpening.filter(
+    row => cents(row.openingBalance) !== 0
+  );
+  return {
+    generatedAt: new Date(),
+    legacyTransactions,
+    accountsMissingCanonical: accounts,
+    categoriesMissingCanonical: categories,
+    voucherDebitsMissingCanonical: debits,
+    voucherCreditsMissingCanonical: credits,
+    ledgerEntriesMissingCanonical: ledgerEntries,
+    wallets,
+    walletsMissingOpeningVoucher,
+    isReconciled:
+      legacyTransactions.length === 0 &&
+      accounts.length === 0 &&
+      categories.length === 0 &&
+      debits.length === 0 &&
+      credits.length === 0 &&
+      ledgerEntries.length === 0 &&
+      walletsMissingOpeningVoucher.length === 0,
+  };
 }
 
 export async function exportUserData(userId: number) {
@@ -5268,7 +6651,10 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     db
       .select()
       .from(financeVoucherDebits)
-      .innerJoin(financeVouchers, eq(financeVoucherDebits.voucherId, financeVouchers.id))
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherDebits.voucherId, financeVouchers.id)
+      )
       .where(
         and(
           eq(financeVouchers.userId, userId),
@@ -5279,7 +6665,10 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     db
       .select()
       .from(financeVoucherCredits)
-      .innerJoin(financeVouchers, eq(financeVoucherCredits.voucherId, financeVouchers.id))
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherCredits.voucherId, financeVouchers.id)
+      )
       .where(
         and(
           eq(financeVouchers.userId, userId),
@@ -5290,7 +6679,10 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     db
       .select()
       .from(financeLedgerEntries)
-      .innerJoin(financeVouchers, eq(financeLedgerEntries.voucherId, financeVouchers.id))
+      .innerJoin(
+        financeVouchers,
+        eq(financeLedgerEntries.voucherId, financeVouchers.id)
+      )
       .where(
         and(
           eq(financeVouchers.userId, userId),
@@ -5305,7 +6697,10 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     db
       .select()
       .from(financeJournalLines)
-      .innerJoin(financeJournalEntries, eq(financeJournalLines.journalEntryId, financeJournalEntries.id))
+      .innerJoin(
+        financeJournalEntries,
+        eq(financeJournalLines.journalEntryId, financeJournalEntries.id)
+      )
       .where(eq(financeJournalEntries.projectId, projectId))
       .then(rows => rows.map(r => r.finance_journal_lines)),
   ]);
@@ -5367,6 +6762,8 @@ type ProjectBackupRow = {
   monthKey?: string;
   categoryId?: number;
   accountId?: number | null;
+  chartOfAccountId?: number | null;
+  voucherId?: number | null;
   dueId?: number;
   isDefault?: boolean;
   isPaid?: boolean;
@@ -5387,12 +6784,22 @@ type ProjectBackupLike = {
   exportedAt: Date | string;
   accounts: ProjectBackupRow[];
   categories: ProjectBackupRow[];
-  transactions: Array<ProjectBackupRow & { categoryId: number; accountId?: number | null; occurredAt: Date | string }>;
+  transactions: Array<
+    ProjectBackupRow & {
+      categoryId: number;
+      accountId?: number | null;
+      occurredAt: Date | string;
+    }
+  >;
   budgets: Array<ProjectBackupRow & { categoryId: number }>;
   bills: ProjectBackupRow[];
   dues: ProjectBackupRow[];
-  settlements: Array<ProjectBackupRow & { dueId: number; accountId?: number | null }>;
-  recurring: Array<ProjectBackupRow & { categoryId: number; accountId?: number | null }>;
+  settlements: Array<
+    ProjectBackupRow & { dueId: number; accountId?: number | null }
+  >;
+  recurring: Array<
+    ProjectBackupRow & { categoryId: number; accountId?: number | null }
+  >;
   voucherSettings?: {
     prefix: string;
     startNumber: number;
@@ -5529,7 +6936,13 @@ export async function restoreProjectBackup(
     const categoryMap = new Map<number, number>();
     const dueMap = new Map<number, number>();
     const coaMap = new Map<number, number>();
+    const coaCodeMap = new Map<string, number>();
+    const accountCoaMap = new Map<number, number>();
+    const categoryCoaMap = new Map<number, number>();
     const voucherMap = new Map<number, number>();
+    const voucherNoMap = new Map<string, number>();
+    const transactionMap = new Map<number, number>();
+    const settlementMap = new Map<number, number>();
     const journalMap = new Map<number, number>();
 
     for (const row of input.backup.accounts) {
@@ -5540,6 +6953,7 @@ export async function restoreProjectBackup(
           projectId: restoredProjectId,
           name: backupText(row.name),
           type: row.type as "cash" | "bank" | "mobile",
+          chartOfAccountId: null,
           openingBalance: String(row.openingBalance ?? "0"),
           currentBalance: String(row.currentBalance ?? "0"),
         })
@@ -5554,6 +6968,7 @@ export async function restoreProjectBackup(
           projectId: restoredProjectId,
           name: backupText(row.name),
           type: row.type as "income" | "expense",
+          chartOfAccountId: null,
           isDefault: Boolean(row.isDefault),
         })
         .execute();
@@ -5594,30 +7009,48 @@ export async function restoreProjectBackup(
           frequency: row.frequency as "weekly" | "monthly",
           scheduleDay: backupNumber(row.scheduleDay, 1),
           nextRunAt: backupDate(row.nextRunAt),
-          lastGeneratedAt: row.lastGeneratedAt == null ? null : backupDate(row.lastGeneratedAt),
+          lastGeneratedAt:
+            row.lastGeneratedAt == null
+              ? null
+              : backupDate(row.lastGeneratedAt),
           isActive: false,
           scheduleCronTaskUid: null,
         })
         .execute();
     }
     for (const row of input.backup.transactions) {
-      await tx
+      const result = await tx
         .insert(financeTransactions)
         .values({
           userId,
           projectId: restoredProjectId,
           accountId:
             row.accountId == null ? null : accountMap.get(row.accountId)!,
+          chartOfAccountId:
+            row.chartOfAccountId == null
+              ? row.accountId == null
+                ? null
+                : (accountCoaMap.get(row.accountId) ?? null)
+              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
           categoryId: categoryMap.get(row.categoryId!)!,
           type: row.type as "income" | "expense",
           amount: String(row.amount ?? "0"),
           voucherNo: backupNullableText(row.voucherNo),
+          voucherId:
+            row.voucherId == null
+              ? row.voucherNo == null
+                ? null
+                : (voucherNoMap.get(backupText(row.voucherNo)) ?? null)
+              : (voucherMap.get(Number(row.voucherId)) ?? null),
           reason: backupNullableText(row.reason),
           paymentMethod: backupText(row.paymentMethod),
           note: backupNullableText(row.note),
+          idempotencyKey: backupNullableText(row.idempotencyKey),
+          requestFingerprint: backupNullableText(row.requestFingerprint),
           occurredAt: backupDate(row.occurredAt),
         })
         .execute();
+      transactionMap.set(row.id, Number(result[0].insertId));
     }
     for (const row of input.backup.budgets) {
       await tx
@@ -5642,7 +7075,8 @@ export async function restoreProjectBackup(
           dueAt: backupDate(row.dueAt),
           isPaid: Boolean(row.isPaid),
           reminderDaysBefore: backupNumber(row.reminderDaysBefore, 3),
-          lastReminderAt: row.lastReminderAt == null ? null : backupDate(row.lastReminderAt),
+          lastReminderAt:
+            row.lastReminderAt == null ? null : backupDate(row.lastReminderAt),
           scheduleCronTaskUid: null,
         })
         .execute();
@@ -5667,7 +7101,7 @@ export async function restoreProjectBackup(
       dueMap.set(row.id, Number(result[0].insertId));
     }
     for (const row of input.backup.settlements) {
-      await tx
+      const result = await tx
         .insert(financeDueSettlements)
         .values({
           userId,
@@ -5677,16 +7111,23 @@ export async function restoreProjectBackup(
             row.accountId == null ? null : accountMap.get(row.accountId)!,
           amount: String(row.amount ?? "0"),
           voucherNo: backupNullableText(row.voucherNo),
+          voucherId:
+            row.voucherId == null
+              ? null
+              : (voucherMap.get(Number(row.voucherId)) ?? null),
           note: backupNullableText(row.note),
           occurredAt: backupDate(row.occurredAt),
         })
         .execute();
+      settlementMap.set(row.id, Number(result[0].insertId));
     }
 
     // ── Double-entry books (v2 backups) ──────────────────────────────────
     // Insert parents first, remap FKs to the new project's rows.
     const coaRows = [...(input.backup.chartOfAccounts ?? [])].sort(
-      (a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0) || String(a.code).localeCompare(String(b.code))
+      (a, b) =>
+        Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0) ||
+        String(a.code).localeCompare(String(b.code))
     );
     for (const row of coaRows) {
       const result = await tx
@@ -5695,7 +7136,10 @@ export async function restoreProjectBackup(
           userId,
           projectId: restoredProjectId,
           accountTypeId: Number(row.accountTypeId),
-          parentId: row.parentId == null ? null : coaMap.get(Number(row.parentId)) ?? null,
+          parentId:
+            row.parentId == null
+              ? null
+              : (coaMap.get(Number(row.parentId)) ?? null),
           code: String(row.code),
           name: String(row.name),
           nameBn: row.nameBn == null ? null : String(row.nameBn),
@@ -5707,7 +7151,39 @@ export async function restoreProjectBackup(
           sortOrder: Number(row.sortOrder ?? 0),
         })
         .execute();
-      if (row.id != null) coaMap.set(Number(row.id), Number(result[0].insertId));
+      if (row.id != null)
+        coaMap.set(Number(row.id), Number(result[0].insertId));
+      coaCodeMap.set(String(row.code), Number(result[0].insertId));
+    }
+    for (const row of input.backup.accounts) {
+      const sourceCoa =
+        row.chartOfAccountId == null
+          ? row.type === "cash"
+            ? coaCodeMap.get("1110")
+            : coaCodeMap.get("1120")
+          : coaMap.get(Number(row.chartOfAccountId));
+      const restoredAccountId = accountMap.get(row.id);
+      if (restoredAccountId && sourceCoa) {
+        accountCoaMap.set(row.id, sourceCoa);
+        await tx
+          .update(financeAccounts)
+          .set({ chartOfAccountId: sourceCoa })
+          .where(eq(financeAccounts.id, restoredAccountId));
+      }
+    }
+    for (const row of input.backup.categories) {
+      const sourceCoa =
+        row.chartOfAccountId == null
+          ? coaCodeMap.get(row.type === "income" ? "4100" : "5110")
+          : coaMap.get(Number(row.chartOfAccountId));
+      const restoredCategoryId = categoryMap.get(row.id);
+      if (restoredCategoryId && sourceCoa) {
+        categoryCoaMap.set(row.id, sourceCoa);
+        await tx
+          .update(financeCategories)
+          .set({ chartOfAccountId: sourceCoa })
+          .where(eq(financeCategories.id, restoredCategoryId));
+      }
     }
 
     for (const row of input.backup.vouchers ?? []) {
@@ -5721,7 +7197,10 @@ export async function restoreProjectBackup(
           narration: backupNullableText(row.narration),
           totalDebit: String(row.totalDebit ?? "0.00"),
           totalCredit: String(row.totalCredit ?? "0.00"),
-          status: (row.status as "draft" | "submitted" | "approved" | "posted" | "reversed") ?? "draft",
+          status:
+            (row.status as
+              "draft" | "submitted" | "approved" | "posted" | "reversed") ??
+            "draft",
           voucherType: backupText(row.voucherType) || "general",
           fiscalPeriodId: null,
           submittedBy: null,
@@ -5736,7 +7215,39 @@ export async function restoreProjectBackup(
           isArchived: Boolean(row.isArchived),
         })
         .execute();
-      if (row.id != null) voucherMap.set(Number(row.id), Number(result[0].insertId));
+      if (row.id != null)
+        voucherMap.set(Number(row.id), Number(result[0].insertId));
+      voucherNoMap.set(backupText(row.voucherNo), Number(result[0].insertId));
+    }
+    for (const row of input.backup.transactions) {
+      const restoredId = transactionMap.get(row.id);
+      if (!restoredId) continue;
+      const chartOfAccountId =
+        row.chartOfAccountId == null
+          ? row.accountId == null
+            ? null
+            : (accountCoaMap.get(row.accountId) ?? null)
+          : (coaMap.get(Number(row.chartOfAccountId)) ?? null);
+      await tx
+        .update(financeTransactions)
+        .set({
+          chartOfAccountId,
+          voucherId:
+            row.voucherId == null
+              ? row.voucherNo == null
+                ? null
+                : (voucherNoMap.get(backupText(row.voucherNo)) ?? null)
+              : (voucherMap.get(Number(row.voucherId)) ?? null),
+        })
+        .where(eq(financeTransactions.id, restoredId));
+    }
+    for (const row of input.backup.settlements) {
+      const restoredId = settlementMap.get(row.id);
+      if (!restoredId || row.voucherId == null) continue;
+      await tx
+        .update(financeDueSettlements)
+        .set({ voucherId: voucherMap.get(Number(row.voucherId)) ?? null })
+        .where(eq(financeDueSettlements.id, restoredId));
     }
 
     for (const row of input.backup.voucherDebits ?? []) {
@@ -5744,7 +7255,11 @@ export async function restoreProjectBackup(
         .insert(financeVoucherDebits)
         .values({
           voucherId: voucherMap.get(Number(row.voucherId))!,
-          accountId: accountMap.get(Number(row.accountId))!,
+          accountId: null,
+          chartOfAccountId:
+            row.chartOfAccountId == null
+              ? (accountCoaMap.get(Number(row.accountId)) ?? null)
+              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
           amount: String(row.amount),
           narration: row.narration == null ? null : String(row.narration),
           sortOrder: Number(row.sortOrder ?? 0),
@@ -5756,7 +7271,11 @@ export async function restoreProjectBackup(
         .insert(financeVoucherCredits)
         .values({
           voucherId: voucherMap.get(Number(row.voucherId))!,
-          accountId: accountMap.get(Number(row.accountId))!,
+          accountId: null,
+          chartOfAccountId:
+            row.chartOfAccountId == null
+              ? (accountCoaMap.get(Number(row.accountId)) ?? null)
+              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
           amount: String(row.amount),
           narration: row.narration == null ? null : String(row.narration),
           sortOrder: Number(row.sortOrder ?? 0),
@@ -5768,7 +7287,11 @@ export async function restoreProjectBackup(
         .insert(financeLedgerEntries)
         .values({
           voucherId: voucherMap.get(Number(row.voucherId))!,
-          accountId: accountMap.get(Number(row.accountId))!,
+          accountId: null,
+          chartOfAccountId:
+            row.chartOfAccountId == null
+              ? (accountCoaMap.get(Number(row.accountId)) ?? null)
+              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
           entryType: (row.entryType as "debit" | "credit") ?? "debit",
           amount: String(row.amount ?? "0"),
           runningBalance: String(row.runningBalance ?? "0.00"),
@@ -5793,7 +7316,8 @@ export async function restoreProjectBackup(
           postedAt: row.postedAt == null ? null : backupDate(row.postedAt),
         })
         .execute();
-      if (row.id != null) journalMap.set(Number(row.id), Number(result[0].insertId));
+      if (row.id != null)
+        journalMap.set(Number(row.id), Number(result[0].insertId));
     }
     for (const row of input.backup.journalLines ?? []) {
       await tx
@@ -5820,144 +7344,6 @@ export async function restoreProjectBackup(
     summary: `Project restored safely from backup: ${input.projectName}`,
   });
   return { projectId };
-}
-
-export type AuditLogFilters = {
-  from?: Date;
-  to?: Date;
-  actorUserId?: number;
-  actorRole?: "admin" | "user";
-  search?: string;
-};
-
-function auditLogPredicates(filters: AuditLogFilters) {
-  const keyword = filters.search?.trim();
-  const searchPattern = keyword
-    ? `%${keyword.replace(/[\\%_]/g, "\\$&")}%`
-    : undefined;
-  return [
-    filters.from ? gte(auditLogs.createdAt, filters.from) : undefined,
-    filters.to ? lte(auditLogs.createdAt, filters.to) : undefined,
-    filters.actorUserId
-      ? eq(auditLogs.actorUserId, filters.actorUserId)
-      : undefined,
-    filters.actorRole ? eq(users.role, filters.actorRole) : undefined,
-    searchPattern
-      ? or(
-          like(auditLogs.summary, searchPattern),
-          like(auditLogs.entityType, searchPattern),
-          like(auditLogs.action, searchPattern)
-        )
-      : undefined,
-  ].filter((predicate): predicate is NonNullable<typeof predicate> =>
-    Boolean(predicate)
-  );
-}
-
-export type AuditLogPageInput = AuditLogFilters & {
-  page: number;
-  pageSize: number;
-};
-
-export async function listAuditLogsPage({
-  page,
-  pageSize,
-  ...filters
-}: AuditLogPageInput) {
-  const db = databaseRequired(await getDb());
-  const predicates = auditLogPredicates(filters);
-  const where = predicates.length ? and(...predicates) : undefined;
-  const [logs, totalRows] = await Promise.all([
-    db
-      .select({
-        id: auditLogs.id,
-        action: auditLogs.action,
-        entityType: auditLogs.entityType,
-        entityId: auditLogs.entityId,
-        summary: auditLogs.summary,
-        createdAt: auditLogs.createdAt,
-        actorUserId: auditLogs.actorUserId,
-        actorRole: auditLogs.actorRole,
-        actorName: users.name,
-        projectId: auditLogs.projectId,
-        projectName: financeProjects.name,
-        oldData: auditLogs.oldData,
-        newData: auditLogs.newData,
-        ipAddress: auditLogs.ipAddress,
-        userAgent: auditLogs.userAgent,
-        requestId: auditLogs.requestId,
-      })
-      .from(auditLogs)
-      .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-      .leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id))
-      .where(where)
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize),
-    db
-      .select({ total: sql<number>`count(*)` })
-      .from(auditLogs)
-      .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-      .where(where),
-  ]);
-  const total = Number(totalRows[0]?.total ?? 0);
-  return {
-    logs,
-    page,
-    pageSize,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
-  };
-}
-
-export async function listAuditLogsForExport(filters: AuditLogFilters = {}) {
-  const db = databaseRequired(await getDb());
-  const predicates = auditLogPredicates(filters);
-  const where = predicates.length ? and(...predicates) : undefined;
-  return db
-    .select({
-      id: auditLogs.id,
-      action: auditLogs.action,
-      entityType: auditLogs.entityType,
-      entityId: auditLogs.entityId,
-      summary: auditLogs.summary,
-      createdAt: auditLogs.createdAt,
-      actorUserId: auditLogs.actorUserId,
-      actorRole: auditLogs.actorRole,
-      actorName: users.name,
-      projectId: auditLogs.projectId,
-      projectName: financeProjects.name,
-      oldData: auditLogs.oldData,
-      newData: auditLogs.newData,
-      ipAddress: auditLogs.ipAddress,
-      userAgent: auditLogs.userAgent,
-      requestId: auditLogs.requestId,
-    })
-    .from(auditLogs)
-    .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-    .leftJoin(financeProjects, eq(auditLogs.projectId, financeProjects.id))
-    .where(where)
-    .orderBy(desc(auditLogs.createdAt));
-}
-
-export async function getAuditLogActivity(filters: AuditLogFilters = {}) {
-  const db = databaseRequired(await getDb());
-  const predicates = auditLogPredicates(filters);
-  const where = predicates.length ? and(...predicates) : undefined;
-  const activityCount = sql<number>`count(*)`;
-  return db
-    .select({ action: auditLogs.action, count: activityCount })
-    .from(auditLogs)
-    .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-    .where(where)
-    .groupBy(auditLogs.action)
-    .orderBy(desc(activityCount));
-}
-
-export async function listAuditLogs(filters: AuditLogFilters = {}) {
-  return listAuditLogsPage({ ...filters, page: 1, pageSize: 250 }).then(
-    result => result.logs
-  );
 }
 
 export async function listUsersForAdmin() {
@@ -6301,19 +7687,42 @@ export async function deleteInvoice(
   return { success: true };
 }
 
+/**
+ * Financial statements for a project, derived from the canonical general ledger
+ * (finance_ledger_entries + finance_chart_of_accounts) — the same source that
+ * powers the voucher journal and the printable reports.
+ *
+ * Period handling follows standard accounting practice:
+ *   - income statement  → period movement only (`from`..`to`)
+ *   - balance sheet     → cumulative position as of `to`
+ *   - trial balance     → cumulative position as of `to`, never period-scoped,
+ *                         so opening balances and retained earnings always
+ *                         appear and the debit/credit totals stay equal.
+ */
 export async function getFinancialStatements(
   userId: number,
-  projectId: number
+  projectId: number,
+  period?: { from?: Date; to?: Date }
 ) {
   await assertOwnedProject(userId, projectId);
-  const overview = await getOverview(userId, projectId);
-  const { generateDoubleEntryStatements } =
-    await import("./doubleEntryAccounting");
-  return generateDoubleEntryStatements({
-    accounts: overview.accounts,
-    transactions: overview.transactions,
-    dues: overview.dues,
-  });
+  const {
+    generateTrialBalance,
+    generateIncomeStatement,
+    generateBalanceSheet,
+  } = await import("./accounting-core");
+  const to = period?.to;
+  const [trialBalance, incomeStatement, balanceSheet] = await Promise.all([
+    generateTrialBalance(userId, projectId, undefined, to),
+    generateIncomeStatement(userId, projectId, period?.from, to),
+    generateBalanceSheet(userId, projectId, to),
+  ]);
+  return {
+    period: { from: period?.from ?? null, to: to ?? null },
+    trialBalance,
+    incomeStatement,
+    balanceSheet,
+    generatedAt: new Date(),
+  };
 }
 
 export async function listInventoryItems(userId: number, projectId: number) {
@@ -6360,7 +7769,8 @@ export async function createInventoryItem(input: {
     currentStock: input.currentStock.toFixed(2),
     lowStockThreshold: (input.lowStockThreshold ?? 5).toFixed(2),
     notes: input.notes?.trim() || null,
-  })) as unknown as Array<{ insertId?: number | bigint }> | { insertId?: number | bigint };
+  })) as unknown as
+    Array<{ insertId?: number | bigint }> | { insertId?: number | bigint };
 
   const insertId = Number(
     (Array.isArray(result) ? result[0]?.insertId : result.insertId) || 0
@@ -6779,6 +8189,9 @@ export async function disburseSalary(
     .limit(1);
 
   if (!employee) throw new Error("কর্মচারী পাওয়া যায়নি");
+  if (input.accountId)
+    await assertOwnedAccount(userId, input.projectId, input.accountId);
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
 
   const base = Number(input.baseSalary) || Number(employee.baseSalary) || 0;
   const bonus = Math.max(0, Number(input.bonusAmount) || 0);
@@ -6798,7 +8211,28 @@ export async function disburseSalary(
     paid >= netPayable ? "paid" : paid > 0 ? "partially_paid" : "pending";
 
   const { voucherNo, insertId } = await db.transaction(async tx => {
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+    const [existingPayment] = await selectForUpdate<DbRow[]>(
+      tx
+        .select({
+          id: financeSalaryPayments.id,
+          voucherNo: financeSalaryPayments.voucherNo,
+        })
+        .from(financeSalaryPayments)
+        .where(
+          and(
+            eq(financeSalaryPayments.projectId, input.projectId),
+            eq(financeSalaryPayments.employeeId, input.employeeId),
+            eq(financeSalaryPayments.monthKey, input.monthKey)
+          )
+        )
+        .limit(1)
+    );
+    if (existingPayment)
+      return {
+        voucherNo: existingPayment.voucherNo,
+        insertId: existingPayment.id,
+      };
+    const voucherNo = null;
 
     // If advance was deducted, update open advance records
     if (advanceDed > 0) {
@@ -6834,48 +8268,34 @@ export async function disburseSalary(
     }
 
     // Create salary payment record
-    const result = await tx
-      .insert(financeSalaryPayments)
-      .values({
-        userId,
-        projectId: input.projectId,
-        employeeId: input.employeeId,
-        monthKey: input.monthKey,
-        baseSalary: decimal(base),
-        bonusAmount: decimal(bonus),
-        allowanceAmount: decimal(allowance),
-        advanceDeduction: decimal(advanceDed),
-        otherDeduction: decimal(otherDed),
-        netPayable: decimal(netPayable),
-        paidAmount: decimal(paid),
-        paymentDate: input.paymentDate || new Date(),
-        accountId: input.accountId || null,
-        voucherNo,
-        status,
-        notes: input.notes?.trim() || null,
-      })
-      .onDuplicateKeyUpdate({
-        set: {
-          baseSalary: decimal(base),
-          bonusAmount: decimal(bonus),
-          allowanceAmount: decimal(allowance),
-          advanceDeduction: decimal(advanceDed),
-          otherDeduction: decimal(otherDed),
-          netPayable: decimal(netPayable),
-          paidAmount: decimal(paid),
-          paymentDate: input.paymentDate || new Date(),
-          accountId: input.accountId || null,
-          status,
-          notes: input.notes?.trim() || null,
-        },
-      });
+    const result = await tx.insert(financeSalaryPayments).values({
+      userId,
+      projectId: input.projectId,
+      employeeId: input.employeeId,
+      monthKey: input.monthKey,
+      baseSalary: decimal(base),
+      bonusAmount: decimal(bonus),
+      allowanceAmount: decimal(allowance),
+      advanceDeduction: decimal(advanceDed),
+      otherDeduction: decimal(otherDed),
+      netPayable: decimal(netPayable),
+      paidAmount: decimal(paid),
+      paymentDate: input.paymentDate || new Date(),
+      accountId: input.accountId || null,
+      voucherNo,
+      voucherId: null,
+      status,
+      notes: input.notes?.trim() || null,
+    });
 
     const paymentInsertId = Number(result[0].insertId || 0);
 
-    // If salary paid > 0 and account specified, adjust account balance and log transaction
-    if (paid > 0 && input.accountId) {
+    if (paid > 0) {
       const [salaryCat] = await tx
-        .select()
+        .select({
+          id: financeCategories.id,
+          chartOfAccountId: financeCategories.chartOfAccountId,
+        })
         .from(financeCategories)
         .where(
           and(
@@ -6885,7 +8305,6 @@ export async function disburseSalary(
           )
         )
         .limit(1);
-
       let categoryId = salaryCat?.id;
       if (!categoryId) {
         const insertCat = await tx.insert(financeCategories).values({
@@ -6893,31 +8312,49 @@ export async function disburseSalary(
           projectId: input.projectId,
           name: "বেতন ও সম্মানী",
           type: "expense",
+          chartOfAccountId: mappings.expenseId,
           isDefault: false,
         });
         categoryId = Number(insertCat[0].insertId);
       }
-
+      const salaryVoucher = await canonicalQuickVoucherInTx(
+        tx,
+        {
+          userId,
+          projectId: input.projectId,
+          accountId: input.accountId ?? undefined,
+          categoryId,
+          type: "expense",
+          amount: paid,
+          paymentMethod: employee.paymentMethod,
+          note: `বেতন প্রদান (${input.monthKey}): ${employee.name} (${employee.designation || "Staff"})`,
+          occurredAt: input.paymentDate || new Date(),
+          voucherType: "salary",
+        },
+        mappings
+      );
+      await tx
+        .update(financeSalaryPayments)
+        .set({
+          voucherNo: salaryVoucher.voucherNo,
+          voucherId: salaryVoucher.voucherId,
+        })
+        .where(eq(financeSalaryPayments.id, paymentInsertId));
       await tx.insert(financeTransactions).values({
         userId,
         projectId: input.projectId,
-        accountId: input.accountId,
+        accountId: input.accountId ?? null,
+        chartOfAccountId: salaryVoucher.cashOrAccountId,
         categoryId,
         type: "expense",
-        amount: decimal(paid),
-        voucherNo,
-        paymentMethod: "bank",
+        amount: decimalFromCents(cents(paid)),
+        voucherNo: salaryVoucher.voucherNo,
+        voucherId: salaryVoucher.voucherId,
+        paymentMethod: employee.paymentMethod,
         note: `বেতন প্রদান (${input.monthKey}): ${employee.name} (${employee.designation || "Staff"})`,
         occurredAt: input.paymentDate || new Date(),
       });
-
-      await adjustAccountBalance(
-        userId,
-        input.projectId,
-        input.accountId,
-        -paid,
-        tx
-      );
+      return { voucherNo: salaryVoucher.voucherNo, insertId: paymentInsertId };
     }
 
     return { voucherNo, insertId: paymentInsertId };
@@ -6984,6 +8421,9 @@ export async function createEmployeeAdvance(
   input: CreateEmployeeAdvanceInput
 ) {
   await assertOwnedProject(userId, input.projectId);
+  if (input.accountId)
+    await assertOwnedAccount(userId, input.projectId, input.accountId);
+  const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const db = databaseRequired(await getDb());
 
   const [employee] = await db
@@ -7004,7 +8444,46 @@ export async function createEmployeeAdvance(
   if (amount <= 0) throw new Error("অগ্রিমের পরিমাণ সঠিক দিন");
 
   const { voucherNo, id } = await db.transaction(async tx => {
-    const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
+    const [receivable] = await tx
+      .select({ id: financeChartOfAccounts.id })
+      .from(financeChartOfAccounts)
+      .where(
+        and(
+          eq(financeChartOfAccounts.userId, userId),
+          eq(financeChartOfAccounts.projectId, input.projectId),
+          eq(financeChartOfAccounts.code, "1200")
+        )
+      )
+      .limit(1);
+    if (!receivable)
+      throw new Error("Employee advance canonical account is not configured");
+    const accountCoaId = input.accountId
+      ? (
+          await tx
+            .select({ chartOfAccountId: financeAccounts.chartOfAccountId })
+            .from(financeAccounts)
+            .where(
+              and(
+                eq(financeAccounts.id, input.accountId),
+                eq(financeAccounts.userId, userId),
+                eq(financeAccounts.projectId, input.projectId)
+              )
+            )
+            .limit(1)
+        )[0]?.chartOfAccountId
+      : mappings.cashId;
+    if (!accountCoaId)
+      throw new Error("Employee advance cash account is not configured");
+    const voucher = await createVoucherWithEntriesInTx(tx, userId, {
+      projectId: input.projectId,
+      date: input.disbursedDate || new Date(),
+      narration: input.notes?.trim() || `Employee advance ${employee.name}`,
+      debits: [{ accountId: receivable.id, amount }],
+      credits: [{ accountId: accountCoaId, amount }],
+      status: "posted",
+      voucherType: "employee_advance",
+      _internalPostedBy: userId,
+    });
 
     const result = await tx.insert(financeEmployeeAdvances).values({
       userId,
@@ -7014,14 +8493,13 @@ export async function createEmployeeAdvance(
       repaidAmount: "0.00",
       disbursedDate: input.disbursedDate || new Date(),
       accountId: input.accountId || null,
-      voucherNo,
+      voucherNo: voucher.voucherNo,
+      voucherId: voucher.voucherId,
       status: "open",
       notes: input.notes?.trim() || null,
     });
 
     const advanceId = Number(result[0].insertId);
-
-    // Adjust linked account if specified atomically
     if (input.accountId) {
       await adjustAccountBalance(
         userId,
@@ -7032,7 +8510,7 @@ export async function createEmployeeAdvance(
       );
     }
 
-    return { voucherNo, id: advanceId };
+    return { voucherNo: voucher.voucherNo, id: advanceId };
   });
 
   await logAudit({
@@ -7049,21 +8527,31 @@ export async function createEmployeeAdvance(
 
 export async function getStatementData(
   userId: number,
-  input: { projectId: number; categoryId?: number; accountId?: number; type?: "income" | "expense"; from?: Date; to?: Date }
+  input: {
+    projectId: number;
+    categoryId?: number;
+    accountId?: number;
+    type?: "income" | "expense";
+    from?: Date;
+    to?: Date;
+  }
 ) {
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
 
   const firmProfile = await getFirmProfile(userId, input.projectId);
 
-  const whereConditions = [
-    eq(financeTransactions.projectId, input.projectId),
-  ];
-  if (input.categoryId) whereConditions.push(eq(financeTransactions.categoryId, input.categoryId));
-  if (input.accountId) whereConditions.push(eq(financeTransactions.accountId, input.accountId));
-  if (input.type) whereConditions.push(eq(financeTransactions.type, input.type));
-  if (input.from) whereConditions.push(gte(financeTransactions.occurredAt, input.from));
-  if (input.to) whereConditions.push(lte(financeTransactions.occurredAt, input.to));
+  const whereConditions = [eq(financeTransactions.projectId, input.projectId)];
+  if (input.categoryId)
+    whereConditions.push(eq(financeTransactions.categoryId, input.categoryId));
+  if (input.accountId)
+    whereConditions.push(eq(financeTransactions.accountId, input.accountId));
+  if (input.type)
+    whereConditions.push(eq(financeTransactions.type, input.type));
+  if (input.from)
+    whereConditions.push(gte(financeTransactions.occurredAt, input.from));
+  if (input.to)
+    whereConditions.push(lte(financeTransactions.occurredAt, input.to));
 
   const rows = await db
     .select({
@@ -7083,14 +8571,32 @@ export async function getStatementData(
       accountName: financeAccounts.name,
     })
     .from(financeTransactions)
-    .leftJoin(financeCategories, eq(financeTransactions.categoryId, financeCategories.id))
-    .leftJoin(financeAccounts, eq(financeTransactions.accountId, financeAccounts.id))
+    .leftJoin(
+      financeCategories,
+      eq(financeTransactions.categoryId, financeCategories.id)
+    )
+    .leftJoin(
+      financeAccounts,
+      eq(financeTransactions.accountId, financeAccounts.id)
+    )
     .where(and(...whereConditions))
     .orderBy(desc(financeTransactions.occurredAt));
 
-  const project = (await db.select().from(financeProjects).where(eq(financeProjects.id, input.projectId)).limit(1))[0];
+  const project = (
+    await db
+      .select()
+      .from(financeProjects)
+      .where(eq(financeProjects.id, input.projectId))
+      .limit(1)
+  )[0];
   const accounts = await db
-    .select({ id: financeAccounts.id, name: financeAccounts.name, type: financeAccounts.type, openingBalance: financeAccounts.openingBalance, currentBalance: financeAccounts.currentBalance })
+    .select({
+      id: financeAccounts.id,
+      name: financeAccounts.name,
+      type: financeAccounts.type,
+      openingBalance: financeAccounts.openingBalance,
+      currentBalance: financeAccounts.currentBalance,
+    })
     .from(financeAccounts)
     .where(eq(financeAccounts.projectId, input.projectId));
 
@@ -7101,24 +8607,48 @@ export async function getStatementData(
     accountName: r.accountName ?? null,
   }));
 
-  const income = items.filter(i => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
-  const expense = items.filter(i => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
-  const openingBalance = accounts.reduce((s, a) => s + Number(a.openingBalance), 0);
-  const closingBalance = accounts.reduce((s, a) => s + Number(a.currentBalance), 0);
+  const income = items
+    .filter(i => i.type === "income")
+    .reduce((s, i) => s + Number(i.amount), 0);
+  const expense = items
+    .filter(i => i.type === "expense")
+    .reduce((s, i) => s + Number(i.amount), 0);
+  const openingBalance = accounts.reduce(
+    (s, a) => s + Number(a.openingBalance),
+    0
+  );
+  const closingBalance = accounts.reduce(
+    (s, a) => s + Number(a.currentBalance),
+    0
+  );
 
   return {
     project: { id: project?.id ?? input.projectId, name: project?.name ?? "" },
     firm: firmProfile,
     items,
-    accounts: accounts.map(a => ({ ...a, openingBalance: Number(a.openingBalance), currentBalance: Number(a.currentBalance) })),
-    totals: { count: items.length, income, expense, netAmount: income - expense, openingBalance, closingBalance },
+    accounts: accounts.map(a => ({
+      ...a,
+      openingBalance: Number(a.openingBalance),
+      currentBalance: Number(a.currentBalance),
+    })),
+    totals: {
+      count: items.length,
+      income,
+      expense,
+      netAmount: income - expense,
+      openingBalance,
+      closingBalance,
+    },
   };
 }
 
 export async function getVoucherList(
   userId: number,
   projectId: number,
-  opts?: { status?: "draft" | "submitted" | "approved" | "posted" | "reversed"; limit?: number }
+  opts?: {
+    status?: "draft" | "submitted" | "approved" | "posted" | "reversed";
+    limit?: number;
+  }
 ) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -7147,7 +8677,10 @@ export async function getVoucherList(
 
   // Get reversal info for each voucher
   const voucherIds = vouchers.map(v => v.id);
-  const reversalsMap = new Map<number, { reversalVoucherId: number; reversalVoucherNo: string }>();
+  const reversalsMap = new Map<
+    number,
+    { reversalVoucherId: number; reversalVoucherNo: string }
+  >();
   if (voucherIds.length > 0) {
     const reversals = await db
       .select({
@@ -7168,7 +8701,10 @@ export async function getVoucherList(
         .where(eq(financeVouchers.id, r.reversalVoucherId))
         .limit(1);
       if (revVoucher) {
-        reversalsMap.set(r.originalVoucherId, { reversalVoucherId: r.reversalVoucherId, reversalVoucherNo: revVoucher.voucherNo });
+        reversalsMap.set(r.originalVoucherId, {
+          reversalVoucherId: r.reversalVoucherId,
+          reversalVoucherNo: revVoucher.voucherNo,
+        });
       }
     }
   }
@@ -7208,12 +8744,29 @@ export async function getVoucherPrintData(
       accountName: financeAccounts.name,
     })
     .from(financeTransactions)
-    .leftJoin(financeCategories, eq(financeTransactions.categoryId, financeCategories.id))
-    .leftJoin(financeAccounts, eq(financeTransactions.accountId, financeAccounts.id))
-    .where(and(eq(financeTransactions.id, input.transactionId), eq(financeTransactions.projectId, input.projectId)))
+    .leftJoin(
+      financeCategories,
+      eq(financeTransactions.categoryId, financeCategories.id)
+    )
+    .leftJoin(
+      financeAccounts,
+      eq(financeTransactions.accountId, financeAccounts.id)
+    )
+    .where(
+      and(
+        eq(financeTransactions.id, input.transactionId),
+        eq(financeTransactions.projectId, input.projectId)
+      )
+    )
     .limit(1);
 
-  const project = (await db.select().from(financeProjects).where(eq(financeProjects.id, input.projectId)).limit(1))[0];
+  const project = (
+    await db
+      .select()
+      .from(financeProjects)
+      .where(eq(financeProjects.id, input.projectId))
+      .limit(1)
+  )[0];
   const tx = row[0];
 
   return {
@@ -7228,7 +8781,16 @@ export async function getVoucherPrintData(
   };
 }
 
-const firmProfileCache = new Map<string, { name: string; tagline: string; phone: string; email: string; address: string }>();
+const firmProfileCache = new Map<
+  string,
+  {
+    name: string;
+    tagline: string;
+    phone: string;
+    email: string;
+    address: string;
+  }
+>();
 
 function firmProfileKey(userId: number, projectId: number) {
   return `${userId}:${projectId}`;
@@ -7236,16 +8798,36 @@ function firmProfileKey(userId: number, projectId: number) {
 
 export async function getFirmProfile(userId: number, projectId: number) {
   await assertOwnedProject(userId, projectId);
-  return firmProfileCache.get(firmProfileKey(userId, projectId)) ?? { name: "", tagline: "", phone: "", email: "", address: "" };
+  return (
+    firmProfileCache.get(firmProfileKey(userId, projectId)) ?? {
+      name: "",
+      tagline: "",
+      phone: "",
+      email: "",
+      address: "",
+    }
+  );
 }
 
 export async function saveFirmProfile(
   userId: number,
   projectId: number,
-  input: { name?: string; tagline?: string; phone?: string; email?: string; address?: string }
+  input: {
+    name?: string;
+    tagline?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+  }
 ) {
   await assertOwnedProject(userId, projectId);
-  const existing = firmProfileCache.get(firmProfileKey(userId, projectId)) ?? { name: "", tagline: "", phone: "", email: "", address: "" };
+  const existing = firmProfileCache.get(firmProfileKey(userId, projectId)) ?? {
+    name: "",
+    tagline: "",
+    phone: "",
+    email: "",
+    address: "",
+  };
   const updated = {
     name: input.name ?? existing.name,
     tagline: input.tagline ?? existing.tagline,

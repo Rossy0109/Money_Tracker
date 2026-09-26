@@ -5,7 +5,9 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     await page.goto("/");
   });
 
-  test("1. Touch-specific actions: tap and touch targets adhere to mobile touch guidelines", async ({ page }) => {
+  test("1. Touch-specific actions: tap and touch targets adhere to mobile touch guidelines", async ({
+    page,
+  }) => {
     const signInButton = page.getByRole("button", { name: /সাইন ইন/ }).first();
     await expect(signInButton).toBeVisible();
 
@@ -17,10 +19,14 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     }
   });
 
-  test("2. Orientation changes: handles portrait to landscape transitions smoothly", async ({ page }) => {
+  test("2. Orientation changes: handles portrait to landscape transitions smoothly", async ({
+    page,
+  }) => {
     // Initial portrait viewport (Pixel 7: 412x915 / iPhone 13: 390x844)
     await page.setViewportSize({ width: 390, height: 844 });
-    const isPortrait = await page.evaluate(() => window.innerHeight > window.innerWidth);
+    const isPortrait = await page.evaluate(
+      () => window.innerHeight > window.innerWidth
+    );
     expect(isPortrait).toBe(true);
 
     const navElement = page.locator("body");
@@ -28,17 +34,25 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
 
     // Switch to landscape mode (rotated phone)
     await page.setViewportSize({ width: 844, height: 390 });
-    const isLandscape = await page.evaluate(() => window.innerWidth > window.innerHeight);
+    const isLandscape = await page.evaluate(
+      () => window.innerWidth > window.innerHeight
+    );
     expect(isLandscape).toBe(true);
 
     // Assert UI elements remain visible and accessible without horizontal viewport breaks
-    await expect(page.getByRole("button", { name: /সাইন ইন/ }).first()).toBeVisible();
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    await expect(
+      page.getByRole("button", { name: /সাইন ইন/ }).first()
+    ).toBeVisible();
+    const scrollWidth = await page.evaluate(
+      () => document.documentElement.scrollWidth
+    );
     const innerWidth = await page.evaluate(() => window.innerWidth);
     expect(scrollWidth).toBeLessThanOrEqual(innerWidth + 5); // No unwanted horizontal overflow
   });
 
-  test("3. Mobile keyboard interactions: input focus and virtual keyboard viewport shifts", async ({ page }) => {
+  test("3. Mobile keyboard interactions: input focus and virtual keyboard viewport shifts", async ({
+    page,
+  }) => {
     // Look for search or text input fields if rendered, or simulate input interaction
     const inputs = page.locator('input[type="text"], input[type="search"]');
     const count = await inputs.count();
@@ -58,7 +72,9 @@ test.describe("mobile browser gestures, orientations, and keyboard interactions"
     } else {
       // If behind sign-in gate, verify keyboard navigable focus
       await page.keyboard.press("Tab");
-      const focusedElement = await page.evaluate(() => document.activeElement?.tagName);
+      const focusedElement = await page.evaluate(
+        () => document.activeElement?.tagName
+      );
       expect(focusedElement).toBeDefined();
     }
   });

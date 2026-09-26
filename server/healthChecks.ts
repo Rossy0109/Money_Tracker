@@ -43,15 +43,25 @@ export interface HealthReport {
   checkedAt: string;
   checks: HealthCheckResult[];
   summary: HealthSummary;
-  integrity: Array<{ projectId: number; projectName: string; status: string; diffs: number; checkedAt: string }>;
+  integrity: Array<{
+    projectId: number;
+    projectName: string;
+    status: string;
+    diffs: number;
+    checkedAt: string;
+  }>;
 }
 
-function timed<T>(fn: () => Promise<T>): Promise<{ latencyMs: number; result: T }> {
+function timed<T>(
+  fn: () => Promise<T>
+): Promise<{ latencyMs: number; result: T }> {
   const start = Date.now();
   return fn().then(result => ({ latencyMs: Date.now() - start, result }));
 }
 
-export async function runHealthChecks(userId: number | null): Promise<HealthReport> {
+export async function runHealthChecks(
+  userId: number | null
+): Promise<HealthReport> {
   const checkedAt = new Date().toISOString();
   const checks: HealthCheckResult[] = [];
 
@@ -68,7 +78,11 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     latencyMs: dbProbe.latencyMs,
   });
   const dbWrite = await timed(async () => {
-    await saveHealthSnapshot({ probeId: "database.write", status: "ok", latencyMs: 0 });
+    await saveHealthSnapshot({
+      probeId: "database.write",
+      status: "ok",
+      latencyMs: 0,
+    });
   });
   checks.push({
     id: "database.write",
@@ -80,15 +94,22 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
 
   const authMode = ENV.authMode;
   if (authMode === "google") {
-    const configured =
-      Boolean(ENV.googleOAuthClientId && ENV.googleOAuthClientSecret && ENV.googleOAuthRedirectUri);
+    const configured = Boolean(
+      ENV.googleOAuthClientId &&
+      ENV.googleOAuthClientSecret &&
+      ENV.googleOAuthRedirectUri
+    );
     checks.push({
       id: "auth.google",
       label: "Google লগইন কনফিগারেশন",
       status: configured ? "ok" : "fail",
       timestamp: checkedAt,
-      error: configured ? null : "GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI সেট নেই",
-      retryAction: configured ? undefined : "প্রজেক্ট এনভায়রনমেন্টে OAuth ক্রেডেনশিয়াল সেট করুন",
+      error: configured
+        ? null
+        : "GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI সেট নেই",
+      retryAction: configured
+        ? undefined
+        : "প্রজেক্ট এনভায়রনমেন্টে OAuth ক্রেডেনশিয়াল সেট করুন",
     });
   } else {
     checks.push({
@@ -111,13 +132,22 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     });
   } else {
     const probe = await timed(async () => {
-      const response = await fetch(`${supabase.supabaseUrl}/storage/v1/bucket/${supabase.storageBucket ?? "amar-hisab-backups"}`, {
-        headers: { apikey: supabase.supabaseAnonKey, Authorization: `Bearer ${supabase.supabaseAnonKey}` },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (response.status === 404) throw new Error(`বাকেটের অস্তিত্ব নেই: ${supabase.storageBucket}`);
-      if (response.status === 401 || response.status === 403) throw new Error("Supabase API key অবৈধ");
-      if (!response.ok) throw new Error(`Supabase উত্তর দেয়নি (${response.status})`);
+      const response = await fetch(
+        `${supabase.supabaseUrl}/storage/v1/bucket/${supabase.storageBucket ?? "amar-hisab-backups"}`,
+        {
+          headers: {
+            apikey: supabase.supabaseAnonKey,
+            Authorization: `Bearer ${supabase.supabaseAnonKey}`,
+          },
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (response.status === 404)
+        throw new Error(`বাকেটের অস্তিত্ব নেই: ${supabase.storageBucket}`);
+      if (response.status === 401 || response.status === 403)
+        throw new Error("Supabase API key অবৈধ");
+      if (!response.ok)
+        throw new Error(`Supabase উত্তর দেয়নি (${response.status})`);
     });
     checks.push({
       id: "storage.supabase",
@@ -134,10 +164,14 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     status: ENV.blobReadWriteToken ? "ok" : "not_configured",
     timestamp: checkedAt,
     error: ENV.blobReadWriteToken ? null : "BLOB_READ_WRITE_TOKEN সেট নেই",
-    retryAction: ENV.blobReadWriteToken ? undefined : "Vercel Blob কানেক্ট করুন",
+    retryAction: ENV.blobReadWriteToken
+      ? undefined
+      : "Vercel Blob কানেক্ট করুন",
   });
 
-  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  const vercelUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : null;
   if (!vercelUrl) {
     checks.push({
       id: "vercel.api",
@@ -148,8 +182,11 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     });
   } else {
     const probe = await timed(async () => {
-      const response = await fetch(`${vercelUrl}/api/healthz`, { signal: AbortSignal.timeout(10_000) });
-      if (!response.ok) throw new Error(`healthz উত্তর দেয়নি (${response.status})`);
+      const response = await fetch(`${vercelUrl}/api/healthz`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok)
+        throw new Error(`healthz উত্তর দেয়নি (${response.status})`);
     });
     checks.push({
       id: "vercel.api",
@@ -176,7 +213,12 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     const driveProbe = driveActive
       ? await timed(async () => {
           const token = await getAccessToken(connection);
-          const root = await findDriveFileByName(token, connection.rootFolderName || "Money_Tracker", null, "application/vnd.google-apps.folder");
+          const root = await findDriveFileByName(
+            token,
+            connection.rootFolderName || "Money_Tracker",
+            null,
+            "application/vnd.google-apps.folder"
+          );
           if (!root) throw new Error("রুট ফোল্ডার পাওয়া যায়নি");
         })
       : null;
@@ -186,39 +228,65 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
       status: driveProbe ? "ok" : "not_configured",
       timestamp: checkedAt,
       latencyMs: driveProbe?.latencyMs ?? null,
-      error: driveProbe ? null : "Google Drive সংযুক্ত নয়; System Health পেজে কানেক্ট করুন",
+      error: driveProbe
+        ? null
+        : "Google Drive সংযুক্ত নয়; System Health পেজে কানেক্ট করুন",
       retryAction: driveProbe ? undefined : "Drive সংযোগ করুন",
     });
   }
 
-  const lastDatabaseBackup = userId ? await lastBackupForKind(userId, "database") : null;
+  const lastDatabaseBackup = userId
+    ? await lastBackupForKind(userId, "database")
+    : null;
   const lastNonDatabase = userId
-    ? (await Promise.all(
-        (["vouchers", "daily_statement", "monthly_statement", "documents"] as const).map(kind =>
-          lastBackupForKind(userId, kind)
+    ? (
+        await Promise.all(
+          (
+            [
+              "vouchers",
+              "daily_statement",
+              "monthly_statement",
+              "documents",
+            ] as const
+          ).map(kind => lastBackupForKind(userId, kind))
         )
-      )).sort((a: { verifiedAt: Date | null } | null, b: { verifiedAt: Date | null } | null) => (b?.verifiedAt?.getTime() ?? 0) - (a?.verifiedAt?.getTime() ?? 0))[0]
+      ).sort(
+        (
+          a: { verifiedAt: Date | null } | null,
+          b: { verifiedAt: Date | null } | null
+        ) => (b?.verifiedAt?.getTime() ?? 0) - (a?.verifiedAt?.getTime() ?? 0)
+      )[0]
     : null;
 
   const backupAgeHours = (verifiedAt: Date | null) =>
     verifiedAt ? (Date.now() - verifiedAt.getTime()) / 3_600_000 : Infinity;
 
-  const lastBackupStatus: HealthSummary["lastBackup"] =
-    !lastDatabaseBackup ? "none" : backupAgeHours(lastDatabaseBackup.verifiedAt) <= 48 ? "ok" : "stale";
-  const lastSyncStatus: HealthSummary["lastSync"] =
-    !lastNonDatabase ? "none" : backupAgeHours(lastNonDatabase.verifiedAt) <= 24 * 7 ? "ok" : "stale";
+  const lastBackupStatus: HealthSummary["lastBackup"] = !lastDatabaseBackup
+    ? "none"
+    : backupAgeHours(lastDatabaseBackup.verifiedAt) <= 48
+      ? "ok"
+      : "stale";
+  const lastSyncStatus: HealthSummary["lastSync"] = !lastNonDatabase
+    ? "none"
+    : backupAgeHours(lastNonDatabase.verifiedAt) <= 24 * 7
+      ? "ok"
+      : "stale";
 
   checks.push({
     id: "backup.last",
     label: "সর্বশেষ ডেটাবেস ব্যাকআপ",
-    status: lastBackupStatus === "none" ? "fail" : lastBackupStatus === "stale" ? "fail" : "ok",
+    status:
+      lastBackupStatus === "none"
+        ? "fail"
+        : lastBackupStatus === "stale"
+          ? "fail"
+          : "ok",
     timestamp: checkedAt,
-    error:
-      !lastDatabaseBackup
-        ? "এখনো কোনো ডেটাবেস ব্যাকআপ হয়নি"
-        : backupAgeHours(lastDatabaseBackup.verifiedAt) > 48
-          ? `শেষ যাচাই ${Math.round(backupAgeHours(lastDatabaseBackup.verifiedAt))} ঘণ্টা আগে`
-          : null,
+    error: !lastDatabaseBackup
+      ? "এখনো কোনো ডেটাবেস ব্যাকআপ হয়নি"
+      : backupAgeHours(lastDatabaseBackup.verifiedAt) > 48
+        ? `শেষ যাচাই ${Math.round(backupAgeHours(lastDatabaseBackup.verifiedAt))} ঘণ্টা আগে`
+        : null,
     retryAction: !lastDatabaseBackup ? "এখনই ব্যাকআপ চালান" : undefined,
   });
 
@@ -229,7 +297,12 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
       label: "মুলতুবি/ব্যর্থ ব্যাকআপ",
       status: summary.pending === 0 && summary.failed === 0 ? "ok" : "fail",
       timestamp: checkedAt,
-      error: summary.failed > 0 ? `${summary.failed} ব্যর্থ` : summary.pending > 0 ? `${summary.pending} মুলতুবি` : null,
+      error:
+        summary.failed > 0
+          ? `${summary.failed} ব্যর্থ`
+          : summary.pending > 0
+            ? `${summary.pending} মুলতুবি`
+            : null,
       retryAction:
         summary.pending > 0 || summary.failed > 0
           ? `pending=${summary.pending}, failed=${summary.failed} — রিট্রাই করুন`
@@ -254,23 +327,36 @@ export async function runHealthChecks(userId: number | null): Promise<HealthRepo
     checks.push({
       id: "integrity",
       label: "ডেটা ইন্টিগ্রিটি (প্রজেক্টের সাথে মিল)",
-      status: results.every(r => r.status === "VERIFIED") ? "ok" : results.some(r => r.status === "MISMATCH") ? "fail" : "fail",
+      status: results.every(r => r.status === "VERIFIED")
+        ? "ok"
+        : results.some(r => r.status === "MISMATCH")
+          ? "fail"
+          : "fail",
       timestamp: checkedAt,
-      error:
-        results.some(r => r.status === "MISMATCH")
-          ? `${results.filter(r => r.status === "MISMATCH").length} প্রজেক্টে অমিল`
-          : results.some(r => r.status === "NO_BACKUP")
-            ? "কিছু প্রজেক্টের জন্য এখনো কোনো ডেটাবেস ব্যাকআপ নেই"
-            : null,
+      error: results.some(r => r.status === "MISMATCH")
+        ? `${results.filter(r => r.status === "MISMATCH").length} প্রজেক্টে অমিল`
+        : results.some(r => r.status === "NO_BACKUP")
+          ? "কিছু প্রজেক্টের জন্য এখনো কোনো ডেটাবেস ব্যাকআপ নেই"
+          : null,
     });
   }
 
-  const toRate = (id: string) => checks.find(check => check.id === id)?.status ?? "unknown";
+  const toRate = (id: string) =>
+    checks.find(check => check.id === id)?.status ?? "unknown";
   const summary: HealthSummary = {
-    database: toRate("database.read") === "ok" && toRate("database.write") === "ok" ? "ok" : "fail",
-    auth: toRate("auth.google") !== "unknown" ? toRate("auth.google") : toRate("auth.password"),
+    database:
+      toRate("database.read") === "ok" && toRate("database.write") === "ok"
+        ? "ok"
+        : "fail",
+    auth:
+      toRate("auth.google") !== "unknown"
+        ? toRate("auth.google")
+        : toRate("auth.password"),
     storage:
-      toRate("storage.supabase") === "ok" || toRate("storage.vercel_blob") === "ok" ? "ok" : "not_configured",
+      toRate("storage.supabase") === "ok" ||
+      toRate("storage.vercel_blob") === "ok"
+        ? "ok"
+        : "not_configured",
     vercel: toRate("vercel.api"),
     googleDrive: toRate("drive.connection"),
     lastBackup: lastBackupStatus,

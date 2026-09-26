@@ -11,10 +11,18 @@ describe("Authentication rate limiter", () => {
     process.env.NODE_ENV = "production";
 
     try {
-      const res1 = checkRateLimit(key, { windowMs: 60000, max: 3, keyPrefix: "auth-test" });
+      const res1 = checkRateLimit(key, {
+        windowMs: 60000,
+        max: 3,
+        keyPrefix: "auth-test",
+      });
       expect(res1.remaining).toBe(2);
 
-      const res2 = checkRateLimit(key, { windowMs: 60000, max: 3, keyPrefix: "auth-test" });
+      const res2 = checkRateLimit(key, {
+        windowMs: 60000,
+        max: 3,
+        keyPrefix: "auth-test",
+      });
       expect(res2.remaining).toBe(1);
     } finally {
       process.env.NODE_ENV = originalEnv;
@@ -29,11 +37,23 @@ describe("Authentication rate limiter", () => {
     process.env.NODE_ENV = "production";
 
     try {
-      checkRateLimit(key, { windowMs: 60000, max: 2, keyPrefix: "auth-test-2" });
-      checkRateLimit(key, { windowMs: 60000, max: 2, keyPrefix: "auth-test-2" });
+      checkRateLimit(key, {
+        windowMs: 60000,
+        max: 2,
+        keyPrefix: "auth-test-2",
+      });
+      checkRateLimit(key, {
+        windowMs: 60000,
+        max: 2,
+        keyPrefix: "auth-test-2",
+      });
 
       expect(() => {
-        checkRateLimit(key, { windowMs: 60000, max: 2, keyPrefix: "auth-test-2" });
+        checkRateLimit(key, {
+          windowMs: 60000,
+          max: 2,
+          keyPrefix: "auth-test-2",
+        });
       }).toThrow(/খুব বেশি চেষ্টার কারণে/);
     } finally {
       process.env.NODE_ENV = originalEnv;
@@ -48,10 +68,18 @@ describe("Authentication rate limiter", () => {
     process.env.NODE_ENV = "production";
 
     try {
-      checkRateLimit(key, { windowMs: 60000, max: 1, keyPrefix: "auth-test-3" });
+      checkRateLimit(key, {
+        windowMs: 60000,
+        max: 1,
+        keyPrefix: "auth-test-3",
+      });
       resetRateLimit(key, "auth-test-3");
 
-      const res = checkRateLimit(key, { windowMs: 60000, max: 1, keyPrefix: "auth-test-3" });
+      const res = checkRateLimit(key, {
+        windowMs: 60000,
+        max: 1,
+        keyPrefix: "auth-test-3",
+      });
       expect(res.remaining).toBe(0);
     } finally {
       process.env.NODE_ENV = originalEnv;
@@ -67,11 +95,19 @@ describe("Authentication rate limiter", () => {
 
     try {
       for (let i = 0; i < 5; i++) {
-        checkRateLimit(key, { windowMs: 15 * 60 * 1000, max: 5, keyPrefix: "admin-verify" });
+        checkRateLimit(key, {
+          windowMs: 15 * 60 * 1000,
+          max: 5,
+          keyPrefix: "admin-verify",
+        });
       }
 
       expect(() => {
-        checkRateLimit(key, { windowMs: 15 * 60 * 1000, max: 5, keyPrefix: "admin-verify" });
+        checkRateLimit(key, {
+          windowMs: 15 * 60 * 1000,
+          max: 5,
+          keyPrefix: "admin-verify",
+        });
       }).toThrow(/সাময়িকভাবে বন্ধ রাখা হয়েছে/);
     } finally {
       process.env.NODE_ENV = originalEnv;

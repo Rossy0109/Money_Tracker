@@ -10,8 +10,10 @@ describe("Inventory Management Logic", () => {
       lowStockThreshold: "5.00",
     };
 
-    const stockValuation = Number(item.currentStock) * Number(item.purchasePrice);
-    const potentialRevenue = Number(item.currentStock) * Number(item.sellingPrice);
+    const stockValuation =
+      Number(item.currentStock) * Number(item.purchasePrice);
+    const potentialRevenue =
+      Number(item.currentStock) * Number(item.sellingPrice);
     const profitMargin = potentialRevenue - stockValuation;
 
     expect(stockValuation).toBe(11250);
@@ -20,7 +22,8 @@ describe("Inventory Management Logic", () => {
   });
 
   it("detects low stock status when stock falls below threshold", () => {
-    const isLowStock = (stock: number, threshold: number) => stock > 0 && stock <= threshold;
+    const isLowStock = (stock: number, threshold: number) =>
+      stock > 0 && stock <= threshold;
     const isOutOfStock = (stock: number) => stock <= 0;
 
     expect(isLowStock(4, 5)).toBe(true);

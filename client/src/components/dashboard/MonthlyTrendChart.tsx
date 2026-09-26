@@ -39,15 +39,9 @@ export function MonthlyTrendChart({ trend }: MonthlyTrendChartProps) {
             />
             <Tooltip
               formatter={value =>
-                bdt(
-                  Array.isArray(value)
-                    ? (value[0] ?? 0)
-                    : (value ?? 0)
-                )
+                bdt(Array.isArray(value) ? (value[0] ?? 0) : (value ?? 0))
               }
-              labelFormatter={label =>
-                `${monthText(String(label))} মাস`
-              }
+              labelFormatter={label => `${monthText(String(label))} মাস`}
             />
             <Bar
               dataKey="income"

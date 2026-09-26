@@ -23,7 +23,12 @@ interface TransactionDialogProps {
   transactionForm: TransactionDraft;
   setTransactionForm: React.Dispatch<React.SetStateAction<TransactionDraft>>;
   categories: Array<{ id: number; name: string }>;
-  accounts?: Array<{ id: number; name: string; currentBalance: number | string; [key: string]: unknown }>;
+  accounts?: Array<{
+    id: number;
+    name: string;
+    currentBalance: number | string;
+    [key: string]: unknown;
+  }>;
   showSmsHelper: boolean;
   setShowSmsHelper: (show: boolean) => void;
   smsInput: string;
@@ -148,7 +153,9 @@ export function TransactionDialog({
               ))}
             </select>
           </Field>
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">ভাউচার নং সেটিংসের নির্ধারিত রেঞ্জ থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে।</p>
+          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+            ভাউচার নং সেটিংসের নির্ধারিত রেঞ্জ থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে।
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="তারিখ">
               <Input

@@ -33,12 +33,36 @@ function makeData(): StatementData {
       address: "ঢাকা",
     },
     accounts: [
-      { id: 1, name: "নগদ", type: "cash", openingBalance: 1000, currentBalance: 1600 },
+      {
+        id: 1,
+        name: "নগদ",
+        type: "cash",
+        openingBalance: 1000,
+        currentBalance: 1600,
+      },
     ],
     items: [
-      txn({ id: 1, type: "income", amount: 500, voucherNo: "V-010", categoryName: "বিক্রয়" }),
-      txn({ id: 2, type: "income", amount: 100, voucherNo: "V-011", categoryName: "বিক্রয়" }),
-      txn({ id: 3, type: "expense", amount: 200, voucherNo: "V-012", categoryName: "সরঞ্জাম" }),
+      txn({
+        id: 1,
+        type: "income",
+        amount: 500,
+        voucherNo: "V-010",
+        categoryName: "বিক্রয়",
+      }),
+      txn({
+        id: 2,
+        type: "income",
+        amount: 100,
+        voucherNo: "V-011",
+        categoryName: "বিক্রয়",
+      }),
+      txn({
+        id: 3,
+        type: "expense",
+        amount: 200,
+        voucherNo: "V-012",
+        categoryName: "সরঞ্জাম",
+      }),
     ],
     totals: {
       count: 3,

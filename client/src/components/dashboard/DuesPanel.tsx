@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Plus, MessageCircle } from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
-import { generateDueReminderMessage, getWhatsAppShareUrl } from "@/lib/dueReminder";
+import {
+  generateDueReminderMessage,
+  getWhatsAppShareUrl,
+} from "@/lib/dueReminder";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 
@@ -63,28 +66,29 @@ export function DuesPanel({
                   মোট {bdt(due.originalAmount)} · {dateText(due.openedAt)}
                 </p>
                 <div className="flex items-center gap-2">
-                  {due.type === "receivable" && Number(due.outstandingAmount) > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const msg = generateDueReminderMessage({
-                          counterparty: due.counterparty,
-                          outstandingAmount: due.outstandingAmount,
-                          voucherNo: due.voucherNo,
-                          dueAt: due.dueAt,
-                          reason: due.reason || due.note,
-                        });
-                        const url = getWhatsAppShareUrl(null, msg);
-                        window.open(url, "_blank");
-                      }}
-                      className="h-8 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] text-xs font-semibold flex items-center gap-1 shadow-sm"
-                      title="WhatsApp এ বকেয়া তাগাদা পাঠান"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
-                      তাগাদা
-                    </Button>
-                  )}
+                  {due.type === "receivable" &&
+                    Number(due.outstandingAmount) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const msg = generateDueReminderMessage({
+                            counterparty: due.counterparty,
+                            outstandingAmount: due.outstandingAmount,
+                            voucherNo: due.voucherNo,
+                            dueAt: due.dueAt,
+                            reason: due.reason || due.note,
+                          });
+                          const url = getWhatsAppShareUrl(null, msg);
+                          window.open(url, "_blank");
+                        }}
+                        className="h-8 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] text-xs font-semibold flex items-center gap-1 shadow-sm"
+                        title="WhatsApp এ বকেয়া তাগাদা পাঠান"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
+                        তাগাদা
+                      </Button>
+                    )}
                   <Button
                     size="sm"
                     variant="outline"

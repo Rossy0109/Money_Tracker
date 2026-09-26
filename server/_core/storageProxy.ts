@@ -13,7 +13,7 @@ function attachmentDisposition(fileName: string) {
 
 async function streamPrivateBlobObject(
   object: { storageKey: string; contentType: string; fileName: string },
-  res: Response,
+  res: Response
 ) {
   const blob = await getBlob(object.storageKey, {
     access: "private",
@@ -38,7 +38,7 @@ async function streamPrivateBlobObject(
   res.set("Content-Length", String(blob.blob.size));
   if (blob.blob.etag) res.set("ETag", blob.blob.etag);
   Readable.fromWeb(
-    blob.stream as unknown as import("node:stream/web").ReadableStream,
+    blob.stream as unknown as import("node:stream/web").ReadableStream
   ).pipe(res);
 }
 
@@ -63,7 +63,10 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      const object = await getPrivateStorageObjectForDownload(user.id, objectId);
+      const object = await getPrivateStorageObjectForDownload(
+        user.id,
+        objectId
+      );
       if (!object) {
         res.status(404).send("Storage object not found");
         return;
@@ -76,7 +79,10 @@ export function registerStorageProxy(app: Express) {
 
       await streamPrivateBlobObject(object, res);
     } catch (error) {
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[StorageProxy] private object delivery failed");
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[StorageProxy] private object delivery failed"
+      );
       res.status(502).send("Storage proxy error");
     }
   });

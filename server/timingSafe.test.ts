@@ -17,7 +17,9 @@ describe("Constant-Time Timing-Safe Validation", () => {
 
   it("returns false for non-matching strings of different lengths without throwing or early returning", () => {
     expect(timingSafeCompare("short", secret)).toBe(false);
-    expect(timingSafeCompare("SuperSecretAdminToken-2026-very-long", secret)).toBe(false);
+    expect(
+      timingSafeCompare("SuperSecretAdminToken-2026-very-long", secret)
+    ).toBe(false);
     expect(hasValidAdminPassword("abc", secret)).toBe(false);
   });
 

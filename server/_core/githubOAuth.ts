@@ -33,10 +33,14 @@ export function encodeGitHubTransaction(transaction: GitHubTransaction) {
   return Buffer.from(JSON.stringify(transaction)).toString("base64url");
 }
 
-export function decodeGitHubTransaction(value: string | undefined): GitHubTransaction | null {
+export function decodeGitHubTransaction(
+  value: string | undefined
+): GitHubTransaction | null {
   if (!value) return null;
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<GitHubTransaction>;
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as Partial<GitHubTransaction>;
     if (typeof parsed.state !== "string" || parsed.state.length < 32) {
       return null;
     }
@@ -46,14 +50,22 @@ export function decodeGitHubTransaction(value: string | undefined): GitHubTransa
   }
 }
 
-export function transactionMatchesGitHubState(transaction: GitHubTransaction | null, state: string | undefined) {
+export function transactionMatchesGitHubState(
+  transaction: GitHubTransaction | null,
+  state: string | undefined
+) {
   if (!transaction || !state) return false;
   const expected = Buffer.from(transaction.state);
   const received = Buffer.from(state);
-  return expected.length === received.length && timingSafeEqual(expected, received);
+  return (
+    expected.length === received.length && timingSafeEqual(expected, received)
+  );
 }
 
-export function createGitHubAuthorizationUrl(transaction: GitHubTransaction, redirectUri?: string) {
+export function createGitHubAuthorizationUrl(
+  transaction: GitHubTransaction,
+  redirectUri?: string
+) {
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) {
     throw new Error("GITHUB_CLIENT_ID is required for GitHub login");
@@ -70,7 +82,7 @@ export function createGitHubAuthorizationUrl(transaction: GitHubTransaction, red
 
 export async function exchangeGitHubAuthorizationCode(
   code: string,
-  fetchImpl: FetchLike = fetch,
+  fetchImpl: FetchLike = fetch
 ): Promise<string> {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
@@ -78,27 +90,37 @@ export async function exchangeGitHubAuthorizationCode(
     throw new Error("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required");
   }
 
-  const response = await fetchImpl("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-    }),
-    signal: AbortSignal.timeout(10_000),
-  });
+  const response = await fetchImpl(
+    "https://github.com/login/oauth/access_token",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    }
+  );
 
   if (!response.ok) {
     throw new Error("GitHub token exchange request failed");
   }
 
-  const data = (await response.json()) as { access_token?: string; error?: string };
+  const data = (await response.json()) as {
+    access_token?: string;
+    error?: string;
+  };
   if (!data.access_token) {
-    throw new Error(data.error ? `GitHub error: ${data.error}` : "Missing access_token from GitHub");
+    throw new Error(
+      data.error
+        ? `GitHub error: ${data.error}`
+        : "Missing access_token from GitHub"
+    );
   }
 
   return data.access_token;
@@ -106,7 +128,7 @@ export async function exchangeGitHubAuthorizationCode(
 
 export async function fetchGitHubUser(
   accessToken: string,
-  fetchImpl: FetchLike = fetch,
+  fetchImpl: FetchLike = fetch
 ): Promise<GitHubIdentity> {
   const userResponse = await fetchImpl("https://api.github.com/user", {
     headers: {
@@ -131,14 +153,17 @@ export async function fetchGitHubUser(
   let primaryEmail = userJson.email;
   if (!primaryEmail) {
     // If email is private on GitHub, fetch user emails list
-    const emailsResponse = await fetchImpl("https://api.github.com/user/emails", {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "user-agent": "Money-Tracker-App",
-        accept: "application/json",
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
+    const emailsResponse = await fetchImpl(
+      "https://api.github.com/user/emails",
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "user-agent": "Money-Tracker-App",
+          accept: "application/json",
+        },
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
 
     if (emailsResponse.ok) {
       const emailsList = (await emailsResponse.json()) as Array<{
@@ -148,7 +173,11 @@ export async function fetchGitHubUser(
       }>;
       const primaryVerified = emailsList.find(e => e.primary && e.verified);
       const verified = emailsList.find(e => e.verified);
-      primaryEmail = primaryVerified?.email || verified?.email || emailsList[0]?.email || null;
+      primaryEmail =
+        primaryVerified?.email ||
+        verified?.email ||
+        emailsList[0]?.email ||
+        null;
     }
   }
 
@@ -164,7 +193,9 @@ export async function fetchGitHubUser(
 }
 
 export function readGitHubTransaction(req: Request) {
-  return decodeGitHubTransaction(parseCookieHeader(req.headers.cookie ?? "")[GITHUB_TRANSACTION_COOKIE]);
+  return decodeGitHubTransaction(
+    parseCookieHeader(req.headers.cookie ?? "")[GITHUB_TRANSACTION_COOKIE]
+  );
 }
 
 export const githubTransactionCookieMaxAge = TRANSACTION_TTL_MS;

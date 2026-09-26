@@ -3,12 +3,18 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { dirnameFromMetaUrl } from "../dirname";
 
-const dbSource = readFileSync(resolve(dirnameFromMetaUrl(import.meta.url), "db.ts"), "utf8");
+const dbSource = readFileSync(
+  resolve(dirnameFromMetaUrl(import.meta.url), "db.ts"),
+  "utf8"
+);
 
 function functionSource(name: string) {
   const start = dbSource.indexOf(`export async function ${name}`);
   const end = dbSource.indexOf("\nexport async function ", start + 1);
-  expect(start, `${name} should exist in the finance data layer`).toBeGreaterThanOrEqual(0);
+  expect(
+    start,
+    `${name} should exist in the finance data layer`
+  ).toBeGreaterThanOrEqual(0);
   return dbSource.slice(start, end === -1 ? undefined : end);
 }
 
@@ -18,43 +24,71 @@ describe("household authorization and accounting boundaries", () => {
     expect(source).toContain('membership.status !== "pending"');
     expect(source).toContain("normalizeEmail(currentUser.email) !==");
     expect(source).toContain("normalizeEmail(membership.inviteeEmail)");
-    expect(source).toContain("status: \"active\"");
+    expect(source).toContain('status: "active"');
   });
 
   it("keeps member, invite, and budget management owner-only while limiting expense entry to owners and editors", () => {
-    for (const name of ["inviteHouseholdMember", "updateHouseholdMember", "saveSharedBudget"]) {
-      expect(functionSource(name)).toContain('requireHouseholdRole(access.role, ["owner"])');
+    for (const name of [
+      "inviteHouseholdMember",
+      "updateHouseholdMember",
+      "saveSharedBudget",
+    ]) {
+      expect(functionSource(name)).toContain(
+        'requireHouseholdRole(access.role, ["owner"])'
+      );
     }
-    expect(functionSource("addSharedExpense")).toContain('requireHouseholdRole(access.role, ["owner", "editor"])');
+    expect(functionSource("addSharedExpense")).toContain(
+      'requireHouseholdRole(access.role, ["owner", "editor"])'
+    );
     expect(dbSource).toContain("if (!allowed.includes(role))");
-    expect(dbSource).toContain('throw new Error("এই কাজটি করার অনুমতি আপনার নেই")');
+    expect(dbSource).toContain(
+      'throw new Error("এই কাজটি করার অনুমতি আপনার নেই")'
+    );
   });
 
   it("counts and displays only expenses in the current month for the current household budget set", () => {
     const source = functionSource("getHouseholdOverview");
-    expect(source).toContain("const monthStart = new Date(`${currentMonth}-01T00:00:00.000Z`)");
-    expect(source).toContain("gte(financeSharedExpenses.occurredAt, monthStart)");
-    expect(source).toContain("lt(financeSharedExpenses.occurredAt, nextMonthStart)");
+    expect(source).toContain(
+      "const monthStart = new Date(`${currentMonth}-01T00:00:00.000Z`)"
+    );
+    expect(source).toContain(
+      "gte(financeSharedExpenses.occurredAt, monthStart)"
+    );
+    expect(source).toContain(
+      "lt(financeSharedExpenses.occurredAt, nextMonthStart)"
+    );
     expect(source).toContain("activeBudgetIds.has(expense.budgetId)");
     expect(source).toContain("recentExpenses: expenses.slice(0, 20)");
   });
 
   it("builds the contributor analysis only after household access and masks non-visible former contributors for non-owners", () => {
     const source = functionSource("getHouseholdOverview");
-    expect(source.indexOf("const access = await getHouseholdAccess")).toBeLessThan(source.indexOf("const contributorSpend"));
+    expect(
+      source.indexOf("const access = await getHouseholdAccess")
+    ).toBeLessThan(source.indexOf("const contributorSpend"));
     expect(source).toContain("const visibleContributorIds = new Set");
     expect(source).toContain('access.role === "owner" ||');
-    expect(source).toContain("visibleContributorIds.has(expense.contributorUserId)");
+    expect(source).toContain(
+      "visibleContributorIds.has(expense.contributorUserId)"
+    );
     expect(source).toContain('"সাবেক সদস্য"');
     expect(source).toContain("contributorSpend,");
   });
 
   it("returns a six-month contributor comparison only from matching household budgets while preserving the same identity masking", () => {
     const source = functionSource("getHouseholdOverview");
-    expect(source).toContain("const comparisonMonthKeys = Array.from({ length: 6 }");
-    expect(source).toContain("gte(financeSharedBudgets.monthKey, comparisonMonthKeys[0])");
-    expect(source).toContain("lte(financeSharedBudgets.monthKey, currentMonth)");
-    expect(source).toContain("budgetMonthById.get(expense.budgetId) === monthKey(expense.occurredAt)");
+    expect(source).toContain(
+      "const comparisonMonthKeys = Array.from({ length: 6 }"
+    );
+    expect(source).toContain(
+      "gte(financeSharedBudgets.monthKey, comparisonMonthKeys[0])"
+    );
+    expect(source).toContain(
+      "lte(financeSharedBudgets.monthKey, currentMonth)"
+    );
+    expect(source).toContain(
+      "budgetMonthById.get(expense.budgetId) === monthKey(expense.occurredAt)"
+    );
     expect(source).toContain("summarizeHouseholdContributorMonthlySpend");
     expect(source).toContain("monthlyContributorSpend,");
   });

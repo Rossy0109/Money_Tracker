@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const canvas = { width: 1200, height: 600, toDataURL: vi.fn(() => "data:image/png;base64,chart") };
+  const canvas = {
+    width: 1200,
+    height: 600,
+    toDataURL: vi.fn(() => "data:image/png;base64,chart"),
+  };
   const pdfDocument = {
     internal: { pageSize: { getWidth: () => 842, getHeight: () => 595 } },
     addFileToVFS: vi.fn(),
@@ -27,7 +31,11 @@ const mocks = vi.hoisted(() => {
 vi.mock("html2canvas", () => ({ default: mocks.capture }));
 vi.mock("jspdf", () => ({ jsPDF: mocks.jsPDF }));
 
-import { downloadHouseholdChartImage, downloadHouseholdChartPdf, householdChartExportFilename } from "./householdChartExport";
+import {
+  downloadHouseholdChartImage,
+  downloadHouseholdChartPdf,
+  householdChartExportFilename,
+} from "./householdChartExport";
 
 describe("household chart export filenames", () => {
   const date = new Date("2026-08-23T12:00:00.000Z");
@@ -54,41 +62,89 @@ describe("household chart export filenames", () => {
     anchor.remove.mockClear();
     Object.defineProperty(globalThis, "window", {
       configurable: true,
-      value: { devicePixelRatio: 1, fetch: vi.fn(async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([0, 1, 2]).buffer })) },
+      value: {
+        devicePixelRatio: 1,
+        fetch: vi.fn(async () => ({
+          ok: true,
+          arrayBuffer: async () => new Uint8Array([0, 1, 2]).buffer,
+        })),
+      },
     });
     Object.defineProperty(globalThis, "document", {
       configurable: true,
-      value: { createElement: vi.fn(() => anchor), body: { appendChild: vi.fn() } },
+      value: {
+        createElement: vi.fn(() => anchor),
+        body: { appendChild: vi.fn() },
+      },
     });
   });
 
   afterEach(() => {
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: originalDocument,
+    });
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow,
+    });
   });
 
   it("creates an offline PNG filename with a stable ISO date", () => {
-    expect(householdChartExportFilename("image", date)).toBe("household-member-monthly-comparison-2026-08-23.png");
+    expect(householdChartExportFilename("image", date)).toBe(
+      "household-member-monthly-comparison-2026-08-23.png"
+    );
   });
 
   it("creates an offline PDF filename with a stable ISO date", () => {
-    expect(householdChartExportFilename("pdf", date)).toBe("household-member-monthly-comparison-2026-08-23.pdf");
+    expect(householdChartExportFilename("pdf", date)).toBe(
+      "household-member-monthly-comparison-2026-08-23.pdf"
+    );
   });
 
   it("captures the authorized chart node and triggers a PNG download", async () => {
     await downloadHouseholdChartImage({} as HTMLElement);
 
-    expect(mocks.capture).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ backgroundColor: "#ffffff", useCORS: true }));
-    expect(anchor.download).toMatch(/^household-member-monthly-comparison-\d{4}-\d{2}-\d{2}\.png$/);
+    expect(mocks.capture).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ backgroundColor: "#ffffff", useCORS: true })
+    );
+    expect(anchor.download).toMatch(
+      /^household-member-monthly-comparison-\d{4}-\d{2}-\d{2}\.png$/
+    );
     expect(anchor.click).toHaveBeenCalledOnce();
   });
 
   it("captures the authorized chart node and saves a Bengali family-title PDF", async () => {
-    await downloadHouseholdChartPdf({} as HTMLElement, { familyName: "আহমেদ পরিবার", title: "জুলাই–ডিসেম্বর ব্যয়ের তুলনা" });
+    await downloadHouseholdChartPdf({} as HTMLElement, {
+      familyName: "আহমেদ পরিবার",
+      title: "জুলাই–ডিসেম্বর ব্যয়ের তুলনা",
+    });
 
-    expect(mocks.pdfDocument.text).toHaveBeenCalledWith("জুলাই–ডিসেম্বর ব্যয়ের তুলনা", 28, 36);
-    expect(mocks.pdfDocument.text).toHaveBeenCalledWith("পরিবার: আহমেদ পরিবার", 28, 54);
-    expect(mocks.pdfDocument.addImage).toHaveBeenCalledWith("data:image/png;base64,chart", "PNG", expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number), undefined, "FAST");
-    expect(mocks.pdfDocument.save).toHaveBeenCalledWith(expect.stringMatching(/^household-member-monthly-comparison-\d{4}-\d{2}-\d{2}\.pdf$/));
+    expect(mocks.pdfDocument.text).toHaveBeenCalledWith(
+      "জুলাই–ডিসেম্বর ব্যয়ের তুলনা",
+      28,
+      36
+    );
+    expect(mocks.pdfDocument.text).toHaveBeenCalledWith(
+      "পরিবার: আহমেদ পরিবার",
+      28,
+      54
+    );
+    expect(mocks.pdfDocument.addImage).toHaveBeenCalledWith(
+      "data:image/png;base64,chart",
+      "PNG",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      undefined,
+      "FAST"
+    );
+    expect(mocks.pdfDocument.save).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^household-member-monthly-comparison-\d{4}-\d{2}-\d{2}\.pdf$/
+      )
+    );
   });
 });

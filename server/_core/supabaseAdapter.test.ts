@@ -8,7 +8,9 @@ import {
 describe("Supabase Staging Adapter", () => {
   it("returns null when configuration is missing", () => {
     expect(parseSupabaseConfig({})).toBeNull();
-    expect(parseSupabaseConfig({ SUPABASE_URL: "https://xyz.supabase.co" })).toBeNull();
+    expect(
+      parseSupabaseConfig({ SUPABASE_URL: "https://xyz.supabase.co" })
+    ).toBeNull();
   });
 
   it("parses valid Supabase configuration and normalizes URLs", () => {
@@ -54,7 +56,11 @@ describe("Supabase Staging Adapter", () => {
       storageBucket: "amar-hisab-backups",
     };
 
-    const url = buildSupabaseSignedStorageUrl(config, "/exports/backup-2026.json", 1800);
+    const url = buildSupabaseSignedStorageUrl(
+      config,
+      "/exports/backup-2026.json",
+      1800
+    );
     expect(url).toBe(
       "https://xyz.supabase.co/storage/v1/object/sign/amar-hisab-backups/exports/backup-2026.json?expiresIn=1800"
     );

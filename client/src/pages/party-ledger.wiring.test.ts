@@ -1,14 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { containsSnippet } from "@shared/sourceText";
 
 const partyLedgerSource = readFileSync(
   new URL("PartyLedger.tsx", import.meta.url),
   "utf8"
 );
-const appSource = readFileSync(
-  new URL("../App.tsx", import.meta.url),
-  "utf8"
-);
+const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const dashboardLayoutSource = readFileSync(
   new URL("../components/DashboardLayout.tsx", import.meta.url),
   "utf8"
@@ -16,8 +14,15 @@ const dashboardLayoutSource = readFileSync(
 
 describe("Party Ledger (পার্টি খতিয়ান) wiring and capabilities", () => {
   it("registers /party-ledger route and sidebar navigation", () => {
-    expect(appSource).toContain('path={"/party-ledger"} component={PartyLedger}');
-    expect(dashboardLayoutSource).toContain('label: "পার্টি খতিয়ান", href: "/party-ledger"');
+    expect(appSource).toContain(
+      'path={"/party-ledger"} component={PartyLedger}'
+    );
+    expect(
+      containsSnippet(
+        dashboardLayoutSource,
+        'label: "পার্টি খতিয়ান", href: "/party-ledger"'
+      )
+    ).toBe(true);
   });
 
   it("includes running balance, settlement workflow, WhatsApp sharing and PDF export", () => {

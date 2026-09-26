@@ -1,12 +1,30 @@
-import { INPUT_ONLY_ERR_MSG, NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import {
+  INPUT_ONLY_ERR_MSG,
+  NOT_ADMIN_ERR_MSG,
+  UNAUTHED_ERR_MSG,
+} from "@shared/const";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
 import { ENV } from "./env";
 import { timingSafeCompare } from "../timingSafe";
-import { requirePermission, requireAnyPermission, requireAllPermissions, requireRole, requireAnyRole, requireResourcePermission, requireAnyResourcePermission, requireAllResourcePermissions } from "./authz";
+import {
+  requirePermission,
+  requireAnyPermission,
+  requireAllPermissions,
+  requireRole,
+  requireAnyRole,
+  requireResourcePermission,
+  requireAnyResourcePermission,
+  requireAllResourcePermissions,
+} from "./authz";
 import { hasAnyPermission } from "./rbac";
-import { hashRequest, claimIdempotency, completeIdempotency, clearIdempotency } from "./idempotency";
+import {
+  hashRequest,
+  claimIdempotency,
+  completeIdempotency,
+  clearIdempotency,
+} from "./idempotency";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -25,14 +43,16 @@ const requireUser = t.middleware(async opts => {
   if (ctx.user.status === "pending") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+      message:
+        "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
     });
   }
 
   if (ctx.user.status === "suspended") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+      message:
+        "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
     });
   }
 
@@ -56,14 +76,16 @@ const requireCreatePermission = t.middleware(async opts => {
   if (ctx.user.status === "pending") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+      message:
+        "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
     });
   }
 
   if (ctx.user.status === "suspended") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+      message:
+        "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
     });
   }
 
@@ -114,14 +136,16 @@ export const adminProcedure = t.procedure.use(
     if (ctx.user.status === "pending") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+        message:
+          "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
       });
     }
 
     if (ctx.user.status === "suspended") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+        message:
+          "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
       });
     }
 
@@ -131,7 +155,7 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
-  }),
+  })
 );
 
 export const elevatedAdminProcedure = t.procedure.use(
@@ -158,23 +182,29 @@ export const elevatedAdminProcedure = t.procedure.use(
     if (ctx.user.status === "pending") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+        message:
+          "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
       });
     }
 
     if (ctx.user.status === "suspended") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+        message:
+          "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
       });
     }
 
-    const hasActiveSession = Boolean(ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id);
+    const hasActiveSession = Boolean(
+      ctx.adminElevation && ctx.adminElevation.userId === ctx.user.id
+    );
     let rawInput: unknown;
     const optsRecord = opts as Record<string, unknown>;
     if (typeof optsRecord.getRawInput === "function") {
       try {
-        rawInput = await (optsRecord.getRawInput as () => unknown | Promise<unknown>)();
+        rawInput = await (
+          optsRecord.getRawInput as () => unknown | Promise<unknown>
+        )();
       } catch {
         rawInput = optsRecord.rawInput;
       }
@@ -182,16 +212,26 @@ export const elevatedAdminProcedure = t.procedure.use(
       rawInput = optsRecord.rawInput;
     }
 
-    const inputPassword = (rawInput && typeof rawInput === "object" && "password" in rawInput && typeof (rawInput as { password: unknown }).password === "string")
-      ? (rawInput as { password: string }).password
-      : undefined;
-    const expectedPassword = ENV.adminAccessPassword || process.env.ADMIN_ACCESS_PASSWORD || "";
-    const hasInlinePassword = Boolean(inputPassword && expectedPassword && timingSafeCompare(inputPassword, expectedPassword));
+    const inputPassword =
+      rawInput &&
+      typeof rawInput === "object" &&
+      "password" in rawInput &&
+      typeof (rawInput as { password: unknown }).password === "string"
+        ? (rawInput as { password: string }).password
+        : undefined;
+    const expectedPassword =
+      ENV.adminAccessPassword || process.env.ADMIN_ACCESS_PASSWORD || "";
+    const hasInlinePassword = Boolean(
+      inputPassword &&
+      expectedPassword &&
+      timingSafeCompare(inputPassword, expectedPassword)
+    );
 
     if (!hasActiveSession && !hasInlinePassword) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Administrator elevation session required or expired. Please re-verify password.",
+        message:
+          "Administrator elevation session required or expired. Please re-verify password.",
       });
     }
 
@@ -202,7 +242,7 @@ export const elevatedAdminProcedure = t.procedure.use(
         adminElevation: ctx.adminElevation,
       },
     });
-  }),
+  })
 );
 
 export const permissionProcedure = {
@@ -229,7 +269,7 @@ export const permissionProcedure = {
  *  4. Returns cached response if replay detected.
  *  5. Executes handler, stores result on success.
  */
-export const idempotent = t.middleware(async (opts) => {
+export const idempotent = t.middleware(async opts => {
   const { ctx, next } = opts;
 
   // Extract rawInput using getRawInput() if available (tRPC v11)
@@ -237,7 +277,9 @@ export const idempotent = t.middleware(async (opts) => {
   const optsRecord = opts as Record<string, unknown>;
   if (typeof optsRecord.getRawInput === "function") {
     try {
-      rawInput = await (optsRecord.getRawInput as () => unknown | Promise<unknown>)();
+      rawInput = await (
+        optsRecord.getRawInput as () => unknown | Promise<unknown>
+      )();
     } catch {
       rawInput = optsRecord.rawInput;
     }
@@ -265,7 +307,7 @@ export const idempotent = t.middleware(async (opts) => {
     ctx.user.id,
     idempotencyKey,
     route,
-    requestHash,
+    requestHash
   );
 
   if (claim.outcome === "conflict") {
@@ -275,7 +317,8 @@ export const idempotent = t.middleware(async (opts) => {
   if (claim.outcome === "in_progress") {
     throw new TRPCError({
       code: "CONFLICT",
-      message: "একই ইডেমপোটেন্সি কী নিয়ে আরেকটি অনুরোধ চলছে; একটু পরে আবার চেষ্টা করুন।",
+      message:
+        "একই ইডেমপোটেন্সি কী নিয়ে আরেকটি অনুরোধ চলছে; একটু পরে আবার চেষ্টা করুন।",
     });
   }
 
@@ -305,7 +348,7 @@ export const idempotent = t.middleware(async (opts) => {
         idempotencyKey,
         route,
         200, // successful mutations return 200
-        result.data,
+        result.data
       );
     } catch {
       // Best-effort: if finalize fails, still return the result
@@ -325,4 +368,3 @@ export const idempotent = t.middleware(async (opts) => {
  *     .input(z.object({ idempotencyKey: z.string(), ... }))
  *     .mutation(async ({ ctx, input }) => { ... })
  */
-

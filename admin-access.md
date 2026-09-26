@@ -12,10 +12,10 @@ Admin-ও প্রথমে Google OAuth অথবা ইমেইল/পাস
 
 সফল যাচাইয়ের পর Admin control dialog-এ কেবল administrator-এর জন্য নিম্নলিখিত system-management তথ্য দেখা যায়:
 
-| অংশ | কী দেখা যায় |
-|---|---|
-| Audit log | Create, update ও delete-সংক্রান্ত activity, actor, project এবং সময় |
-| সব Project | Project name ও owner পরিচিতি |
-| নিবন্ধিত ব্যবহারকারী | ব্যবহারকারীর display identity, role এবং সর্বশেষ সাইন-ইন |
+| অংশ                  | কী দেখা যায়                                                        |
+| -------------------- | ------------------------------------------------------------------- |
+| Audit log            | Create, update ও delete-সংক্রান্ত activity, actor, project এবং সময় |
+| সব Project           | Project name ও owner পরিচিতি                                        |
+| নিবন্ধিত ব্যবহারকারী | ব্যবহারকারীর display identity, role এবং সর্বশেষ সাইন-ইন             |
 
 Audit log নতুন create, update ও delete action-এ append হয়; UI থেকে এটি edit বা delete করার কোনো সুবিধা নেই। Admin monitoring interface ব্যবহারকারীর ব্যক্তিগত finance records-এর সরাসরি editing surface দেয় না; এটি user privacy ও project isolation বজায় রাখে।

@@ -9,7 +9,10 @@ export type HouseholdChartPdfHeader = {
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 
-export function householdChartExportFilename(kind: HouseholdChartExportKind, date = new Date()) {
+export function householdChartExportFilename(
+  kind: HouseholdChartExportKind,
+  date = new Date()
+) {
   const suffix = kind === "image" ? "png" : "pdf";
   return `household-member-monthly-comparison-${date.toISOString().slice(0, 10)}.${suffix}`;
 }
@@ -31,9 +34,11 @@ async function captureChart(element: HTMLElement) {
     scale: Math.min(2, window.devicePixelRatio || 1),
     useCORS: true,
     onclone: documentClone => {
-      documentClone.querySelectorAll("[data-chart-export-hide]").forEach(node => {
-        (node as HTMLElement).style.display = "none";
-      });
+      documentClone
+        .querySelectorAll("[data-chart-export-hide]")
+        .forEach(node => {
+          (node as HTMLElement).style.display = "none";
+        });
     },
   });
 }
@@ -44,7 +49,8 @@ async function addBengaliFont(doc: jsPDF) {
   const fontBuffer: ArrayBuffer = await response.arrayBuffer();
   const bytes = new Uint8Array(fontBuffer);
   let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
+  for (let index = 0; index < bytes.length; index += 1)
+    binary += String.fromCharCode(bytes[index]);
   doc.addFileToVFS("NotoSansBengali-Regular.ttf", btoa(binary));
   doc.addFont("NotoSansBengali-Regular.ttf", "NotoSansBengali", "normal");
   doc.setFont("NotoSansBengali", "normal");
@@ -52,10 +58,16 @@ async function addBengaliFont(doc: jsPDF) {
 
 export async function downloadHouseholdChartImage(element: HTMLElement) {
   const canvas = await captureChart(element);
-  triggerDownload(canvas.toDataURL("image/png"), householdChartExportFilename("image"));
+  triggerDownload(
+    canvas.toDataURL("image/png"),
+    householdChartExportFilename("image")
+  );
 }
 
-export async function downloadHouseholdChartPdf(element: HTMLElement, header: HouseholdChartPdfHeader) {
+export async function downloadHouseholdChartPdf(
+  element: HTMLElement,
+  header: HouseholdChartPdfHeader
+) {
   const canvas = await captureChart(element);
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
@@ -77,6 +89,15 @@ export async function downloadHouseholdChartPdf(element: HTMLElement, header: Ho
   const maxHeight = pageHeight - imageTop - margin;
   const width = Math.min(maxWidth, maxHeight / imageRatio);
   const height = width * imageRatio;
-  doc.addImage(canvas.toDataURL("image/png"), "PNG", (pageWidth - width) / 2, imageTop + (maxHeight - height) / 2, width, height, undefined, "FAST");
+  doc.addImage(
+    canvas.toDataURL("image/png"),
+    "PNG",
+    (pageWidth - width) / 2,
+    imageTop + (maxHeight - height) / 2,
+    width,
+    height,
+    undefined,
+    "FAST"
+  );
   doc.save(householdChartExportFilename("pdf"));
 }

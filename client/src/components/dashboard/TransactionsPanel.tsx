@@ -1,6 +1,15 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Printer, Trash2, ChevronLeft, ChevronRight, Search, ListFilter } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Printer,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ListFilter,
+} from "lucide-react";
 import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
@@ -67,7 +76,13 @@ export function TransactionsPanel({
     if (!isVirtualMode) return paginatedRows;
     // eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual exposes startIndex/endIndex as refs
     return filteredRows.slice(virtualizer.startIndex, virtualizer.endIndex + 1);
-  }, [isVirtualMode, filteredRows, paginatedRows, virtualizer.startIndex, virtualizer.endIndex]);
+  }, [
+    isVirtualMode,
+    filteredRows,
+    paginatedRows,
+    virtualizer.startIndex,
+    virtualizer.endIndex,
+  ]);
 
   return (
     <article className="finance-card p-5 sm:p-6">
@@ -218,7 +233,9 @@ export function TransactionsPanel({
               <tr>
                 <td colSpan={6}>
                   <p className="py-6 text-center text-sm text-[#7b8d84]">
-                    {searchQuery ? "অনুসন্ধানের সাথে কোনো লেনদেন মেলেনি" : "এই ফিল্টারে কোনো লেনদেন নেই"}
+                    {searchQuery
+                      ? "অনুসন্ধানের সাথে কোনো লেনদেন মেলেনি"
+                      : "এই ফিল্টারে কোনো লেনদেন নেই"}
                   </p>
                 </td>
               </tr>

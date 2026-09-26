@@ -9,12 +9,21 @@ import { eq, and, desc, sql, type SQL } from "drizzle-orm";
 import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
 import { auditLogs } from "../drizzle/schema";
 
-export async function saveHealthSnapshot(_input: { probeId: string; status: string; latencyMs?: number }): Promise<void> {
+export async function saveHealthSnapshot(_input: {
+  probeId: string;
+  status: string;
+  latencyMs?: number;
+}): Promise<void> {
   // Health snapshots are recorded via audit_logs — this is a no-op stub
   // for backward compatibility with healthChecks.ts
 }
 
-export async function getDriveConnection(_userId: number): Promise<{ revokedAt: Date | null; rootFolderName: string | null; accessToken?: string; refreshToken?: string } | null> {
+export async function getDriveConnection(_userId: number): Promise<{
+  revokedAt: Date | null;
+  rootFolderName: string | null;
+  accessToken?: string;
+  refreshToken?: string;
+} | null> {
   return null;
 }
 
@@ -25,7 +34,12 @@ export async function getDriveConnection(_userId: number): Promise<{ revokedAt: 
 export async function lastBackupForKind(
   userId: number,
   _kind: string
-): Promise<{ verifiedAt: Date | null; backupId: string; fileName: string | null; recordCountsJson: string | null } | null> {
+): Promise<{
+  verifiedAt: Date | null;
+  backupId: string;
+  fileName: string | null;
+  recordCountsJson: string | null;
+} | null> {
   const { getDb, databaseRequired } = await import("./db");
   const db = databaseRequired(await getDb());
 
@@ -81,7 +95,9 @@ export async function lastBackupForKind(
 /**
  * Count pending and failed backups from recent audit logs.
  */
-export async function backupStatusSummary(_userId: number): Promise<{ pending: number; failed: number }> {
+export async function backupStatusSummary(
+  _userId: number
+): Promise<{ pending: number; failed: number }> {
   // Without a dedicated backup_records table, we can't track pending/failed.
   // Return 0,0 — the integrity verification in scheduledBackup.ts handles failures.
   return { pending: 0, failed: 0 };
@@ -90,27 +106,43 @@ export async function backupStatusSummary(_userId: number): Promise<{ pending: n
 /**
  * Count records in a project for backup manifest verification.
  */
-export async function countProjectRecords(userId: number, projectId: number): Promise<Record<string, number>> {
+export async function countProjectRecords(
+  userId: number,
+  projectId: number
+): Promise<Record<string, number>> {
   const { getDb, databaseRequired, assertOwnedProject } = await import("./db");
   const {
-    financeTransactions, financeAccounts, financeCategories, financeBudgets,
-    financeBills, financeDues, financeVouchers, financeChartOfAccounts,
-    financeVoucherDebits, financeVoucherCredits, financeLedgerEntries,
-    financeJournalEntries, financeJournalLines,
+    financeTransactions,
+    financeAccounts,
+    financeCategories,
+    financeBudgets,
+    financeBills,
+    financeDues,
+    financeVouchers,
+    financeChartOfAccounts,
+    financeVoucherDebits,
+    financeVoucherCredits,
+    financeLedgerEntries,
+    financeJournalEntries,
+    financeJournalLines,
   } = await import("../drizzle/schema");
 
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
   const countTable = async (table: MySqlTable, conditions: SQL[]) => {
-    const [result] = await db.select({ count: sql<number>`count(*)` }).from(table).where(and(...conditions));
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(table)
+      .where(and(...conditions));
     return Number(result?.count ?? 0);
   };
 
   const projectIdColumn = (table: MySqlTable): AnyMySqlColumn => {
-    const columns = (table as unknown as { [key: string]: unknown });
+    const columns = table as unknown as { [key: string]: unknown };
     const column = columns.projectId;
-    if (!column || typeof column !== "object") throw new Error("projectId column missing");
+    if (!column || typeof column !== "object")
+      throw new Error("projectId column missing");
     return column as AnyMySqlColumn;
   };
 
@@ -125,7 +157,9 @@ export async function countProjectRecords(userId: number, projectId: number): Pr
     );
   const voucherIds = voucherRows.map(row => row.id);
 
-  const countByVoucherIds = async (table: MySqlTable & { voucherId?: unknown }) => {
+  const countByVoucherIds = async (
+    table: MySqlTable & { voucherId?: unknown }
+  ) => {
     if (!voucherIds.length) return 0;
     const col = (table as unknown as { voucherId?: unknown }).voucherId;
     if (!col || typeof col !== "object") return 0;
@@ -151,14 +185,28 @@ export async function countProjectRecords(userId: number, projectId: number): Pr
   }
 
   return {
-    transactions: await countTable(financeTransactions, [sql`${projectIdColumn(financeTransactions)} = ${projectId}`]),
-    accounts: await countTable(financeAccounts, [sql`${projectIdColumn(financeAccounts)} = ${projectId}`]),
-    categories: await countTable(financeCategories, [sql`${projectIdColumn(financeCategories)} = ${projectId}`]),
-    budgets: await countTable(financeBudgets, [sql`${projectIdColumn(financeBudgets)} = ${projectId}`]),
-    bills: await countTable(financeBills, [sql`${projectIdColumn(financeBills)} = ${projectId}`]),
-    dues: await countTable(financeDues, [sql`${projectIdColumn(financeDues)} = ${projectId}`]),
+    transactions: await countTable(financeTransactions, [
+      sql`${projectIdColumn(financeTransactions)} = ${projectId}`,
+    ]),
+    accounts: await countTable(financeAccounts, [
+      sql`${projectIdColumn(financeAccounts)} = ${projectId}`,
+    ]),
+    categories: await countTable(financeCategories, [
+      sql`${projectIdColumn(financeCategories)} = ${projectId}`,
+    ]),
+    budgets: await countTable(financeBudgets, [
+      sql`${projectIdColumn(financeBudgets)} = ${projectId}`,
+    ]),
+    bills: await countTable(financeBills, [
+      sql`${projectIdColumn(financeBills)} = ${projectId}`,
+    ]),
+    dues: await countTable(financeDues, [
+      sql`${projectIdColumn(financeDues)} = ${projectId}`,
+    ]),
     vouchers: voucherIds.length,
-    chartOfAccounts: await countTable(financeChartOfAccounts, [sql`${projectIdColumn(financeChartOfAccounts)} = ${projectId}`]),
+    chartOfAccounts: await countTable(financeChartOfAccounts, [
+      sql`${projectIdColumn(financeChartOfAccounts)} = ${projectId}`,
+    ]),
     voucherDebits: await countByVoucherIds(financeVoucherDebits as never),
     voucherCredits: await countByVoucherIds(financeVoucherCredits as never),
     ledgerEntries: await countByVoucherIds(financeLedgerEntries as never),

@@ -9,7 +9,9 @@ import {
 describe("amount to words", () => {
   it("converts Bengali numbers using crore/lakh/housand groups", () => {
     expect(bengaliNumberWords(0)).toBe("শূন্য");
-    expect(bengaliNumberWords(1500).replace(/\s+/g, " ")).toBe("এক হাজার পাঁচশ");
+    expect(bengaliNumberWords(1500).replace(/\s+/g, " ")).toBe(
+      "এক হাজার পাঁচশ"
+    );
     expect(bengaliNumberWords(100000).replace(/\s+/g, " ")).toBe("এক লাখ");
     expect(bengaliNumberWords(12000000).replace(/\s+/g, " ")).toBe(
       "এক কোটি বিশ লাখ"

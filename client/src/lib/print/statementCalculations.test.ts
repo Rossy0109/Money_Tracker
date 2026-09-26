@@ -30,8 +30,18 @@ function txn(overrides: Partial<PrintTransaction>): PrintTransaction {
 describe("statement calculations", () => {
   it("computes a chronological running balance from the opening balance", () => {
     const items = [
-      txn({ id: 1, type: "income", amount: 300, occurredAt: "2026-09-15T06:00:00.000Z" }),
-      txn({ id: 2, type: "expense", amount: 100, occurredAt: "2026-09-15T07:00:00.000Z" }),
+      txn({
+        id: 1,
+        type: "income",
+        amount: 300,
+        occurredAt: "2026-09-15T06:00:00.000Z",
+      }),
+      txn({
+        id: 2,
+        type: "expense",
+        amount: 100,
+        occurredAt: "2026-09-15T07:00:00.000Z",
+      }),
     ];
     const rows = withRunningBalance(items, 500);
     expect(rows.map(row => row.runningBalance)).toEqual([800, 700]);
@@ -39,9 +49,24 @@ describe("statement calculations", () => {
 
   it("aggregates transactions by day with income/expense/net", () => {
     const items = [
-      txn({ id: 1, type: "income", amount: 250, occurredAt: "2026-09-15T06:00:00.000Z" }),
-      txn({ id: 2, type: "expense", amount: 50, occurredAt: "2026-09-15T07:00:00.000Z" }),
-      txn({ id: 3, type: "income", amount: 100, occurredAt: "2026-09-16T06:00:00.000Z" }),
+      txn({
+        id: 1,
+        type: "income",
+        amount: 250,
+        occurredAt: "2026-09-15T06:00:00.000Z",
+      }),
+      txn({
+        id: 2,
+        type: "expense",
+        amount: 50,
+        occurredAt: "2026-09-15T07:00:00.000Z",
+      }),
+      txn({
+        id: 3,
+        type: "income",
+        amount: 100,
+        occurredAt: "2026-09-16T06:00:00.000Z",
+      }),
     ];
     const days = aggregateByDay(items);
     expect(days).toHaveLength(2);
@@ -67,9 +92,24 @@ describe("statement calculations", () => {
 
   it("builds a monthly summary sorted by month key", () => {
     const items = [
-      txn({ id: 1, type: "income", amount: 1000, occurredAt: "2026-08-03T06:00:00.000Z" }),
-      txn({ id: 2, type: "expense", amount: 200, occurredAt: "2026-08-20T06:00:00.000Z" }),
-      txn({ id: 3, type: "income", amount: 500, occurredAt: "2026-09-01T06:00:00.000Z" }),
+      txn({
+        id: 1,
+        type: "income",
+        amount: 1000,
+        occurredAt: "2026-08-03T06:00:00.000Z",
+      }),
+      txn({
+        id: 2,
+        type: "expense",
+        amount: 200,
+        occurredAt: "2026-08-20T06:00:00.000Z",
+      }),
+      txn({
+        id: 3,
+        type: "income",
+        amount: 500,
+        occurredAt: "2026-09-01T06:00:00.000Z",
+      }),
     ];
     const months = monthlySummary(items);
     expect(months.map(month => month.monthKey)).toEqual(["2026-08", "2026-09"]);
@@ -81,8 +121,22 @@ describe("statement calculations", () => {
   it("totals closing balance = opening + income - expense", () => {
     const data: StatementData = {
       project: { id: 1, name: "খাতা" },
-      firm: { name: "Ahmed's Financial Accounting", tagline: "", phone: "", email: "", address: "" },
-      accounts: [{ id: 1, name: "ক্যাশ", type: "cash", openingBalance: 1000, currentBalance: 1250 }],
+      firm: {
+        name: "Ahmed's Financial Accounting",
+        tagline: "",
+        phone: "",
+        email: "",
+        address: "",
+      },
+      accounts: [
+        {
+          id: 1,
+          name: "ক্যাশ",
+          type: "cash",
+          openingBalance: 1000,
+          currentBalance: 1250,
+        },
+      ],
       items: [
         txn({ id: 1, type: "income", amount: 400 }),
         txn({ id: 2, type: "expense", amount: 150 }),

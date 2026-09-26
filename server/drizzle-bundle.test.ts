@@ -9,8 +9,13 @@ import { describe, expect, it } from "vitest";
  */
 describe("drizzle runtime availability", () => {
   it("server/_core/dbConnection.ts imports drizzle from drizzle-orm/mysql2", () => {
-    const src = readFileSync(new URL("./_core/dbConnection.ts", import.meta.url), "utf8");
-    expect(src).toMatch(/import\s*\{\s*drizzle\s*\}\s*from\s*["']drizzle-orm\/mysql2["']/);
+    const src = readFileSync(
+      new URL("./_core/dbConnection.ts", import.meta.url),
+      "utf8"
+    );
+    expect(src).toMatch(
+      /import\s*\{\s*drizzle\s*\}\s*from\s*["']drizzle-orm\/mysql2["']/
+    );
     expect(src).toMatch(/_db\s*=\s*drizzle\(/);
   });
 
@@ -22,7 +27,10 @@ describe("drizzle runtime availability", () => {
   });
 
   it("does not reference an undeclared drizzle identifier", () => {
-    const src = readFileSync(new URL("./_core/dbConnection.ts", import.meta.url), "utf8");
+    const src = readFileSync(
+      new URL("./_core/dbConnection.ts", import.meta.url),
+      "utf8"
+    );
     // Every bare `drizzle(` call site must be covered by the named import above.
     const importLine = src
       .split("\n")
@@ -34,18 +42,24 @@ describe("drizzle runtime availability", () => {
   it.runIf(existsSync(new URL("../dist/vercel-handler.js", import.meta.url)))(
     "bundled vercel handler retains drizzle-orm/mysql2 import",
     () => {
-      const bundle = readFileSync(new URL("../dist/vercel-handler.js", import.meta.url), "utf8");
+      const bundle = readFileSync(
+        new URL("../dist/vercel-handler.js", import.meta.url),
+        "utf8"
+      );
       expect(bundle).toContain('from "drizzle-orm/mysql2"');
       expect(bundle).toMatch(/_db\s*=\s*drizzle\(/);
-    },
+    }
   );
 
   it.runIf(existsSync(new URL("../dist/index.js", import.meta.url)))(
     "bundled node server retains drizzle-orm/mysql2 import",
     () => {
-      const bundle = readFileSync(new URL("../dist/index.js", import.meta.url), "utf8");
+      const bundle = readFileSync(
+        new URL("../dist/index.js", import.meta.url),
+        "utf8"
+      );
       expect(bundle).toContain('from "drizzle-orm/mysql2"');
       expect(bundle).toMatch(/_db\s*=\s*drizzle\(/);
-    },
+    }
   );
 });

@@ -11,15 +11,15 @@ PWA সুবিধার জন্য `manifest.webmanifest`, অ্যাপ �
 
 ## নিয়ন্ত্রিত ফলাফল
 
-| ক্ষেত্র | যাচাই | ফলাফল |
-|---|---|---|
-| Android Chrome এমুলেশন | খালি প্রোফাইলে সাইন-ইন গেট, আর্থিক নিয়ন্ত্রণ লুকানো, manifest ও offline worker | পাস |
-| iPhone Safari (WebKit) এমুলেশন | খালি প্রোফাইলে সাইন-ইন গেট, আর্থিক নিয়ন্ত্রণ লুকানো, manifest link | পাস |
-| PDF/PNG export | lazy-import wiring এবং PDF/chart helper-এর রিগ্রেশন | পাস |
-| restore recovery | ব্যর্থ বা বাতিল রিস্টোরে উৎস প্রজেক্ট অক্ষত; নিশ্চিত রিস্টোর আলাদা প্রজেক্টে | পাস |
-| বিচ্ছিন্ন database E2E | role, invitation এবং restore recovery বাস্তব tRPC-to-MariaDB প্রবাহ | পাস |
-| সাধারণ রিগ্রেশন | ৩৬টি টেস্ট ফাইল, ১১২টি টেস্ট | পাস |
-| TypeScript ও production build | `pnpm check`, `pnpm build` | পাস |
+| ক্ষেত্র                        | যাচাই                                                                          | ফলাফল |
+| ------------------------------ | ------------------------------------------------------------------------------ | ----- |
+| Android Chrome এমুলেশন         | খালি প্রোফাইলে সাইন-ইন গেট, আর্থিক নিয়ন্ত্রণ লুকানো, manifest ও offline worker | পাস   |
+| iPhone Safari (WebKit) এমুলেশন | খালি প্রোফাইলে সাইন-ইন গেট, আর্থিক নিয়ন্ত্রণ লুকানো, manifest link             | পাস   |
+| PDF/PNG export                 | lazy-import wiring এবং PDF/chart helper-এর রিগ্রেশন                            | পাস   |
+| restore recovery               | ব্যর্থ বা বাতিল রিস্টোরে উৎস প্রজেক্ট অক্ষত; নিশ্চিত রিস্টোর আলাদা প্রজেক্টে   | পাস   |
+| বিচ্ছিন্ন database E2E         | role, invitation এবং restore recovery বাস্তব tRPC-to-MariaDB প্রবাহ            | পাস   |
+| সাধারণ রিগ্রেশন                | ৩৬টি টেস্ট ফাইল, ১১২টি টেস্ট                                                   | পাস   |
+| TypeScript ও production build  | `pnpm check`, `pnpm build`                                                     | পাস   |
 
 ## CI ব্যবস্থা
 

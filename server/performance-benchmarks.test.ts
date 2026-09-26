@@ -81,7 +81,9 @@ describe("Performance & Scalability Benchmark Suite", () => {
       const distDir = path.resolve(process.cwd(), "dist");
       if (!fs.existsSync(distDir)) {
         if (process.env.CI) {
-          console.warn("Skipping bundle size check in CI: dist directory not available (build runs in separate job).");
+          console.warn(
+            "Skipping bundle size check in CI: dist directory not available (build runs in separate job)."
+          );
           return;
         }
         throw new Error(

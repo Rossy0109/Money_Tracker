@@ -9,35 +9,57 @@ export interface AuthGatingUser {
   permissions?: string[];
 }
 
-const ADMIN_ROLES: Set<string> = new Set([ROLE_NAMES.SUPER_ADMIN, ROLE_NAMES.SYSTEM_ADMIN]);
+const ADMIN_ROLES: Set<string> = new Set([
+  ROLE_NAMES.SUPER_ADMIN,
+  ROLE_NAMES.SYSTEM_ADMIN,
+]);
 
-export function getUserRoles(user: AuthGatingUser | null | undefined): string[] {
+export function getUserRoles(
+  user: AuthGatingUser | null | undefined
+): string[] {
   return Array.isArray(user?.roles) ? user.roles : [];
 }
 
-export function getUserPermissions(user: AuthGatingUser | null | undefined): string[] {
+export function getUserPermissions(
+  user: AuthGatingUser | null | undefined
+): string[] {
   return Array.isArray(user?.permissions) ? user.permissions : [];
 }
 
-export function hasRole(user: AuthGatingUser | null | undefined, roleName: string): boolean {
+export function hasRole(
+  user: AuthGatingUser | null | undefined,
+  roleName: string
+): boolean {
   return getUserRoles(user).includes(roleName);
 }
 
-export function hasAnyRole(user: AuthGatingUser | null | undefined, roleNames: string[]): boolean {
+export function hasAnyRole(
+  user: AuthGatingUser | null | undefined,
+  roleNames: string[]
+): boolean {
   const roles = getUserRoles(user);
   return roleNames.some(r => roles.includes(r));
 }
 
-export function hasPermission(user: AuthGatingUser | null | undefined, permission: string): boolean {
+export function hasPermission(
+  user: AuthGatingUser | null | undefined,
+  permission: string
+): boolean {
   return getUserPermissions(user).includes(permission);
 }
 
-export function hasAnyPermission(user: AuthGatingUser | null | undefined, permissions: string[]): boolean {
+export function hasAnyPermission(
+  user: AuthGatingUser | null | undefined,
+  permissions: string[]
+): boolean {
   const perms = getUserPermissions(user);
   return permissions.some(p => perms.includes(p));
 }
 
-export function hasAllPermissions(user: AuthGatingUser | null | undefined, permissions: string[]): boolean {
+export function hasAllPermissions(
+  user: AuthGatingUser | null | undefined,
+  permissions: string[]
+): boolean {
   const perms = getUserPermissions(user);
   return permissions.every(p => perms.includes(p));
 }
@@ -54,22 +76,32 @@ export function isAdminUser(user: AuthGatingUser | null | undefined): boolean {
   return getUserRoles(user).some(r => ADMIN_ROLES.has(r));
 }
 
-export function isInputOnlyUser(user: AuthGatingUser | null | undefined): boolean {
+export function isInputOnlyUser(
+  user: AuthGatingUser | null | undefined
+): boolean {
   if (getUserRoles(user).includes(ROLE_NAMES.INPUT_OPERATOR)) return true;
   const perms = getUserPermissions(user);
   // Migration fallback only: when no RBAC data is attached yet, honor the
   // legacy flag so the UI fails closed. Real RBAC data always wins.
-  if (perms.length === 0 && getUserRoles(user).length === 0) return user?.role === "input_only";
+  if (perms.length === 0 && getUserRoles(user).length === 0)
+    return user?.role === "input_only";
   if (perms.length === 0) return false;
   return perms.every(p => p.startsWith("auth.") || p.endsWith(".create"));
 }
 
-export function isFinanceAdmin(user: AuthGatingUser | null | undefined): boolean {
+export function isFinanceAdmin(
+  user: AuthGatingUser | null | undefined
+): boolean {
   const roles = getUserRoles(user);
-  return roles.includes(ROLE_NAMES.SUPER_ADMIN) || roles.includes(ROLE_NAMES.ACCOUNTING_ADMIN);
+  return (
+    roles.includes(ROLE_NAMES.SUPER_ADMIN) ||
+    roles.includes(ROLE_NAMES.ACCOUNTING_ADMIN)
+  );
 }
 
-export function getDisplayRole(user: AuthGatingUser | null | undefined): string {
+export function getDisplayRole(
+  user: AuthGatingUser | null | undefined
+): string {
   const roles = getUserRoles(user);
   if (roles.includes(ROLE_NAMES.SUPER_ADMIN)) return "সুইট অ্যাডমিন";
   if (roles.includes(ROLE_NAMES.SYSTEM_ADMIN)) return "সিস্টেম অ্যাডমিন";

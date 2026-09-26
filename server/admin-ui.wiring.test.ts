@@ -4,8 +4,14 @@ import { describe, expect, it } from "vitest";
 import { dirnameFromMetaUrl } from "../dirname";
 
 const getCombinedHomeSource = () => {
-  const home = readFileSync(new URL("../client/src/pages/Home.tsx", import.meta.url), "utf8");
-  const dashboardDir = resolve(dirnameFromMetaUrl(import.meta.url), "../client/src/components/dashboard");
+  const home = readFileSync(
+    new URL("../client/src/pages/Home.tsx", import.meta.url),
+    "utf8"
+  );
+  const dashboardDir = resolve(
+    dirnameFromMetaUrl(import.meta.url),
+    "../client/src/components/dashboard"
+  );
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {
@@ -15,7 +21,9 @@ const getCombinedHomeSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch { /* dir may not exist */ }
+    } catch {
+      /* dir may not exist */
+    }
   }
   return combined;
 };
@@ -24,7 +32,9 @@ const homeSource = getCombinedHomeSource();
 
 describe("administrator dashboard wiring", () => {
   it("keeps admin data views gated by verified in-memory password state", () => {
-    expect(homeSource).toContain("const [adminVerified, setAdminVerified] = useState(false)");
+    expect(homeSource).toContain(
+      "const [adminVerified, setAdminVerified] = useState(false)"
+    );
     expect(homeSource).toContain("trpc.admin.verifyAccess.useMutation");
     expect(homeSource).toContain("trpc.admin.auditLogs.useQuery");
     expect(homeSource).toContain("trpc.admin.auditLogExport.useQuery");
@@ -33,10 +43,16 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("const canViewAdminData = canLoadAdminData");
     expect(homeSource).toContain("enabled: canViewAdminData");
     expect(homeSource).toContain("সাম্প্রতিক Audit log");
-    expect(homeSource).toContain("const [auditDateRange, setAuditDateRange] = useState<DateRange | undefined>");
+    expect(homeSource).toContain(
+      "const [auditDateRange, setAuditDateRange] = useState<DateRange | undefined>"
+    );
     expect(homeSource).toContain("setAuditDateRange");
-    expect(homeSource).toContain("const [auditSearch, setAuditSearch] = useState(\"\")");
-    expect(homeSource).toContain("const [auditActorUserId, setAuditActorUserId] = useState(\"all\")");
+    expect(homeSource).toContain(
+      'const [auditSearch, setAuditSearch] = useState("")'
+    );
+    expect(homeSource).toContain(
+      'const [auditActorUserId, setAuditActorUserId] = useState("all")'
+    );
     expect(homeSource).toContain("ফিল্টার পরিষ্কার করুন");
     expect(homeSource).toContain("সব ব্যবহারকারী");
     expect(homeSource).toContain("কাজ বা কিওয়ার্ড খুঁজুন");
@@ -45,7 +61,9 @@ describe("administrator dashboard wiring", () => {
     expect(homeSource).toContain("কোন কাজ বেশি হয়েছে");
     expect(homeSource).toContain("auditActorRole");
     expect(homeSource).toContain("প্রোফাইলের প্রজেক্ট");
-    expect(homeSource).toContain("const [auditPage, setAuditPage] = useState(1)");
+    expect(homeSource).toContain(
+      "const [auditPage, setAuditPage] = useState(1)"
+    );
     expect(homeSource).toContain("CSV ডাউনলোড");
     expect(homeSource).toContain("PDF ডাউনলোড");
     expect(homeSource).toContain("আগের পৃষ্ঠা");

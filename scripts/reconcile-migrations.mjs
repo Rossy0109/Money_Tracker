@@ -29,13 +29,15 @@ function getUrl() {
 }
 
 function isAlreadyExists(msg) {
-  return /already exists|duplicate (key|column|constraint|entry)|duplicate key value/i.test(msg);
+  return /already exists|duplicate (key|column|constraint|entry)|duplicate key value/i.test(
+    msg
+  );
 }
 
 async function tableExists(conn, name) {
   const [rows] = await conn.query(
     "SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
-    [name],
+    [name]
   );
   return Number(rows[0].n) > 0;
 }
@@ -43,7 +45,7 @@ async function tableExists(conn, name) {
 async function columnExists(conn, table, column) {
   const [rows] = await conn.query(
     "SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
-    [table, column],
+    [table, column]
   );
   return Number(rows[0].n) > 0;
 }
@@ -51,7 +53,7 @@ async function columnExists(conn, table, column) {
 async function constraintExists(conn, name) {
   const [rows] = await conn.query(
     "SELECT COUNT(*) n FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND constraint_name = ?",
-    [name],
+    [name]
   );
   return Number(rows[0].n) > 0;
 }
@@ -59,7 +61,7 @@ async function constraintExists(conn, name) {
 async function indexExists(conn, name) {
   const [rows] = await conn.query(
     "SELECT COUNT(*) n FROM information_schema.statistics WHERE table_schema = DATABASE() AND index_name = ?",
-    [name],
+    [name]
   );
   return Number(rows[0].n) > 0;
 }
@@ -80,7 +82,9 @@ async function runStatement(conn, sql, label) {
       console.log(`  skip [${label}] already exists — ${msg.slice(0, 80)}`);
       return "skip";
     }
-    throw new Error(`Statement failed (${label}): ${msg}\nSQL: ${sql.slice(0, 300)}`);
+    throw new Error(
+      `Statement failed (${label}): ${msg}\nSQL: ${sql.slice(0, 300)}`
+    );
   }
 }
 
@@ -125,15 +129,21 @@ async function reconcileFile(conn, fileRel) {
       continue;
     }
 
-    const dropFk = sql.match(/ALTER TABLE `?(\w+)`? DROP FOREIGN KEY `?(\w+)`?/i);
+    const dropFk = sql.match(
+      /ALTER TABLE `?(\w+)`? DROP FOREIGN KEY `?(\w+)`?/i
+    );
     if (dropFk) {
       const [, table, name] = dropFk;
       if (!(await tableExists(conn, table))) {
-        console.log(`  warn [${label}] parent table ${table} missing — cannot drop ${name}`);
+        console.log(
+          `  warn [${label}] parent table ${table} missing — cannot drop ${name}`
+        );
         continue;
       }
       if (!(await constraintExists(conn, name))) {
-        console.log(`  skip [${label}] constraint ${name} already absent (converged)`);
+        console.log(
+          `  skip [${label}] constraint ${name} already absent (converged)`
+        );
         continue;
       }
       await runStatement(conn, sql, label);
@@ -142,11 +152,15 @@ async function reconcileFile(conn, fileRel) {
 
     // NOTE: checked AFTER ADD/DROP CONSTRAINT — the optional COLUMN keyword
     // would otherwise misroute ADD CONSTRAINT statements here.
-    const addColumn = sql.match(/ALTER TABLE `?(\w+)`? ADD (?:COLUMN )?`?(\w+)`?/i);
+    const addColumn = sql.match(
+      /ALTER TABLE `?(\w+)`? ADD (?:COLUMN )?`?(\w+)`?/i
+    );
     if (addColumn) {
       const [, table, col] = addColumn;
       if (!(await tableExists(conn, table))) {
-        console.log(`  warn [${label}] parent table ${table} missing — cannot add ${col}`);
+        console.log(
+          `  warn [${label}] parent table ${table} missing — cannot add ${col}`
+        );
         continue;
       }
       if (await columnExists(conn, table, col)) {
@@ -177,11 +191,15 @@ async function reconcileFile(conn, fileRel) {
         ? [dropIndex[1], dropIndex[2]]
         : [dropIndex[2], dropIndex[1]];
       if (!(await tableExists(conn, table))) {
-        console.log(`  warn [${label}] parent table ${table} missing — cannot drop index ${name}`);
+        console.log(
+          `  warn [${label}] parent table ${table} missing — cannot drop index ${name}`
+        );
         continue;
       }
       if (!(await indexExists(conn, name))) {
-        console.log(`  skip [${label}] index ${name} already absent (converged)`);
+        console.log(
+          `  skip [${label}] index ${name} already absent (converged)`
+        );
         continue;
       }
       await runStatement(conn, sql, label);
@@ -200,7 +218,11 @@ async function ensureUsersColumns(conn) {
     return;
   }
   if (!(await columnExists(conn, "users", "passwordHash"))) {
-    await runStatement(conn, "ALTER TABLE `users` ADD `passwordHash` varchar(255)", "users.passwordHash");
+    await runStatement(
+      conn,
+      "ALTER TABLE `users` ADD `passwordHash` varchar(255)",
+      "users.passwordHash"
+    );
   } else {
     console.log("  skip users.passwordHash already exists");
   }
@@ -208,7 +230,7 @@ async function ensureUsersColumns(conn) {
     await runStatement(
       conn,
       "ALTER TABLE `users` ADD `status` enum('pending','active','suspended') DEFAULT 'pending' NOT NULL",
-      "users.status",
+      "users.status"
     );
   } else {
     console.log("  skip users.status already exists");
@@ -246,7 +268,7 @@ async function report(conn) {
     console.log(`  ${ok ? "OK     " : "MISSING"} ${t}`);
   }
   const [fk] = await conn.query(
-    "SELECT COUNT(*) n FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND constraint_type = 'FOREIGN KEY'",
+    "SELECT COUNT(*) n FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND constraint_type = 'FOREIGN KEY'"
   );
   console.log(`  foreign keys: ${fk[0].n}`);
 }
@@ -278,12 +300,15 @@ async function run() {
     await reconcileFile(conn, "0015_fk-restrict-financial-history.sql");
     await reconcileFile(conn, "0016_schema_drift_repair.sql");
     await reconcileFile(conn, "0017_missing_indexes.sql");
-    await reconcileFile(conn, "0017_missing_indexes.sql");
+    await reconcileFile(
+      conn,
+      "0018_canonical_accounts_and_transaction_idempotency.sql"
+    );
     await report(conn);
     console.log(
       dryRun
         ? "\nDry run complete — no changes applied."
-        : "\nReconciliation complete. Financial data was not modified.",
+        : "\nReconciliation complete. Financial data was not modified."
     );
   } finally {
     await conn.end();

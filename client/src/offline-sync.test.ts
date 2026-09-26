@@ -5,7 +5,9 @@ import type { QueuedOfflineTransaction } from "./lib/offlineQueue";
 class MockOfflineStorage {
   private items: Map<string, QueuedOfflineTransaction> = new Map();
 
-  async queue(item: Omit<QueuedOfflineTransaction, "id" | "createdAt">): Promise<QueuedOfflineTransaction> {
+  async queue(
+    item: Omit<QueuedOfflineTransaction, "id" | "createdAt">
+  ): Promise<QueuedOfflineTransaction> {
     const id = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const record: QueuedOfflineTransaction = {
       ...item,
@@ -142,8 +144,22 @@ describe("client/src/offline-sync.test.ts - Offline Detection, Queue Management,
     });
 
     it("removes individual items and clears queue", async () => {
-      const tx1 = await storage.queue({ projectId: 1, type: "expense", amount: 100, categoryId: 2, paymentMethod: "bKash", occurredAt: "2026-09-12" });
-      const tx2 = await storage.queue({ projectId: 1, type: "expense", amount: 200, categoryId: 2, paymentMethod: "bKash", occurredAt: "2026-09-12" });
+      const tx1 = await storage.queue({
+        projectId: 1,
+        type: "expense",
+        amount: 100,
+        categoryId: 2,
+        paymentMethod: "bKash",
+        occurredAt: "2026-09-12",
+      });
+      const tx2 = await storage.queue({
+        projectId: 1,
+        type: "expense",
+        amount: 200,
+        categoryId: 2,
+        paymentMethod: "bKash",
+        occurredAt: "2026-09-12",
+      });
 
       expect(storage.size()).toBe(2);
       await storage.remove(tx1.id);
@@ -159,24 +175,52 @@ describe("client/src/offline-sync.test.ts - Offline Detection, Queue Management,
 
   describe("Sync Conflicts", () => {
     it("filters out transactions already committed to cloud to prevent duplicate double-charge", async () => {
-      const tx1 = await storage.queue({ projectId: 1, type: "expense", amount: 250, categoryId: 1, paymentMethod: "Cash", occurredAt: "2026-09-12" });
-      const tx2 = await storage.queue({ projectId: 1, type: "expense", amount: 350, categoryId: 2, paymentMethod: "Cash", occurredAt: "2026-09-12" });
+      const tx1 = await storage.queue({
+        projectId: 1,
+        type: "expense",
+        amount: 250,
+        categoryId: 1,
+        paymentMethod: "Cash",
+        occurredAt: "2026-09-12",
+      });
+      const tx2 = await storage.queue({
+        projectId: 1,
+        type: "expense",
+        amount: 350,
+        categoryId: 2,
+        paymentMethod: "Cash",
+        occurredAt: "2026-09-12",
+      });
 
       const existingCloudIds = new Set<string>([tx1.id]);
       const apiSpy = vi.fn().mockResolvedValue({ syncedCount: 1 });
 
-      const result = await runOfflineSync(storage, true, apiSpy, existingCloudIds);
+      const result = await runOfflineSync(
+        storage,
+        true,
+        apiSpy,
+        existingCloudIds
+      );
 
       expect(result.success).toBe(true);
       expect(result.synced).toBe(1); // Only tx2 synced
-      expect(apiSpy).toHaveBeenCalledWith([expect.objectContaining({ id: tx2.id })]);
+      expect(apiSpy).toHaveBeenCalledWith([
+        expect.objectContaining({ id: tx2.id }),
+      ]);
       expect(storage.size()).toBe(0);
     });
   });
 
   describe("Retry Logic", () => {
     it("retains transactions in queue if API mutation fails and retries on subsequent reconnect", async () => {
-      await storage.queue({ projectId: 1, type: "expense", amount: 500, categoryId: 2, paymentMethod: "Cash", occurredAt: "2026-09-12" });
+      await storage.queue({
+        projectId: 1,
+        type: "expense",
+        amount: 500,
+        categoryId: 2,
+        paymentMethod: "Cash",
+        occurredAt: "2026-09-12",
+      });
 
       // First sync attempt fails with 500 error
       const failingApi = vi.fn().mockRejectedValue(new Error("Server 500"));

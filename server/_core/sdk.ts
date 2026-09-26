@@ -35,11 +35,16 @@ class OAuthService {
     this.defaultProvider = defaultProvider;
 
     for (const provider of providers) {
-      logger.info({ name: provider.name }, `[OAuth] Provider ${provider.name} initialized`);
+      logger.info(
+        { name: provider.name },
+        `[OAuth] Provider ${provider.name} initialized`
+      );
     }
 
     if (!this.providers.has(defaultProvider)) {
-      throw new Error(`Default provider "${defaultProvider}" not found in providers`);
+      throw new Error(
+        `Default provider "${defaultProvider}" not found in providers`
+      );
     }
   }
 
@@ -81,8 +86,9 @@ function createOAuthService(): OAuthService {
     });
   }
 
-  const defaultProvider = providers.find(p => p.name === "google") ? "google" :
-                          providers[0]?.name || "mock";
+  const defaultProvider = providers.find(p => p.name === "google")
+    ? "google"
+    : providers[0]?.name || "mock";
 
   return new OAuthService(providers, defaultProvider);
 }
@@ -222,7 +228,10 @@ class SDKServer {
         name,
       };
     } catch (error) {
-      logger.warn({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth] Session verification failed");
+      logger.warn(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[Auth] Session verification failed"
+      );
       return null;
     }
   }
@@ -253,7 +262,10 @@ class SDKServer {
     if (sessionToken) {
       const [revoked] = await db.findRevokedSessionByToken(sessionToken);
       if (revoked) {
-        logger.warn({ openId: session.openId }, "[Auth] Rejected revoked session token");
+        logger.warn(
+          { openId: session.openId },
+          "[Auth] Rejected revoked session token"
+        );
         throw ForbiddenError("Session has been revoked");
       }
     }

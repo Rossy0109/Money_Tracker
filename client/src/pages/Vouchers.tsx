@@ -71,7 +71,7 @@ export default function Vouchers() {
     "all"
   );
 
-  const overview = trpc.finance.overview.useQuery(
+  const chartOfAccounts = trpc.finance.getChartOfAccounts.useQuery(
     { projectId },
     { enabled: projectId > 0 }
   );
@@ -92,6 +92,7 @@ export default function Vouchers() {
 
   const refresh = async () => {
     await utils.finance.voucherList.invalidate({ projectId });
+    await utils.finance.getChartOfAccounts.invalidate({ projectId });
     await utils.finance.overview.invalidate({ projectId });
   };
 
@@ -211,7 +212,9 @@ export default function Vouchers() {
       list.map((entry, i) => (i === index ? { ...entry, ...patch } : entry))
     );
 
-  const accounts = overview.data?.accounts ?? [];
+  const accounts = (chartOfAccounts.data ?? []).filter(
+    account => account.isActive && account.isDetail
+  );
   const rows = vouchers.data ?? [];
   const busy =
     createVoucher.isPending ||

@@ -2,7 +2,10 @@ import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import * as React from "react";
-import { DialogCompositionContext, useDialogComposition } from "@/components/ui/dialog-composition";
+import {
+  DialogCompositionContext,
+  useDialogComposition,
+} from "@/components/ui/dialog-composition";
 
 function Dialog({
   ...props
@@ -189,6 +192,5 @@ export {
   DialogOverlay,
   DialogPortal,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 };
-

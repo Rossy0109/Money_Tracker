@@ -4,12 +4,31 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import { bdt } from "@/lib/utils";
 import { useActiveProject } from "@/lib/activeProject";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Users,
@@ -39,17 +58,24 @@ async function addBengaliFont(doc: jsPDF) {
     doc.addFileToVFS("NotoSansBengali-Regular.ttf", btoa(binary));
     doc.addFont("NotoSansBengali-Regular.ttf", "NotoSansBengali", "normal");
     doc.setFont("NotoSansBengali", "normal");
-    } catch (err) {
-      // Font embedding is best-effort — PDF still renders with fallback metrics.
-      console.warn("party-ledger: Bengali font embed skipped", err instanceof Error ? err.message : String(err));
-    }
+  } catch (err) {
+    // Font embedding is best-effort — PDF still renders with fallback metrics.
+    console.warn(
+      "party-ledger: Bengali font embed skipped",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 export default function PartyLedger() {
   const { activeProjectId: projectId } = useActiveProject();
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "receivable" | "debt" | "due_only">("all");
-  const [selectedPartyName, setSelectedPartyName] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "receivable" | "debt" | "due_only"
+  >("all");
+  const [selectedPartyName, setSelectedPartyName] = useState<string | null>(
+    null
+  );
 
   // Settlement Dialog State
   const [settlementDialogOpen, setSettlementDialogOpen] = useState(false);
@@ -59,8 +85,14 @@ export default function PartyLedger() {
   const [settlementNote, setSettlementNote] = useState("");
 
   const utils = trpc.useUtils();
-  const overviewQuery = trpc.finance.overview.useQuery({ projectId: projectId! }, { enabled: !!projectId });
-  const invoicesQuery = trpc.finance.invoices.useQuery({ projectId: projectId! }, { enabled: !!projectId });
+  const overviewQuery = trpc.finance.overview.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
+  const invoicesQuery = trpc.finance.invoices.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
 
   const settleMutation = trpc.finance.settleDue.useMutation({
     onSuccess: async () => {
@@ -70,15 +102,21 @@ export default function PartyLedger() {
       setSettlementNote("");
       await utils.finance.overview.invalidate();
     },
-    onError: (err) => {
+    onError: err => {
       toast.error(err.message || "সমন্বয় করা যায়নি");
     },
   });
 
   // Wrap with useMemo to keep stable reference across renders
-  const dues = useMemo(() => overviewQuery.data?.dues || [], [overviewQuery.data]);
+  const dues = useMemo(
+    () => overviewQuery.data?.dues || [],
+    [overviewQuery.data]
+  );
   const accounts = overviewQuery.data?.accounts || [];
-  const invoices = useMemo(() => invoicesQuery.data || [], [invoicesQuery.data]);
+  const invoices = useMemo(
+    () => invoicesQuery.data || [],
+    [invoicesQuery.data]
+  );
 
   // Group and synthesize parties from dues, settlements, and invoices
   const parties = useMemo(() => {
@@ -178,13 +216,16 @@ export default function PartyLedger() {
   }, [dues, invoices]);
 
   // Summary Totals
-  const totalReceivable = parties.reduce((sum, p) => sum + p.outstandingReceivable, 0);
+  const totalReceivable = parties.reduce(
+    (sum, p) => sum + p.outstandingReceivable,
+    0
+  );
   const totalDebt = parties.reduce((sum, p) => sum + p.outstandingDebt, 0);
   const netBalance = totalReceivable - totalDebt;
 
   // Filtered Parties - useMemo now depends on stable dues/invoices refs
   const filteredParties = useMemo(() => {
-    return parties.filter((p) => {
+    return parties.filter(p => {
       const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.phone && p.phone.includes(searchQuery));
@@ -193,7 +234,8 @@ export default function PartyLedger() {
 
       if (typeFilter === "receivable") return p.outstandingReceivable > 0;
       if (typeFilter === "debt") return p.outstandingDebt > 0;
-      if (typeFilter === "due_only") return p.outstandingReceivable > 0 || p.outstandingDebt > 0;
+      if (typeFilter === "due_only")
+        return p.outstandingReceivable > 0 || p.outstandingDebt > 0;
 
       return true;
     });
@@ -204,7 +246,11 @@ export default function PartyLedger() {
     if (!selectedPartyName && filteredParties.length > 0) {
       return filteredParties[0];
     }
-    return parties.find((p) => p.name === selectedPartyName) || filteredParties[0] || null;
+    return (
+      parties.find(p => p.name === selectedPartyName) ||
+      filteredParties[0] ||
+      null
+    );
   }, [parties, filteredParties, selectedPartyName]);
 
   // Build Chronological Ledger Entries for Active Party
@@ -233,7 +279,10 @@ export default function PartyLedger() {
         id: `due-${d.id}`,
         date: new Date(d.openedAt),
         type: d.type === "receivable" ? "receivable_opened" : "debt_opened",
-        title: d.type === "receivable" ? "পাওনা সৃষ্টি (হিসাব বাকি)" : "দেনা সৃষ্টি (বকেয়া ঋণ)",
+        title:
+          d.type === "receivable"
+            ? "পাওনা সৃষ্টি (হিসাব বাকি)"
+            : "দেনা সৃষ্টি (বকেয়া ঋণ)",
         voucherNo: d.voucherNo,
         note: d.note,
         debit: d.type === "receivable" ? orig : 0,
@@ -249,7 +298,10 @@ export default function PartyLedger() {
             id: `settle-${s.id}`,
             date: new Date(s.occurredAt),
             type: "settlement",
-            title: d.type === "receivable" ? "পাওনা আদায় (নগদ/ব্যাংক)" : "দেনা পরিশোধ (পরিশোধিত)",
+            title:
+              d.type === "receivable"
+                ? "পাওনা আদায় (নগদ/ব্যাংক)"
+                : "দেনা পরিশোধ (পরিশোধিত)",
             voucherNo: s.voucherNo,
             note: s.note,
             debit: d.type === "debt" ? sAmt : 0, // দেনা কমলো
@@ -280,7 +332,7 @@ export default function PartyLedger() {
 
     // Calculate Running Balance
     let currentBalance = 0;
-    return entries.map((e) => {
+    return entries.map(e => {
       currentBalance += e.debit - e.credit;
       return {
         ...e,
@@ -295,7 +347,11 @@ export default function PartyLedger() {
 
     try {
       const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
       await addBengaliFont(doc);
 
       const pageWidth = 595;
@@ -312,7 +368,11 @@ export default function PartyLedger() {
 
       doc.setFontSize(10);
       doc.setTextColor(190, 215, 200);
-      doc.text("পার্টি খতিয়ান ও হিসাব বিবরণী (Party Statement of Account)", margin, 42);
+      doc.text(
+        "পার্টি খতিয়ান ও হিসাব বিবরণী (Party Statement of Account)",
+        margin,
+        42
+      );
 
       // Party Info Card in PDF
       let y = 80;
@@ -335,8 +395,13 @@ export default function PartyLedger() {
         { align: "right" }
       );
 
-      const netDue = activeParty.outstandingReceivable - activeParty.outstandingDebt;
-      doc.setTextColor(netDue >= 0 ? 34 : 157, netDue >= 0 ? 110 : 51, netDue >= 0 ? 73 : 51);
+      const netDue =
+        activeParty.outstandingReceivable - activeParty.outstandingDebt;
+      doc.setTextColor(
+        netDue >= 0 ? 34 : 157,
+        netDue >= 0 ? 110 : 51,
+        netDue >= 0 ? 73 : 51
+      );
       doc.text(
         `বর্তমান নিট বকেয়া: ${bdt(Math.abs(netDue))} (${netDue >= 0 ? "পাওনা" : "দেনা"})`,
         pageWidth - margin - 14,
@@ -356,7 +421,9 @@ export default function PartyLedger() {
       doc.text("বিবরণ ও রেফারেন্স", margin + 80, y + 14);
       doc.text("ডেবিট (৳)", margin + 260, y + 14, { align: "right" });
       doc.text("ক্রেডিট (৳)", margin + 340, y + 14, { align: "right" });
-      doc.text("চলমান ব্যালেন্স (৳)", pageWidth - margin - 8, y + 14, { align: "right" });
+      doc.text("চলমান ব্যালেন্স (৳)", pageWidth - margin - 8, y + 14, {
+        align: "right",
+      });
 
       y += 24;
 
@@ -370,7 +437,11 @@ export default function PartyLedger() {
         doc.setFontSize(8);
         doc.setTextColor(60, 75, 68);
         doc.text(
-          new Intl.DateTimeFormat("bn-BD", { day: "2-digit", month: "short", year: "numeric" }).format(entry.date),
+          new Intl.DateTimeFormat("bn-BD", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }).format(entry.date),
           margin + 8,
           y + 10
         );
@@ -379,13 +450,25 @@ export default function PartyLedger() {
         doc.text(titleText, margin + 80, y + 10);
 
         doc.setTextColor(34, 110, 73);
-        doc.text(entry.debit > 0 ? bdt(entry.debit) : "-", margin + 260, y + 10, { align: "right" });
+        doc.text(
+          entry.debit > 0 ? bdt(entry.debit) : "-",
+          margin + 260,
+          y + 10,
+          { align: "right" }
+        );
 
         doc.setTextColor(157, 51, 51);
-        doc.text(entry.credit > 0 ? bdt(entry.credit) : "-", margin + 340, y + 10, { align: "right" });
+        doc.text(
+          entry.credit > 0 ? bdt(entry.credit) : "-",
+          margin + 340,
+          y + 10,
+          { align: "right" }
+        );
 
         doc.setTextColor(20, 45, 35);
-        doc.text(bdt(entry.runningBalance), pageWidth - margin - 8, y + 10, { align: "right" });
+        doc.text(bdt(entry.runningBalance), pageWidth - margin - 8, y + 10, {
+          align: "right",
+        });
 
         doc.setDrawColor(230, 235, 230);
         doc.line(margin, y + 16, pageWidth - margin, y + 16);
@@ -406,22 +489,31 @@ export default function PartyLedger() {
       doc.line(margin, y, margin + colWidth, y);
       doc.setFontSize(8);
       doc.setTextColor(60, 80, 70);
-      doc.text("প্রস্তুতকারক (Prepared By)", margin + colWidth / 2, y + 12, { align: "center" });
+      doc.text("প্রস্তুতকারক (Prepared By)", margin + colWidth / 2, y + 12, {
+        align: "center",
+      });
 
       // Column 2
       const col2X = margin + colWidth + 20;
       doc.line(col2X, y, col2X + colWidth, y);
-      doc.text("যাচাইকারী (Checked By)", col2X + colWidth / 2, y + 12, { align: "center" });
+      doc.text("যাচাইকারী (Checked By)", col2X + colWidth / 2, y + 12, {
+        align: "center",
+      });
 
       // Column 3
       const col3X = margin + (colWidth + 20) * 2;
       doc.line(col3X, y, col3X + colWidth, y);
-      doc.text("পার্টির স্বাক্ষর ও সিল", col3X + colWidth / 2, y + 12, { align: "center" });
+      doc.text("পার্টির স্বাক্ষর ও সিল", col3X + colWidth / 2, y + 12, {
+        align: "center",
+      });
 
       doc.save(`Party_Ledger_${activeParty.name.replace(/\s+/g, "_")}.pdf`);
       toast.success("খতিয়ান PDF সফলভাবে তৈরি ও ডাউনলোড হয়েছে!");
     } catch (e) {
-      console.error("party-ledger: PDF export failed", e instanceof Error ? e.message : e);
+      console.error(
+        "party-ledger: PDF export failed",
+        e instanceof Error ? e.message : e
+      );
       toast.error("PDF ডাউনলোড করা যায়নি");
     }
   };
@@ -430,7 +522,8 @@ export default function PartyLedger() {
   const handleSendWhatsApp = () => {
     if (!activeParty) return;
 
-    const netDue = activeParty.outstandingReceivable - activeParty.outstandingDebt;
+    const netDue =
+      activeParty.outstandingReceivable - activeParty.outstandingDebt;
     const isReceivable = netDue >= 0;
 
     let text = `আসসালামু আলাইকুম ${activeParty.name},\n`;
@@ -489,7 +582,8 @@ export default function PartyLedger() {
               পার্টি ও খতিয়ান খাতা (Party Ledger)
             </h1>
             <p className="mt-1 text-sm text-[#5a786d]">
-              সকল দেনাদার, পাওনাদার ও সরবরাহকারীর সম্পূর্ণ লেনদেনের ইতিহাস ও রানিং ব্যালেন্স
+              সকল দেনাদার, পাওনাদার ও সরবরাহকারীর সম্পূর্ণ লেনদেনের ইতিহাস ও
+              রানিং ব্যালেন্স
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -519,8 +613,12 @@ export default function PartyLedger() {
               <Users className="h-4 w-4 text-[#1b7340]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#113a30]">{parties.length} জন</div>
-              <p className="text-xs text-[#5a786d] mt-1">দেনাদার ও সরবরাহকারী</p>
+              <div className="text-2xl font-bold text-[#113a30]">
+                {parties.length} জন
+              </div>
+              <p className="text-xs text-[#5a786d] mt-1">
+                দেনাদার ও সরবরাহকারী
+              </p>
             </CardContent>
           </Card>
 
@@ -532,8 +630,12 @@ export default function PartyLedger() {
               <ArrowDownLeft className="h-4 w-4 text-[#1b7340]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#1b7340]">{bdt(totalReceivable)}</div>
-              <p className="text-xs text-[#5a786d] mt-1">আমরা গ্রাহকের নিকট পাবো</p>
+              <div className="text-2xl font-bold text-[#1b7340]">
+                {bdt(totalReceivable)}
+              </div>
+              <p className="text-xs text-[#5a786d] mt-1">
+                আমরা গ্রাহকের নিকট পাবো
+              </p>
             </CardContent>
           </Card>
 
@@ -545,8 +647,12 @@ export default function PartyLedger() {
               <ArrowUpRight className="h-4 w-4 text-[#b91c1c]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#b91c1c]">{bdt(totalDebt)}</div>
-              <p className="text-xs text-[#5a786d] mt-1">আমরা সরবরাহকারীকে দেবো</p>
+              <div className="text-2xl font-bold text-[#b91c1c]">
+                {bdt(totalDebt)}
+              </div>
+              <p className="text-xs text-[#5a786d] mt-1">
+                আমরা সরবরাহকারীকে দেবো
+              </p>
             </CardContent>
           </Card>
 
@@ -558,7 +664,9 @@ export default function PartyLedger() {
               <TrendingUp className="h-4 w-4 text-[#113a30]" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${netBalance >= 0 ? "text-[#1b7340]" : "text-[#b91c1c]"}`}>
+              <div
+                className={`text-2xl font-bold ${netBalance >= 0 ? "text-[#1b7340]" : "text-[#b91c1c]"}`}
+              >
                 {bdt(Math.abs(netBalance))}
               </div>
               <p className="text-xs text-[#5a786d] mt-1">
@@ -574,7 +682,9 @@ export default function PartyLedger() {
           <div className="lg:col-span-4 space-y-4">
             <Card className="border-[#dde7df] bg-white shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold text-[#113a30]">পার্টি তালিকা</CardTitle>
+                <CardTitle className="text-base font-bold text-[#113a30]">
+                  পার্টি তালিকা
+                </CardTitle>
                 <CardDescription className="text-xs text-[#5a786d]">
                   খতিয়ান দেখতে যেকোনো পার্টি নির্বাচন করুন
                 </CardDescription>
@@ -585,7 +695,7 @@ export default function PartyLedger() {
                   <Input
                     placeholder="পার্টি খুঁজুন বা মোবাইল নম্বর..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={e => setSearchQuery(e.target.value)}
                     className="pl-9 text-xs border-[#c9ddd0] focus-visible:ring-[#1b7340]"
                   />
                 </div>
@@ -597,17 +707,23 @@ export default function PartyLedger() {
                     size="sm"
                     onClick={() => setTypeFilter("all")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
-                      typeFilter === "all" ? "bg-[#113a30] text-white" : "border-[#c9ddd0] text-[#113a30]"
+                      typeFilter === "all"
+                        ? "bg-[#113a30] text-white"
+                        : "border-[#c9ddd0] text-[#113a30]"
                     }`}
                   >
                     সকল ({parties.length})
                   </Button>
                   <Button
-                    variant={typeFilter === "receivable" ? "default" : "outline"}
+                    variant={
+                      typeFilter === "receivable" ? "default" : "outline"
+                    }
                     size="sm"
                     onClick={() => setTypeFilter("receivable")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
-                      typeFilter === "receivable" ? "bg-[#1b7340] text-white" : "border-[#c9ddd0] text-[#1b7340]"
+                      typeFilter === "receivable"
+                        ? "bg-[#1b7340] text-white"
+                        : "border-[#c9ddd0] text-[#1b7340]"
                     }`}
                   >
                     পাওনাদার
@@ -617,7 +733,9 @@ export default function PartyLedger() {
                     size="sm"
                     onClick={() => setTypeFilter("debt")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
-                      typeFilter === "debt" ? "bg-[#b91c1c] text-white" : "border-[#c9ddd0] text-[#b91c1c]"
+                      typeFilter === "debt"
+                        ? "bg-[#b91c1c] text-white"
+                        : "border-[#c9ddd0] text-[#b91c1c]"
                     }`}
                   >
                     দেনাদার
@@ -627,7 +745,9 @@ export default function PartyLedger() {
                     size="sm"
                     onClick={() => setTypeFilter("due_only")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
-                      typeFilter === "due_only" ? "bg-[#d97706] text-white" : "border-[#c9ddd0] text-[#d97706]"
+                      typeFilter === "due_only"
+                        ? "bg-[#d97706] text-white"
+                        : "border-[#c9ddd0] text-[#d97706]"
                     }`}
                   >
                     বকেয়া বাকি
@@ -638,11 +758,14 @@ export default function PartyLedger() {
               <CardContent className="p-2">
                 <div className="max-h-[580px] overflow-y-auto space-y-1.5 pr-1">
                   {filteredParties.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#8ca89d]">কোনো পার্টি পাওয়া যায়নি।</div>
+                    <div className="p-8 text-center text-xs text-[#8ca89d]">
+                      কোনো পার্টি পাওয়া যায়নি।
+                    </div>
                   ) : (
-                    filteredParties.map((party) => {
+                    filteredParties.map(party => {
                       const isSelected = activeParty?.name === party.name;
-                      const net = party.outstandingReceivable - party.outstandingDebt;
+                      const net =
+                        party.outstandingReceivable - party.outstandingDebt;
 
                       return (
                         <div
@@ -656,7 +779,9 @@ export default function PartyLedger() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-semibold text-sm text-[#113a30] truncate">{party.name}</h4>
+                              <h4 className="font-semibold text-sm text-[#113a30] truncate">
+                                {party.name}
+                              </h4>
                               {party.phone && (
                                 <p className="text-xs text-[#5a786d] flex items-center gap-1 mt-0.5">
                                   <Phone className="h-3 w-3" />
@@ -667,7 +792,11 @@ export default function PartyLedger() {
                             <div className="text-right flex-shrink-0">
                               <div
                                 className={`text-sm font-bold ${
-                                  net > 0 ? "text-[#1b7340]" : net < 0 ? "text-[#b91c1c]" : "text-[#5a786d]"
+                                  net > 0
+                                    ? "text-[#1b7340]"
+                                    : net < 0
+                                      ? "text-[#b91c1c]"
+                                      : "text-[#5a786d]"
                                 }`}
                               >
                                 {bdt(Math.abs(net))}
@@ -677,11 +806,15 @@ export default function PartyLedger() {
                                   net > 0
                                     ? "bg-[#dcfce7] text-[#15803d]"
                                     : net < 0
-                                    ? "bg-[#fee2e2] text-[#b91c1c]"
-                                    : "bg-gray-100 text-gray-600"
+                                      ? "bg-[#fee2e2] text-[#b91c1c]"
+                                      : "bg-gray-100 text-gray-600"
                                 }`}
                               >
-                                {net > 0 ? "পাওনা বাকি" : net < 0 ? "দেনা বাকি" : "পরিশোধিত"}
+                                {net > 0
+                                  ? "পাওনা বাকি"
+                                  : net < 0
+                                    ? "দেনা বাকি"
+                                    : "পরিশোধিত"}
                               </span>
                             </div>
                           </div>
@@ -714,7 +847,9 @@ export default function PartyLedger() {
                             {activeParty.phone}
                           </span>
                         )}
-                        <span>মোট লেনদেন এন্ট্রি: {ledgerEntries.length} টি</span>
+                        <span>
+                          মোট লেনদেন এন্ট্রি: {ledgerEntries.length} টি
+                        </span>
                       </p>
                     </div>
 
@@ -743,24 +878,47 @@ export default function PartyLedger() {
                   {/* Active Party Financial Pill Summary */}
                   <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-[#edf3ee]">
                     <div className="p-2.5 rounded-lg bg-[#f4f8f5] border border-[#d8e6db]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">মোট পাওনা সৃষ্টি</span>
-                      <span className="text-sm font-bold text-[#1b7340]">{bdt(activeParty.totalReceivable)}</span>
+                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                        মোট পাওনা সৃষ্টি
+                      </span>
+                      <span className="text-sm font-bold text-[#1b7340]">
+                        {bdt(activeParty.totalReceivable)}
+                      </span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-[#fef5f5] border border-[#f5d8d8]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">মোট দেনা সৃষ্টি</span>
-                      <span className="text-sm font-bold text-[#b91c1c]">{bdt(activeParty.totalDebt)}</span>
+                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                        মোট দেনা সৃষ্টি
+                      </span>
+                      <span className="text-sm font-bold text-[#b91c1c]">
+                        {bdt(activeParty.totalDebt)}
+                      </span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-[#ebf5ef] border border-[#c5e2ce]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">বর্তমান নিট স্থিতি</span>
+                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                        বর্তমান নিট স্থিতি
+                      </span>
                       <span
                         className={`text-sm font-bold ${
-                          activeParty.outstandingReceivable - activeParty.outstandingDebt >= 0
+                          activeParty.outstandingReceivable -
+                            activeParty.outstandingDebt >=
+                          0
                             ? "text-[#1b7340]"
                             : "text-[#b91c1c]"
                         }`}
                       >
-                        {bdt(Math.abs(activeParty.outstandingReceivable - activeParty.outstandingDebt))} (
-                        {activeParty.outstandingReceivable - activeParty.outstandingDebt >= 0 ? "পাওনা" : "দেনা"})
+                        {bdt(
+                          Math.abs(
+                            activeParty.outstandingReceivable -
+                              activeParty.outstandingDebt
+                          )
+                        )}{" "}
+                        (
+                        {activeParty.outstandingReceivable -
+                          activeParty.outstandingDebt >=
+                        0
+                          ? "পাওনা"
+                          : "দেনা"}
+                        )
                       </span>
                     </div>
                   </div>
@@ -774,22 +932,34 @@ export default function PartyLedger() {
                         <tr className="bg-[#f2f7f4] text-[#113a30] font-semibold border-b border-[#dde7df]">
                           <th className="py-3 px-4">তারিখ</th>
                           <th className="py-3 px-4">বিবরণ ও রেফারেন্স</th>
-                          <th className="py-3 px-4 text-right text-[#1b7340]">ডেবিট (+)</th>
-                          <th className="py-3 px-4 text-right text-[#b91c1c]">ক্রেডিট (-)</th>
-                          <th className="py-3 px-4 text-right">ব্যালেন্স (৳)</th>
+                          <th className="py-3 px-4 text-right text-[#1b7340]">
+                            ডেবিট (+)
+                          </th>
+                          <th className="py-3 px-4 text-right text-[#b91c1c]">
+                            ক্রেডিট (-)
+                          </th>
+                          <th className="py-3 px-4 text-right">
+                            ব্যালেন্স (৳)
+                          </th>
                           <th className="py-3 px-4 text-center">অ্যাকশন</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#eaf0eb]">
                         {ledgerEntries.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-10 text-center text-[#8ca89d]">
+                            <td
+                              colSpan={6}
+                              className="py-10 text-center text-[#8ca89d]"
+                            >
                               এই পার্টির জন্য কোনো লেনদেন পাওয়া যায়নি।
                             </td>
                           </tr>
                         ) : (
-                          ledgerEntries.map((entry) => (
-                            <tr key={entry.id} className="hover:bg-[#f9fbf9] transition">
+                          ledgerEntries.map(entry => (
+                            <tr
+                              key={entry.id}
+                              className="hover:bg-[#f9fbf9] transition"
+                            >
                               <td className="py-3 px-4 whitespace-nowrap text-[#5a786d]">
                                 {new Intl.DateTimeFormat("bn-BD", {
                                   day: "2-digit",
@@ -798,14 +968,18 @@ export default function PartyLedger() {
                                 }).format(entry.date)}
                               </td>
                               <td className="py-3 px-4">
-                                <div className="font-semibold text-[#113a30]">{entry.title}</div>
+                                <div className="font-semibold text-[#113a30]">
+                                  {entry.title}
+                                </div>
                                 {entry.voucherNo && (
                                   <span className="inline-block text-[10px] text-[#5a786d] bg-[#f0f4f1] px-1.5 py-0.2 rounded mt-0.5 mr-2">
                                     ভাউচার: {entry.voucherNo}
                                   </span>
                                 )}
                                 {entry.note && (
-                                  <span className="text-[11px] text-[#7a9489] italic">{entry.note}</span>
+                                  <span className="text-[11px] text-[#7a9489] italic">
+                                    {entry.note}
+                                  </span>
                                 )}
                               </td>
                               <td className="py-3 px-4 text-right font-semibold text-[#1b7340]">
@@ -822,14 +996,21 @@ export default function PartyLedger() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => openSettlement(entry.dueId!, entry.debit || entry.credit)}
+                                    onClick={() =>
+                                      openSettlement(
+                                        entry.dueId!,
+                                        entry.debit || entry.credit
+                                      )
+                                    }
                                     className="h-7 text-[11px] text-[#1b7340] hover:bg-[#dcfce7] px-2"
                                   >
                                     <HandCoins className="h-3.5 w-3.5 mr-1" />
                                     সমন্বয়
                                   </Button>
                                 ) : (
-                                  <span className="text-[#8ca89d] text-[11px]">—</span>
+                                  <span className="text-[#8ca89d] text-[11px]">
+                                    —
+                                  </span>
                                 )}
                               </td>
                             </tr>
@@ -850,20 +1031,27 @@ export default function PartyLedger() {
       </div>
 
       {/* Settle Due Dialog */}
-      <Dialog open={settlementDialogOpen} onOpenChange={setSettlementDialogOpen}>
+      <Dialog
+        open={settlementDialogOpen}
+        onOpenChange={setSettlementDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-[#113a30]">
               বকেয়া সমন্বয় / পেমেন্ট এন্ট্রি
             </DialogTitle>
             <DialogDescription className="text-xs text-[#5a786d]">
-              গ্রাহক বা সরবরাহকারীর সাথে লেনদেনের টাকা গ্রহণ বা পরিশোধ রেকর্ড করুন
+              গ্রাহক বা সরবরাহকারীর সাথে লেনদেনের টাকা গ্রহণ বা পরিশোধ রেকর্ড
+              করুন
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSettleSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="settle-amount" className="text-xs font-semibold text-[#113a30]">
+              <Label
+                htmlFor="settle-amount"
+                className="text-xs font-semibold text-[#113a30]"
+              >
                 পরিশোধিত / প্রাপ্ত টাকার পরিমাণ (৳)
               </Label>
               <Input
@@ -872,24 +1060,40 @@ export default function PartyLedger() {
                 step="0.01"
                 required
                 value={settlementAmount}
-                onChange={(e) => setSettlementAmount(e.target.value)}
+                onChange={e => setSettlementAmount(e.target.value)}
                 placeholder="0.00"
                 className="border-[#c9ddd0]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="settle-account" className="text-xs font-semibold text-[#113a30]">
+              <Label
+                htmlFor="settle-account"
+                className="text-xs font-semibold text-[#113a30]"
+              >
                 কোন অ্যাকাউন্টে লেনদেন হলো?
               </Label>
-              <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
+              <Select
+                value={settlementAccountId}
+                onValueChange={setSettlementAccountId}
+              >
                 <SelectTrigger className="border-[#c9ddd0] text-xs">
                   <SelectValue placeholder="অ্যাকাউন্ট নির্বাচন করুন" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={String(acc.id)} className="text-xs">
-                      {acc.name} ({acc.type === "cash" ? "ক্যাশ" : acc.type === "bank" ? "ব্যাংক" : "মোবাইল ব্যাংকিং"})
+                  {accounts.map(acc => (
+                    <SelectItem
+                      key={acc.id}
+                      value={String(acc.id)}
+                      className="text-xs"
+                    >
+                      {acc.name} (
+                      {acc.type === "cash"
+                        ? "ক্যাশ"
+                        : acc.type === "bank"
+                          ? "ব্যাংক"
+                          : "মোবাইল ব্যাংকিং"}
+                      )
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -897,13 +1101,16 @@ export default function PartyLedger() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="settle-note" className="text-xs font-semibold text-[#113a30]">
+              <Label
+                htmlFor="settle-note"
+                className="text-xs font-semibold text-[#113a30]"
+              >
                 মন্তব্য / রসিদ বিবরণ (ঐচ্ছিক)
               </Label>
               <Input
                 id="settle-note"
                 value={settlementNote}
-                onChange={(e) => setSettlementNote(e.target.value)}
+                onChange={e => setSettlementNote(e.target.value)}
                 placeholder="যেমন: চেক নং / বিকাশ ট্রানজেকশন আইডি"
                 className="border-[#c9ddd0]"
               />
@@ -923,7 +1130,9 @@ export default function PartyLedger() {
                 disabled={settleMutation.isPending}
                 className="bg-[#113a30] hover:bg-[#1b5042] text-white text-xs"
               >
-                {settleMutation.isPending ? "সংরক্ষণ হচ্ছে..." : "সমন্বয় সম্পন্ন করুন"}
+                {settleMutation.isPending
+                  ? "সংরক্ষণ হচ্ছে..."
+                  : "সমন্বয় সম্পন্ন করুন"}
               </Button>
             </DialogFooter>
           </form>

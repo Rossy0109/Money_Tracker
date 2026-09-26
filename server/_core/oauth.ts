@@ -2,7 +2,10 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { timingSafeCompare } from "../timingSafe";
-import { getOAuthTransactionCookieOptions, getSessionCookieOptions } from "./cookies";
+import {
+  getOAuthTransactionCookieOptions,
+  getSessionCookieOptions,
+} from "./cookies";
 import {
   GOOGLE_CALLBACK_PATH,
   GOOGLE_LOGIN_PATH,
@@ -67,7 +70,8 @@ export function registerOAuthRoutes(app: Express) {
         res.status(201).json({
           success: true,
           pendingApproval: true,
-          message: "রেজিস্ট্রেশন সফল হয়েছে! আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর আপনি লগইন করতে পারবেন।",
+          message:
+            "রেজিস্ট্রেশন সফল হয়েছে! আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর আপনি লগইন করতে পারবেন।",
           user: null,
         });
         return;
@@ -98,7 +102,10 @@ export function registerOAuthRoutes(app: Express) {
         },
       });
     } catch (error) {
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Register] Failed");
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[Auth Register] Failed"
+      );
       res.status(400).json({ error: "রেজিস্ট্রেশন সম্পন্ন করা যায়নি" });
     }
   });
@@ -107,7 +114,12 @@ export function registerOAuthRoutes(app: Express) {
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body || {};
-      if (!email || typeof email !== "string" || !password || typeof password !== "string") {
+      if (
+        !email ||
+        typeof email !== "string" ||
+        !password ||
+        typeof password !== "string"
+      ) {
         res.status(400).json({ error: "ইমেইল এবং পাসওয়ার্ড দিন" });
         return;
       }
@@ -117,7 +129,8 @@ export function registerOAuthRoutes(app: Express) {
         const lockout = await db.isLockedOut(email, req.ip ?? "unknown-ip");
         if (lockout.locked) {
           res.status(429).json({
-            error: "অতিরিক্ত ভুল পাসওয়ার্ডের কারণে লগইন সাময়িকভাবে বন্ধ। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+            error:
+              "অতিরিক্ত ভুল পাসওয়ার্ডের কারণে লগইন সাময়িকভাবে বন্ধ। ১৫ মিনিট পর আবার চেষ্টা করুন।",
           });
           return;
         }
@@ -126,7 +139,10 @@ export function registerOAuthRoutes(app: Express) {
       }
 
       const user = await db.getUserByEmail(email);
-      const credentialsValid = await verifyPasswordConstantTime(password, user?.passwordHash);
+      const credentialsValid = await verifyPasswordConstantTime(
+        password,
+        user?.passwordHash
+      );
       if (!user || !credentialsValid) {
         try {
           await db.recordFailedLoginAttempt(email, req.ip ?? "unknown-ip");
@@ -135,7 +151,9 @@ export function registerOAuthRoutes(app: Express) {
               user.id,
               "password",
               req.ip ?? "unknown-ip",
-              typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+              typeof req.headers["user-agent"] === "string"
+                ? req.headers["user-agent"]
+                : null,
               false,
               "invalid_credentials"
             );
@@ -145,7 +163,7 @@ export function registerOAuthRoutes(app: Express) {
         }
         try {
           await db.logAudit({
-            actorUserId: user?.id ?? 1,
+            actorUserId: user?.id ?? (await db.systemActorUserId()),
             actorRole: user?.role ?? "anonymous",
             action: "login_failed",
             entityType: "auth",
@@ -155,20 +173,24 @@ export function registerOAuthRoutes(app: Express) {
         } catch {
           // Non-blocking audit failure
         }
-        res.status(401).json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
+        res
+          .status(401)
+          .json({ error: "ভুল ইমেইল অথবা পাসওয়ার্ড। আবার চেষ্টা করুন।" });
         return;
       }
 
       if (user.status === "pending") {
         res.status(403).json({
-          error: "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
+          error:
+            "আপনার অ্যাকাউন্টটি এখনও অ্যাডমিন কর্তৃক অনুমোদিত হয়নি। অনুগ্রহ করে অনুমোদনের জন্য অপেক্ষা করুন।",
         });
         return;
       }
 
       if (user.status === "suspended") {
         res.status(403).json({
-          error: "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+          error:
+            "আপনার অ্যাকাউন্টটি স্থগিত (Suspended) করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।",
         });
         return;
       }
@@ -179,7 +201,9 @@ export function registerOAuthRoutes(app: Express) {
           user.id,
           "password",
           req.ip ?? "unknown-ip",
-          typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+          typeof req.headers["user-agent"] === "string"
+            ? req.headers["user-agent"]
+            : null,
           true
         );
       } catch {
@@ -213,7 +237,9 @@ export function registerOAuthRoutes(app: Express) {
           user.id,
           sessionToken,
           sessionToken,
-          typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
+          typeof req.headers["user-agent"] === "string"
+            ? req.headers["user-agent"]
+            : null,
           req.ip ?? null,
           expiresAt,
           expiresAt
@@ -241,7 +267,10 @@ export function registerOAuthRoutes(app: Express) {
         },
       });
     } catch (error) {
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Auth Login] Failed");
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[Auth Login] Failed"
+      );
       res.status(500).json({ error: "লগইন প্রক্রিয়া ব্যর্থ হয়েছে" });
     }
   });
@@ -250,7 +279,10 @@ export function registerOAuthRoutes(app: Express) {
   app.post("/api/auth/logout", async (req: Request, res: Response) => {
     try {
       const cookieHeader = req.headers.cookie;
-      if (typeof cookieHeader === "string" && cookieHeader.includes(COOKIE_NAME)) {
+      if (
+        typeof cookieHeader === "string" &&
+        cookieHeader.includes(COOKIE_NAME)
+      ) {
         const raw = cookieHeader
           .split(";")
           .map(part => part.trim())
@@ -277,14 +309,23 @@ export function registerOAuthRoutes(app: Express) {
       const transaction = createGoogleTransaction();
       const discovery = await getGoogleDiscovery();
       const options = getOAuthTransactionCookieOptions(req);
-      res.cookie(GOOGLE_TRANSACTION_COOKIE, encodeGoogleTransaction(transaction), {
-        ...options,
-        maxAge: googleTransactionCookieMaxAge,
-      });
+      res.cookie(
+        GOOGLE_TRANSACTION_COOKIE,
+        encodeGoogleTransaction(transaction),
+        {
+          ...options,
+          maxAge: googleTransactionCookieMaxAge,
+        }
+      );
       res.redirect(302, createGoogleAuthorizationUrl(discovery, transaction));
     } catch (error) {
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Login initialization failed");
-      res.status(503).json({ error: "Google sign-in is temporarily unavailable" });
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[Google OAuth] Login initialization failed"
+      );
+      res
+        .status(503)
+        .json({ error: "Google sign-in is temporarily unavailable" });
     }
   });
 
@@ -306,11 +347,22 @@ export function registerOAuthRoutes(app: Express) {
 
     try {
       const discovery = await getGoogleDiscovery();
-      const idToken = await exchangeGoogleAuthorizationCode(code, transaction, discovery);
-      const identity = await verifyGoogleIdToken(idToken, transaction, discovery);
+      const idToken = await exchangeGoogleAuthorizationCode(
+        code,
+        transaction,
+        discovery
+      );
+      const identity = await verifyGoogleIdToken(
+        idToken,
+        transaction,
+        discovery
+      );
       const bootstrapEmail = ENV.adminBootstrapEmail.trim().toLowerCase();
       const normalizedEmail = (identity.email || "").trim().toLowerCase();
-      const role = bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail) ? "admin" : undefined;
+      const role =
+        bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)
+          ? "admin"
+          : undefined;
 
       await db.upsertUser({
         openId: identity.openId,
@@ -320,10 +372,12 @@ export function registerOAuthRoutes(app: Express) {
         ...(role ? { role } : {}),
         lastSignedIn: new Date(),
       });
-      const dbUser = await db.getUserByOpenId(identity.openId).catch(() => null);
+      const dbUser = await db
+        .getUserByOpenId(identity.openId)
+        .catch(() => null);
       try {
         await db.logAudit({
-          actorUserId: dbUser?.id ?? 1,
+          actorUserId: dbUser?.id ?? (await db.systemActorUserId()),
           actorRole: dbUser?.role ?? (role || "user"),
           action: "login",
           entityType: "auth",
@@ -347,7 +401,7 @@ export function registerOAuthRoutes(app: Express) {
     } catch (error) {
       try {
         await db.logAudit({
-          actorUserId: 1,
+          actorUserId: await db.systemActorUserId(),
           actorRole: "anonymous",
           action: "login_failed",
           entityType: "auth",
@@ -357,7 +411,10 @@ export function registerOAuthRoutes(app: Express) {
       } catch {
         // Non-blocking audit failure
       }
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[Google OAuth] Callback failed");
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[Google OAuth] Callback failed"
+      );
       res.status(401).json({ error: "Google sign-in could not be verified" });
     }
   });
@@ -365,21 +422,32 @@ export function registerOAuthRoutes(app: Express) {
   // GitHub OAuth login endpoint
   app.get(GITHUB_LOGIN_PATH, (req: Request, res: Response) => {
     if (!process.env.GITHUB_CLIENT_ID) {
-      res.status(503).json({ error: "GitHub OAuth is not configured on this server" });
+      res
+        .status(503)
+        .json({ error: "GitHub OAuth is not configured on this server" });
       return;
     }
     try {
       const transaction = createGitHubTransaction();
       const options = getOAuthTransactionCookieOptions(req);
-      res.cookie(GITHUB_TRANSACTION_COOKIE, encodeGitHubTransaction(transaction), {
-        ...options,
-        maxAge: githubTransactionCookieMaxAge,
-      });
+      res.cookie(
+        GITHUB_TRANSACTION_COOKIE,
+        encodeGitHubTransaction(transaction),
+        {
+          ...options,
+          maxAge: githubTransactionCookieMaxAge,
+        }
+      );
       const redirectUri = `${req.protocol}://${req.get("host")}${GITHUB_CALLBACK_PATH}`;
       res.redirect(302, createGitHubAuthorizationUrl(transaction, redirectUri));
     } catch (error) {
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[GitHub OAuth] Login initialization failed");
-      res.status(503).json({ error: "GitHub sign-in is temporarily unavailable" });
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[GitHub OAuth] Login initialization failed"
+      );
+      res
+        .status(503)
+        .json({ error: "GitHub sign-in is temporarily unavailable" });
     }
   });
 
@@ -395,7 +463,11 @@ export function registerOAuthRoutes(app: Express) {
     const transaction = readGitHubTransaction(req);
     const transactionCookieOptions = getOAuthTransactionCookieOptions(req);
 
-    if (!code || !transaction || !transactionMatchesGitHubState(transaction, state)) {
+    if (
+      !code ||
+      !transaction ||
+      !transactionMatchesGitHubState(transaction, state)
+    ) {
       res.status(403).json({ error: "invalid github oauth state" });
       return;
     }
@@ -405,9 +477,14 @@ export function registerOAuthRoutes(app: Express) {
       const accessToken = await exchangeGitHubAuthorizationCode(code);
       const identity = await fetchGitHubUser(accessToken);
 
-      const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
+      const bootstrapEmail = (ENV.adminBootstrapEmail || "")
+        .trim()
+        .toLowerCase();
       const normalizedEmail = (identity.email || "").trim().toLowerCase();
-      const role = bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail) ? "admin" : undefined;
+      const role =
+        bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)
+          ? "admin"
+          : undefined;
 
       await db.upsertUser({
         openId: identity.openId,
@@ -417,10 +494,12 @@ export function registerOAuthRoutes(app: Express) {
         ...(role ? { role } : {}),
         lastSignedIn: new Date(),
       });
-      const dbUser = await db.getUserByOpenId(identity.openId).catch(() => null);
+      const dbUser = await db
+        .getUserByOpenId(identity.openId)
+        .catch(() => null);
       try {
         await db.logAudit({
-          actorUserId: dbUser?.id ?? 1,
+          actorUserId: dbUser?.id ?? (await db.systemActorUserId()),
           actorRole: dbUser?.role ?? (role || "user"),
           action: "login",
           entityType: "auth",
@@ -445,7 +524,7 @@ export function registerOAuthRoutes(app: Express) {
     } catch (error) {
       try {
         await db.logAudit({
-          actorUserId: 1,
+          actorUserId: await db.systemActorUserId(),
           actorRole: "anonymous",
           action: "login_failed",
           entityType: "auth",
@@ -455,7 +534,10 @@ export function registerOAuthRoutes(app: Express) {
       } catch {
         // Non-blocking audit failure
       }
-      logger.error({ err: error instanceof Error ? error : new Error(String(error)) }, "[GitHub OAuth] Callback failed");
+      logger.error(
+        { err: error instanceof Error ? error : new Error(String(error)) },
+        "[GitHub OAuth] Callback failed"
+      );
       res.status(401).json({ error: "GitHub sign-in could not be verified" });
     }
   });

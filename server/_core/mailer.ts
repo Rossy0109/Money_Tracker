@@ -12,12 +12,12 @@
  */
 
 const EMAIL_FROM =
-  process.env.EMAIL_FROM || process.env.PASSWORD_RESET_FROM || "no-reply@localhost";
+  process.env.EMAIL_FROM ||
+  process.env.PASSWORD_RESET_FROM ||
+  "no-reply@localhost";
 
 export function isEmailDeliveryConfigured(): boolean {
-  return Boolean(
-    process.env.EMAIL_WEBHOOK_URL || process.env.RESEND_API_KEY
-  );
+  return Boolean(process.env.EMAIL_WEBHOOK_URL || process.env.RESEND_API_KEY);
 }
 
 export interface PasswordResetEmailInput {
@@ -27,8 +27,15 @@ export interface PasswordResetEmailInput {
   expiresAt: Date;
 }
 
-function buildMessages(input: PasswordResetEmailInput): { subject: string; text: string; html: string } {
-  const minutes = Math.max(1, Math.round((input.expiresAt.getTime() - Date.now()) / 60000));
+function buildMessages(input: PasswordResetEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const minutes = Math.max(
+    1,
+    Math.round((input.expiresAt.getTime() - Date.now()) / 60000)
+  );
   const subject = "পাসওয়ার্ড রিসেট লিংক / Password reset link";
   const text = [
     `আপনার পাসওয়ার্ড রিসেট করার জন্য নিচের লিংকটি ব্যবহার করুন (${minutes} মিনিট কার্যকর):`,
@@ -53,7 +60,9 @@ function buildMessages(input: PasswordResetEmailInput): { subject: string; text:
   return { subject, text, html };
 }
 
-async function sendViaWebhook(input: PasswordResetEmailInput): Promise<boolean> {
+async function sendViaWebhook(
+  input: PasswordResetEmailInput
+): Promise<boolean> {
   const url = process.env.EMAIL_WEBHOOK_URL;
   if (!url) return false;
   const { subject, text, html } = buildMessages(input);
@@ -98,7 +107,9 @@ async function sendViaResend(input: PasswordResetEmailInput): Promise<boolean> {
 /**
  * Deliver a password-reset email. Returns true only when a transport accepted the message.
  */
-export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<boolean> {
+export async function sendPasswordResetEmail(
+  input: PasswordResetEmailInput
+): Promise<boolean> {
   try {
     if (process.env.EMAIL_WEBHOOK_URL) {
       return await sendViaWebhook(input);

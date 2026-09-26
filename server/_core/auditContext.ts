@@ -24,16 +24,14 @@ export function extractAuditContext(req?: Request | null): AuditContext {
 
   const ipAddress =
     (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-    req.headers["x-real-ip"] as string ||
+    (req.headers["x-real-ip"] as string) ||
     req.ip ||
     req.socket?.remoteAddress ||
     null;
 
   const userAgent = (req.headers["user-agent"] as string) || null;
 
-  const requestId =
-    (req.headers["x-request-id"] as string) ||
-    randomUUID();
+  const requestId = (req.headers["x-request-id"] as string) || randomUUID();
 
   return { ipAddress, userAgent, requestId };
 }

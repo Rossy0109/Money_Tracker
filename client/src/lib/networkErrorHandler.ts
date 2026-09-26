@@ -27,7 +27,10 @@ interface ErrorLike {
 }
 
 export function isBrowserOnline(): boolean {
-  if (typeof navigator !== "undefined" && typeof navigator.onLine === "boolean") {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.onLine === "boolean"
+  ) {
     return navigator.onLine;
   }
   return true;
@@ -43,14 +46,17 @@ export function classifyNetworkError(
     return {
       kind: "OFFLINE",
       message: "Network connection lost",
-      userFacingMessage: "ইন্টারনেট সংযোগ বিচ্ছিন্ন। সংযোগ ফিরে আসলে পুনরায় চেষ্টা করা হবে।",
+      userFacingMessage:
+        "ইন্টারনেট সংযোগ বিচ্ছিন্ন। সংযোগ ফিরে আসলে পুনরায় চেষ্টা করা হবে।",
       shouldRetry: true,
       retryDelayMs: 3000,
     };
   }
 
   const errStr = String(error ?? "");
-  const errMsg = (error instanceof Error ? error.message : errStr).toLowerCase();
+  const errMsg = (
+    error instanceof Error ? error.message : errStr
+  ).toLowerCase();
 
   // 1. Timeout
   if (
@@ -61,7 +67,8 @@ export function classifyNetworkError(
     return {
       kind: "TIMEOUT",
       message: "Request timed out after 30 seconds",
-      userFacingMessage: "অনুরোধের সময় শেষ হয়ে গেছে (Timeout)। সার্ভার থেকে উত্তর পাওয়া যায়নি।",
+      userFacingMessage:
+        "অনুরোধের সময় শেষ হয়ে গেছে (Timeout)। সার্ভার থেকে উত্তর পাওয়া যায়নি।",
       shouldRetry: true,
       retryDelayMs: 2000,
     };
@@ -77,7 +84,8 @@ export function classifyNetworkError(
     return {
       kind: "MALFORMED_RESPONSE",
       message: "Malformed or non-JSON response from server",
-      userFacingMessage: "সার্ভার থেকে অপ্রত্যাশিত উত্তর এসেছে। অনুগ্রহ করে পৃষ্ঠাটি রিফ্রেশ করুন।",
+      userFacingMessage:
+        "সার্ভার থেকে অপ্রত্যাশিত উত্তর এসেছে। অনুগ্রহ করে পৃষ্ঠাটি রিফ্রেশ করুন।",
       shouldRetry: false,
       retryDelayMs: 0,
     };
@@ -114,7 +122,8 @@ export function classifyNetworkError(
       kind: "RATE_LIMIT_429",
       statusCode: 429,
       message: "Too many requests",
-      userFacingMessage: "খুব বেশি অনুরোধ পাঠানো হয়েছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।",
+      userFacingMessage:
+        "খুব বেশি অনুরোধ পাঠানো হয়েছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।",
       shouldRetry: true,
       retryDelayMs: 5000,
     };
@@ -122,13 +131,16 @@ export function classifyNetworkError(
 
   // 5. CORS or Security Errors (Failed to fetch when online without HTTP response status)
   if (
-    (errMsg.includes("failed to fetch") || errMsg.includes("networkerror") || errMsg.includes("cross-origin")) &&
+    (errMsg.includes("failed to fetch") ||
+      errMsg.includes("networkerror") ||
+      errMsg.includes("cross-origin")) &&
     !status
   ) {
     return {
       kind: "CORS_OR_SECURITY",
       message: "Cross-origin or security connection blocked",
-      userFacingMessage: "সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না (CORS বা সিকিউরিটি সীমাবদ্ধতা)।",
+      userFacingMessage:
+        "সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না (CORS বা সিকিউরিটি সীমাবদ্ধতা)।",
       shouldRetry: false,
       retryDelayMs: 0,
     };
@@ -148,20 +160,29 @@ export function classifyNetworkError(
 
   return {
     kind: "UNKNOWN",
-    message: (error instanceof Error ? error.message : errStr) || "Unknown error",
+    message:
+      (error instanceof Error ? error.message : errStr) || "Unknown error",
     userFacingMessage: "একটি অপ্রত্যাশিত ত্রুটি ঘটেছে। পুনরায় চেষ্টা করুন।",
     shouldRetry: false,
     retryDelayMs: 0,
   };
 }
 
-export function shouldRetryQuery(failureCount: number, error: unknown, isOnline?: boolean): boolean {
+export function shouldRetryQuery(
+  failureCount: number,
+  error: unknown,
+  isOnline?: boolean
+): boolean {
   if (failureCount >= 3) return false;
   const classified = classifyNetworkError(error, isOnline);
   return classified.shouldRetry;
 }
 
-export function getRetryDelay(attemptIndex: number, error: unknown, isOnline?: boolean): number {
+export function getRetryDelay(
+  attemptIndex: number,
+  error: unknown,
+  isOnline?: boolean
+): number {
   const classified = classifyNetworkError(error, isOnline);
   if (classified.kind === "RATE_LIMIT_429") {
     return Math.max(5000, (attemptIndex + 1) * 3000);
@@ -214,7 +235,10 @@ export function notifyNetworkError(
   const now = Date.now();
 
   // Deduplicate identical alerts within 3 seconds
-  if (now - lastToastTime < 3000 && lastToastMessage === classified.userFacingMessage) {
+  if (
+    now - lastToastTime < 3000 &&
+    lastToastMessage === classified.userFacingMessage
+  ) {
     return;
   }
 

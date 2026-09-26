@@ -42,10 +42,34 @@ export const PERMISSION_CATEGORIES = {
 /** All permission names, grouped by category. */
 export const PERMISSION_GROUPS = {
   AUTH: ["auth.login", "auth.logout"],
-  USER: ["user.view", "user.read", "user.create", "user.update", "user.suspend", "user.delete"],
-  ACCOUNTING: ["accounting.read", "accounting.create", "accounting.update", "accounting.delete"],
-  BUDGET: ["budget.read", "budget.create", "budget.update", "budget.delete", "budget.approve"],
-  PAYROLL: ["payroll.read", "payroll.create", "payroll.update", "payroll.delete", "payroll.approve"],
+  USER: [
+    "user.view",
+    "user.read",
+    "user.create",
+    "user.update",
+    "user.suspend",
+    "user.delete",
+  ],
+  ACCOUNTING: [
+    "accounting.read",
+    "accounting.create",
+    "accounting.update",
+    "accounting.delete",
+  ],
+  BUDGET: [
+    "budget.read",
+    "budget.create",
+    "budget.update",
+    "budget.delete",
+    "budget.approve",
+  ],
+  PAYROLL: [
+    "payroll.read",
+    "payroll.create",
+    "payroll.update",
+    "payroll.delete",
+    "payroll.approve",
+  ],
   VOUCHER: [
     "voucher.read",
     "voucher.create",
@@ -61,7 +85,12 @@ export const PERMISSION_GROUPS = {
   AUDIT: ["audit.read", "audit.export"],
   BACKUP: ["backup.view", "backup.create", "backup.restore"],
   REPORTS: ["reports.view", "reports.export"],
-  SETTINGS: ["settings.view", "settings.manage", "role.manage", "permission.manage"],
+  SETTINGS: [
+    "settings.view",
+    "settings.manage",
+    "role.manage",
+    "permission.manage",
+  ],
 } as const;
 
 export const PERMISSIONS = {
@@ -113,7 +142,8 @@ export const PERMISSIONS = {
   PERMISSION_MANAGE: "permission.manage",
 } as const;
 
-export type PermissionName = (typeof PERMISSION_GROUPS)[keyof typeof PERMISSION_GROUPS][number];
+export type PermissionName =
+  (typeof PERMISSION_GROUPS)[keyof typeof PERMISSION_GROUPS][number];
 
 /**
  * The complete role → permission matrix.
@@ -296,14 +326,19 @@ export function getPermissionsForRole(roleName: string): PermissionName[] {
   return ROLE_PERMISSIONS[roleName as RoleName] ?? [];
 }
 
-export function roleHasPermission(roleName: string, permission: string): boolean {
+export function roleHasPermission(
+  roleName: string,
+  permission: string
+): boolean {
   return getPermissionsForRole(roleName).includes(permission as PermissionName);
 }
 
 export function categoryForPermission(permission: string): string {
   for (const [key, list] of Object.entries(PERMISSION_GROUPS)) {
     if ((list as readonly string[]).includes(permission)) {
-      return PERMISSION_CATEGORIES[key as keyof typeof PERMISSION_CATEGORIES] ?? key;
+      return (
+        PERMISSION_CATEGORIES[key as keyof typeof PERMISSION_CATEGORIES] ?? key
+      );
     }
   }
   return "other";

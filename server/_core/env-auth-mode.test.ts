@@ -10,7 +10,11 @@ describe("ensureAuthModeConsistency", () => {
     vi.stubEnv("AUTH_MODE", "google");
     vi.stubEnv("VITE_AUTH_MODE", "google");
     const { ensureAuthModeConsistency } = await import("./env");
-    expect(ensureAuthModeConsistency()).toEqual({ ok: true, serverMode: "google", clientMode: "google" });
+    expect(ensureAuthModeConsistency()).toEqual({
+      ok: true,
+      serverMode: "google",
+      clientMode: "google",
+    });
   });
 
   it("passes when VITE_AUTH_MODE is not set (build-time value absent)", async () => {
@@ -25,7 +29,11 @@ describe("ensureAuthModeConsistency", () => {
     vi.stubEnv("AUTH_MODE", "password");
     vi.stubEnv("VITE_AUTH_MODE", "password");
     const { ensureAuthModeConsistency } = await import("./env");
-    expect(ensureAuthModeConsistency()).toEqual({ ok: true, serverMode: "password", clientMode: "password" });
+    expect(ensureAuthModeConsistency()).toEqual({
+      ok: true,
+      serverMode: "password",
+      clientMode: "password",
+    });
   });
 
   it("fails when AUTH_MODE=google but VITE_AUTH_MODE=password", async () => {

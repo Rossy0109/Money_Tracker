@@ -36,7 +36,9 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-export async function queueOfflineTransaction(item: Omit<QueuedOfflineTransaction, "id" | "createdAt">): Promise<QueuedOfflineTransaction> {
+export async function queueOfflineTransaction(
+  item: Omit<QueuedOfflineTransaction, "id" | "createdAt">
+): Promise<QueuedOfflineTransaction> {
   const db = await openDatabase();
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const record: QueuedOfflineTransaction = {
@@ -55,7 +57,9 @@ export async function queueOfflineTransaction(item: Omit<QueuedOfflineTransactio
   });
 }
 
-export async function getQueuedOfflineTransactions(): Promise<QueuedOfflineTransaction[]> {
+export async function getQueuedOfflineTransactions(): Promise<
+  QueuedOfflineTransaction[]
+> {
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
@@ -71,7 +75,9 @@ export async function getQueuedOfflineTransactions(): Promise<QueuedOfflineTrans
   }
 }
 
-export async function removeQueuedOfflineTransaction(id: string): Promise<void> {
+export async function removeQueuedOfflineTransaction(
+  id: string
+): Promise<void> {
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {

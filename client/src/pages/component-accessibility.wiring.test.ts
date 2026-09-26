@@ -3,8 +3,14 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const getCombinedSource = () => {
-  const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
-  const dashboardDir = resolve(process.cwd(), "client/src/components/dashboard");
+  const home = readFileSync(
+    resolve(process.cwd(), "client/src/pages/Home.tsx"),
+    "utf8"
+  );
+  const dashboardDir = resolve(
+    process.cwd(),
+    "client/src/components/dashboard"
+  );
   const dialogsDir = resolve(dashboardDir, "dialogs");
   let combined = home;
   for (const dir of [dashboardDir, dialogsDir]) {
@@ -14,7 +20,9 @@ const getCombinedSource = () => {
           combined += "\n" + readFileSync(resolve(dir, file), "utf8");
         }
       }
-    } catch { /* dir read ignored */ }
+    } catch {
+      /* dir read ignored */
+    }
   }
   return combined;
 };
@@ -31,6 +39,8 @@ describe("dashboard component accessibility wiring", () => {
   it("keeps visible administrator and payment controls in Bengali", () => {
     expect(source).toContain("অ্যাডমিন নিয়ন্ত্রণ");
     expect(source).toContain('value="Cash">নগদ</option>');
-    expect(source).toContain('value="Bank Transfer">ব্যাংক ট্রান্সফার</option>');
+    expect(source).toContain(
+      'value="Bank Transfer">ব্যাংক ট্রান্সফার</option>'
+    );
   });
 });

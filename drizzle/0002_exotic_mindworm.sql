@@ -109,4 +109,3 @@ CREATE INDEX `audit_logs_created_idx` ON `audit_logs` (`createdAt`);
 CREATE INDEX `audit_logs_actor_idx` ON `audit_logs` (`actorUserId`);
 --> statement-breakpoint
 CREATE INDEX `audit_logs_project_idx` ON `audit_logs` (`projectId`);
---> statement-breakpoint

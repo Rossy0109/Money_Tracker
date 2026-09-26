@@ -19,7 +19,10 @@ export interface ResourceItem {
 
 const ADMIN_RBAC_ROLES = new Set(["SUPER_ADMIN", "SYSTEM_ADMIN"]);
 
-export function checkOwnership(principal: SecurityPrincipal, resource: ResourceItem): boolean {
+export function checkOwnership(
+  principal: SecurityPrincipal,
+  resource: ResourceItem
+): boolean {
   // RBAC admins bypass ownership check for auditing/moderation.
   // Legacy users.role === "admin" alone must never grant this bypass.
   if (principal.rbacRoles.some(r => ADMIN_RBAC_ROLES.has(r))) return true;
@@ -28,7 +31,12 @@ export function checkOwnership(principal: SecurityPrincipal, resource: ResourceI
 
 export function checkWorkspacePermission(
   workspaceRole: WorkspaceRole,
-  action: "read" | "create_transaction" | "delete_transaction" | "manage_members" | "delete_workspace"
+  action:
+    | "read"
+    | "create_transaction"
+    | "delete_transaction"
+    | "manage_members"
+    | "delete_workspace"
 ): boolean {
   switch (action) {
     case "read":
@@ -47,10 +55,26 @@ export function checkWorkspacePermission(
 }
 
 describe("server/permissions.test.ts - Ownership Verification, Access Control, Role-based Features", () => {
-  const normalUser: SecurityPrincipal = { userId: 42, role: "user", rbacRoles: ["VIEWER"] };
-  const otherUser: SecurityPrincipal = { userId: 99, role: "user", rbacRoles: ["VIEWER"] };
-  const systemAdmin: SecurityPrincipal = { userId: 1, role: "admin", rbacRoles: ["SUPER_ADMIN"] };
-  const legacyAdminOnly: SecurityPrincipal = { userId: 2, role: "admin", rbacRoles: [] };
+  const normalUser: SecurityPrincipal = {
+    userId: 42,
+    role: "user",
+    rbacRoles: ["VIEWER"],
+  };
+  const otherUser: SecurityPrincipal = {
+    userId: 99,
+    role: "user",
+    rbacRoles: ["VIEWER"],
+  };
+  const systemAdmin: SecurityPrincipal = {
+    userId: 1,
+    role: "admin",
+    rbacRoles: ["SUPER_ADMIN"],
+  };
+  const legacyAdminOnly: SecurityPrincipal = {
+    userId: 2,
+    role: "admin",
+    rbacRoles: [],
+  };
 
   const userResource: ResourceItem = { id: 501, ownerId: 42, workspaceId: 10 };
 
@@ -76,30 +100,52 @@ describe("server/permissions.test.ts - Ownership Verification, Access Control, R
     describe("Owner Permissions", () => {
       it("grants owner full permissions including member management and deletion", () => {
         expect(checkWorkspacePermission("owner", "read")).toBe(true);
-        expect(checkWorkspacePermission("owner", "create_transaction")).toBe(true);
-        expect(checkWorkspacePermission("owner", "delete_transaction")).toBe(true);
+        expect(checkWorkspacePermission("owner", "create_transaction")).toBe(
+          true
+        );
+        expect(checkWorkspacePermission("owner", "delete_transaction")).toBe(
+          true
+        );
         expect(checkWorkspacePermission("owner", "manage_members")).toBe(true);
-        expect(checkWorkspacePermission("owner", "delete_workspace")).toBe(true);
+        expect(checkWorkspacePermission("owner", "delete_workspace")).toBe(
+          true
+        );
       });
     });
 
     describe("Editor Permissions", () => {
       it("allows editor to read and manage transactions, but not workspace members or settings", () => {
         expect(checkWorkspacePermission("editor", "read")).toBe(true);
-        expect(checkWorkspacePermission("editor", "create_transaction")).toBe(true);
-        expect(checkWorkspacePermission("editor", "delete_transaction")).toBe(true);
-        expect(checkWorkspacePermission("editor", "manage_members")).toBe(false);
-        expect(checkWorkspacePermission("editor", "delete_workspace")).toBe(false);
+        expect(checkWorkspacePermission("editor", "create_transaction")).toBe(
+          true
+        );
+        expect(checkWorkspacePermission("editor", "delete_transaction")).toBe(
+          true
+        );
+        expect(checkWorkspacePermission("editor", "manage_members")).toBe(
+          false
+        );
+        expect(checkWorkspacePermission("editor", "delete_workspace")).toBe(
+          false
+        );
       });
     });
 
     describe("Viewer Permissions", () => {
       it("restricts viewer to read-only access", () => {
         expect(checkWorkspacePermission("viewer", "read")).toBe(true);
-        expect(checkWorkspacePermission("viewer", "create_transaction")).toBe(false);
-        expect(checkWorkspacePermission("viewer", "delete_transaction")).toBe(false);
-        expect(checkWorkspacePermission("viewer", "manage_members")).toBe(false);
-        expect(checkWorkspacePermission("viewer", "delete_workspace")).toBe(false);
+        expect(checkWorkspacePermission("viewer", "create_transaction")).toBe(
+          false
+        );
+        expect(checkWorkspacePermission("viewer", "delete_transaction")).toBe(
+          false
+        );
+        expect(checkWorkspacePermission("viewer", "manage_members")).toBe(
+          false
+        );
+        expect(checkWorkspacePermission("viewer", "delete_workspace")).toBe(
+          false
+        );
       });
     });
   });

@@ -1,14 +1,58 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { useSidebar } from "@/components/ui/sidebar-context";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
-import { Banknote, BookOpen, Boxes, Calculator, CalendarClock, ChartNoAxesCombined, ChartSpline, CloudOff, FileSpreadsheet, HardDriveDownload, KeyRound, LayoutDashboard, Lock, LogOut, Plus, Printer, Receipt, ReceiptText, RefreshCw, RotateCcw, Tags, UserCheck, Users, UsersRound, WalletCards, type LucideIcon } from "lucide-react";
-import { isAdminUser, isInputOnlyUser, hasPermission, getDisplayRole, type AuthGatingUser } from "@/lib/rbac";
+import {
+  Banknote,
+  BookOpen,
+  Boxes,
+  Calculator,
+  CalendarClock,
+  ChartNoAxesCombined,
+  ChartSpline,
+  CloudOff,
+  FileSpreadsheet,
+  HardDriveDownload,
+  KeyRound,
+  LayoutDashboard,
+  Lock,
+  LogOut,
+  Plus,
+  Printer,
+  Receipt,
+  ReceiptText,
+  RefreshCw,
+  RotateCcw,
+  Tags,
+  UserCheck,
+  Users,
+  UsersRound,
+  WalletCards,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  isAdminUser,
+  isInputOnlyUser,
+  hasPermission,
+  getDisplayRole,
+  type AuthGatingUser,
+} from "@/lib/rbac";
 
 interface MenuItem {
   icon: LucideIcon;
@@ -18,34 +62,159 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: "ড্যাশবোর্ড", href: "/", permission: "accounting.read" },
-  { icon: ReceiptText, label: "ভাউচার", href: "/vouchers", permission: "voucher.read" },
-  { icon: ReceiptText, label: "লেনদেন", href: "/#transactions", permission: "accounting.read" },
-  { icon: BookOpen, label: "চার্ট অফ অ্যাকাউন্টস", href: "/chart-of-accounts", permission: "accounting.read" },
-  { icon: Lock, label: "পিরিয়ড লক", href: "/period-lock", permission: "accounting.read" },
-  { icon: RotateCcw, label: "ভাউচার রিভার্সাল", href: "/voucher-reversal", permission: "voucher.read" },
-  { icon: Users, label: "পার্টি খতিয়ান", href: "/party-ledger", permission: "accounting.read" },
-  { icon: UserCheck, label: "কর্মচারী ও বেতন", href: "/payroll", permission: "payroll.read" },
-  { icon: Receipt, label: "ইনভয়েস ও বিলিং", href: "/invoices", permission: "accounting.read" },
-  { icon: Boxes, label: "পণ্য ও ইনভেন্টরি", href: "/inventory", permission: "accounting.read" },
-  { icon: FileSpreadsheet, label: "আর্থিক বিবরণী", href: "/statements", permission: "reports.view" },
-  { icon: Printer, label: "রিপোর্ট ও প্রিন্ট", href: "/reports", permission: "reports.view" },
-  { icon: Calculator, label: "আয়কর ক্যালকুলেটর", href: "/tax-calculator", permission: "accounting.read" },
-  { icon: WalletCards, label: "অ্যাকাউন্ট", href: "/#accounts", permission: "accounting.read" },
-  { icon: ChartNoAxesCombined, label: "বাজেট", href: "/#budgets", permission: "budget.read" },
-  { icon: ChartSpline, label: "পরিকল্পনা ও বিশ্লেষণ", href: "/insights", permission: "accounting.read" },
-  { icon: CalendarClock, label: "নিয়মিত হিসাব ও বিল", href: "/automation", permission: "accounting.read" },
-  { icon: UsersRound, label: "পরিবার ও শেয়ার করা বাজেট", href: "/family", permission: "accounting.read" },
-  { icon: HardDriveDownload, label: "ব্যাকআপ ও পুনরুদ্ধার", href: "/backup", permission: "backup.view" },
-  { icon: Tags, label: "ক্যাটাগরি", href: "/categories", permission: "accounting.read" },
-  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
+  {
+    icon: LayoutDashboard,
+    label: "ড্যাশবোর্ড",
+    href: "/",
+    permission: "accounting.read",
+  },
+  {
+    icon: ReceiptText,
+    label: "ভাউচার",
+    href: "/vouchers",
+    permission: "voucher.read",
+  },
+  {
+    icon: ReceiptText,
+    label: "লেনদেন",
+    href: "/#transactions",
+    permission: "accounting.read",
+  },
+  {
+    icon: BookOpen,
+    label: "চার্ট অফ অ্যাকাউন্টস",
+    href: "/chart-of-accounts",
+    permission: "accounting.read",
+  },
+  {
+    icon: Lock,
+    label: "পিরিয়ড লক",
+    href: "/period-lock",
+    permission: "accounting.read",
+  },
+  {
+    icon: RotateCcw,
+    label: "ভাউচার রিভার্সাল",
+    href: "/voucher-reversal",
+    permission: "voucher.read",
+  },
+  {
+    icon: Users,
+    label: "পার্টি খতিয়ান",
+    href: "/party-ledger",
+    permission: "accounting.read",
+  },
+  {
+    icon: UserCheck,
+    label: "কর্মচারী ও বেতন",
+    href: "/payroll",
+    permission: "payroll.read",
+  },
+  {
+    icon: Receipt,
+    label: "ইনভয়েস ও বিলিং",
+    href: "/invoices",
+    permission: "accounting.read",
+  },
+  {
+    icon: Boxes,
+    label: "পণ্য ও ইনভেন্টরি",
+    href: "/inventory",
+    permission: "accounting.read",
+  },
+  {
+    icon: FileSpreadsheet,
+    label: "আর্থিক বিবরণী",
+    href: "/statements",
+    permission: "reports.view",
+  },
+  {
+    icon: Printer,
+    label: "রিপোর্ট ও প্রিন্ট",
+    href: "/reports",
+    permission: "reports.view",
+  },
+  {
+    icon: Calculator,
+    label: "আয়কর ক্যালকুলেটর",
+    href: "/tax-calculator",
+    permission: "accounting.read",
+  },
+  {
+    icon: WalletCards,
+    label: "অ্যাকাউন্ট",
+    href: "/#accounts",
+    permission: "accounting.read",
+  },
+  {
+    icon: ChartNoAxesCombined,
+    label: "বাজেট",
+    href: "/#budgets",
+    permission: "budget.read",
+  },
+  {
+    icon: ChartSpline,
+    label: "পরিকল্পনা ও বিশ্লেষণ",
+    href: "/insights",
+    permission: "accounting.read",
+  },
+  {
+    icon: CalendarClock,
+    label: "নিয়মিত হিসাব ও বিল",
+    href: "/automation",
+    permission: "accounting.read",
+  },
+  {
+    icon: UsersRound,
+    label: "পরিবার ও শেয়ার করা বাজেট",
+    href: "/family",
+    permission: "accounting.read",
+  },
+  {
+    icon: HardDriveDownload,
+    label: "ব্যাকআপ ও পুনরুদ্ধার",
+    href: "/backup",
+    permission: "backup.view",
+  },
+  {
+    icon: Tags,
+    label: "ক্যাটাগরি",
+    href: "/categories",
+    permission: "accounting.read",
+  },
+  {
+    icon: KeyRound,
+    label: "আমার অ্যাকাউন্ট",
+    href: "/account",
+    permission: "user.read",
+  },
 ];
 
 const inputOnlyMenuItems: MenuItem[] = [
-  { icon: ReceiptText, label: "লেনদেন যোগ করুন", href: "/#transactions", permission: "accounting.create" },
-  { icon: WalletCards, label: "অ্যাকাউন্ট যোগ করুন", href: "/#accounts", permission: "accounting.create" },
-  { icon: ChartNoAxesCombined, label: "বাজেট যোগ করুন", href: "/#budgets", permission: "budget.create" },
-  { icon: KeyRound, label: "আমার অ্যাকাউন্ট", href: "/account", permission: "user.read" },
+  {
+    icon: ReceiptText,
+    label: "লেনদেন যোগ করুন",
+    href: "/#transactions",
+    permission: "accounting.create",
+  },
+  {
+    icon: WalletCards,
+    label: "অ্যাকাউন্ট যোগ করুন",
+    href: "/#accounts",
+    permission: "accounting.create",
+  },
+  {
+    icon: ChartNoAxesCombined,
+    label: "বাজেট যোগ করুন",
+    href: "/#budgets",
+    permission: "budget.create",
+  },
+  {
+    icon: KeyRound,
+    label: "আমার অ্যাকাউন্ট",
+    href: "/account",
+    permission: "user.read",
+  },
 ];
 
 function DashboardSidebarContent({
@@ -87,13 +256,17 @@ function DashboardSidebarContent({
             src={logoUrl || "/logo.png"}
             alt="Ahmed's Financial Accounting"
             className="h-9 w-9 rounded-xl object-contain bg-white/10 p-0.5 shadow-sm"
-            onError={(e) => {
+            onError={e => {
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
           />
           <span className="group-data-[collapsible=icon]:hidden">
-            <span className="block text-sm font-bold tracking-wide">Ahmed's Financial</span>
-            <span className="block text-[11px] text-[#b9d2c2]">ব্যক্তিগত হিসাব</span>
+            <span className="block text-sm font-bold tracking-wide">
+              Ahmed's Financial
+            </span>
+            <span className="block text-[11px] text-[#b9d2c2]">
+              ব্যক্তিগত হিসাব
+            </span>
           </span>
         </a>
       </SidebarHeader>
@@ -105,13 +278,16 @@ function DashboardSidebarContent({
               tooltip="নতুন লেনদেন যোগ করুন"
               className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]"
             >
-              <a href="/#transactions" onClick={() => handleNavClick("/#transactions")}>
+              <a
+                href="/#transactions"
+                onClick={() => handleNavClick("/#transactions")}
+              >
                 <Plus className="h-4.5 w-4.5" />
                 <span>লেনদেন যোগ করুন</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {visibleMenuItems.map((item) => (
+          {visibleMenuItems.map(item => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
@@ -137,20 +313,24 @@ function DashboardSidebarContent({
             </Avatar>
             <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
               <div className="flex items-center gap-1.5">
-                <p className="truncate text-xs font-semibold text-white">{user.name || "আমার অ্যাকাউন্ট"}</p>
+                <p className="truncate text-xs font-semibold text-white">
+                  {user.name || "আমার অ্যাকাউন্ট"}
+                </p>
                 <span
                   className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
                     isAdminUser(user)
                       ? "bg-emerald-400/25 text-emerald-200 border border-emerald-400/30"
                       : isInputOnlyUser(user)
-                      ? "bg-amber-400/25 text-amber-200 border border-amber-400/30"
-                      : "bg-white/15 text-[#b9d2c2]"
+                        ? "bg-amber-400/25 text-amber-200 border border-amber-400/30"
+                        : "bg-white/15 text-[#b9d2c2]"
                   }`}
                 >
                   {getDisplayRole(user)}
                 </span>
               </div>
-              <p className="truncate text-[10px] text-[#b9d2c2]">{user.email}</p>
+              <p className="truncate text-[10px] text-[#b9d2c2]">
+                {user.email}
+              </p>
             </div>
             <button
               onClick={logout}
@@ -166,12 +346,21 @@ function DashboardSidebarContent({
   );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { loading, user, logout } = useAuth();
   const { logoUrl } = useAppLogo();
   const { isOnline, pendingCount, syncQueue } = useOfflineSync();
 
-  if (loading) return <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]"><Banknote className="h-8 w-8 animate-pulse" /></div>;
+  if (loading)
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]">
+        <Banknote className="h-8 w-8 animate-pulse" />
+      </div>
+    );
   if (!user || user.status === "pending") {
     // মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।
     return <AuthCard pendingUser={user?.status === "pending" ? user : null} />;
@@ -184,11 +373,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
             <LogOut className="w-7 h-7" />
           </div>
-          <h2 className="text-xl font-bold text-rose-700">অ্যাকাউন্ট স্থগিত (Suspended)</h2>
+          <h2 className="text-xl font-bold text-rose-700">
+            অ্যাকাউন্ট স্থগিত (Suspended)
+          </h2>
           <p className="text-sm text-[#5c7a6e]">
-            আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন কর্তৃক স্থগিত করা হয়েছে। বিস্তারিত জানতে বা পুনরায় সচল করতে অ্যাডমিনের সাথে যোগাযোগ করুন।
+            আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন কর্তৃক স্থগিত করা হয়েছে।
+            বিস্তারিত জানতে বা পুনরায় সচল করতে অ্যাডমিনের সাথে যোগাযোগ করুন।
           </p>
-          <Button onClick={logout} className="w-full rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] h-11 font-semibold">
+          <Button
+            onClick={logout}
+            className="w-full rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] h-11 font-semibold"
+          >
             সাইন আউট করুন
           </Button>
         </div>
@@ -199,7 +394,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isInputOnly = isInputOnlyUser(user);
   const visibleMenuItems = isInputOnly
     ? inputOnlyMenuItems
-    : menuItems.filter(item => !item.permission || hasPermission(user, item.permission));
+    : menuItems.filter(
+        item => !item.permission || hasPermission(user, item.permission)
+      );
 
   return (
     <SidebarProvider defaultOpen>
@@ -211,9 +408,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       />
       <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 md:hidden">
-          <SidebarTrigger aria-label="নেভিগেশন মেনু খুলুন" className="h-11 w-11 rounded-xl text-[#173f36]" />
-          <img src={logoUrl || "/logo.png"} alt="Logo" className="ml-1 h-7 w-7 rounded-lg object-contain" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
-          <div className="ml-2 min-w-0"><span className="block truncate text-sm font-bold text-[#173f36]">Ahmed's Financial</span><span className="block text-[11px] text-[#668076]">দ্রুত ও নিরাপদ হিসাব</span></div>
+          <SidebarTrigger
+            aria-label="নেভিগেশন মেনু খুলুন"
+            className="h-11 w-11 rounded-xl text-[#173f36]"
+          />
+          <img
+            src={logoUrl || "/logo.png"}
+            alt="Logo"
+            className="ml-1 h-7 w-7 rounded-lg object-contain"
+            onError={e => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+          <div className="ml-2 min-w-0">
+            <span className="block truncate text-sm font-bold text-[#173f36]">
+              Ahmed's Financial
+            </span>
+            <span className="block text-[11px] text-[#668076]">
+              দ্রুত ও নিরাপদ হিসাব
+            </span>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <PwaInstallButton />
           </div>
@@ -221,7 +435,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {(!isOnline || pendingCount > 0) && (
           <div className="bg-amber-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
-              {!isOnline ? <CloudOff className="h-4 w-4" /> : <RefreshCw className="h-4 w-4 animate-spin" />}
+              {!isOnline ? (
+                <CloudOff className="h-4 w-4" />
+              ) : (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              )}
               <span>
                 {!isOnline
                   ? "অফলাইন মোড — ইন্টারনেট সংযোগ নেই, লেনদেন ডিভাইসে সংরক্ষিত থাকবে।"
@@ -229,14 +447,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             </div>
             {isOnline && pendingCount > 0 && (
-              <button type="button" onClick={() => syncQueue()} className="underline hover:opacity-90 ml-3">
+              <button
+                type="button"
+                onClick={() => syncQueue()}
+                className="underline hover:opacity-90 ml-3"
+              >
                 এখনই সিঙ্ক করুন
               </button>
             )}
           </div>
         )}
-        <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">{children}</div>
-        <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">© {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।</footer>
+        <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">
+          {children}
+        </div>
+        <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">
+          © {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।
+        </footer>
       </SidebarInset>
     </SidebarProvider>
   );

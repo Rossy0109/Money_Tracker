@@ -46,11 +46,19 @@ class ConcurrentLedger {
     return this.lock.acquire(async () => {
       // Check duplicate idempotency key
       if (this.processedTransactions.has(idempotencyKey)) {
-        return { success: false, balance: this.balance, reason: "Duplicate submission ignored" };
+        return {
+          success: false,
+          balance: this.balance,
+          reason: "Duplicate submission ignored",
+        };
       }
 
       if (type === "expense" && this.balance < amount) {
-        return { success: false, balance: this.balance, reason: "Insufficient balance" };
+        return {
+          success: false,
+          balance: this.balance,
+          reason: "Insufficient balance",
+        };
       }
 
       // Small async tick to simulate I/O delay
@@ -95,7 +103,7 @@ describe("server/concurrent-operations.test.ts", () => {
   describe("Critical: Rapid Double-Click & Idempotency", () => {
     it("handles multiple concurrent identical requests without duplicate deductions", async () => {
       const idempotencyKey = "tx-uuid-1001";
-      
+
       // Simulate 5 simultaneous clicks on a payment / transaction button
       const attempts = await Promise.all([
         ledger.submitTransactionWithIdempotency(idempotencyKey, 200, "expense"),
@@ -106,7 +114,9 @@ describe("server/concurrent-operations.test.ts", () => {
       ]);
 
       const successCount = attempts.filter(a => a.success).length;
-      const duplicateCount = attempts.filter(a => a.reason === "Duplicate submission ignored").length;
+      const duplicateCount = attempts.filter(
+        a => a.reason === "Duplicate submission ignored"
+      ).length;
 
       expect(successCount).toBe(1);
       expect(duplicateCount).toBe(4);
@@ -120,13 +130,18 @@ describe("server/concurrent-operations.test.ts", () => {
       // 5 concurrent deposits of 100 (+500)
       // 4 concurrent withdrawals of 150 (-600)
       // Expected final balance: 1000 + 500 - 600 = 900
-      const operations: Array<Promise<{ success: boolean; balance: number }>> = [];
+      const operations: Array<Promise<{ success: boolean; balance: number }>> =
+        [];
 
       for (let i = 0; i < 5; i++) {
-        operations.push(ledger.submitTransactionWithIdempotency(`dep-${i}`, 100, "income"));
+        operations.push(
+          ledger.submitTransactionWithIdempotency(`dep-${i}`, 100, "income")
+        );
       }
       for (let i = 0; i < 4; i++) {
-        operations.push(ledger.submitTransactionWithIdempotency(`with-${i}`, 150, "expense"));
+        operations.push(
+          ledger.submitTransactionWithIdempotency(`with-${i}`, 150, "expense")
+        );
       }
 
       const results = await Promise.all(operations);
@@ -145,7 +160,9 @@ describe("server/concurrent-operations.test.ts", () => {
       ]);
 
       const successful = attempts.filter(a => a.success);
-      const failed = attempts.filter(a => !a.success && a.reason === "Insufficient balance");
+      const failed = attempts.filter(
+        a => !a.success && a.reason === "Insufficient balance"
+      );
 
       expect(successful.length).toBe(1);
       expect(failed.length).toBe(2);
@@ -186,7 +203,11 @@ describe("server/concurrent-operations.test.ts", () => {
       // Playback simultaneously
       const syncResults = await Promise.all(
         offlineQueue.map(item =>
-          ledger.submitTransactionWithIdempotency(item.id, item.amount, item.type)
+          ledger.submitTransactionWithIdempotency(
+            item.id,
+            item.amount,
+            item.type
+          )
         )
       );
 

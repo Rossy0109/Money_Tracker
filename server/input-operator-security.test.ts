@@ -170,13 +170,16 @@ const expenseInput = {
 // ─── Helper: set up RBAC mock for INPUT_OPERATOR ────────────────────────────
 function mockInputOperatorPermissions() {
   rbacMock.hasPermission.mockImplementation(
-    async (_userId: number, perm: string) => INPUT_OPERATOR_PERMISSIONS.includes(perm)
+    async (_userId: number, perm: string) =>
+      INPUT_OPERATOR_PERMISSIONS.includes(perm)
   );
   rbacMock.hasAnyPermission.mockImplementation(
-    async (_userId: number, perms: string[]) => perms.some(p => INPUT_OPERATOR_PERMISSIONS.includes(p))
+    async (_userId: number, perms: string[]) =>
+      perms.some(p => INPUT_OPERATOR_PERMISSIONS.includes(p))
   );
   rbacMock.hasAllPermissions.mockImplementation(
-    async (_userId: number, perms: string[]) => perms.every(p => INPUT_OPERATOR_PERMISSIONS.includes(p))
+    async (_userId: number, perms: string[]) =>
+      perms.every(p => INPUT_OPERATOR_PERMISSIONS.includes(p))
   );
   rbacMock.getUserPermissions.mockResolvedValue(INPUT_OPERATOR_PERMISSIONS);
   rbacMock.getUserRoles.mockResolvedValue(["INPUT_OPERATOR"]);
@@ -211,7 +214,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.addAccount({
-          projectId: 88, name: "Cash", type: "cash", openingBalance: 0,
+          projectId: 88,
+          name: "Cash",
+          type: "cash",
+          openingBalance: 0,
         })
       ).resolves.toBeUndefined();
     });
@@ -221,7 +227,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.saveBudget({
-          projectId: 88, categoryId: 7, monthKey: "2026-08", amount: 5000,
+          projectId: 88,
+          categoryId: 7,
+          monthKey: "2026-08",
+          amount: 5000,
         })
       ).resolves.toBeUndefined();
     });
@@ -231,7 +240,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.addBill({
-          projectId: 88, title: "Electricity", amount: 2000,
+          projectId: 88,
+          title: "Electricity",
+          amount: 2000,
           dueAt: new Date("2026-09-01"),
         })
       ).resolves.toBeUndefined();
@@ -241,8 +252,11 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       financeDb.createDue.mockResolvedValue({ id: 40 });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.addDue({
-        projectId: 88, type: "debt", counterparty: "Supplier",
-        amount: 5000, openedAt: new Date("2026-08-20T12:00:00Z"),
+        projectId: 88,
+        type: "debt",
+        counterparty: "Supplier",
+        amount: 5000,
+        openedAt: new Date("2026-08-20T12:00:00Z"),
       });
       expect(result).toHaveProperty("id", 40);
     });
@@ -251,17 +265,23 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       financeDb.createRecurringTemplate.mockResolvedValue(55);
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.addRecurringTemplate({
-        ...expenseInput, frequency: "monthly", scheduleDay: 1,
+        ...expenseInput,
+        frequency: "monthly",
+        scheduleDay: 1,
         nextRunAt: new Date("2026-09-01T12:00:00Z"),
       });
       expect(result).toBe(55);
     });
 
     it("can create voucher (createVoucher)", async () => {
-      financeDb.createVoucherWithEntries.mockResolvedValue({ id: 10, voucherNo: "V010" });
+      financeDb.createVoucherWithEntries.mockResolvedValue({
+        id: 10,
+        voucherNo: "V010",
+      });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.createVoucher({
-        projectId: 88, date: new Date("2026-08-20"),
+        projectId: 88,
+        date: new Date("2026-08-20"),
         debits: [{ accountId: 1, amount: 1000 }],
         credits: [{ accountId: 2, amount: 1000 }],
       });
@@ -269,12 +289,20 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
     });
 
     it("can disburse salary (disburseSalary)", async () => {
-      financeDb.disburseSalary.mockResolvedValue({ success: true, voucherNo: "S030" });
+      financeDb.disburseSalary.mockResolvedValue({
+        success: true,
+        voucherNo: "S030",
+      });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.disburseSalary({
-        projectId: 88, employeeId: 1, monthKey: "2026-08",
-        baseSalary: 25000, bonusAmount: 0, allowanceAmount: 0,
-        advanceDeduction: 0, otherDeduction: 0,
+        projectId: 88,
+        employeeId: 1,
+        monthKey: "2026-08",
+        baseSalary: 25000,
+        bonusAmount: 0,
+        allowanceAmount: 0,
+        advanceDeduction: 0,
+        otherDeduction: 0,
       });
       expect(result).toEqual({ success: true, voucherNo: "S030" });
     });
@@ -283,7 +311,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       financeDb.createEmployeeAdvance.mockResolvedValue({ id: 80 });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.createEmployeeAdvance({
-        projectId: 88, employeeId: 1, amount: 5000,
+        projectId: 88,
+        employeeId: 1,
+        amount: 5000,
       });
       expect(result).toHaveProperty("id", 80);
     });
@@ -292,7 +322,8 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       financeDb.createTransaction.mockResolvedValue(1);
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.syncOfflineTransactions({
-        projectId: 88, items: [expenseInput],
+        projectId: 88,
+        items: [expenseInput],
       });
       expect(result).toHaveProperty("syncedCount", 1);
     });
@@ -304,7 +335,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   describe("Forbidden: Admin procedures", () => {
     it("cannot access admin.users", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.users()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.users()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.updateUserStatus", async () => {
@@ -316,25 +349,33 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
 
     it("cannot access admin.projects", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.projects()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.projects()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.auditLogs", async () => {
       financeDb.listAuditLogsPage.mockResolvedValue({ logs: [], total: 0 });
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.auditLogs({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.auditLogs({})).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.auditLogExport", async () => {
       financeDb.listAuditLogsForExport.mockResolvedValue([]);
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.auditLogExport({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.auditLogExport({})).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.auditActivity", async () => {
       financeDb.getAuditLogActivity.mockResolvedValue({});
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.auditActivity({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.auditActivity({})).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.verifyAccess", async () => {
@@ -346,12 +387,16 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
 
     it("cannot access admin.elevationStatus", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.elevationStatus()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.elevationStatus()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot access admin.revokeAccess", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.admin.revokeAccess()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.admin.revokeAccess()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
   });
 
@@ -362,7 +407,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
     it("cannot read overview", async () => {
       financeDb.getOverview.mockResolvedValue({});
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.finance.overview({ projectId: 88 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        caller.finance.overview({ projectId: 88 })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
 
     it("cannot read budget plan", async () => {
@@ -390,7 +437,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
     });
 
     it("cannot list paginated transactions", async () => {
-      financeDb.listTransactionsPaginated.mockResolvedValue({ items: [], total: 0 });
+      financeDb.listTransactionsPaginated.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.paginatedTransactions({ projectId: 88 })
@@ -552,13 +602,17 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
     it("cannot list projects", async () => {
       financeDb.listProjects.mockResolvedValue([]);
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.projects.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.projects.list()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot read households", async () => {
       financeDb.listHouseholds.mockResolvedValue([]);
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.finance.households()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.finance.households()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
   });
 
@@ -579,7 +633,11 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateAccount({
-          id: 1, projectId: 88, name: "Cash", type: "cash", openingBalance: 0,
+          id: 1,
+          projectId: 88,
+          name: "Cash",
+          type: "cash",
+          openingBalance: 0,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -589,7 +647,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateChartOfAccount({
-          projectId: 88, accountId: 1, name: "Updated",
+          projectId: 88,
+          accountId: 1,
+          name: "Updated",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -599,8 +659,12 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateBill({
-          projectId: 88, id: 1, title: "Updated", amount: 1000,
-          dueAt: new Date(), isPaid: false,
+          projectId: 88,
+          id: 1,
+          title: "Updated",
+          amount: 1000,
+          dueAt: new Date(),
+          isPaid: false,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -618,7 +682,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.settleDue({
-          projectId: 88, dueId: 1, amount: 1000,
+          projectId: 88,
+          dueId: 1,
+          amount: 1000,
           occurredAt: new Date(),
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -637,7 +703,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.saveVoucherSettings({
-          projectId: 88, prefix: "V", startNumber: 1, endNumber: 999,
+          projectId: 88,
+          prefix: "V",
+          startNumber: 1,
+          endNumber: 999,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -663,7 +732,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateInvoiceStatus({
-          projectId: 88, id: 1, status: "paid",
+          projectId: 88,
+          id: 1,
+          status: "paid",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -673,7 +744,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateEmployee({
-          projectId: 88, id: 1, name: "Updated",
+          projectId: 88,
+          id: 1,
+          name: "Updated",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -683,7 +756,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateInventoryItem({
-          projectId: 88, id: 1, name: "Updated",
+          projectId: 88,
+          id: 1,
+          name: "Updated",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -693,7 +768,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.adjustInventoryStock({
-          projectId: 88, id: 1, quantityChange: 10, reason: "Restock",
+          projectId: 88,
+          id: 1,
+          quantityChange: 10,
+          reason: "Restock",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -703,7 +781,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.setRecurringActive({
-          projectId: 88, id: 1, isActive: true,
+          projectId: 88,
+          id: 1,
+          isActive: true,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -721,7 +801,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.matchBankReconciliationItem({
-          projectId: 88, itemId: 1, ledgerEntryId: 1,
+          projectId: 88,
+          itemId: 1,
+          ledgerEntryId: 1,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -731,7 +813,8 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.completeBankReconciliation({
-          projectId: 88, reconciliationId: 1,
+          projectId: 88,
+          reconciliationId: 1,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -741,7 +824,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.updateHouseholdMember({
-          householdId: 1, membershipId: 1, role: "editor",
+          householdId: 1,
+          membershipId: 1,
+          role: "editor",
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
@@ -815,7 +900,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
     it("cannot export user data", async () => {
       financeDb.exportUserData.mockResolvedValue({ data: {} });
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(caller.finance.exportData()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.finance.exportData()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot export project backup", async () => {
@@ -839,16 +926,18 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.restoreProjectBackup({
-          projectName: "Restored", confirmation: "RESTORE_NEW_PROJECT", backup: {} as any,
+          projectName: "Restored",
+          confirmation: "RESTORE_NEW_PROJECT",
+          backup: {} as any,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
 
     it("cannot check cloud backup status", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
-      await expect(
-        caller.finance.cloudBackupStatus()
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.finance.cloudBackupStatus()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
 
     it("cannot trigger cloud backup", async () => {
@@ -868,7 +957,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.reverseVoucher({
-          projectId: 88, originalVoucherId: 1, reason: "Error",
+          projectId: 88,
+          originalVoucherId: 1,
+          reason: "Error",
           date: new Date(),
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -886,7 +977,10 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.createChartOfAccount({
-          projectId: 88, accountTypeId: 1, code: "1000", name: "Cash",
+          projectId: 88,
+          accountTypeId: 1,
+          code: "1000",
+          name: "Cash",
         })
       ).resolves.toBeDefined();
     });
@@ -909,7 +1003,8 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.createEmployee({
-          projectId: 88, name: "New Employee",
+          projectId: 88,
+          name: "New Employee",
         })
       ).resolves.toBeDefined();
     });
@@ -949,7 +1044,9 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(unauthenticatedContext);
       // adminProcedure rejects unauthenticated users with UNAUTHORIZED before
       // any role or elevation check (never FORBIDDEN, never treated as admin).
-      await expect(caller.admin.users()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(caller.admin.users()).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+      });
     });
   });
 

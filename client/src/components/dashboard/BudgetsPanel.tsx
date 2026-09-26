@@ -69,7 +69,9 @@ export function BudgetsPanel({
             <ul className="mt-1 space-y-1 text-sm leading-5">
               {budgetAlerts.map(alert => (
                 <li key={alert.categoryId}>
-                  <span className="font-medium">{alert.categoryName}</span>: {bdt(alert.spent)} খরচ হয়েছে; সীমার চেয়ে {bdt(alert.exceededAmount)} বেশি।
+                  <span className="font-medium">{alert.categoryName}</span>:{" "}
+                  {bdt(alert.spent)} খরচ হয়েছে; সীমার চেয়ে{" "}
+                  {bdt(alert.exceededAmount)} বেশি।
                 </li>
               ))}
             </ul>
@@ -87,7 +89,9 @@ export function BudgetsPanel({
             <ul className="mt-1 space-y-1 text-sm leading-5">
               {budgetEarlyWarnings.map(warning => (
                 <li key={warning.categoryId}>
-                  <span className="font-medium">{warning.categoryName}</span>: বাজেটের {warning.threshold}% খরচ হয়েছে; বাকি আছে {bdt(warning.remainingAmount)}।
+                  <span className="font-medium">{warning.categoryName}</span>:
+                  বাজেটের {warning.threshold}% খরচ হয়েছে; বাকি আছে{" "}
+                  {bdt(warning.remainingAmount)}।
                 </li>
               ))}
             </ul>
@@ -121,7 +125,8 @@ export function BudgetsPanel({
                 </div>
                 {exceededAlert ? (
                   <p className="mt-1 text-xs font-medium text-[#b46d00]">
-                    সতর্কতা: সীমার চেয়ে {bdt(exceededAlert.exceededAmount)} বেশি খরচ হয়েছে
+                    সতর্কতা: সীমার চেয়ে {bdt(exceededAlert.exceededAmount)}{" "}
+                    বেশি খরচ হয়েছে
                   </p>
                 ) : earlyWarning ? (
                   <p className="mt-1 text-xs font-medium text-[#a36400]">

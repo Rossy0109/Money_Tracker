@@ -36,7 +36,8 @@ function transactionTableHtml(
   }
 ): string {
   const { showIncomeExpenseColumns, showRunningBalance } = options;
-  const rowCols = 6 + (showIncomeExpenseColumns ? 2 : 0) + (showRunningBalance ? 1 : 0);
+  const rowCols =
+    6 + (showIncomeExpenseColumns ? 2 : 0) + (showRunningBalance ? 1 : 0);
   const rowsHtml = rows
     .map((row, index) => {
       const typeLabel = row.type === "income" ? "আয়" : "ব্যয়";
@@ -225,10 +226,22 @@ export function buildStatementHtml(
         showRunningBalance: showRunningBalance ?? true,
       });
       totalsHtml = totalsTableHtml([
-        { label: "মোট আয়/আমানত", value: moneyBn(totals.income), tone: "income" },
-        { label: "মোট ব্যয়/খরচ", value: moneyBn(totals.expense), tone: "expense" },
+        {
+          label: "মোট আয়/আমানত",
+          value: moneyBn(totals.income),
+          tone: "income",
+        },
+        {
+          label: "মোট ব্যয়/খরচ",
+          value: moneyBn(totals.expense),
+          tone: "expense",
+        },
         { label: "নিট পরিমাণ", value: moneyBn(totals.netAmount) },
-        { label: "শেষ জের (Closing Balance)", value: moneyBn(totals.closingBalance), tone: "grand" },
+        {
+          label: "শেষ জের (Closing Balance)",
+          value: moneyBn(totals.closingBalance),
+          tone: "grand",
+        },
       ]);
       break;
     case "income":
@@ -237,7 +250,11 @@ export function buildStatementHtml(
         { showIncomeExpenseColumns: false, showRunningBalance: true }
       );
       totalsHtml = totalsTableHtml([
-        { label: "মোট আয়/আমানত", value: moneyBn(totals.income), tone: "grand" },
+        {
+          label: "মোট আয়/আমানত",
+          value: moneyBn(totals.income),
+          tone: "grand",
+        },
       ]);
       break;
     case "expense":
@@ -246,12 +263,19 @@ export function buildStatementHtml(
         { showIncomeExpenseColumns: false, showRunningBalance: true }
       );
       totalsHtml = totalsTableHtml([
-        { label: "মোট ব্যয়/খরচ", value: moneyBn(totals.expense), tone: "grand" },
+        {
+          label: "মোট ব্যয়/খরচ",
+          value: moneyBn(totals.expense),
+          tone: "grand",
+        },
       ]);
       break;
     case "category": {
       bodyHtml = categoryTableHtml(categoryAgg);
-      const categoryTotal = categoryAgg.reduce((sum, row) => sum + row.total, 0);
+      const categoryTotal = categoryAgg.reduce(
+        (sum, row) => sum + row.total,
+        0
+      );
       totalsHtml = totalsTableHtml([
         {
           label: `মোট ${numberBn(categoryAgg.length)} টি খাত`,
@@ -264,19 +288,46 @@ export function buildStatementHtml(
     case "cashbook":
       bodyHtml = cashBookTableHtml(runningRows);
       totalsHtml = totalsTableHtml([
-        { label: "উদ্বোধনী জের (Opening Balance)", value: moneyBn(totals.openingBalance) },
-        { label: "মোট প্রাপ্তি (Receipts)", value: moneyBn(totals.income), tone: "income" },
-        { label: "মোট প্রদান (Payments)", value: moneyBn(totals.expense), tone: "expense" },
-        { label: "সমাপনী জের (Closing Balance)", value: moneyBn(totals.closingBalance), tone: "grand" },
+        {
+          label: "উদ্বোধনী জের (Opening Balance)",
+          value: moneyBn(totals.openingBalance),
+        },
+        {
+          label: "মোট প্রাপ্তি (Receipts)",
+          value: moneyBn(totals.income),
+          tone: "income",
+        },
+        {
+          label: "মোট প্রদান (Payments)",
+          value: moneyBn(totals.expense),
+          tone: "expense",
+        },
+        {
+          label: "সমাপনী জের (Closing Balance)",
+          value: moneyBn(totals.closingBalance),
+          tone: "grand",
+        },
       ]);
       break;
     case "ledger":
       bodyHtml = ledgerTableHtml(runningRows);
       totalsHtml = totalsTableHtml([
         { label: "উদ্বোধনী জের", value: moneyBn(totals.openingBalance) },
-        { label: "মোট ডেবিট (প্রাপ্তি)", value: moneyBn(totals.income), tone: "income" },
-        { label: "মোট ক্রেডিট (প্রদান)", value: moneyBn(totals.expense), tone: "expense" },
-        { label: "জের (Balance)", value: moneyBn(totals.closingBalance), tone: "grand" },
+        {
+          label: "মোট ডেবিট (প্রাপ্তি)",
+          value: moneyBn(totals.income),
+          tone: "income",
+        },
+        {
+          label: "মোট ক্রেডিট (প্রদান)",
+          value: moneyBn(totals.expense),
+          tone: "expense",
+        },
+        {
+          label: "জের (Balance)",
+          value: moneyBn(totals.closingBalance),
+          tone: "grand",
+        },
       ]);
       break;
     case "yearly":
@@ -287,8 +338,16 @@ export function buildStatementHtml(
         categoryTableHtml(categoryAgg),
       ].join("");
       totalsHtml = totalsTableHtml([
-        { label: "মোট আয়/আমানত", value: moneyBn(totals.income), tone: "income" },
-        { label: "মোট ব্যয়/খরচ", value: moneyBn(totals.expense), tone: "expense" },
+        {
+          label: "মোট আয়/আমানত",
+          value: moneyBn(totals.income),
+          tone: "income",
+        },
+        {
+          label: "মোট ব্যয়/খরচ",
+          value: moneyBn(totals.expense),
+          tone: "expense",
+        },
         { label: "নিট ব্যালেন্স", value: moneyBn(totals.netAmount) },
         { label: "প্রজেক্টে মোট লেনদেন", value: `${totals.count} টি` },
       ]);
@@ -302,9 +361,7 @@ export function buildStatementHtml(
     title,
     meta,
     subtitle:
-      kind === "daily"
-        ? "দৈনিক আয় ও ব্যয়ের সম্পূর্ণ বিবরণী"
-        : undefined,
+      kind === "daily" ? "দৈনিক আয় ও ব্যয়ের সম্পূর্ণ বিবরণী" : undefined,
   })}
   ${bodyHtml}
   ${totalsHtml}
@@ -319,7 +376,8 @@ export function buildDailyAutoSummaryHtml(
 ): string {
   const rowsHtml = aggregateByDay(data.items)
     .map(
-      row => `<div class="meta-row"><span class="meta-label">${escapeHtml(row.dateLabel)}</span><span class="meta-value">${moneyBn(row.income)} / ${moneyBn(row.expense)}</span></div>`
+      row =>
+        `<div class="meta-row"><span class="meta-label">${escapeHtml(row.dateLabel)}</span><span class="meta-value">${moneyBn(row.income)} / ${moneyBn(row.expense)}</span></div>`
     )
     .join("");
   return `<div class="meta-grid">${rowsHtml}</div>`;

@@ -26,9 +26,15 @@ describe("csvExporter", () => {
 
     const csv = generateTransactionsCsv(data);
     expect(csv.startsWith("\uFEFF")).toBe(true);
-    expect(csv).toContain('"তারিখ","ভাউচার নং","ধরণ","ক্যাটাগরি","অ্যাকাউন্ট","পরিমাণ (৳)","বিবরণ"');
-    expect(csv).toContain('"2026-08-29","V-1001","আয়","বেতন","ব্যাংক অ্যাকাউন্ট","50000","আগস্ট মাসের বেতন"');
-    expect(csv).toContain('"2026-08-29","V-1002","ব্যয়","ইউটিলিটি বিল","বিকাশ","1500","বিদ্যুৎ বিল"');
+    expect(csv).toContain(
+      '"তারিখ","ভাউচার নং","ধরণ","ক্যাটাগরি","অ্যাকাউন্ট","পরিমাণ (৳)","বিবরণ"'
+    );
+    expect(csv).toContain(
+      '"2026-08-29","V-1001","আয়","বেতন","ব্যাংক অ্যাকাউন্ট","50000","আগস্ট মাসের বেতন"'
+    );
+    expect(csv).toContain(
+      '"2026-08-29","V-1002","ব্যয়","ইউটিলিটি বিল","বিকাশ","1500","বিদ্যুৎ বিল"'
+    );
   });
 
   it("handles empty or special character rows safely", () => {

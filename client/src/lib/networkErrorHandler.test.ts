@@ -15,7 +15,10 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
   // Scenario 1: Network Timeout (30+ seconds)
   describe("Scenario 1: Network Timeout", () => {
     it("classifies AbortError as TIMEOUT and marks for retry", () => {
-      const abortError = new DOMException("The user aborted a request.", "AbortError");
+      const abortError = new DOMException(
+        "The user aborted a request.",
+        "AbortError"
+      );
       const result = classifyNetworkError(abortError, true);
 
       expect(result.kind).toBe("TIMEOUT");
@@ -71,7 +74,9 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
     });
 
     it("classifies rate limit message in tRPC error string", () => {
-      const err = new Error("খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে");
+      const err = new Error(
+        "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে"
+      );
       const result = classifyNetworkError(err, true);
       expect(result.kind).toBe("RATE_LIMIT_429");
     });
@@ -80,7 +85,9 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
   // Scenario 4: Malformed API Response
   describe("Scenario 4: Malformed API Response", () => {
     it("classifies SyntaxError / invalid JSON and disables blind retries", () => {
-      const jsonError = new SyntaxError("Unexpected token < in JSON at position 0");
+      const jsonError = new SyntaxError(
+        "Unexpected token < in JSON at position 0"
+      );
       const result = classifyNetworkError(jsonError, true);
 
       expect(result.kind).toBe("MALFORMED_RESPONSE");
@@ -120,11 +127,17 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
       const mockToast = vi.fn();
 
       notifyNetworkError({ data: { httpStatus: 500 } }, mockToast, true);
-      expect(mockToast).toHaveBeenCalledWith(expect.stringContaining("500"), "error");
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.stringContaining("500"),
+        "error"
+      );
 
       resetNotificationThrottleForTest();
       notifyNetworkError({ data: { httpStatus: 429 } }, mockToast, true);
-      expect(mockToast).toHaveBeenCalledWith(expect.stringContaining("অপেক্ষা"), "warning");
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.stringContaining("অপেক্ষা"),
+        "warning"
+      );
     });
   });
 });

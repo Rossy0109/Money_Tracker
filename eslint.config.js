@@ -4,7 +4,17 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "public/**", "node_modules/", "drizzle/", ".git/", "*.config.*", "scripts/"] },
+  {
+    ignores: [
+      "dist/**",
+      "public/**",
+      "node_modules/",
+      "drizzle/",
+      ".git/",
+      "*.config.*",
+      "scripts/",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -40,5 +50,5 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "no-console": "off",
     },
-  },
+  }
 );

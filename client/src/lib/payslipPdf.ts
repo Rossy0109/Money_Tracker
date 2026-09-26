@@ -46,7 +46,11 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   doc.setFontSize(9);
   doc.setTextColor(185, 210, 194);
   doc.text("Official Employee Salary Disbursal Voucher", margin, 18);
-  doc.text(`Salary Month: ${data.monthKey} | Disbursed: ${data.paymentDate ? new Date(data.paymentDate).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB")}`, margin, 23);
+  doc.text(
+    `Salary Month: ${data.monthKey} | Disbursed: ${data.paymentDate ? new Date(data.paymentDate).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB")}`,
+    margin,
+    23
+  );
 
   // Top Right "PAYSLIP"
   doc.setTextColor(255, 255, 255);
@@ -57,7 +61,9 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(220, 240, 230);
-  doc.text(`Voucher: ${data.voucherNo || "N/A"}`, pageWidth - margin, 21, { align: "right" });
+  doc.text(`Voucher: ${data.voucherNo || "N/A"}`, pageWidth - margin, 21, {
+    align: "right",
+  });
 
   let y = 36;
 
@@ -77,14 +83,26 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
 
   // Left Column
   doc.text(`Name: ${data.employeeName}`, margin + 4, y + 13);
-  doc.text(`Designation: ${data.employeeDesignation || "Staff"}`, margin + 4, y + 19);
-  doc.text(`Department: ${data.employeeDepartment || "General"}`, margin + 4, y + 24);
+  doc.text(
+    `Designation: ${data.employeeDesignation || "Staff"}`,
+    margin + 4,
+    y + 19
+  );
+  doc.text(
+    `Department: ${data.employeeDepartment || "General"}`,
+    margin + 4,
+    y + 24
+  );
 
   // Right Column
   const rightColX = pageWidth / 2 + 5;
   doc.text(`Phone: ${data.employeePhone || "N/A"}`, rightColX, y + 13);
   doc.text(`Payment Status: ${data.status.toUpperCase()}`, rightColX, y + 19);
-  doc.text(`Payment Method: ${(data.paymentMethod || "Cash").toUpperCase()}`, rightColX, y + 24);
+  doc.text(
+    `Payment Method: ${(data.paymentMethod || "Cash").toUpperCase()}`,
+    rightColX,
+    y + 24
+  );
 
   y += 34;
 
@@ -110,22 +128,30 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   doc.text(bdt(data.baseSalary), pageWidth / 2 - 10, y, { align: "right" });
 
   doc.text("Advance Salary Deduction", pageWidth / 2 + 5, y);
-  doc.text(bdt(data.advanceDeduction || 0), pageWidth - margin - 4, y, { align: "right" });
+  doc.text(bdt(data.advanceDeduction || 0), pageWidth - margin - 4, y, {
+    align: "right",
+  });
 
   y += 7;
 
   // Row 2: Bonus vs Other Deductions
   doc.text("Performance / Festive Bonus", margin + 4, y);
-  doc.text(bdt(data.bonusAmount || 0), pageWidth / 2 - 10, y, { align: "right" });
+  doc.text(bdt(data.bonusAmount || 0), pageWidth / 2 - 10, y, {
+    align: "right",
+  });
 
   doc.text("Other Deductions / Fines", pageWidth / 2 + 5, y);
-  doc.text(bdt(data.otherDeduction || 0), pageWidth - margin - 4, y, { align: "right" });
+  doc.text(bdt(data.otherDeduction || 0), pageWidth - margin - 4, y, {
+    align: "right",
+  });
 
   y += 7;
 
   // Row 3: Allowance
   doc.text("Medical & Travel Allowance", margin + 4, y);
-  doc.text(bdt(data.allowanceAmount || 0), pageWidth / 2 - 10, y, { align: "right" });
+  doc.text(bdt(data.allowanceAmount || 0), pageWidth / 2 - 10, y, {
+    align: "right",
+  });
 
   y += 5;
   doc.setDrawColor(220, 230, 225);
@@ -134,8 +160,12 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   y += 8;
 
   // Calculation Summary Box
-  const totalEarnings = Number(data.baseSalary || 0) + Number(data.bonusAmount || 0) + Number(data.allowanceAmount || 0);
-  const totalDeductions = Number(data.advanceDeduction || 0) + Number(data.otherDeduction || 0);
+  const totalEarnings =
+    Number(data.baseSalary || 0) +
+    Number(data.bonusAmount || 0) +
+    Number(data.allowanceAmount || 0);
+  const totalDeductions =
+    Number(data.advanceDeduction || 0) + Number(data.otherDeduction || 0);
   const netPayable = Number(data.netPayable || totalEarnings - totalDeductions);
   const paidAmount = Number(data.paidAmount || netPayable);
 
@@ -149,11 +179,15 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text("Gross Earnings:", summaryX + 4, sumY);
-  doc.text(bdt(totalEarnings), pageWidth - margin - 4, sumY, { align: "right" });
+  doc.text(bdt(totalEarnings), pageWidth - margin - 4, sumY, {
+    align: "right",
+  });
 
   sumY += 6;
   doc.text("Total Deductions:", summaryX + 4, sumY);
-  doc.text(`- ${bdt(totalDeductions)}`, pageWidth - margin - 4, sumY, { align: "right" });
+  doc.text(`- ${bdt(totalDeductions)}`, pageWidth - margin - 4, sumY, {
+    align: "right",
+  });
 
   sumY += 7;
   doc.setFont("helvetica", "bold");
@@ -193,11 +227,15 @@ export async function generatePayslipPdf(data: PayslipData): Promise<void> {
 
   // Column 2: Employee Signature
   doc.line(margin + colWidth + 5, sigY, margin + colWidth * 2 - 5, sigY);
-  doc.text("Employee Signature", margin + colWidth * 1.5, sigY + 5, { align: "center" });
+  doc.text("Employee Signature", margin + colWidth * 1.5, sigY + 5, {
+    align: "center",
+  });
 
   // Column 3: Authorized Signature
   doc.line(margin + colWidth * 2 + 5, sigY, pageWidth - margin - 5, sigY);
-  doc.text("Authorized Signature", margin + colWidth * 2.5, sigY + 5, { align: "center" });
+  doc.text("Authorized Signature", margin + colWidth * 2.5, sigY + 5, {
+    align: "center",
+  });
 
   // Bottom Footer
   doc.setFontSize(7.5);

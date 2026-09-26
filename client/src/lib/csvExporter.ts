@@ -11,7 +11,15 @@ export type TransactionExportRow = {
 export function generateTransactionsCsv(rows: TransactionExportRow[]): string {
   // UTF-8 BOM for Microsoft Excel Bengali font rendering
   const BOM = "\uFEFF";
-  const headers = ["তারিখ", "ভাউচার নং", "ধরণ", "ক্যাটাগরি", "অ্যাকাউন্ট", "পরিমাণ (৳)", "বিবরণ"];
+  const headers = [
+    "তারিখ",
+    "ভাউচার নং",
+    "ধরণ",
+    "ক্যাটাগরি",
+    "অ্যাকাউন্ট",
+    "পরিমাণ (৳)",
+    "বিবরণ",
+  ];
 
   const escapeCsvCell = (val: unknown): string => {
     if (val === null || val === undefined) return '""';
@@ -19,8 +27,9 @@ export function generateTransactionsCsv(rows: TransactionExportRow[]): string {
     return `"${str}"`;
   };
 
-  const csvRows = rows.map((r) => {
-    const typeLabel = r.type === "income" ? "আয়" : r.type === "expense" ? "ব্যয়" : r.type;
+  const csvRows = rows.map(r => {
+    const typeLabel =
+      r.type === "income" ? "আয়" : r.type === "expense" ? "ব্যয়" : r.type;
     return [
       escapeCsvCell(r.date),
       escapeCsvCell(r.voucherNo || "-"),

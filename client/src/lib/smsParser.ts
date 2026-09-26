@@ -35,13 +35,27 @@ export function parseTransactionSMS(text: string): ParsedTransaction {
   let provider: ParsedTransaction["provider"] = "other";
   if (lower.includes("bkash") || lower.includes("বিকাশ")) {
     provider = "bkash";
-  } else if (lower.includes("nagad") || lower.includes("নগদ") || lower.includes("txnid")) {
+  } else if (
+    lower.includes("nagad") ||
+    lower.includes("নগদ") ||
+    lower.includes("txnid")
+  ) {
     provider = "nagad";
-  } else if (lower.includes("rocket") || lower.includes("dbbl") || lower.includes("রকেট")) {
+  } else if (
+    lower.includes("rocket") ||
+    lower.includes("dbbl") ||
+    lower.includes("রকেট")
+  ) {
     provider = "rocket";
   } else if (lower.includes("upay") || lower.includes("উপায়")) {
     provider = "upay";
-  } else if (lower.includes("a/c") || lower.includes("account") || lower.includes("bank") || lower.includes("credited") || lower.includes("debited")) {
+  } else if (
+    lower.includes("a/c") ||
+    lower.includes("account") ||
+    lower.includes("bank") ||
+    lower.includes("credited") ||
+    lower.includes("debited")
+  ) {
     provider = "bank";
   } else if (lower.includes("trxid")) {
     provider = "bkash";
@@ -71,20 +85,34 @@ export function parseTransactionSMS(text: string): ParsedTransaction {
   } else if (isExpense && !isIncome) {
     type = "expense";
   } else if (isIncome && isExpense) {
-    const incIndex = Math.min(...["received", "cash in", "cash-in", "credited", "deposit"].map((w) => {
-      const idx = lower.indexOf(w);
-      return idx === -1 ? Infinity : idx;
-    }));
-    const expIndex = Math.min(...["send money", "payment", "cash out", "cash-out", "debited", "recharge", "transfer"].map((w) => {
-      const idx = lower.indexOf(w);
-      return idx === -1 ? Infinity : idx;
-    }));
+    const incIndex = Math.min(
+      ...["received", "cash in", "cash-in", "credited", "deposit"].map(w => {
+        const idx = lower.indexOf(w);
+        return idx === -1 ? Infinity : idx;
+      })
+    );
+    const expIndex = Math.min(
+      ...[
+        "send money",
+        "payment",
+        "cash out",
+        "cash-out",
+        "debited",
+        "recharge",
+        "transfer",
+      ].map(w => {
+        const idx = lower.indexOf(w);
+        return idx === -1 ? Infinity : idx;
+      })
+    );
     type = incIndex < expIndex ? "income" : "expense";
   }
 
   // Amount extraction (Tk / BDT / ৳ followed by digits)
   let amount: number | null = null;
-  const amountMatch = trimmed.match(/(?:Tk\.?|BDT|৳)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i);
+  const amountMatch = trimmed.match(
+    /(?:Tk\.?|BDT|৳)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i
+  );
   if (amountMatch && amountMatch[1]) {
     const cleanNum = amountMatch[1].replace(/,/g, "");
     const parsed = parseFloat(cleanNum);
@@ -95,7 +123,9 @@ export function parseTransactionSMS(text: string): ParsedTransaction {
 
   // Party (sender/receiver/merchant/phone number)
   let party: string | null = null;
-  const partyMatch = trimmed.match(/(?:from|to|by|merchant)\s+([0-9A-Za-z\s.\-_]+?)(?:\.|\s+successful|\s+fee|\s+at|\s+balance|\s+on|\s+ref|$)/i);
+  const partyMatch = trimmed.match(
+    /(?:from|to|by|merchant)\s+([0-9A-Za-z\s.\-_]+?)(?:\.|\s+successful|\s+fee|\s+at|\s+balance|\s+on|\s+ref|$)/i
+  );
   if (partyMatch && partyMatch[1]) {
     const rawParty = partyMatch[1].trim();
     if (rawParty.length > 0 && rawParty.length < 50) {

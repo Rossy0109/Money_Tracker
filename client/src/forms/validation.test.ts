@@ -72,7 +72,8 @@ export function transformFormForSubmission(
   return {
     projectId,
     categoryId: Number(formData.categoryId),
-    accountId: formData.accountId !== "none" ? Number(formData.accountId) : undefined,
+    accountId:
+      formData.accountId !== "none" ? Number(formData.accountId) : undefined,
     type,
     amount: Number(formData.amount),
     paymentMethod: formData.paymentMethod,
@@ -203,7 +204,11 @@ describe("client/src/forms/validation.test.ts - Field, Cross-field, Form submiss
         note: "",
       };
 
-      const payload = transformFormForSubmission(validWithoutAccount, "expense", 1);
+      const payload = transformFormForSubmission(
+        validWithoutAccount,
+        "expense",
+        1
+      );
       expect(payload.accountId).toBeUndefined();
       expect(payload.note).toBeUndefined();
     });

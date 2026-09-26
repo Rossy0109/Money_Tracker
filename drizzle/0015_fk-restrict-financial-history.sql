@@ -209,4 +209,3 @@ ALTER TABLE `finance_voucher_settings` ADD CONSTRAINT `finance_voucher_settings_
 ALTER TABLE `finance_voucher_settings` DROP FOREIGN KEY `finance_voucher_settings_projectId_finance_projects_id_fk`;
 --> statement-breakpoint
 ALTER TABLE `finance_voucher_settings` ADD CONSTRAINT `finance_voucher_settings_projectId_finance_projects_id_fk` FOREIGN KEY (`projectId`) REFERENCES `finance_projects`(`id`) ON DELETE restrict ON UPDATE no action;
---> statement-breakpoint

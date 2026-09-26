@@ -28,7 +28,10 @@ export function readActiveProjectId() {
 
 export function saveActiveProjectId(projectId: number) {
   try {
-    window.sessionStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, String(projectId));
+    window.sessionStorage.setItem(
+      ACTIVE_PROJECT_STORAGE_KEY,
+      String(projectId)
+    );
   } catch {
     // Storage can be unavailable in privacy-restricted mobile browsers.
   }
@@ -36,14 +39,16 @@ export function saveActiveProjectId(projectId: number) {
 
 export function useActiveProject() {
   const { data: projects = [], isLoading } = trpc.projects.list.useQuery();
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(() => readActiveProjectId());
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(() =>
+    readActiveProjectId()
+  );
 
   useEffect(() => {
     if (projects.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- validate sessionStorage selection after async project list loads (cannot derive during render without impure storage reads)
-      setActiveProjectId((current) => {
+      setActiveProjectId(current => {
         const next = resolveActiveProjectId(
-          projects.map((p) => p.id),
+          projects.map(p => p.id),
           current,
           readActiveProjectId()
         );

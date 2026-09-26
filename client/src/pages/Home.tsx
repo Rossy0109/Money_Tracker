@@ -12,7 +12,9 @@ import { DuesPanel } from "@/components/dashboard/DuesPanel";
 import { TransactionsPanel } from "@/components/dashboard/TransactionsPanel";
 import { AccountsPanel } from "@/components/dashboard/AccountsPanel";
 import { BudgetsPanel } from "@/components/dashboard/BudgetsPanel";
-const MonthlyTrendChart = lazy(() => import("@/components/dashboard/MonthlyTrendChart"));
+const MonthlyTrendChart = lazy(
+  () => import("@/components/dashboard/MonthlyTrendChart")
+);
 import { AccountingSummarySection } from "@/components/dashboard/AccountingSummarySection";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { QuickDataEntryBanner } from "@/components/dashboard/QuickDataEntryBanner";
@@ -832,7 +834,9 @@ export default function Home() {
       await downloadVoucherPdf(voucherPrint.data);
       toast.success("ভাউচার PDF ডাউনলোড হয়েছে");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "PDF তৈরি ব্যর্থ হয়েছে");
+      toast.error(
+        error instanceof Error ? error.message : "PDF তৈরি ব্যর্থ হয়েছে"
+      );
     }
   }
 
@@ -1094,7 +1098,11 @@ export default function Home() {
             )}
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,.85fr)]">
-              <Suspense fallback={<div className="h-64 animate-pulse bg-muted rounded" />}>
+              <Suspense
+                fallback={
+                  <div className="h-64 animate-pulse bg-muted rounded" />
+                }
+              >
                 <MonthlyTrendChart trend={data.trend} />
               </Suspense>
               <BillsPanel
