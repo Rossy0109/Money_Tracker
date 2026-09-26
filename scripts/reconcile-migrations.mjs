@@ -273,8 +273,37 @@ async function report(conn) {
   console.log(`  foreign keys: ${fk[0].n}`);
 }
 
+function describeTarget(url) {
+  let parsed;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    const scheme = /^([a-zA-Z0-9+.-]+):/.exec(url.trim())?.[1] ?? "none";
+    return `unparsable connection string (scheme: ${scheme}, length: ${url.trim().length})`;
+  }
+  if (parsed.protocol !== "mysql:") {
+    return `unsupported scheme "${parsed.protocol.replace(":", "")}" (expected mysql)`;
+  }
+  const keys = [...parsed.searchParams.keys()];
+  return [
+    `host=${parsed.hostname}`,
+    `port=${parsed.port || "default"}`,
+    `user=${parsed.username || "(none)"}`,
+    `password=${parsed.password ? "set" : "(none)"}`,
+    `database=${parsed.pathname.replace(/^\//, "") || "(none)"}`,
+    `params=${keys.length ? keys.join(",") : "(none)"}`,
+  ].join(" ");
+}
+
 async function run() {
   const url = getUrl();
+  const summary = describeTarget(url);
+  if (summary.startsWith("unparsable") || summary.startsWith("unsupported")) {
+    console.error(`Cannot use DATABASE_URL: ${summary}`);
+    console.error("Expected mysql://USER:PASSWORD@HOST:PORT/DATABASE");
+    process.exit(1);
+  }
+  console.log(`Target: ${summary}`);
   const conn = await createConnection(url);
   console.log(`Reconciling schema${dryRun ? " (dry-run)" : ""}…`);
   try {
@@ -304,6 +333,7 @@ async function run() {
       conn,
       "0018_canonical_accounts_and_transaction_idempotency.sql"
     );
+    await reconcileFile(conn, "0019_wallet_opening_balance_voucher.sql");
     await report(conn);
     console.log(
       dryRun
