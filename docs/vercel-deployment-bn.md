@@ -26,6 +26,16 @@ Vercel-এর root-level `server.ts` একই Express app-কে default export
 
 বর্তমান repository public। Finance code প্রকাশ্য হওয়ার ঝুঁকি ব্যবহারকারীকে গ্রহণযোগ্য কি না তা আলাদা সিদ্ধান্ত; repository visibility এই deployment পরিবর্তনের অংশ নয় এবং explicit approval ছাড়া বদলানো হবে না।
 
+## CD token: account token ব্যবহার করুন
+
+`Deploy to Vercel (CD)` workflow-এর `VERCEL_TOKEN` secret-এ **regular account access token** বসাতে হবে (vercel.com/account/settings/tokens)। Project-scoped token (`vcp_` prefix) দিলে `vercel pull` project settings পড়তে পারে না: `vercel whoami --token=...` → `Error: User not found`, আর workflow-এর guard `exit 1` দিয়ে deploy আটকে দেয়। যাচাইয়ের সহজ উপায়:
+
+```bash
+vercel whoami --token="$VERCEL_TOKEN"   # exit 0 হলে token ঠিক আছে
+```
+
+Token কখনো chat, issue, commit বা log-এ লিখবেন না। প্রকাশিত হলে সেটিকে exposed ধরে revoke/rotate করুন; project-scoped token API দিয়ে list/revoke করা যায় না, তাই Vercel Project → Settings → Access Tokens থেকে মুছতে হয়। Repository-তে GitHub secret scanning ও push protection চালু, তাই ভুল করে commit হওয়া token push ধরে ফেলে।
+
 ## প্রয়োজনীয় environment variables
 
 নিচের মূল্যগুলো repository-তে commit করা যাবে না এবং এই নথিতে কোনো value রাখা হয়নি। Vercel project settings বা Vercel CLI-এর encrypted environment-variable command দিয়ে user-owned value বসাতে হবে। Production ও Preview আলাদা scope-এ রাখা উচিত; Preview-এ production customer database ব্যবহার করা যাবে না।
