@@ -82,6 +82,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The MariaDB service starts empty; worker login/auth tests need schema.
+      - name: Apply database schema
+        run: node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"
+
       - name: Worker tests
         run: pnpm test:worker
 
