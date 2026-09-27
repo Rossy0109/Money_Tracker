@@ -9,7 +9,7 @@ not_found_handling = "single-page-application"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "6393cfa66822415fa69319105dc0efa5"
 
 [[r2_buckets]]
 bucket_name = "money-tracker-storage"
@@ -21,5 +21,6 @@ crons = ["0 18 * * *", "0 1 * * *"]
 [vars]
 AUTH_MODE = "google"
 VITE_AUTH_MODE = "google"
-APP_URL = "https://your-domain.com"
+APP_URL = "https://money-tracker.kamrul01.workers.dev"
 NODE_ENV = "production"
+BACKUP_RETENTION_DAYS = "30"
