@@ -1,4 +1,8 @@
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import {
+  randomBytesHex,
+  scryptHash,
+  scryptVerify,
+} from "../../shared/platform/crypto";
 
 export interface PasswordStrengthResult {
   valid: boolean;
@@ -90,14 +94,9 @@ export async function hashPassword(password: string): Promise<string> {
   if (!validation.valid) {
     throw new Error(validation.errors.join(", "));
   }
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = await new Promise<Buffer>((resolve, reject) => {
-    scrypt(password, salt, KEY_LENGTH, (err, key) => {
-      if (err) reject(err);
-      else resolve(key as Buffer);
-    });
-  });
-  return `scrypt:${salt}:${derivedKey.toString("hex")}`;
+  const salt = randomBytesHex(16);
+  const derivedKey = await scryptHash(password, salt, KEY_LENGTH);
+  return `scrypt:${salt}:${derivedKey}`;
 }
 
 /**
@@ -113,18 +112,7 @@ export async function verifyPassword(
 
   const salt = parts[1];
   const originalKeyHex = parts[2];
-  const originalKey = Buffer.from(originalKeyHex, "hex");
-  const derivedKey = await new Promise<Buffer>((resolve, reject) => {
-    scrypt(password, salt, originalKey.length, (err, key) => {
-      if (err) reject(err);
-      else resolve(key as Buffer);
-    });
-  });
-
-  return (
-    originalKey.length === derivedKey.length &&
-    timingSafeEqual(originalKey, derivedKey)
-  );
+  return scryptVerify(password, salt, KEY_LENGTH, originalKeyHex);
 }
 
 /**

@@ -234,7 +234,7 @@ describe("real-stack RBAC E2E", () => {
         password: adminPassword,
       });
       expect(verified.verified).toBe(true);
-      const elevation = verifyAdminToken(verified.token);
+      const elevation = await verifyAdminToken(verified.token);
       expect(elevation).not.toBeNull();
       await expect(
         caller(superAdmin, elevation).admin.users()

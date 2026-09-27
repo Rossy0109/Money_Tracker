@@ -47,7 +47,7 @@ const auditFilters = z.object({
 
 import { timingSafeCompare } from "./timingSafe";
 
-function hasValidAdminPassword(candidate: string) {
+async function hasValidAdminPassword(candidate: string) {
   return timingSafeCompare(candidate, ENV.adminAccessPassword);
 }
 
@@ -392,7 +392,7 @@ export const appRouter = router({
   admin: router({
     verifyAccess: adminProcedure
       .input(z.object({ password: z.string().min(1).max(128) }))
-      .mutation(({ ctx, input }) => {
+      .mutation(async ({ ctx, input }) => {
         const clientIp = getClientIp(ctx.req);
         const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
 
@@ -401,10 +401,10 @@ export const appRouter = router({
           max: 5,
           keyPrefix: "admin-verify",
           message:
-            "অ্যাডমিন পাসওয়ার্ড একাধিকবার ভুল দেওয়ার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+            "অ্যাডমিন পাসওয়ার্ড একাধিকবার ভুল দেওয়ার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
         });
 
-        if (!hasValidAdminPassword(input.password)) {
+        if (!(await hasValidAdminPassword(input.password))) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Administrator verification failed",
@@ -412,7 +412,7 @@ export const appRouter = router({
         }
 
         resetRateLimit(String(rateLimitKey), "admin-verify");
-        const token = issueAdminToken(
+        const token = await issueAdminToken(
           ctx.user!.id,
           ctx.user!.openId,
           ADMIN_SESSION_TTL_MS

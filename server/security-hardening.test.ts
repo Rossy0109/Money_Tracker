@@ -165,7 +165,7 @@ describe("Timing-Safe Comparison", () => {
   });
   it("hashes before comparison to prevent length leakage", () => {
     const s = readFile("./timingSafe.ts");
-    expect(s).toContain("createHash");
+    expect(s).toContain("sha256Hex");
   });
 });
 

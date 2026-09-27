@@ -53,14 +53,14 @@ describe("RBAC startup initializer", () => {
   it("uses a stable bounded database lock and releases it after startup", async () => {
     const { getRBACLockName, initializeRBACSystem } =
       await import("./_core/rbac-initializer");
-    const lockName = getRBACLockName(
+    const lockName = await getRBACLockName(
       "mysql://user:another-secret@localhost/money_tracker?password=hidden"
     );
 
     expect(lockName.length).toBeLessThanOrEqual(64);
     expect(lockName).not.toContain("secret");
     expect(lockName).not.toContain("hidden");
-    expect(lockName).toBe(getRBACLockName(databaseUrl));
+    expect(lockName).toBe(await getRBACLockName(databaseUrl));
 
     await initializeRBACSystem();
 
@@ -90,7 +90,7 @@ describe("RBAC startup initializer", () => {
 
     expect(second).toBe(first);
     expect(state.createConnection).toHaveBeenCalledTimes(1);
-    await new Promise<void>(resolve => setImmediate(resolve));
+    await new Promise<void>(resolve => setTimeout(resolve, 10));
     expect(state.seed).toHaveBeenCalledTimes(1);
     release?.();
     await first;
@@ -103,6 +103,7 @@ describe("RBAC startup initializer", () => {
     const { initializeRBACSystem } = await import("./_core/rbac-initializer");
 
     await expect(initializeRBACSystem()).rejects.toThrow("seed failed");
+    await new Promise<void>(resolve => setTimeout(resolve, 10));
     await expect(initializeRBACSystem()).resolves.toBeUndefined();
     expect(state.createConnection).toHaveBeenCalledTimes(2);
     expect(state.seed).toHaveBeenCalledTimes(2);

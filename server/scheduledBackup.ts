@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { createCipheriv, randomBytes, createHash } from "node:crypto";
 import * as financeDb from "./db";
 import {
   executeCloudBackup,
@@ -11,27 +10,30 @@ import logger from "./_core/logger";
 import { ENV } from "./_core/env";
 import { isAdminRoleUser } from "./_core/rbac";
 import { extractAuditContext } from "./_core/auditContext";
+import {
+  sha256Hex,
+  randomBytesHex,
+  aesGcmEncrypt,
+  hexToBytes,
+  bytesToHex,
+} from "../shared/platform/crypto";
 
-export function encryptPayload(
+export async function encryptPayload(
   data: string,
   secretKey: string
-): { iv: string; encrypted: string; tag: string } {
-  const key = createHash("sha256").update(secretKey).digest();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-
-  let encrypted = cipher.update(data, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const tag = cipher.getAuthTag().toString("hex");
+): Promise<{ iv: string; encrypted: string; tag: string }> {
+  const keyHex = await sha256Hex(secretKey);
+  const ivBytes = hexToBytes(randomBytesHex(12));
+  const result = await aesGcmEncrypt(keyHex, ivBytes, data);
 
   return {
-    iv: iv.toString("hex"),
-    encrypted,
-    tag,
+    iv: bytesToHex(ivBytes),
+    encrypted: result.encrypted,
+    tag: result.tag,
   };
 }
 
-function hasValidSecret(candidate: string, expectedSecret?: string) {
+async function hasValidSecret(candidate: string, expectedSecret?: string) {
   if (!candidate || !expectedSecret) return false;
   return timingSafeCompare(candidate, expectedSecret);
 }
@@ -51,7 +53,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (hasValidCronSecret(token)) {
+    if (await hasValidCronSecret(token)) {
       return true;
     }
   }
@@ -60,7 +62,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   const cronSecretHeader = req.headers["x-cron-secret"];
   if (
     typeof cronSecretHeader === "string" &&
-    hasValidCronSecret(cronSecretHeader)
+    (await hasValidCronSecret(cronSecretHeader))
   ) {
     return true;
   }
@@ -69,7 +71,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   if (req.body) {
     if (
       typeof req.body.cronSecret === "string" &&
-      hasValidCronSecret(req.body.cronSecret)
+      (await hasValidCronSecret(req.body.cronSecret))
     ) {
       return true;
     }
@@ -103,9 +105,7 @@ async function verifyBackupIntegrity(
 ): Promise<{ verified: boolean; error?: string }> {
   try {
     const reExport = await financeDb.exportProjectBackup(userId, projectId);
-    const reChecksum = createHash("sha256")
-      .update(JSON.stringify(reExport, null, 2))
-      .digest("hex");
+    const reChecksum = await sha256Hex(JSON.stringify(reExport, null, 2));
     if (reChecksum === expectedChecksum) {
       return { verified: true };
     }

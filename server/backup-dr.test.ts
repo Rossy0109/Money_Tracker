@@ -18,8 +18,8 @@ import { encryptPayload } from "./scheduledBackup";
 // ─── Encrypt Payload Tests ───────────────────────────────────────────────────
 
 describe("encryptPayload", () => {
-  it("produces iv, encrypted, tag output", () => {
-    const result = encryptPayload("test data", "my-secret-key");
+  it("produces iv, encrypted, tag output", async () => {
+    const result = await encryptPayload("test data", "my-secret-key");
     expect(result).toHaveProperty("iv");
     expect(result).toHaveProperty("encrypted");
     expect(result).toHaveProperty("tag");
@@ -28,21 +28,21 @@ describe("encryptPayload", () => {
     expect(typeof result.tag).toBe("string");
   });
 
-  it("produces different ciphertext for different keys", () => {
-    const r1 = encryptPayload("test data", "key-1");
-    const r2 = encryptPayload("test data", "key-2");
+  it("produces different ciphertext for different keys", async () => {
+    const r1 = await encryptPayload("test data", "key-1");
+    const r2 = await encryptPayload("test data", "key-2");
     expect(r1.encrypted).not.toBe(r2.encrypted);
   });
 
-  it("produces different ciphertext for same key (random IV)", () => {
-    const r1 = encryptPayload("test data", "same-key");
-    const r2 = encryptPayload("test data", "same-key");
+  it("produces different ciphertext for same key (random IV)", async () => {
+    const r1 = await encryptPayload("test data", "same-key");
+    const r2 = await encryptPayload("test data", "same-key");
     expect(r1.encrypted).not.toBe(r2.encrypted);
     expect(r1.iv).not.toBe(r2.iv);
   });
 
-  it("produces hex-encoded output", () => {
-    const result = encryptPayload("test", "key");
+  it("produces hex-encoded output", async () => {
+    const result = await encryptPayload("test", "key");
     expect(result.iv).toMatch(/^[a-f0-9]+$/);
     expect(result.encrypted).toMatch(/^[a-f0-9]+$/);
     expect(result.tag).toMatch(/^[a-f0-9]+$/);

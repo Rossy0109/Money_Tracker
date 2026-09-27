@@ -224,7 +224,7 @@ export const elevatedAdminProcedure = t.procedure.use(
     const hasInlinePassword = Boolean(
       inputPassword &&
       expectedPassword &&
-      timingSafeCompare(inputPassword, expectedPassword)
+      (await timingSafeCompare(inputPassword, expectedPassword))
     );
 
     if (!hasActiveSession && !hasInlinePassword) {
@@ -300,7 +300,7 @@ export const idempotent = t.middleware(async opts => {
   }
 
   const route = ctx.req?.path ?? "unknown";
-  const requestHash = hashRequest(rawInput);
+  const requestHash = await hashRequest(rawInput);
 
   // INSERT-first claim — only one concurrent request may execute.
   const claim = await claimIdempotency(

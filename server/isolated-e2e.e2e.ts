@@ -161,7 +161,7 @@ describe("isolated role, invitation, and restoration E2E", () => {
       password,
     });
     expect(verified.verified).toBe(true);
-    const elevation = verifyAdminToken(verified.token);
+    const elevation = await verifyAdminToken(verified.token);
     expect(elevation).not.toBeNull();
     await expect(
       caller(administrator, elevation).admin.users()
