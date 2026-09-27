@@ -1,18 +1,19 @@
-export type StorageBackend = "vercel-blob" | "missing";
+export type StorageBackend = "vercel-blob" | "cloudflare-r2" | "missing";
 
 export type StorageEnvironment = {
   blobStoreId: string;
   blobReadWriteToken: string;
+  r2Bucket?: unknown;
 };
 
 /**
- * Selects a storage transport. Only the private Vercel Blob store (via its
- * injected read-write credential) is supported — anything else fails closed.
- * A read-write token embeds the store identity, so a store ID is optional
- * for the SDK path.
+ * Selects a storage transport.
+ * - Cloudflare R2 binding (Worker path)
+ * - Vercel Blob store (Node/Vercel path)
+ * - Anything else fails closed.
  */
 export function selectStorageBackend(env: StorageEnvironment): StorageBackend {
+  if (env.r2Bucket) return "cloudflare-r2";
   if (env.blobReadWriteToken) return "vercel-blob";
-
   return "missing";
 }

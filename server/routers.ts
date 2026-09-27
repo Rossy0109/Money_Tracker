@@ -396,7 +396,7 @@ export const appRouter = router({
         const clientIp = getClientIp(ctx.req);
         const rateLimitKey = `${ctx.user!.id}:${clientIp}`;
 
-        checkRateLimit(String(rateLimitKey), {
+        await checkRateLimit(String(rateLimitKey), {
           windowMs: 15 * 60 * 1000,
           max: 5,
           keyPrefix: "admin-verify",
@@ -411,7 +411,7 @@ export const appRouter = router({
           });
         }
 
-        resetRateLimit(String(rateLimitKey), "admin-verify");
+        await resetRateLimit(String(rateLimitKey), "admin-verify");
         const token = await issueAdminToken(
           ctx.user!.id,
           ctx.user!.openId,

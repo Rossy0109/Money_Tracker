@@ -50,7 +50,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const clientIp = getClientIp(ctx.req);
-      checkRateLimit(String(clientIp), {
+      await checkRateLimit(String(clientIp), {
         windowMs: 15 * 60 * 1000,
         max: 20,
         keyPrefix: "auth-register",
@@ -122,7 +122,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const clientIp = getClientIp(ctx.req);
-      checkRateLimit(String(clientIp), {
+      await checkRateLimit(String(clientIp), {
         windowMs: 15 * 60 * 1000,
         max: 15,
         keyPrefix: "auth-login",
@@ -206,7 +206,7 @@ export const authRouter = router({
         });
       }
 
-      resetRateLimit(String(clientIp), "auth-login");
+      await resetRateLimit(String(clientIp), "auth-login");
       try {
         await financeDb.clearFailedLoginAttempts(input.email, String(clientIp));
         await financeDb.recordLoginHistory(
@@ -326,7 +326,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const clientIp = getClientIp(ctx.req);
-      checkRateLimit(String(clientIp), {
+      await checkRateLimit(String(clientIp), {
         windowMs: 15 * 60 * 1000,
         max: 5,
         keyPrefix: "auth-set-password",
@@ -336,7 +336,7 @@ export const authRouter = router({
 
       const passwordHash = await hashPassword(input.password);
       await financeDb.setUserPassword(ctx.user!.openId, passwordHash);
-      resetRateLimit(String(clientIp), "auth-set-password");
+      await resetRateLimit(String(clientIp), "auth-set-password");
       return {
         success: true,
         message:
@@ -351,7 +351,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const clientIp = getClientIp(ctx.req);
-      checkRateLimit(String(clientIp), {
+      await checkRateLimit(String(clientIp), {
         windowMs: 60 * 60 * 1000,
         max: 5,
         keyPrefix: "auth-forgot-password",
