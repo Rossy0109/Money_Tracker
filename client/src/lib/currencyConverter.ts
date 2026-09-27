@@ -105,7 +105,7 @@ async function fetchLiveRates(): Promise<Record<string, number> | null> {
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return null;
-    const data = await response.json();
+    const data = (await response.json()) as { rates?: Record<string, number> };
     if (data.rates && typeof data.rates === "object") {
       const rates: Record<string, number> = { BDT: 1 };
       for (const [code, rate] of Object.entries(data.rates)) {

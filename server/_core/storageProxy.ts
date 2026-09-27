@@ -2,7 +2,11 @@ import type { Express, Response } from "express";
 import { get as getBlob } from "@vercel/blob";
 import { Readable } from "node:stream";
 import { ENV } from "./env";
-import { selectStorageBackend } from "./storageBackend";
+import {
+  getR2Bucket,
+  selectStorageBackend,
+} from "./storageBackend";
+import { isShimResponse, type ShimResponse } from "../../worker/httpShim";
 import logger from "./logger";
 import { sdk } from "./sdk";
 import { getPrivateStorageObjectForDownload } from "../db";
@@ -11,9 +15,25 @@ function attachmentDisposition(fileName: string) {
   return `attachment; filename*=UTF-8''${encodeURIComponent(fileName.replace(/[\r\n]/g, "_"))}`;
 }
 
+type ProxyResponse = Response | ShimResponse;
+
+function applyDownloadHeaders(
+  res: ProxyResponse,
+  object: { contentType: string; fileName: string },
+  meta: { size: number; etag?: string }
+) {
+  res.set("Cache-Control", "no-store");
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Content-Security-Policy", "sandbox");
+  res.set("Content-Type", object.contentType);
+  res.set("Content-Disposition", attachmentDisposition(object.fileName));
+  res.set("Content-Length", String(meta.size));
+  if (meta.etag) res.set("ETag", meta.etag);
+}
+
 async function streamPrivateBlobObject(
   object: { storageKey: string; contentType: string; fileName: string },
-  res: Response
+  res: ProxyResponse
 ) {
   const blob = await getBlob(object.storageKey, {
     access: "private",
@@ -30,16 +50,48 @@ async function streamPrivateBlobObject(
     return;
   }
 
-  res.set("Cache-Control", "no-store");
-  res.set("X-Content-Type-Options", "nosniff");
-  res.set("Content-Security-Policy", "sandbox");
-  res.set("Content-Type", object.contentType);
-  res.set("Content-Disposition", attachmentDisposition(object.fileName));
-  res.set("Content-Length", String(blob.blob.size));
-  if (blob.blob.etag) res.set("ETag", blob.blob.etag);
-  Readable.fromWeb(
-    blob.stream as unknown as import("node:stream/web").ReadableStream
-  ).pipe(res);
+  applyDownloadHeaders(res, object, {
+    size: blob.blob.size,
+    etag: blob.blob.etag,
+  });
+
+  if (isShimResponse(res)) {
+    res.body = blob.stream;
+  } else {
+    Readable.fromWeb(
+      blob.stream as unknown as import("node:stream/web").ReadableStream
+    ).pipe(res);
+  }
+}
+
+async function streamPrivateR2Object(
+  object: { storageKey: string; contentType: string; fileName: string },
+  res: ProxyResponse
+) {
+  const bucket = getR2Bucket();
+  if (!bucket) {
+    res.status(503).send("Private storage backend unavailable");
+    return;
+  }
+
+  const stored = await bucket.get(object.storageKey);
+  if (!stored) {
+    res.status(404).send("Storage object not found");
+    return;
+  }
+
+  applyDownloadHeaders(res, object, {
+    size: stored.size,
+    etag: stored.etag,
+  });
+
+  if (isShimResponse(res)) {
+    res.body = stored.body;
+  } else {
+    Readable.fromWeb(stored.body as import("node:stream/web").ReadableStream).pipe(
+      res
+    );
+  }
 }
 
 export function registerStorageProxy(app: Express) {
@@ -72,12 +124,19 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      if (selectStorageBackend(ENV) !== "vercel-blob") {
+      const backend = selectStorageBackend({
+        ...ENV,
+        r2Bucket: getR2Bucket(),
+      });
+      if (backend === "missing") {
         res.status(503).send("Private storage backend unavailable");
         return;
       }
-
-      await streamPrivateBlobObject(object, res);
+      if (backend === "cloudflare-r2") {
+        await streamPrivateR2Object(object, res);
+      } else {
+        await streamPrivateBlobObject(object, res);
+      }
     } catch (error) {
       logger.error(
         { err: error instanceof Error ? error : new Error(String(error)) },

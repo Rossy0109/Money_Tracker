@@ -1,3 +1,4 @@
+import type { Context, Next } from "hono";
 import type { WorkerEnv } from "./env";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -56,8 +57,8 @@ export function getAdminSessionCookieOptions(req: Request): {
   };
 }
 
-export async function securityHeaders(env: WorkerEnv) {
-  return async (c: { req: { raw: Request }; res: Headers }, next: () => Promise<void>) => {
+export function securityHeaders(env: WorkerEnv) {
+  return async (c: Context, next: Next) => {
     await next();
 
     const isProd = env.NODE_ENV === "production";
@@ -92,9 +93,9 @@ export async function securityHeaders(env: WorkerEnv) {
   };
 }
 
-export async function corsMiddleware(env: WorkerEnv) {
-  return async (c: { req: { raw: Request }; res: Headers; method: string }, next: () => Promise<void>) => {
-    const origin = c.req.raw.headers.get("origin");
+export function corsMiddleware(env: WorkerEnv) {
+  return async (c: Context, next: Next) => {
+    const origin = c.req.header("origin");
     const isProd = env.NODE_ENV === "production";
 
     if (isProd) {
@@ -116,7 +117,7 @@ export async function corsMiddleware(env: WorkerEnv) {
     c.res.headers.set("Access-Control-Allow-Credentials", "true");
     c.res.headers.set("Access-Control-Max-Age", "86400");
 
-    if (c.method === "OPTIONS") {
+    if (c.req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: c.res.headers });
     }
 

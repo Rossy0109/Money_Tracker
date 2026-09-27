@@ -14,8 +14,8 @@ const CRON_SCHEDULES: Record<string, string> = {
 
 export async function handleScheduled(
   event: ScheduledEvent,
-  env: WorkerEnv,
-  ctx: ExecutionContext
+  _env: WorkerEnv,
+  _ctx: ExecutionContext
 ): Promise<void> {
   const job = CRON_SCHEDULES[event.cron];
   if (!job) {

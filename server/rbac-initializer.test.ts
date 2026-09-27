@@ -31,6 +31,14 @@ vi.mock("./_core/rbac", () => ({
 
 const databaseUrl = "mysql://user:secret@localhost/money_tracker";
 
+async function waitFor(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error("condition not met in time");
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+}
+
 describe("RBAC startup initializer", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -90,7 +98,7 @@ describe("RBAC startup initializer", () => {
 
     expect(second).toBe(first);
     expect(state.createConnection).toHaveBeenCalledTimes(1);
-    await new Promise<void>(resolve => setTimeout(resolve, 10));
+    await waitFor(() => state.seed.mock.calls.length > 0);
     expect(state.seed).toHaveBeenCalledTimes(1);
     release?.();
     await first;

@@ -6,7 +6,12 @@ import {
   type AdminElevationPayload,
 } from "../server/_core/adminSession";
 import { isAdminRoleUser } from "../server/_core/rbac";
-import { createShimRequest, type ShimRequest, type ShimResponse } from "./httpShim";
+import {
+  createShimRequest,
+  createShimResponse,
+  type ShimRequest,
+  type ShimResponse,
+} from "./httpShim";
 
 export type WorkerTrpcContext = {
   req: ShimRequest;
@@ -28,7 +33,7 @@ export async function createWorkerContext(opts: {
 }): Promise<WorkerTrpcContext> {
   const { req: fetchReq, resHeaders } = opts;
 
-  const shimRes = createShimResponse();
+  const shimRes = createShimResponse(resHeaders);
   const shimReq = createShimRequest(fetchReq);
 
   let user: User | null;

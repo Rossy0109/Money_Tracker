@@ -1,16 +1,17 @@
+import type { Context, Next } from "hono";
 import type { WorkerEnv } from "./env";
 import { checkRateLimit } from "../server/_core/rateLimiter";
 
 export function rateLimitMiddleware(env: WorkerEnv, max: number, windowMs: number) {
-  return async (c: { req: { raw: Request }; res: Headers }, next: () => Promise<void>) => {
+  return async (c: Context, next: Next) => {
     if (env.NODE_ENV === "test") {
       await next();
       return;
     }
 
     const ip =
-      c.req.raw.headers.get("cf-connecting-ip") ||
-      c.req.raw.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      c.req.header("cf-connecting-ip") ||
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown-ip";
 
     try {

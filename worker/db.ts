@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/mysql2";
+import { connect } from "cloudflare:sockets";
 import { WorkerSocketStream } from "./socketStream";
 
 /**
@@ -20,14 +21,27 @@ interface WorkerDbEnv {
   DB_NAME?: string;
 }
 
-function isWorkersRuntime(): boolean {
+/**
+ * Detects the Workers runtime.
+ *
+ * `nodejs_compat` defines `process.env` inside Workers, and `connect` is only
+ * reachable via `import { connect } from "cloudflare:sockets"` (never as a
+ * global), so neither can be used as the signal. Workerd advertises
+ * `navigator.userAgent === "Cloudflare-Workers"`; Node's navigator reports
+ * `Node.js/...`, so the check is unambiguous in both runtimes.
+ */
+export function isWorkersRuntime(): boolean {
+  const userAgent = (globalThis as { navigator?: { userAgent?: string } })
+    .navigator?.userAgent;
+  if (typeof userAgent === "string") {
+    return userAgent.includes("Cloudflare-Workers");
+  }
+  // Fallback for runtimes without `navigator` (e.g. workerd during bundling).
   return (
-    typeof process === "undefined" ||
-    !process.versions?.node ||
-    typeof (globalThis as Record<string, unknown>).connect === "function"
+    typeof (globalThis as { caches?: unknown }).caches !== "undefined" &&
+    typeof process !== "undefined"
   );
 }
-
 function parseDatabaseUrl(url: string): {
   host: string;
   port: number;

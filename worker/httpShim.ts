@@ -30,6 +30,8 @@ export interface ShimResponse {
   statusCode: number;
   headers: Headers;
   body: unknown;
+  /** Marks this object as an HTTP shim (vs. a real Express Response). */
+  readonly __shim: true;
   cookie(name: string, value: string, options?: Record<string, unknown>): void;
   clearCookie(name: string, options?: Record<string, unknown>): void;
   set(name: string, value: string): void;
@@ -40,18 +42,7 @@ export interface ShimResponse {
   send(data: unknown): ShimResponse;
   end(): ShimResponse;
   redirect(url: string): ShimResponse;
-}
-
-function parseCookies(header: string | null): Map<string, string> {
-  const map = new Map<string, string>();
-  if (!header) return map;
-  for (const part of header.split(";")) {
-    const [name, ...rest] = part.trim().split("=");
-    if (name) {
-      map.set(name.trim(), rest.join("="));
-    }
-  }
-  return map;
+  redirect(status: number, url: string): ShimResponse;
 }
 
 export function createShimRequest(
@@ -67,6 +58,9 @@ export function createShimRequest(
       return headers.get(name.toLowerCase());
     },
   };
+  headers.forEach((value, key) => {
+    reqHeaders[key.toLowerCase()] = value;
+  });
 
   const ip =
     headers.get("cf-connecting-ip") ||
@@ -92,27 +86,51 @@ export function createShimRequest(
   };
 }
 
-export function createShimResponse(): ShimResponse {
-  const headers = new Headers();
+export function isShimResponse(res: unknown): res is ShimResponse {
+  return (
+    typeof res === "object" && res !== null && (res as ShimResponse).__shim === true
+  );
+}
+
+export function createShimResponse(targetHeaders?: Headers): ShimResponse {
+  const headers = targetHeaders ?? new Headers();
+  const foreignCookies =
+    typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
   let statusCode = 200;
   let body: unknown = null;
-  const cookies: string[] = [];
+  const cookies = new Map<string, string>();
 
-  const serializeCookies = () => {
-    for (const c of cookies) {
-      headers.append("Set-Cookie", c);
+  const syncSetCookie = () => {
+    headers.delete("Set-Cookie");
+    for (const str of foreignCookies) {
+      headers.append("Set-Cookie", str);
+    }
+    for (const str of cookies.values()) {
+      headers.append("Set-Cookie", str);
     }
   };
 
   return {
-    statusCode,
+    __shim: true,
+    get statusCode() {
+      return statusCode;
+    },
+    set statusCode(code: number) {
+      statusCode = code;
+    },
     headers,
-    body,
+    get body() {
+      return body;
+    },
+    set body(value: unknown) {
+      body = value;
+    },
     cookie(name: string, value: string, options?: Record<string, unknown>) {
       let str = `${name}=${encodeURIComponent(value)}`;
       if (options) {
-        if (options.maxAge !== undefined) {
-          str += `; Max-Age=${Math.floor(options.maxAge / 1000)}`;
+        const maxAge = Number(options.maxAge);
+        if (Number.isFinite(maxAge)) {
+          str += `; Max-Age=${Math.floor(maxAge / 1000)}`;
         }
         if (options.path) str += `; Path=${options.path}`;
         if (options.domain) str += `; Domain=${options.domain}`;
@@ -128,8 +146,8 @@ export function createShimResponse(): ShimResponse {
           str += `; SameSite=${ss}`;
         }
       }
-      cookies.push(str);
-      serializeCookies();
+      cookies.set(name, str);
+      syncSetCookie();
     },
     clearCookie(name: string, options?: Record<string, unknown>) {
       let str = `${name}=; Max-Age=0`;
@@ -139,8 +157,8 @@ export function createShimResponse(): ShimResponse {
         if (options.httpOnly) str += "; HttpOnly";
         if (options.secure) str += "; Secure";
       }
-      cookies.push(str);
-      serializeCookies();
+      cookies.set(name, str);
+      syncSetCookie();
     },
     set(name: string, value: string) {
       headers.set(name, value);
@@ -172,18 +190,41 @@ export function createShimResponse(): ShimResponse {
     end() {
       return this;
     },
-    redirect(url: string) {
-      statusCode = 302;
-      headers.set("Location", url);
+    redirect(urlOrStatus: string | number, url?: string) {
+      if (typeof urlOrStatus === "number") {
+        statusCode = urlOrStatus;
+        headers.set("Location", url ?? "");
+      } else {
+        statusCode = 302;
+        headers.set("Location", urlOrStatus);
+      }
       return this;
     },
   };
 }
 
+function isStreamBody(value: unknown): value is ReadableStream {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as ReadableStream).getReader === "function"
+  );
+}
+
 export function shimToResponse(shim: ShimResponse): Response {
   const headers = new Headers(shim.headers);
-  const body =
-    typeof shim.body === "string" ? shim.body : JSON.stringify(shim.body);
+  const hasBody =
+    shim.body !== null &&
+    shim.body !== undefined &&
+    shim.statusCode !== 204 &&
+    shim.statusCode !== 304;
+  const body = !hasBody
+    ? null
+    : typeof shim.body === "string"
+      ? shim.body
+      : isStreamBody(shim.body)
+        ? shim.body
+        : JSON.stringify(shim.body);
   return new Response(body, {
     status: shim.statusCode,
     headers,

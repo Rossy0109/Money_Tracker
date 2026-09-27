@@ -40,32 +40,32 @@ mysql2 (no Hyperdrive). Local development and tests use direct mysql2 connection
 
 | File | Node-Only API | Why Incompatible | Proposed Replacement | Status |
 |---|---|---|---|---|
-| `server/_core/index.ts` | `node:http`, `node:net`, `process.on/exit`, `@sentry/node` | Workers have no port/process model | Removed (Worker entrypoint replaces) | Pending |
-| `server/_core/app.ts` | express, helmet, pino-http, express-rate-limit, `@trpc/server/adapters/express` | No Express in Workers | Hono + `@trpc/server/adapters/fetch` | Pending |
-| `server/_core/vite.ts` | express.static, `fs`, vite dev server | Dev-only; no FS in Workers | `env.ASSETS.fetch()` for static serving | Pending |
-| `server/_core/logger.ts` | pino (Node streams) | No Node streams in Workers | Workers JSON logger (console.log) | Pending |
-| `server/_core/rateLimiter.ts` | in-memory `Map` + `setInterval` | Per-isolate state; not distributed | KV-backed store | Pending |
-| `server/_core/oauth.ts` | Express `Request/Response` | No Express req/res | HTTP shim from Fetch Request | Pending |
-| `server/_core/storageProxy.ts` | `@vercel/blob`, `node:stream.Readable` | Vercel-only SDK | R2 binding | Pending |
-| `server/cloudBackupService.ts` | `node:crypto.createCipheriv`, `node:fs/promises`, `node:path`, `@aws-sdk/client-s3` | No AES-GCM cipher in Workers; no FS | Web Crypto AES-GCM, R2 binding | Pending |
-| `server/scheduledBackup.ts` | `node:crypto.createCipheriv/randomBytes` | Same as above | Web Crypto | Pending |
-| `server/_core/passwordAuth.ts` | `node:crypto.scrypt` (callback) | No scrypt in Web Crypto | `@noble/hashes/scrypt` (Worker) / node:crypto (Node) | Pending |
-| `server/_core/googleOAuth.ts` | `node:crypto.createHash/randomBytes/timingSafeEqual` | Web Crypto equivalents exist | Platform crypto abstraction | Pending |
-| `server/_core/githubOAuth.ts` | Same as above | Same | Same | Pending |
-| `server/_core/adminSession.ts` | `node:crypto.createHmac` | Web Crypto HMAC | Platform crypto abstraction | Pending |
-| `server/_core/idempotency.ts` | `node:crypto.createHash` | Web Crypto SHA-256 | Platform crypto abstraction | Pending |
-| `server/timingSafe.ts` | `node:crypto.createHash/timingSafeEqual` | Web Crypto + custom compare | Platform crypto abstraction | Pending |
-| `server/db.ts` | `node:crypto.createHash/randomBytes` | Same | Platform crypto abstraction | Pending |
-| `server/_core/auditContext.ts` | `node:crypto.randomUUID` | `crypto.randomUUID()` exists in Workers | Direct use | Pending |
-| `server/_core/rbac-initializer.ts` | `node:crypto.createHash` | Web Crypto | Platform crypto abstraction | Pending |
-| `server/healthChecks.ts` | `process.env.VERCEL_URL` | Vercel-specific | Remove Vercel branch for Worker | Pending |
+| `server/_core/index.ts` | `node:http`, `node:net`, `process.on/exit`, `@sentry/node` | Workers have no port/process model | Removed (Worker entrypoint replaces) | Complete |
+| `server/_core/app.ts` | express, helmet, pino-http, express-rate-limit, `@trpc/server/adapters/express` | No Express in Workers | Hono + `@trpc/server/adapters/fetch` | Complete |
+| `server/_core/vite.ts` | express.static, `fs`, vite dev server | Dev-only; no FS in Workers | `env.ASSETS.fetch()` for static serving | Complete |
+| `server/_core/logger.ts` | pino (Node streams) | Bundled by wrangler via `nodejs_compat`; Node-stream writes are not used in the Worker path | Keep pino (bundles) | Complete |
+| `server/_core/rateLimiter.ts` | in-memory `Map` + `setInterval` | Per-isolate state; not distributed | KV-backed store | Complete |
+| `server/_core/oauth.ts` | Express `Request/Response` | No Express req/res | HTTP shim from Fetch Request | Complete |
+| `server/_core/storageProxy.ts` | `@vercel/blob`, `node:stream.Readable` | Vercel-only SDK | R2 binding via `setR2Bucket()` | Complete |
+| `server/cloudBackupService.ts` | `node:crypto.createCipheriv`, `node:fs/promises`, `node:path`, `@aws-sdk/client-s3` | No AES-GCM cipher in Workers; no FS | Web Crypto AES-GCM; local-snapshot FS path fails closed on Workers | Complete |
+| `server/scheduledBackup.ts` | `node:crypto.createCipheriv/randomBytes` | Same as above | Platform crypto | Complete |
+| `server/_core/passwordAuth.ts` | `node:crypto.scrypt` (callback) | No scrypt in Web Crypto | `@noble/hashes/scrypt` (Worker) / node:crypto (Node) | Complete |
+| `server/_core/googleOAuth.ts` | `node:crypto.createHash/randomBytes/timingSafeEqual` | Web Crypto equivalents exist | Platform crypto abstraction | Complete |
+| `server/_core/githubOAuth.ts` | Same as above | Same | Same | Complete |
+| `server/_core/adminSession.ts` | `node:crypto.createHmac` | Web Crypto HMAC | Platform crypto abstraction | Complete |
+| `server/_core/idempotency.ts` | `node:crypto.createHash` | Web Crypto SHA-256 | Platform crypto abstraction | Complete |
+| `server/timingSafe.ts` | `node:crypto.createHash/timingSafeEqual` | Web Crypto + custom compare | Platform crypto abstraction | Complete |
+| `server/db.ts` | `node:crypto.createHash/randomBytes` | Same | Platform crypto abstraction | Complete |
+| `server/_core/auditContext.ts` | `node:crypto.randomUUID` | `crypto.randomUUID()` exists in Workers | Direct use | Complete |
+| `server/_core/rbac-initializer.ts` | `node:crypto.createHash` | Web Crypto | Platform crypto abstraction | Complete |
+| `server/healthChecks.ts` | `process.env.VERCEL_URL` | Vercel-specific | Guarded Vercel-only branch; not called from Worker routes | Complete |
 | `server/vercel-handler.ts` | `node:http` (types only) | Preserved for Vercel coexistence | No change | N/A |
 
 ### 3.2 Database
 
 | File | Node-Only API | Why Incompatible | Proposed Replacement | Status |
 |---|---|---|---|---|
-| `server/_core/dbConnection.ts` | `drizzle-orm/mysql2` (mysql2 pool) | No raw TCP in Workers | `connect()` outbound TCP API + mysql2 stream adapter | Pending |
+| `server/_core/dbConnection.ts` | `drizzle-orm/mysql2` (mysql2 pool) | No raw TCP in Workers | `connect()` outbound TCP API + mysql2 stream adapter | Complete (production proof pending) |
 
 ### 3.3 Dependencies
 
@@ -156,13 +156,14 @@ additive. Both runtimes coexist until the Worker path is verified in production.
 | Phase | Description | Status |
 |---|---|---|
 | 0 | Read-only audit | Complete |
-| 1 | Platform crypto abstraction | Pending |
-| 2 | DB injection + connect() adapter | Pending |
-| 3 | Rate limiter KV + storage R2 | Pending |
-| 4 | Worker skeleton (Hono, shim, context) | Pending |
-| 5 | Route wiring | Pending |
-| 6 | Security headers, CORS, logger | Pending |
-| 7 | Cron handlers | Pending |
-| 8 | wrangler.toml + CI/CD | Pending |
-| 9 | Tests | Pending |
-| 10 | Documentation + verification | Pending |
+| 1 | Platform crypto abstraction | Complete |
+| 2 | DB injection + connect() adapter | Complete |
+| 3 | Rate limiter KV + storage R2 | Complete |
+| 4 | Worker skeleton (Hono, shim, context) | Complete |
+| 5 | Route wiring | Complete |
+| 6 | Security headers, CORS, logger | Complete |
+| 7 | Cron handlers | Complete |
+| 8 | wrangler.toml + CI/CD | Complete |
+| 9 | Tests | Complete |
+| 10 | Documentation | Complete |
+| 11 | Production verification (`connect()` DB, R2, cron) | Pending — needs Cloudflare |
