@@ -96,28 +96,36 @@ export async function runScheduledBillReminder(req: Request, res: Response) {
   }
 }
 
+export async function executeDailySweep(): Promise<{
+  recurring: { templates: number; created: number; failed: number };
+  billReminders: { checked: number; reminded: number };
+}> {
+  const [recurring, bills] = await Promise.all([
+    processRecurringSweep().catch(error => ({
+      templates: 0,
+      created: 0,
+      failed: -1,
+      error: error instanceof Error ? error.message : String(error),
+    })),
+    processBillReminderSweep().catch(error => ({
+      checked: 0,
+      reminded: 0,
+      error: error instanceof Error ? error.message : String(error),
+    })),
+  ]);
+  try {
+    await cleanupOldFailedLoginAttempts();
+  } catch {
+    // Non-blocking: lockout cleanup is best-effort
+  }
+  return { recurring, billReminders: bills };
+}
+
 export async function runDailySweep(req: Request, res: Response) {
   try {
     await requireCronSecret(req);
-    const [recurring, bills] = await Promise.all([
-      processRecurringSweep().catch(error => ({
-        templates: 0,
-        created: 0,
-        failed: -1,
-        error: error instanceof Error ? error.message : String(error),
-      })),
-      processBillReminderSweep().catch(error => ({
-        checked: 0,
-        reminded: 0,
-        error: error instanceof Error ? error.message : String(error),
-      })),
-    ]);
-    try {
-      await cleanupOldFailedLoginAttempts();
-    } catch {
-      // Non-blocking: lockout cleanup is best-effort
-    }
-    res.status(200).json({ ok: true, recurring, billReminders: bills });
+    const result = await executeDailySweep();
+    res.status(200).json({ ok: true, ...result });
   } catch (error) {
     const unauthorized =
       error instanceof Error && error.message === "অননুমোদিত নির্ধারিত কাজ";

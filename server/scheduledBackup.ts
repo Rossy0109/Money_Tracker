@@ -118,6 +118,64 @@ async function verifyBackupIntegrity(
   }
 }
 
+export async function executeScheduledBackup(): Promise<void> {
+  const adminUsers = await financeDb.listUsersForAdmin();
+  const activeUsers = adminUsers.filter(u => u.status === "active");
+
+  let totalProjectsBackedUp = 0;
+  let verifiedCount = 0;
+  let failedCount = 0;
+  const backupResults = [];
+
+  for (const user of activeUsers) {
+    const projects = await financeDb.listProjects(user.id);
+    for (const project of projects) {
+      const cloudResult: CloudBackupResult & {
+        integrityVerified?: boolean;
+        integrityError?: string;
+      } = await executeCloudBackup(user.id, project.id);
+
+      if (cloudResult.success && cloudResult.checksum) {
+        const verification = await verifyBackupIntegrity(
+          user.id,
+          project.id,
+          cloudResult.checksum
+        );
+        if (verification.verified) {
+          verifiedCount++;
+          cloudResult.integrityVerified = true;
+        } else {
+          failedCount++;
+          cloudResult.integrityVerified = false;
+          cloudResult.integrityError = verification.error;
+          logger.warn(
+            `Backup integrity check failed for project ${project.id}: ${verification.error}`
+          );
+        }
+      } else if (!cloudResult.success) {
+        failedCount++;
+      }
+
+      backupResults.push(cloudResult);
+      totalProjectsBackedUp++;
+    }
+  }
+
+  const storedCount = backupResults.filter(r => r.success).length;
+  await financeDb.logAudit({
+    actorUserId: activeUsers[0]?.id ?? (await financeDb.systemActorUserId()),
+    action:
+      failedCount === 0 && totalProjectsBackedUp > 0
+        ? "backup_created"
+        : "update",
+    entityType:
+      failedCount === 0 && totalProjectsBackedUp > 0
+        ? "cloud_backup"
+        : "cloud_backup_failed",
+    summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
+  });
+}
+
 export async function runScheduledBackup(
   req: Request,
   res: Response
@@ -132,73 +190,10 @@ export async function runScheduledBackup(
   }
 
   try {
-    const adminUsers = await financeDb.listUsersForAdmin();
-    const activeUsers = adminUsers.filter(u => u.status === "active");
-
-    let totalProjectsBackedUp = 0;
-    let verifiedCount = 0;
-    let failedCount = 0;
-    const backupResults = [];
-
-    for (const user of activeUsers) {
-      const projects = await financeDb.listProjects(user.id);
-      for (const project of projects) {
-        const cloudResult: CloudBackupResult & {
-          integrityVerified?: boolean;
-          integrityError?: string;
-        } = await executeCloudBackup(user.id, project.id);
-
-        // Post-upload integrity verification — only meaningful when something was stored.
-        if (cloudResult.success && cloudResult.checksum) {
-          const verification = await verifyBackupIntegrity(
-            user.id,
-            project.id,
-            cloudResult.checksum
-          );
-          if (verification.verified) {
-            verifiedCount++;
-            cloudResult.integrityVerified = true;
-          } else {
-            failedCount++;
-            cloudResult.integrityVerified = false;
-            cloudResult.integrityError = verification.error;
-            logger.warn(
-              `Backup integrity check failed for project ${project.id}: ${verification.error}`
-            );
-          }
-        } else if (!cloudResult.success) {
-          failedCount++;
-        }
-
-        backupResults.push(cloudResult);
-        totalProjectsBackedUp++;
-      }
-    }
-
-    const storedCount = backupResults.filter(r => r.success).length;
-    // Log the scheduled backup audit — only count verified when a payload was actually stored.
-    await financeDb.logAudit({
-      actorUserId: activeUsers[0]?.id ?? (await financeDb.systemActorUserId()),
-      action:
-        failedCount === 0 && totalProjectsBackedUp > 0
-          ? "backup_created"
-          : "update",
-      entityType:
-        failedCount === 0 && totalProjectsBackedUp > 0
-          ? "cloud_backup"
-          : "cloud_backup_failed",
-      summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
-      auditContext: extractAuditContext(req),
-    });
-
-    res.status(failedCount > 0 && storedCount === 0 ? 500 : 200).json({
-      success: storedCount > 0,
+    await executeScheduledBackup();
+    res.status(200).json({
+      success: true,
       timestamp: new Date().toISOString(),
-      backedUpProjectsCount: totalProjectsBackedUp,
-      storedProjectsCount: storedCount,
-      integrityVerified: verifiedCount,
-      integrityFailed: failedCount,
-      details: backupResults,
     });
   } catch (error) {
     res.status(500).json({
