@@ -291,6 +291,9 @@ export function createApiApp() {
     })
   );
 
+  // Debug routes (guarded by env) — must come before the catch-all
+  registerDebugRoutes(app);
+
   // 404 for unknown API paths. This stays inside the shared pipeline so
   // /api/* semantics are identical in every runtime. The generic (non-API)
   // fallback lives in registerFallbackHandlers, which runtimes register AFTER
@@ -299,9 +302,6 @@ export function createApiApp() {
   app.use("/api", (_req: Request, res: Response) => {
     res.status(404).json({ error: "Not found" });
   });
-
-  // Debug routes (guarded by env)
-  registerDebugRoutes(app);
 
   return app;
 }
