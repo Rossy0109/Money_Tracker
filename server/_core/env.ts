@@ -26,6 +26,12 @@ export const ENV = {
   backupEncryptionKey: process.env.BACKUP_ENCRYPTION_KEY ?? "",
   backupRetentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS ?? "30", 10),
   adminBootstrapEmail: process.env.ADMIN_BOOTSTRAP_EMAIL ?? "",
+  // Explicit extra origins allowed for credentialed CORS (comma-separated).
+  // The app's own APP_URL + canonical host are always allowed.
+  corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean),
 };
 
 export type AuthModeConsistency = {

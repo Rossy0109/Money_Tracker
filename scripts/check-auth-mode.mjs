@@ -44,10 +44,17 @@ if (!sm && !cm) {
 // If only one side has a real value and the other is a Vercel placeholder or
 // absent, warn but don't fail — on Vercel the real values are injected.
 if (!sm || !cm) {
-  console.warn(
+  const msg =
     `[check-auth-mode] Warning: only one mode is set (AUTH_MODE=${serverMode ?? "unset"}, ` +
-      `VITE_AUTH_MODE=${clientMode ?? "unset"}). Both should be set in the same layer.`
-  );
+    `VITE_AUTH_MODE=${clientMode ?? "unset"}). Both should be set in the same layer.`;
+  // A production artifact with a server-side AUTH_MODE the client bundle does
+  // not know about ships UI for the wrong login flow (e.g. sign-up buttons on
+  // a deployment where registration is disabled). Fail loudly there.
+  if (mode === "production") {
+    console.error(msg);
+    process.exit(1);
+  }
+  console.warn(msg);
   process.exit(0);
 }
 

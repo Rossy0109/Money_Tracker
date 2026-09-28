@@ -153,27 +153,32 @@ export function createApiApp() {
   );
 
   // CORS — restrict to same-origin in production, allow all in dev
+  // Production reflects credentials only for the app's own origins. Preview
+  // deployments and the SPA share one origin on Vercel, so same-origin calls
+  // need no preflight; anything else must be listed in CORS_ALLOWED_ORIGINS.
+  // A malicious *.vercel.app site can no longer piggyback the wildcard.
+  const trustedOrigins = new Set(
+    [process.env.APP_URL ?? "", `https://${CANONICAL_HOST}`, ...ENV.corsAllowedOrigins]
+      .map(s => s.trim().replace(/\/+$/, "").toLowerCase())
+      .filter(Boolean)
+  );
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
     const isProd = ENV.isProduction;
 
     if (isProd) {
-      // In production, allow same-origin, exact APP_URL, or any *.vercel.app deployment
-      const isAllowedOrigin =
-        !origin ||
-        origin === process.env.APP_URL ||
-        origin === `https://${CANONICAL_HOST}` ||
-        (typeof origin === "string" && origin.endsWith(".vercel.app"));
+      const originKey =
+        typeof origin === "string" ? origin.trim().replace(/\/+$/, "").toLowerCase() : "";
+      const isAllowedOrigin = !origin || trustedOrigins.has(originKey);
 
-      if (isAllowedOrigin) {
-        res.setHeader(
-          "Access-Control-Allow-Origin",
-          origin || process.env.APP_URL || "*"
-        );
+      if (isAllowedOrigin && origin) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
       }
     } else {
       // In development, allow all origins
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
+      res.setHeader("Vary", "Origin");
     }
 
     res.setHeader(

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=22 <25"
+  },
   "scripts": {
     "predev": "node scripts/check-auth-mode.mjs development",
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",

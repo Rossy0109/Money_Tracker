@@ -292,10 +292,19 @@ async function report(conn) {
 }
 
 function resolveSsl(params) {
-  const raw = params.get("ssl");
-  const mode = params.get("ssl-mode") ?? params.get("sslmode");
+  // URLSearchParams keys are case-sensitive, but JDBC/TiDB URLs commonly use
+  // camelCase (sslMode) or mixed case; window the values by lowercase key.
+  const lower = new Map();
+  for (const [k, v] of params) {
+    if (!lower.has(k.toLowerCase())) lower.set(k.toLowerCase(), v);
+  }
+  // Like URLSearchParams.get, return null for absent keys; a Map.get would
+  // return undefined and defeat the `!== null` guards below.
+  const get = k => (lower.has(k) ? lower.get(k) : null);
+  const raw = get("ssl");
+  const mode = get("ssl-mode") ?? get("sslmode");
   // JDBC-style `useSSL=true`/`requireSSL=true` params map onto the same toggle.
-  const useSsl = params.get("useSSL") ?? params.get("requireSSL");
+  const useSsl = get("usessl") ?? get("requiressl");
   if (useSsl !== null && mode === null) {
     if (/^(true|1|yes|on|preferred|DISABLED|disabled)$/i.test(useSsl)) {
       return {
