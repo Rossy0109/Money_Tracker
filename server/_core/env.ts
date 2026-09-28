@@ -10,6 +10,11 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   blobStoreId: process.env.BLOB_STORE_ID ?? "",
   blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN ?? "",
+  // Supabase Storage (Worker path — R2 unavailable on this account).
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  supabaseStorageKey:
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "",
+  supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET ?? "",
   googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
   googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
   googleOAuthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI ?? "",

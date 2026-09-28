@@ -1,9 +1,16 @@
-export type StorageBackend = "vercel-blob" | "cloudflare-r2" | "missing";
+export type StorageBackend =
+  | "vercel-blob"
+  | "cloudflare-r2"
+  | "supabase-storage"
+  | "missing";
 
 export type StorageEnvironment = {
   blobStoreId: string;
   blobReadWriteToken: string;
   r2Bucket?: unknown;
+  supabaseUrl?: string;
+  supabaseStorageKey?: string;
+  supabaseStorageBucket?: string;
 };
 
 /** Minimal R2 bucket surface used by private object delivery. */
@@ -30,13 +37,42 @@ export function getR2Bucket(): R2BucketHandle | null {
 }
 
 /**
+ * Builds the Supabase Storage REST URL for a private object.
+ * Bucket and key segments are percent-encoded; key slashes are preserved.
+ */
+export function buildSupabaseObjectUrl(
+  baseUrl: string,
+  bucket: string,
+  key: string
+): string | null {
+  const base = baseUrl.replace(/\/+$/, "");
+  if (!base || !bucket || !key) return null;
+  const path = key
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  if (!path) return null;
+  return `${base}/storage/v1/object/${encodeURIComponent(bucket)}/${path}`;
+}
+
+/**
  * Selects a storage transport.
- * - Cloudflare R2 binding (Worker path)
- * - Vercel Blob store (Node/Vercel path)
+ * - Cloudflare R2 binding (Worker path, only if the binding exists)
+ * - Vercel Blob store (Node/Vercel path — checked before Supabase so existing
+ *   Blob objects keep resolving on Vercel, which also sets SUPABASE_*)
+ * - Supabase Storage (Worker path: R2 unavailable, no Blob token)
  * - Anything else fails closed.
  */
 export function selectStorageBackend(env: StorageEnvironment): StorageBackend {
   if (env.r2Bucket) return "cloudflare-r2";
   if (env.blobReadWriteToken) return "vercel-blob";
+  if (
+    env.supabaseUrl &&
+    env.supabaseStorageKey &&
+    env.supabaseStorageBucket
+  ) {
+    return "supabase-storage";
+  }
   return "missing";
 }

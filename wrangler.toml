@@ -11,9 +11,12 @@ not_found_handling = "single-page-application"
 binding = "RATE_LIMIT_KV"
 id = "6393cfa66822415fa69319105dc0efa5"
 
-[[r2_buckets]]
-bucket_name = "money-tracker-storage"
-binding = "R2_BUCKET"
+# R2 is not enabled on this account (API error 10042). Private object storage
+# uses Supabase Storage instead (SUPABASE_* vars + SUPABASE_SERVICE_ROLE_KEY
+# secret). Re-enable the binding below if R2 is activated later.
+# [[r2_buckets]]
+# bucket_name = "money-tracker-storage"
+# binding = "R2_BUCKET"
 
 [triggers]
 crons = ["0 18 * * *", "0 1 * * *"]
@@ -24,3 +27,5 @@ VITE_AUTH_MODE = "google"
 APP_URL = "https://money-tracker.kamrul01.workers.dev"
 NODE_ENV = "production"
 BACKUP_RETENTION_DAYS = "30"
+SUPABASE_URL = "https://ulmaomfsyjbwcwecutcp.supabase.co"
+SUPABASE_STORAGE_BUCKET = "amar-hisab-files"

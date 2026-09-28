@@ -51,7 +51,7 @@ version — `wrangler versions` always retains it.
 | Worker fails to boot / "process is not defined" | `compatibility_flags = ["nodejs_compat"]` removed | Restore it in `wrangler.toml` |
 | 500 on every DB-backed route | `connect()` unreachable (DB not public, wrong `DATABASE_URL`, or plan lacks outbound TCP) | Check `wrangler tail`; verify host:port is publicly reachable |
 | 500 at boot only in Worker | Runtime detection (`isWorkersRuntime`) or missing binding | `wrangler tail` on a fresh deploy |
-| 503 on `/api/storage/objects/*` | `R2_BUCKET` binding missing or bucket empty | Re-add binding / confirm object keys migrated |
+| 503 on `/api/storage/objects/*` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` missing, or bucket empty | Re-set the three Supabase values (`wrangler secret put` / `[vars]`) |
 | 429 on logins | KV namespace id placeholder left in `wrangler.toml` | Create KV namespace and set `id` |
 | Login works, SPA assets 404 | `dist/public` not built before deploy | `pnpm build` then `wrangler deploy` |
 

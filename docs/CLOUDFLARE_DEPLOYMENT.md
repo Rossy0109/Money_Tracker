@@ -1,7 +1,7 @@
 # Cloudflare Workers Deployment
 
 **Branch:** `cloudflare-migration`
-**Runtime:** Cloudflare Workers (Hono + tRPC fetch adapter + R2 + KV + Cron)
+**Runtime:** Cloudflare Workers (Hono + tRPC fetch adapter + KV + Supabase Storage + Cron)
 **Database:** existing MySQL/TiDB over `connect()` outbound TCP (no Hyperdrive)
 
 The Vercel path (`vercel.json`, `server/vercel-handler.ts`, `api/[...path].js`) is
@@ -15,7 +15,7 @@ untouched and stays deployable until the Worker path is verified in production.
 |---|---|
 | `compatibility_flags = ["nodejs_compat"]` | Already set in `wrangler.toml`. Required for `process.env.*` access and for the `node:fs` / `node:path` / `@aws-sdk/client-s3` imports pulled in by `server/cloudBackupService.ts`. **Do not remove it** — without it the Worker fails at boot. |
 | `compatibility_date = "2025-09-01"` | ≥ 2025-04-01, so `nodejs_compat` also populates `process.env` from bindings/secrets (`nodejs_compat_populate_process_env`). |
-| R2 bucket `money-tracker-storage` | Private object storage (replaces Vercel Blob). |
+| Supabase Storage bucket `amar-hisab-files` | Private object storage on the Worker path (R2 is not enabled on this account; Vercel Blob stays in use on Vercel). Needs `SUPABASE_SERVICE_ROLE_KEY`. |
 | KV namespace | Rate limiting (`RATE_LIMIT_KV`). |
 | Outbound TCP to MySQL/TiDB | Worker uses `connect()` from `cloudflare:sockets`; the DB host must be reachable from Cloudflare's network (public TiDB/MySQL endpoint). |
 | Workers Paid plan for `connect()` | `connect()` (outbound TCP) requires a paid Workers plan. |
@@ -27,11 +27,21 @@ untouched and stays deployable until the Worker path is verified in production.
 ```bash
 pnpm install
 
-# R2 bucket (matches wrangler.toml [[r2_buckets]])
-npx wrangler r2 bucket create money-tracker-storage
-
 # KV namespace for rate limiting — paste the returned id into wrangler.toml
 npx wrangler kv namespace create RATE_LIMIT_KV
+
+# Supabase Storage bucket for private objects (service role key required).
+# Fails with 403 if SUPABASE_SERVICE_ROLE_KEY is missing.
+export SUPABASE_SERVICE_ROLE_KEY='<from Supabase dashboard → Settings → API>'
+curl -sS -X POST "$SUPABASE_URL/storage/v1/bucket" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"amar-hisab-files","name":"amar-hisab-files","public":false}'
+
+# Note: R2 could not be used — the account has R2 disabled (API error 10042)
+# and enabling it is dashboard-only. [[r2_buckets]] stays commented in
+# wrangler.toml; the Worker falls back to Supabase Storage.
 ```
 
 Edit `wrangler.toml`:
@@ -126,13 +136,14 @@ Browser → Cloudflare Worker (Hono)
             ├── /api/*          Express route capture + HTTP shim
             ├── /api/trpc/*     @trpc/server/adapters/fetch
             ├── /api/auth/*     rate-limited (50 / 15 min, KV store)
-            ├── /api/storage/*  R2-backed private downloads
+            ├── /api/storage/*  Supabase Storage private downloads
             ├── /api/scheduled/* cron compat handlers
             └── env.ASSETS.fetch() → SPA (dist/public, single-page fallback)
 
 Worker → connect() → mysql2 stream adapter → Drizzle → MySQL/TiDB
 Worker → RATE_LIMIT_KV  → distributed rate limiting
-Worker → R2_BUCKET      → private objects + encrypted backups
+Worker → Supabase Storage → private objects (R2 optional if enabled)
+Worker → S3/Supabase     → encrypted backups
 Worker → crons          → recurring/bill-reminder/daily-sweep/backup jobs
 ```
 
@@ -142,7 +153,8 @@ Key injection points (business logic stays unchanged):
 |---|---|---|
 | `setDbHandle()` | `server/_core/dbConnection.ts` | all `server/db.ts` queries |
 | `setRateLimitStore()` | `server/_core/rateLimiter.ts` | login/OAuth rate limits |
-| `setR2Bucket()` | `server/_core/storageBackend.ts` | `storageProxy.ts` downloads |
+| `setR2Bucket()` | `server/_core/storageBackend.ts` | `storageProxy.ts` downloads (R2, when bound) |
+| `ENV.supabase*` | `server/_core/env.ts` | `storageProxy.ts` downloads (Supabase Storage) |
 | `createShimRequest/Response` | `worker/httpShim.ts` | OAuth + storage routes |
 
 ---

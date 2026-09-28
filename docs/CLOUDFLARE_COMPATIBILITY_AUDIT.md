@@ -46,7 +46,7 @@ mysql2 (no Hyperdrive). Local development and tests use direct mysql2 connection
 | `server/_core/logger.ts` | pino (Node streams) | Bundled by wrangler via `nodejs_compat`; Node-stream writes are not used in the Worker path | Keep pino (bundles) | Complete |
 | `server/_core/rateLimiter.ts` | in-memory `Map` + `setInterval` | Per-isolate state; not distributed | KV-backed store | Complete |
 | `server/_core/oauth.ts` | Express `Request/Response` | No Express req/res | HTTP shim from Fetch Request | Complete |
-| `server/_core/storageProxy.ts` | `@vercel/blob`, `node:stream.Readable` | Vercel-only SDK | R2 binding via `setR2Bucket()` | Complete |
+| `server/_core/storageProxy.ts` | `@vercel/blob`, `node:stream.Readable` | Vercel-only SDK | Supabase Storage REST (R2 binding supported via `setR2Bucket()` when enabled) | Complete |
 | `server/cloudBackupService.ts` | `node:crypto.createCipheriv`, `node:fs/promises`, `node:path`, `@aws-sdk/client-s3` | No AES-GCM cipher in Workers; no FS | Web Crypto AES-GCM; local-snapshot FS path fails closed on Workers | Complete |
 | `server/scheduledBackup.ts` | `node:crypto.createCipheriv/randomBytes` | Same as above | Platform crypto | Complete |
 | `server/_core/passwordAuth.ts` | `node:crypto.scrypt` (callback) | No scrypt in Web Crypto | `@noble/hashes/scrypt` (Worker) / node:crypto (Node) | Complete |
@@ -109,7 +109,7 @@ Browser → Cloudflare Worker (Hono)
 
 Worker → connect() outbound TCP → mysql2 stream → Drizzle → TiDB/MySQL
 Worker → KV binding → rate limiting
-Worker → R2 binding → private storage + encrypted backups
+Worker → Supabase Storage → private storage (R2 optional; account has R2 disabled)
 Worker → Cron triggers → scheduled jobs
 ```
 
@@ -158,7 +158,7 @@ additive. Both runtimes coexist until the Worker path is verified in production.
 | 0 | Read-only audit | Complete |
 | 1 | Platform crypto abstraction | Complete |
 | 2 | DB injection + connect() adapter | Complete |
-| 3 | Rate limiter KV + storage R2 | Complete |
+| 3 | Rate limiter KV + storage (Supabase, R2 not available on account) | Complete |
 | 4 | Worker skeleton (Hono, shim, context) | Complete |
 | 5 | Route wiring | Complete |
 | 6 | Security headers, CORS, logger | Complete |

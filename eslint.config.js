@@ -7,6 +7,8 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "dist-worker/**",
+      ".wrangler/**",
       "public/**",
       "node_modules/",
       "drizzle/",
