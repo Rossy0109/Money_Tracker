@@ -12,7 +12,6 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { getDb } from "./dbConnection";
 import {
   runScheduledBillReminder,
   runScheduledRecurring,
@@ -310,33 +309,8 @@ export function createApiApp() {
  * Only available in non-production or when explicitly enabled.
  */
 export function registerDebugRoutes(app: Express) {
-  // Allow debug endpoint in production for now to diagnose db issues
-  app.get("/api/debug/db", async (_req: Request, res: Response) => {
-    try {
-      const db = await getDb();
-      if (!db) {
-        return res.status(500).json({ error: "Database not connected" });
-      }
-      // Test using the pool directly to get raw MySQL error
-      const pool = (db as any).$client;
-      if (!pool) {
-        return res.status(500).json({ error: "No pool available" });
-      }
-      const [rows] = await pool.execute("SELECT 1 as ok");
-      res.json({ ok: true, rows });
-    } catch (err: any) {
-      // Surface full MySQL error details
-      res.status(500).json({
-        error: err?.message ?? String(err),
-        code: err?.code,
-        errno: err?.errno,
-        sqlState: err?.sqlState,
-        sqlMessage: err?.sqlMessage,
-        fatal: err?.fatal,
-        stack: err?.stack,
-      });
-    }
-  });
+  // Disabled - was for debugging production db connection
+  // app.get("/api/debug/db", async (_req: Request, res: Response) => { ... });
 }
 
 /**
