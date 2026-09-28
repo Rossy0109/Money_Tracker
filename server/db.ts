@@ -1155,36 +1155,47 @@ export async function submitVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  const [voucher] = await db
-    .select()
-    .from(financeVouchers)
-    .where(
-      and(
-        eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId)
+  return db.transaction(async tx => {
+    const [voucher] = await tx
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.projectId, projectId)
+        )
       )
-    )
-    .limit(1);
-  if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
-  assertVoucherTransition(voucher.status, "submitted");
+      .limit(1);
+    if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
+    assertVoucherTransition(voucher.status, "submitted");
 
-  await db
-    .update(financeVouchers)
-    .set({
-      status: "submitted",
-      submittedBy: userId,
-      submittedAt: new Date(),
-    })
-    .where(eq(financeVouchers.id, voucherId));
+    // Status-guarded UPDATE: the row can only move draft -> submitted once,
+    // so two concurrent submitters can't double-transition (see postVoucher).
+    const transition = await tx
+      .update(financeVouchers)
+      .set({
+        status: "submitted",
+        submittedBy: userId,
+        submittedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.status, "draft")
+        )
+      );
+    if (!transition[0]?.affectedRows)
+      throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
 
-  await db.insert(financeVoucherAudit).values({
-    voucherId,
-    actorUserId: userId,
-    action: "submit",
-    snapshot: JSON.stringify({ from: voucher.status, to: "submitted" }),
+    await tx.insert(financeVoucherAudit).values({
+      voucherId,
+      actorUserId: userId,
+      action: "submit",
+      snapshot: JSON.stringify({ from: voucher.status, to: "submitted" }),
+    });
+
+    return { voucherId, status: "submitted" };
   });
-
-  return { voucherId, status: "submitted" };
 }
 
 /** Approve a submitted voucher (or return to draft). */
@@ -1197,53 +1208,64 @@ export async function approveVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  const [voucher] = await db
-    .select()
-    .from(financeVouchers)
-    .where(
-      and(
-        eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId)
+  return db.transaction(async tx => {
+    const [voucher] = await tx
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.projectId, projectId)
+        )
       )
-    )
-    .limit(1);
-  if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
+      .limit(1);
+    if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
 
-  // Self-approval prevention: the voucher creator cannot approve their own voucher.
-  if (action === "approve" && voucher.userId === userId) {
-    throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
-  }
+    // Self-approval prevention: the voucher creator cannot approve their own voucher.
+    if (action === "approve" && voucher.userId === userId) {
+      throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
+    }
 
-  // 4-eyes (maker ≠ checker): the submitter cannot approve their own submission.
-  if (action === "approve" && voucher.submittedBy === userId) {
-    throw new Error("প্রস্তুতকারক নিজে অনুমোদন করতে পারবেন না (চার-চোখ নীতি)");
-  }
+    // 4-eyes (maker ≠ checker): the submitter cannot approve their own submission.
+    if (action === "approve" && voucher.submittedBy === userId) {
+      throw new Error("প্রস্তুতকারক নিজে অনুমোদন করতে পারবেন না (চার-চোখ নীতি)");
+    }
 
-  const targetStatus = action === "approve" ? "approved" : "draft";
-  assertVoucherTransition(voucher.status, targetStatus);
+    const targetStatus = action === "approve" ? "approved" : "draft";
+    assertVoucherTransition(voucher.status, targetStatus);
 
-  await db
-    .update(financeVouchers)
-    .set({
-      status: targetStatus,
-      ...(action === "approve"
-        ? { approvedBy: userId, approvedAt: new Date() }
-        : {}),
-    })
-    .where(eq(financeVouchers.id, voucherId));
+    // Status-guarded UPDATE: submitted can only be consumed once, so two
+    // concurrent approvers can't both win (see postVoucher).
+    const transition = await tx
+      .update(financeVouchers)
+      .set({
+        status: targetStatus,
+        ...(action === "approve"
+          ? { approvedBy: userId, approvedAt: new Date() }
+          : {}),
+      })
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.status, "submitted")
+        )
+      );
+    if (!transition[0]?.affectedRows)
+      throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
 
-  await db.insert(financeVoucherAudit).values({
-    voucherId,
-    actorUserId: userId,
-    action: "approve",
-    snapshot: JSON.stringify({
-      from: voucher.status,
-      to: targetStatus,
-      action,
-    }),
+    await tx.insert(financeVoucherAudit).values({
+      voucherId,
+      actorUserId: userId,
+      action: "approve",
+      snapshot: JSON.stringify({
+        from: voucher.status,
+        to: targetStatus,
+        action,
+      }),
+    });
+
+    return { voucherId, status: targetStatus };
   });
-
-  return { voucherId, status: targetStatus };
 }
 
 async function postVoucherInternals(
