@@ -1,7 +1,62 @@
 import { drizzle } from "drizzle-orm/mysql2";
+import { createPool, type Pool } from "mysql2/promise";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _externalDb: ReturnType<typeof drizzle> | null = null;
+let _pool: Pool | null = null;
+
+/**
+ * Parse a DATABASE_URL (mysql:// or jdbc:mysql://) and return mysql2 pool config.
+ * Handles sslMode/ssl-mode/useSSL params and jdbc: prefix.
+ */
+function parseDatabaseUrl(url: string) {
+  let u = url.trim();
+  if (/^jdbc:mysql:/i.test(u)) u = u.replace(/^jdbc:/i, "");
+  const parsed = new URL(u);
+  if (parsed.protocol !== "mysql:") {
+    throw new Error(`Unsupported DATABASE_URL scheme: ${parsed.protocol}`);
+  }
+
+  // Case-insensitive param lookup
+  const params = new Map();
+  for (const [k, v] of parsed.searchParams) {
+    if (!params.has(k.toLowerCase())) params.set(k.toLowerCase(), v);
+  }
+  const get = (k: string) => (params.has(k) ? params.get(k) : null);
+
+  // SSL config from sslMode/ssl-mode/useSSL/requireSSL
+  let ssl: Pool["config"]["ssl"] = undefined;
+  const mode = get("ssl-mode") ?? get("sslmode");
+  const useSsl = get("usessl") ?? get("requiressl");
+  if (useSsl !== null && mode === null) {
+    if (/^(true|1|yes|on|preferred)$/i.test(useSsl)) ssl = { rejectUnauthorized: false };
+    else if (/^(false|0|no|off)$/i.test(useSsl)) ssl = undefined;
+  } else if (mode !== null) {
+    if (/^disabled$/i.test(mode)) ssl = undefined;
+    else if (/^required$|^preferred$/i.test(mode)) ssl = { rejectUnauthorized: false };
+    else if (/^verify_ca$|^verify_identity$/i.test(mode)) ssl = { rejectUnauthorized: true };
+  }
+  const rawSsl = get("ssl");
+  if (rawSsl !== null && ssl === undefined) {
+    if (/^(true|1|yes|on|required)$/i.test(rawSsl)) ssl = { rejectUnauthorized: true };
+    else if (/^(false|0|no|off|disabled)$/i.test(rawSsl)) ssl = undefined;
+    else {
+      try { ssl = JSON.parse(rawSsl); } catch { /* ignore */ }
+    }
+  }
+
+  return {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 3306,
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, "") || undefined,
+    ssl,
+    connectionLimit: 10,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+  };
+}
 
 /**
  * Inject a Drizzle instance for the current runtime.
@@ -20,9 +75,9 @@ export async function getDb() {
   if (_externalDb) return _externalDb;
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL, {
-        logger: false,
-      });
+      const config = parseDatabaseUrl(process.env.DATABASE_URL);
+      _pool = createPool(config);
+      _db = drizzle(_pool, { logger: false }) as unknown as ReturnType<typeof drizzle>;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -37,6 +92,10 @@ export async function closeDatabaseConnection() {
   _db = null;
   _externalDb = null;
   await client?.end?.();
+  if (_pool) {
+    await _pool.end();
+    _pool = null;
+  }
 }
 
 export function databaseRequired<T>(db: T | null): T {
