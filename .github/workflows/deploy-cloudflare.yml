@@ -1,8 +1,11 @@
 name: Deploy to Cloudflare
 
+# Manual dispatch ONLY. Production is served by Vercel from `main`; the Worker
+# runtime points at the same production MySQL database, so an automatic
+# `push: main` trigger would stand up a second production writer on every merge
+# without ever having been validated against production. Keep the Worker manual
+# until it is deliberately promoted.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

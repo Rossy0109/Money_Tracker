@@ -293,7 +293,20 @@ async function report(conn) {
 
 function resolveSsl(params) {
   const raw = params.get("ssl");
-  const mode = params.get("ssl-mode");
+  const mode = params.get("ssl-mode") ?? params.get("sslmode");
+  // JDBC-style `useSSL=true`/`requireSSL=true` params map onto the same toggle.
+  const useSsl = params.get("useSSL") ?? params.get("requireSSL");
+  if (useSsl !== null && mode === null) {
+    if (/^(true|1|yes|on|preferred|DISABLED|disabled)$/i.test(useSsl)) {
+      return {
+        ssl: { rejectUnauthorized: false },
+        sslNote: `encrypted (from useSSL=${useSsl}), certificate not verified`,
+      };
+    }
+    if (/^(false|0|no|off)$/i.test(useSsl)) {
+      return { ssl: undefined, sslNote: "disabled (from useSSL)" };
+    }
+  }
   if (raw !== null) {
     if (/^(true|1|yes|on|required)$/i.test(raw)) {
       return {
@@ -337,7 +350,12 @@ function resolveSsl(params) {
 }
 
 function resolveTarget(rawUrl) {
-  const url = rawUrl.trim();
+  let url = rawUrl.trim();
+  // Providers (Railway/Hostinger/Aiven-style) sometimes publish a JDBC URL such
+  // as `jdbc:mysql://HOST:PORT/DB`. Normalize to our `mysql://` schema.
+  if (/^jdbc:mysql:/i.test(url)) {
+    url = url.replace(/^jdbc:/i, "");
+  }
   let parsed;
   try {
     parsed = new URL(url);

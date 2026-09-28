@@ -1,8 +1,14 @@
 name: Deploy to Vercel (CD)
 
+# Deploy only the exact commit CI validated. Previously this triggered on
+# `push: main` alongside CI on the same event, so production could ship a
+# commit whose typecheck/lint/unit/e2e/browser gates were still running or about
+# to fail. `workflow_run` fires after CI settles, and the checkout pins the
+# validated SHA so a fast follow-up push cannot shift what is deployed.
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -15,11 +21,18 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to production
+    # Manual dispatch always runs. A CI completion only deploys when every gate
+    # passed and the validated commit is on the production branch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
         with:
           fetch-depth: 1
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # actions/setup-node@v7.0.0
@@ -36,7 +49,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::warning title=CD inactive::VERCEL_TOKEN secret is not set. Add VERCEL_TOKEN (and optionally VERCEL_ORG_ID / VERCEL_PROJECT_ID) to enable auto-deploy on push."
+            echo "::warning title=CD inactive::VERCEL_TOKEN secret is not set. Add VERCEL_TOKEN (and optionally VERCEL_ORG_ID / VERCEL_PROJECT_ID) to enable deploy-on-green-CI for main."
             exit 0
           fi
 

@@ -49,6 +49,17 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const authMode =
+        (process.env.AUTH_MODE as "google" | "password" | undefined) ??
+        "password";
+      if (authMode !== "password") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "নতুন সাইন-আপ বর্তমানে বন্ধ আছে। অ্যাডমিন অ্যাকাউন্ট প্রয়োজন হলে যোগাযোগ করুন।",
+        });
+      }
+
       const clientIp = getClientIp(ctx.req);
       await checkRateLimit(String(clientIp), {
         windowMs: 15 * 60 * 1000,

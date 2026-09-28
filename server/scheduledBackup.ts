@@ -95,6 +95,31 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
 }
 
 /**
+ * Build a safe, one-line diagnostic from a thrown value. Prefers the typed
+ * MySQL error fields (code / errno / sqlState / sqlMessage) that String(error)
+ * silently drops, but never includes data values or stack traces.
+ */
+function dbErrorFragment(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as {
+      code?: unknown;
+      errno?: unknown;
+      sqlState?: unknown;
+      sqlMessage?: unknown;
+    };
+    const parts: string[] = [];
+    if (typeof e.code === "string" && e.code) parts.push(e.code);
+    if (typeof e.errno === "number") parts.push(`errno=${e.errno}`);
+    if (typeof e.sqlState === "string" && e.sqlState)
+      parts.push(`sqlState=${e.sqlState}`);
+    if (typeof e.sqlMessage === "string" && e.sqlMessage)
+      parts.push(e.sqlMessage);
+    if (parts.length) return parts.join(" ");
+  }
+  return String(error);
+}
+
+/**
  * Verify backup integrity after upload by re-reading and checking checksum.
  * Returns true if the backup is verifiable, false otherwise.
  */
@@ -114,7 +139,7 @@ async function verifyBackupIntegrity(
       error: `Checksum mismatch: expected ${expectedChecksum.slice(0, 12)}..., got ${reChecksum.slice(0, 12)}...`,
     };
   } catch (error) {
-    return { verified: false, error: `Verification failed: ${String(error)}` };
+    return { verified: false, error: `Verification failed: ${dbErrorFragment(error)}` };
   }
 }
 
@@ -198,7 +223,7 @@ export async function runScheduledBackup(
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: String(error),
+      error: `Scheduled backup failed: ${dbErrorFragment(error)}`,
     });
   }
 }
