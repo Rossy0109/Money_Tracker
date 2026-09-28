@@ -2,6 +2,8 @@ name = "money-tracker"
 main = "worker/index.ts"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+preview_urls = false
 
 [assets]
 directory = "dist/public"

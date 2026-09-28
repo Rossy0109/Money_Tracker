@@ -33,9 +33,17 @@ async function ensureRbacInitialized() {
 
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext) {
-    await ensureRbacInitialized();
-    const app = getApp(env);
-    return app.fetch(request, env, ctx);
+    try {
+      await ensureRbacInitialized();
+      const app = getApp(env);
+      return await app.fetch(request, env, ctx);
+    } catch (err) {
+      console.error(
+        "Worker fetch failed:",
+        err instanceof Error ? (err.stack || err.message) : String(err)
+      );
+      return new Response("Internal Server Error", { status: 500 });
+    }
   },
 
   async scheduled(event: ScheduledEvent, env: WorkerEnv, ctx: ExecutionContext) {
