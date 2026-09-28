@@ -12,6 +12,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { sql } from "drizzle-orm";
+import { getDb } from "./dbConnection";
 import {
   runScheduledBillReminder,
   runScheduledRecurring,
@@ -298,7 +300,39 @@ export function createApiApp() {
     res.status(404).json({ error: "Not found" });
   });
 
+  // Debug routes (guarded by env)
+  registerDebugRoutes(app);
+
   return app;
+}
+
+/**
+ * Debug endpoint to test database connectivity and surface raw MySQL errors.
+ * Only available in non-production or when explicitly enabled.
+ */
+export function registerDebugRoutes(app: Express) {
+  // Allow debug endpoint in production for now to diagnose db issues
+  app.get("/api/debug/db", async (_req: Request, res: Response) => {
+    try {
+      const db = await getDb();
+      if (!db) {
+        return res.status(500).json({ error: "Database not connected" });
+      }
+      // Test simple query
+      const result = await db.execute(sql`SELECT 1 as ok`);
+      res.json({ ok: true, result });
+    } catch (err: any) {
+      // Surface full MySQL error details
+      res.status(500).json({
+        error: err?.message ?? String(err),
+        code: err?.code,
+        errno: err?.errno,
+        sqlState: err?.sqlState,
+        sqlMessage: err?.sqlMessage,
+        stack: err?.stack,
+      });
+    }
+  });
 }
 
 /**
