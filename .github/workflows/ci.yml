@@ -11,8 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AUTH_MODE: google
-  VITE_AUTH_MODE: google
   GOOGLE_OAUTH_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
   GOOGLE_OAUTH_CLIENT_SECRET: ci-placeholder-secret
   GOOGLE_OAUTH_REDIRECT_URI: http://localhost:3000/api/auth/google/callback
@@ -25,6 +23,9 @@ jobs:
   # ── Gate 1: Install + Typecheck + Lint + Build ──────────────────────────────
   verify:
     runs-on: ubuntu-latest
+    env:
+      AUTH_MODE: google
+      VITE_AUTH_MODE: google
     steps:
       - uses: actions/checkout@v7
 
