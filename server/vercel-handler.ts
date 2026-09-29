@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import * as Sentry from "@sentry/node";
 import { createApiApp, registerFallbackHandlers } from "./_core/app";
 import { normalizeVercelRequestPath } from "./_core/vercelPath";
 import { initializeRBACSystem } from "./_core/rbac-initializer";
@@ -18,6 +19,15 @@ if (missingEnv.length > 0) {
       `Missing critical environment variables: ${missingEnv.join(", ")}`
     );
   }
+}
+
+// Initialize Sentry for server-side error tracking
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: 0.1,
+  });
 }
 
 const app = createApiApp();
@@ -40,9 +50,15 @@ export default async function handler(
       { err },
       "RBAC initialization failed on serverless cold start"
     );
+    Sentry.captureException(err);
   }
   if (req.url) {
     req.url = normalizeVercelRequestPath(req.url);
   }
-  app(req, res);
+  try {
+    app(req, res);
+  } catch (err) {
+    Sentry.captureException(err);
+    throw err;
+  }
 }

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { trpc } from "@/lib/trpc";
 import { COOKIE_NAME } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +15,16 @@ import {
   notifyNetworkError,
   shouldRetryQuery,
 } from "./lib/networkErrorHandler";
+
+// Initialize Sentry for client-side error tracking
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.1,
+  });
+}
 
 const shouldRegisterServiceWorker =
   import.meta.env.PROD || import.meta.env.VITE_PWA_E2E === "true";
