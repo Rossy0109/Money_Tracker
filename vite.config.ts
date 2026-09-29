@@ -1,6 +1,7 @@
 import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { dirnameFromMetaUrl } from "./dirname.ts";
@@ -46,11 +47,28 @@ const analyticsPlaceholders = (envDir: string): Plugin => ({
   },
 });
 
+/**
+ * Sentry source-map upload is opt-in: the plugin is only included when the
+ * upload credentials are present, so local and CI builds without them are
+ * unaffected. Requires SENTRY_ORG, SENTRY_PROJECT and SENTRY_AUTH_TOKEN.
+ */
+const sentryUploadPlugin =
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT
+    ? sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+      })
+    : null;
+
 const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
   analyticsPlaceholders(path.resolve(__dirname)),
+  ...(sentryUploadPlugin ? [sentryUploadPlugin] : []),
 ];
 
 export default defineConfig({
