@@ -5613,6 +5613,20 @@ export async function updateTransaction(
       date: new Date(),
       enforceSelfCheck: false,
     });
+    // Undo the original posting's wallet effect (reversal vouchers only
+    // touch the ledger; financeAccounts.currentBalance is adjusted here).
+    if (existing.accountId) {
+      await adjustAccountBalance(
+        userId,
+        input.projectId,
+        existing.accountId,
+        -signedAmount(
+          existing.type as "income" | "expense",
+          existing.amount
+        ),
+        tx
+      );
+    }
     const replacement = await canonicalQuickVoucherInTx(
       tx,
       {
@@ -5629,6 +5643,9 @@ export async function updateTransaction(
       },
       mappings
     );
+    // NOTE: no wallet adjustment here — canonicalQuickVoucherInTx already
+    // applied the replacement posting's effect above. Only the reversal
+    // (which never touches wallet balances) is undone explicitly.
     await tx
       .update(financeTransactions)
       .set({
@@ -5687,6 +5704,20 @@ export async function deleteTransaction(
       date: new Date(),
       enforceSelfCheck: false,
     });
+    // Undo the deleted posting's wallet effect (reversal vouchers only
+    // touch the ledger; financeAccounts.currentBalance is adjusted here).
+    if (transaction.accountId) {
+      await adjustAccountBalance(
+        userId,
+        projectId,
+        transaction.accountId,
+        -signedAmount(
+          transaction.type as "income" | "expense",
+          transaction.amount
+        ),
+        tx
+      );
+    }
     await tx.delete(financeTransactions).where(eq(financeTransactions.id, id));
   });
   await logAudit({
