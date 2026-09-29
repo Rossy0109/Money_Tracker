@@ -7,7 +7,6 @@ import {
   getR2Bucket,
   selectStorageBackend,
 } from "./storageBackend";
-import { isShimResponse, type ShimResponse } from "../../worker/httpShim";
 import logger from "./logger";
 import { sdk } from "./sdk";
 import { getPrivateStorageObjectForDownload } from "../db";
@@ -16,7 +15,30 @@ function attachmentDisposition(fileName: string) {
   return `attachment; filename*=UTF-8''${encodeURIComponent(fileName.replace(/[\r\n]/g, "_"))}`;
 }
 
-type ProxyResponse = Response | ShimResponse;
+/**
+ * Local mirror of the Cloudflare worker's `ShimResponse` shape. Defined here
+ * so the Node server never imports runtime code from `worker/`
+ * (wrong-direction coupling: the worker reuses server business logic, never
+ * the reverse). The `__shim: true` marker check below must stay identical to
+ * the worker's `isShimResponse`.
+ */
+interface WorkerShimResponse {
+  readonly __shim: true;
+  body: unknown;
+  set(name: string, value: string): void;
+  status(code: number): WorkerShimResponse;
+  send(data: unknown): WorkerShimResponse;
+}
+
+type ProxyResponse = Response | WorkerShimResponse;
+
+function isShimResponse(res: unknown): res is WorkerShimResponse {
+  return (
+    typeof res === "object" &&
+    res !== null &&
+    (res as { __shim?: unknown }).__shim === true
+  );
+}
 
 function applyDownloadHeaders(
   res: ProxyResponse,
