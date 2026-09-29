@@ -29,7 +29,6 @@ describe("sdk session tokens", () => {
   it("round-trips sign and verify", async () => {
     const token = await sdk.createSessionToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     expect(await sdk.verifySession(token)).toMatchObject({
       openId: "google:123",
@@ -51,7 +50,6 @@ describe("sdk session tokens", () => {
   it("creates long-lived refresh tokens", async () => {
     const token = await sdk.createRefreshToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     expect(await sdk.verifySession(token)).toMatchObject({
       openId: "google:123",
@@ -63,7 +61,6 @@ describe("sdk.authenticateRequest", () => {
   it("authenticates via session cookie", async () => {
     const token = await sdk.createSessionToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     await expect(sdk.authenticateRequest(reqWithCookie(token))).resolves.toBe(
       user
@@ -74,7 +71,6 @@ describe("sdk.authenticateRequest", () => {
   it("falls back to the Bearer header", async () => {
     const token = await sdk.createSessionToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     const req = {
       headers: { authorization: `Bearer ${token}` },
@@ -92,7 +88,6 @@ describe("sdk.authenticateRequest", () => {
     mockRevoked.mockResolvedValue([{ id: 1 }] as never);
     const token = await sdk.createSessionToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     await expect(sdk.authenticateRequest(reqWithCookie(token))).rejects.toThrow(
       "revoked"
@@ -103,7 +98,6 @@ describe("sdk.authenticateRequest", () => {
     mockUser.mockResolvedValue(undefined);
     const token = await sdk.createSessionToken("google:123", {
       name: "Test User",
-      providerName: "mock",
     });
     await expect(sdk.authenticateRequest(reqWithCookie(token))).rejects.toThrow(
       "User not found"
