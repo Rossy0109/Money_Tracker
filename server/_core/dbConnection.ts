@@ -93,7 +93,12 @@ export async function closeDatabaseConnection() {
   _externalDb = null;
   await client?.end?.();
   if (_pool) {
-    await _pool.end();
+    try {
+      await _pool.end();
+    } catch (err: any) {
+      // Pool may already be closed by test teardown; ignore "closed state" errors
+      if (!/closed state/i.test(err?.message ?? "")) throw err;
+    }
     _pool = null;
   }
 }
