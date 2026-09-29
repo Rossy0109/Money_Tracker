@@ -1,8 +1,14 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { parseCookie as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { ENV } from "./env";
+import {
+  randomBytesBase64Url,
+  sha256Base64Url,
+  timingSafeEqual,
+  encodeBase64Url,
+  decodeBase64Url,
+} from "../../shared/platform/crypto";
 
 export const GOOGLE_CALLBACK_PATH = "/api/auth/google/callback";
 export const GOOGLE_LOGIN_PATH = "/api/auth/google/login";
@@ -34,11 +40,11 @@ export type GoogleIdentity = {
 };
 
 function randomBase64Url(bytes: number) {
-  return randomBytes(bytes).toString("base64url");
+  return randomBytesBase64Url(bytes);
 }
 
-function sha256Base64Url(input: string) {
-  return createHash("sha256").update(input).digest("base64url");
+async function sha256Base64UrlAsync(input: string) {
+  return sha256Base64Url(input);
 }
 
 function requireGoogleConfiguration() {
@@ -115,7 +121,7 @@ export function createGoogleTransaction(): GoogleTransaction {
 }
 
 export function encodeGoogleTransaction(transaction: GoogleTransaction) {
-  return Buffer.from(JSON.stringify(transaction)).toString("base64url");
+  return encodeBase64Url(JSON.stringify(transaction));
 }
 
 export function decodeGoogleTransaction(
@@ -123,9 +129,7 @@ export function decodeGoogleTransaction(
 ): GoogleTransaction | null {
   if (!value) return null;
   try {
-    const parsed = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8")
-    ) as Partial<GoogleTransaction>;
+    const parsed = JSON.parse(decodeBase64Url(value)) as Partial<GoogleTransaction>;
     if (
       typeof parsed.state !== "string" ||
       typeof parsed.nonce !== "string" ||
@@ -151,14 +155,10 @@ export function transactionMatchesState(
   state: string | undefined
 ) {
   if (!transaction || !state) return false;
-  const expected = Buffer.from(transaction.state);
-  const received = Buffer.from(state);
-  return (
-    expected.length === received.length && timingSafeEqual(expected, received)
-  );
+  return timingSafeEqual(transaction.state, state);
 }
 
-export function createGoogleAuthorizationUrl(
+export async function createGoogleAuthorizationUrl(
   discovery: GoogleDiscovery,
   transaction: GoogleTransaction
 ) {
@@ -170,7 +170,7 @@ export function createGoogleAuthorizationUrl(
   url.searchParams.set("scope", "openid email profile");
   url.searchParams.set("state", transaction.state);
   url.searchParams.set("nonce", transaction.nonce);
-  url.searchParams.set("code_challenge", sha256Base64Url(transaction.verifier));
+  url.searchParams.set("code_challenge", await sha256Base64UrlAsync(transaction.verifier));
   url.searchParams.set("code_challenge_method", "S256");
   return url.toString();
 }
@@ -204,9 +204,7 @@ export async function exchangeGoogleAuthorizationCode(
 }
 
 function valuesMatch(expected: string, received: string) {
-  const left = Buffer.from(expected);
-  const right = Buffer.from(received);
-  return left.length === right.length && timingSafeEqual(left, right);
+  return timingSafeEqual(expected, received);
 }
 
 function audienceMatches(audience: unknown, clientId: string) {

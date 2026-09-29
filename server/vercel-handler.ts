@@ -2,7 +2,23 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createApiApp, registerFallbackHandlers } from "./_core/app";
 import { normalizeVercelRequestPath } from "./_core/vercelPath";
 import { initializeRBACSystem } from "./_core/rbac-initializer";
+import { validateCriticalEnv } from "./_core/env";
 import logger from "./_core/logger";
+
+const missingEnv = validateCriticalEnv();
+if (missingEnv.length > 0) {
+  logger.error(
+    { missing: missingEnv },
+    "Critical environment variables missing — refusing to start"
+  );
+  // Hard-fail on the production runtime (configured to crash on cold start);
+  // tests and local dev may legitimately lack the full environment.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      `Missing critical environment variables: ${missingEnv.join(", ")}`
+    );
+  }
+}
 
 const app = createApiApp();
 registerFallbackHandlers(app);

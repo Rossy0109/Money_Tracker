@@ -31,6 +31,14 @@ vi.mock("./_core/rbac", () => ({
 
 const databaseUrl = "mysql://user:secret@localhost/money_tracker";
 
+async function waitFor(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error("condition not met in time");
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+}
+
 describe("RBAC startup initializer", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -53,14 +61,14 @@ describe("RBAC startup initializer", () => {
   it("uses a stable bounded database lock and releases it after startup", async () => {
     const { getRBACLockName, initializeRBACSystem } =
       await import("./_core/rbac-initializer");
-    const lockName = getRBACLockName(
+    const lockName = await getRBACLockName(
       "mysql://user:another-secret@localhost/money_tracker?password=hidden"
     );
 
     expect(lockName.length).toBeLessThanOrEqual(64);
     expect(lockName).not.toContain("secret");
     expect(lockName).not.toContain("hidden");
-    expect(lockName).toBe(getRBACLockName(databaseUrl));
+    expect(lockName).toBe(await getRBACLockName(databaseUrl));
 
     await initializeRBACSystem();
 
@@ -90,7 +98,7 @@ describe("RBAC startup initializer", () => {
 
     expect(second).toBe(first);
     expect(state.createConnection).toHaveBeenCalledTimes(1);
-    await new Promise<void>(resolve => setImmediate(resolve));
+    await waitFor(() => state.seed.mock.calls.length > 0);
     expect(state.seed).toHaveBeenCalledTimes(1);
     release?.();
     await first;
@@ -103,6 +111,7 @@ describe("RBAC startup initializer", () => {
     const { initializeRBACSystem } = await import("./_core/rbac-initializer");
 
     await expect(initializeRBACSystem()).rejects.toThrow("seed failed");
+    await new Promise<void>(resolve => setTimeout(resolve, 10));
     await expect(initializeRBACSystem()).resolves.toBeUndefined();
     expect(state.createConnection).toHaveBeenCalledTimes(2);
     expect(state.seed).toHaveBeenCalledTimes(2);

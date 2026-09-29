@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import * as financeDb from "./db";
@@ -6,6 +5,7 @@ import { encryptPayload } from "./scheduledBackup";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import { ENV } from "./_core/env";
 import logger from "./_core/logger";
+import { sha256Hex, byteLength } from "../shared/platform/crypto";
 
 export interface CloudStorageConfig {
   supabase?: {
@@ -246,7 +246,7 @@ export async function executeCloudBackup(
 ): Promise<CloudBackupResult> {
   const backupData = await financeDb.exportProjectBackup(userId, projectId);
   const rawJson = JSON.stringify(backupData, null, 2);
-  const checksum = createHash("sha256").update(rawJson).digest("hex");
+  const checksum = await sha256Hex(rawJson);
   const timestamp = new Date().toISOString();
   const safeProjectName =
     backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) ||
@@ -258,7 +258,7 @@ export async function executeCloudBackup(
       "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি। BACKUP_ENCRYPTION_KEY এনভায়রনমেন্ট ভ্যারিয়েবল সেট করুন।"
     );
   }
-  const encryptedPayload = encryptPayload(rawJson, secret);
+  const encryptedPayload = await encryptPayload(rawJson, secret);
   const finalPayload = JSON.stringify({
     formatVersion: "finance-encrypted-cloud-backup-v1",
     checksum,
@@ -322,7 +322,7 @@ export async function executeCloudBackup(
       fileName,
       checksum,
       provider: targetProvider,
-      byteSize: Buffer.byteLength(finalPayload),
+      byteSize: byteLength(finalPayload),
       recordCounts,
       uploadSuccess,
     },
@@ -333,7 +333,7 @@ export async function executeCloudBackup(
     provider: targetProvider,
     fileName,
     checksum,
-    byteSize: Buffer.byteLength(finalPayload),
+    byteSize: byteLength(finalPayload),
     encrypted: true,
     timestamp,
     projectName: backupData.project.name,

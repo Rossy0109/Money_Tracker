@@ -194,7 +194,7 @@ describe("Vercel-compatible Express application", () => {
       }
     );
     expect(response.status).toBe(403);
-    const data = await response.json();
+    const data = (await response.json()) as { success: boolean };
     expect(data.success).toBe(false);
 
     // Also verify GET request (Vercel Cron method) without auth is rejected

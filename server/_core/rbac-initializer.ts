@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { createConnection } from "mysql2/promise";
+import { sha256Hex } from "../../shared/platform/crypto";
 import { seedDefaultRBAC } from "./seed-rbac";
 import { migrateExistingUsersToRBAC } from "./migrate-existing-users-rbac";
 import { initializeRBAC, markRBACUnavailable } from "./rbac";
@@ -21,11 +21,8 @@ function databaseIdentity(databaseUrl: string): string {
   return "default";
 }
 
-export function getRBACLockName(databaseUrl: string): string {
-  const digest = createHash("sha256")
-    .update(databaseIdentity(databaseUrl))
-    .digest("hex")
-    .slice(0, 40);
+export async function getRBACLockName(databaseUrl: string): Promise<string> {
+  const digest = (await sha256Hex(databaseIdentity(databaseUrl))).slice(0, 40);
   return `${LOCK_NAME_PREFIX}${digest}`;
 }
 
@@ -43,7 +40,7 @@ export async function runWithRBACLock(
     throw new Error("Database unavailable for RBAC startup lock");
 
   const connection = await createConnection(databaseUrl);
-  const lockName = getRBACLockName(databaseUrl);
+  const lockName = await getRBACLockName(databaseUrl);
   let failed = false;
   let failure: unknown;
 

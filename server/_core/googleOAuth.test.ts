@@ -77,7 +77,7 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
     const { createGoogleAuthorizationUrl, createGoogleTransaction } =
       await import("./googleOAuth");
     const url = new URL(
-      createGoogleAuthorizationUrl(
+      await createGoogleAuthorizationUrl(
         {
           issuer: "https://accounts.google.com",
           authorization_endpoint:
@@ -138,7 +138,7 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
       const { createGoogleAuthorizationUrl, createGoogleTransaction } =
         await setupGoogleMode("http://localhost:3000/api/auth/google/callback");
       const url = new URL(
-        createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
+        await createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
       );
       expect(url.searchParams.get("redirect_uri")).toBe(
         "http://localhost:3000/api/auth/google/callback"
@@ -151,7 +151,7 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
           "https://money-tracker-blond-pi.vercel.app/api/auth/google/callback"
         );
       const url = new URL(
-        createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
+        await createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
       );
       expect(url.searchParams.get("redirect_uri")).toBe(
         "https://money-tracker-blond-pi.vercel.app/api/auth/google/callback"
@@ -161,9 +161,9 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
     it("rejects a redirect URI that does not end with /api/auth/google/callback", async () => {
       const { createGoogleAuthorizationUrl, createGoogleTransaction } =
         await setupGoogleMode("http://localhost:3000/api/auth/callback");
-      expect(() =>
+      await expect(
         createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
-      ).toThrow(
+      ).rejects.toThrow(
         "GOOGLE_OAUTH_REDIRECT_URI must end in /api/auth/google/callback"
       );
     });
@@ -173,9 +173,9 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
         await setupGoogleMode(
           "http://localhost:3000/api/auth/google/callback?foo=bar"
         );
-      expect(() =>
+      await expect(
         createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
-      ).toThrow(
+      ).rejects.toThrow(
         "GOOGLE_OAUTH_REDIRECT_URI must end in /api/auth/google/callback"
       );
     });
@@ -185,9 +185,9 @@ describe("Google OAuth transaction and ID-token claim boundary", () => {
         await setupGoogleMode(
           "http://localhost:3000/api/auth/google/callback#section"
         );
-      expect(() =>
+      await expect(
         createGoogleAuthorizationUrl(stubDiscovery(), createGoogleTransaction())
-      ).toThrow(
+      ).rejects.toThrow(
         "GOOGLE_OAUTH_REDIRECT_URI must end in /api/auth/google/callback"
       );
     });

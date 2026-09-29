@@ -111,25 +111,25 @@ describe("mailer delivery configuration", () => {
 });
 
 describe("hashRequest nested/array stability (regression)", () => {
-  it("is stable for nested objects regardless of key order", () => {
-    const a = hashRequest({ outer: { b: 2, a: 1 }, list: [{ y: 2, x: 1 }] });
-    const b = hashRequest({ list: [{ x: 1, y: 2 }], outer: { a: 1, b: 2 } });
+  it("is stable for nested objects regardless of key order", async () => {
+    const a = await hashRequest({ outer: { b: 2, a: 1 }, list: [{ y: 2, x: 1 }] });
+    const b = await hashRequest({ list: [{ x: 1, y: 2 }], outer: { a: 1, b: 2 } });
     expect(a).toBe(b);
   });
 
-  it("does not treat array index keys as object keys (JSON.stringify replacer bug)", () => {
+  it("does not treat array index keys as object keys (JSON.stringify replacer bug)", async () => {
     // Old bug: JSON.stringify(arr, ["0","1"]) treated indices specially for objects
-    const withArray = hashRequest({ items: [1, 2, 3] });
-    const withArrayShuffledNested = hashRequest({ items: [1, 2, 3] });
+    const withArray = await hashRequest({ items: [1, 2, 3] });
+    const withArrayShuffledNested = await hashRequest({ items: [1, 2, 3] });
     expect(withArray).toBe(withArrayShuffledNested);
-    expect(hashRequest({ items: [1, 2, 3] })).not.toBe(
-      hashRequest({ items: [3, 2, 1] })
+    expect(await hashRequest({ items: [1, 2, 3] })).not.toBe(
+      await hashRequest({ items: [3, 2, 1] })
     );
   });
 
-  it("nested array field is included in fingerprint", () => {
-    expect(hashRequest({ debits: [{ amount: 1 }] })).not.toBe(
-      hashRequest({ debits: [{ amount: 2 }] })
+  it("nested array field is included in fingerprint", async () => {
+    expect(await hashRequest({ debits: [{ amount: 1 }] })).not.toBe(
+      await hashRequest({ debits: [{ amount: 2 }] })
     );
   });
 });

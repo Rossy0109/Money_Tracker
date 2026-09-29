@@ -1,10 +1,14 @@
-import { createHmac } from "node:crypto";
 import type { Request, Response } from "express";
 import { parseCookie as parseCookieHeader } from "cookie";
 import { ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS } from "../../shared/const";
 import { ENV } from "./env";
 import { getAdminSessionCookieOptions } from "./cookies";
 import { timingSafeCompare } from "../timingSafe";
+import {
+  encodeBase64Url,
+  decodeBase64Url,
+  hmacSha256Hex,
+} from "../../shared/platform/crypto";
 
 export type AdminElevationPayload = {
   userId: number;
@@ -33,11 +37,11 @@ function getAdminSecret(): string {
  * Create a signed HMAC-SHA256 admin elevation token valid for 15 minutes.
  * Format: `<base64url(payload)>.<hex(hmac)>`
  */
-export function issueAdminToken(
+export async function issueAdminToken(
   userId: number,
   openId: string,
   ttlMs: number = ADMIN_SESSION_TTL_MS
-): string {
+): Promise<string> {
   const issuedAt = Date.now();
   const expiresAt = issuedAt + ttlMs;
   const payload: AdminElevationPayload = {
@@ -48,12 +52,8 @@ export function issueAdminToken(
     expiresAt,
   };
 
-  const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString(
-    "base64url"
-  );
-  const signature = createHmac("sha256", getAdminSecret())
-    .update(payloadEncoded)
-    .digest("hex");
+  const payloadEncoded = encodeBase64Url(JSON.stringify(payload));
+  const signature = await hmacSha256Hex(getAdminSecret(), payloadEncoded);
 
   return `${payloadEncoded}.${signature}`;
 }
@@ -62,9 +62,9 @@ export function issueAdminToken(
  * Verifies an admin elevation token using constant-time timing-safe comparison.
  * Returns the payload if valid and unexpired; otherwise null.
  */
-export function verifyAdminToken(
+export async function verifyAdminToken(
   token: string | null | undefined
-): AdminElevationPayload | null {
+): Promise<AdminElevationPayload | null> {
   if (!token || typeof token !== "string") {
     return null;
   }
@@ -79,17 +79,18 @@ export function verifyAdminToken(
     return null;
   }
 
-  const expectedSignature = createHmac("sha256", getAdminSecret())
-    .update(payloadEncoded)
-    .digest("hex");
+  const expectedSignature = await hmacSha256Hex(
+    getAdminSecret(),
+    payloadEncoded
+  );
 
   // Constant-time comparison between signature and expectedSignature
-  if (!timingSafeCompare(signature, expectedSignature)) {
+  if (!(await timingSafeCompare(signature, expectedSignature))) {
     return null;
   }
 
   try {
-    const raw = Buffer.from(payloadEncoded, "base64url").toString("utf8");
+    const raw = decodeBase64Url(payloadEncoded);
     const payload = JSON.parse(raw) as AdminElevationPayload;
 
     if (

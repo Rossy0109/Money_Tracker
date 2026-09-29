@@ -86,6 +86,9 @@ export function AuthCard({
   });
 
   const isSubmitting = loginMutation.isPending || registerMutation.isPending;
+  // In Google-managed deployments self-service registration is disabled at the
+  // API level (auth.register returns FORBIDDEN); hide the sign-up UI too.
+  const isGoogleAuth = import.meta.env.VITE_AUTH_MODE === "google";
 
   const handleRoleSelect = (role: "user" | "admin") => {
     setRoleMode(role);
@@ -232,7 +235,7 @@ export function AuthCard({
               </div>
 
               {/* Mode Switcher: Login vs Sign Up (Only for regular users) */}
-              {roleMode === "user" && (
+              {roleMode === "user" && !isGoogleAuth && (
                 <div className="grid grid-cols-2 p-1 bg-[#f4f7f5] rounded-xl mb-5 border border-[#e1ece4]">
                   <button
                     type="button"

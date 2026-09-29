@@ -5,7 +5,7 @@
  * Express request object for use in logAudit calls.
  */
 import type { Request } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUuid } from "../../shared/platform/crypto";
 
 export interface AuditContext {
   ipAddress: string | null;
@@ -31,7 +31,7 @@ export function extractAuditContext(req?: Request | null): AuditContext {
 
   const userAgent = (req.headers["user-agent"] as string) || null;
 
-  const requestId = (req.headers["x-request-id"] as string) || randomUUID();
+  const requestId = (req.headers["x-request-id"] as string) || randomUuid();
 
   return { ipAddress, userAgent, requestId };
 }

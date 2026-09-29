@@ -153,27 +153,32 @@ export function createApiApp() {
   );
 
   // CORS — restrict to same-origin in production, allow all in dev
+  // Production reflects credentials only for the app's own origins. Preview
+  // deployments and the SPA share one origin on Vercel, so same-origin calls
+  // need no preflight; anything else must be listed in CORS_ALLOWED_ORIGINS.
+  // A malicious *.vercel.app site can no longer piggyback the wildcard.
+  const trustedOrigins = new Set(
+    [process.env.APP_URL ?? "", `https://${CANONICAL_HOST}`, ...ENV.corsAllowedOrigins]
+      .map(s => s.trim().replace(/\/+$/, "").toLowerCase())
+      .filter(Boolean)
+  );
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
     const isProd = ENV.isProduction;
 
     if (isProd) {
-      // In production, allow same-origin, exact APP_URL, or any *.vercel.app deployment
-      const isAllowedOrigin =
-        !origin ||
-        origin === process.env.APP_URL ||
-        origin === `https://${CANONICAL_HOST}` ||
-        (typeof origin === "string" && origin.endsWith(".vercel.app"));
+      const originKey =
+        typeof origin === "string" ? origin.trim().replace(/\/+$/, "").toLowerCase() : "";
+      const isAllowedOrigin = !origin || trustedOrigins.has(originKey);
 
-      if (isAllowedOrigin) {
-        res.setHeader(
-          "Access-Control-Allow-Origin",
-          origin || process.env.APP_URL || "*"
-        );
+      if (isAllowedOrigin && origin) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
       }
     } else {
       // In development, allow all origins
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
+      res.setHeader("Vary", "Origin");
     }
 
     res.setHeader(
@@ -284,6 +289,9 @@ export function createApiApp() {
     })
   );
 
+  // Debug routes (guarded by env) — must come before the catch-all
+  registerDebugRoutes(app);
+
   // 404 for unknown API paths. This stays inside the shared pipeline so
   // /api/* semantics are identical in every runtime. The generic (non-API)
   // fallback lives in registerFallbackHandlers, which runtimes register AFTER
@@ -294,6 +302,15 @@ export function createApiApp() {
   });
 
   return app;
+}
+
+/**
+ * Debug endpoint to test database connectivity and surface raw MySQL errors.
+ * Only available in non-production or when explicitly enabled.
+ */
+export function registerDebugRoutes(app: Express) {
+  // Disabled - was for debugging production db connection
+  // app.get("/api/debug/db", async (_req: Request, res: Response) => { ... });
 }
 
 /**

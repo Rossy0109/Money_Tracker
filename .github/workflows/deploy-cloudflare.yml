@@ -1,0 +1,147 @@
+name: Deploy to Cloudflare
+
+# Manual dispatch ONLY. Production is served by Vercel from `main`; the Worker
+# runtime points at the same production MySQL database, so an automatic
+# `push: main` trigger would stand up a second production writer on every merge
+# without ever having been validated against production. Keep the Worker manual
+# until it is deliberately promoted.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-cd
+  cancel-in-progress: false
+
+env:
+  AUTH_MODE: google
+  VITE_AUTH_MODE: google
+  GOOGLE_OAUTH_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+  GOOGLE_OAUTH_CLIENT_SECRET: ci-placeholder-secret
+  GOOGLE_OAUTH_REDIRECT_URI: http://localhost:3000/api/auth/google/callback
+  SESSION_SECRET: ci-test-session-secret-minimum-32-characters
+  JWT_SECRET: ci-test-jwt-secret-minimum-32-characters-long
+  ADMIN_BOOTSTRAP_EMAIL: admin@example.com
+  ADMIN_ACCESS_PASSWORD: ci-test-admin-access-password
+
+jobs:
+  verify:
+    name: Typecheck + Lint + Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        env:
+          NODE_ENV: test
+        run: pnpm test
+
+  worker-tests:
+    name: Worker runtime tests
+    runs-on: ubuntu-latest
+    needs: [verify]
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: money_tracker
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      NODE_ENV: test
+      ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The MariaDB service starts empty; worker login/auth tests need schema.
+      - name: Apply database schema
+        run: node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"
+
+      - name: Worker tests
+        run: pnpm test:worker
+
+  build:
+    name: Build frontend + worker
+    runs-on: ubuntu-latest
+    needs: [verify]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Build worker (dry-run)
+        run: pnpm exec wrangler deploy --dry-run
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Cloudflare
+    runs-on: ubuntu-latest
+    needs: [verify, worker-tests, build]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Deploy to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy

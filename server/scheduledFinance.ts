@@ -11,7 +11,7 @@ import {
 } from "./db";
 import logger from "./_core/logger";
 
-function hasValidCronSecret(candidate: string) {
+async function hasValidCronSecret(candidate: string) {
   const expected =
     process.env.CRON_SECRET ||
     process.env.BACKUP_CRON_SECRET ||
@@ -24,7 +24,7 @@ async function requireTaskUid(req: Request) {
   // Vercel Cron / GitHub Actions authenticate with the cron secret.
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-    if (hasValidCronSecret(authHeader.slice(7).trim())) {
+    if (await hasValidCronSecret(authHeader.slice(7).trim())) {
       const taskUid =
         typeof req.body?.taskUid === "string"
           ? req.body.taskUid
@@ -33,7 +33,7 @@ async function requireTaskUid(req: Request) {
     }
   }
   const headerSecret = req.headers["x-cron-secret"];
-  if (typeof headerSecret === "string" && hasValidCronSecret(headerSecret)) {
+  if (typeof headerSecret === "string" && (await hasValidCronSecret(headerSecret))) {
     const taskUid =
       typeof req.body?.taskUid === "string" ? req.body.taskUid : "vercel-cron";
     return taskUid;
@@ -43,13 +43,13 @@ async function requireTaskUid(req: Request) {
   return user.taskUid;
 }
 
-function requireCronSecret(req: Request) {
+async function requireCronSecret(req: Request) {
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-    if (hasValidCronSecret(authHeader.slice(7).trim())) return;
+    if (await hasValidCronSecret(authHeader.slice(7).trim())) return;
   }
   const headerSecret = req.headers["x-cron-secret"];
-  if (typeof headerSecret === "string" && hasValidCronSecret(headerSecret))
+  if (typeof headerSecret === "string" && (await hasValidCronSecret(headerSecret)))
     return;
   throw new Error("অননুমোদিত নির্ধারিত কাজ");
 }
@@ -96,28 +96,36 @@ export async function runScheduledBillReminder(req: Request, res: Response) {
   }
 }
 
+export async function executeDailySweep(): Promise<{
+  recurring: { templates: number; created: number; failed: number };
+  billReminders: { checked: number; reminded: number };
+}> {
+  const [recurring, bills] = await Promise.all([
+    processRecurringSweep().catch(error => ({
+      templates: 0,
+      created: 0,
+      failed: -1,
+      error: error instanceof Error ? error.message : String(error),
+    })),
+    processBillReminderSweep().catch(error => ({
+      checked: 0,
+      reminded: 0,
+      error: error instanceof Error ? error.message : String(error),
+    })),
+  ]);
+  try {
+    await cleanupOldFailedLoginAttempts();
+  } catch {
+    // Non-blocking: lockout cleanup is best-effort
+  }
+  return { recurring, billReminders: bills };
+}
+
 export async function runDailySweep(req: Request, res: Response) {
   try {
-    requireCronSecret(req);
-    const [recurring, bills] = await Promise.all([
-      processRecurringSweep().catch(error => ({
-        templates: 0,
-        created: 0,
-        failed: -1,
-        error: error instanceof Error ? error.message : String(error),
-      })),
-      processBillReminderSweep().catch(error => ({
-        checked: 0,
-        reminded: 0,
-        error: error instanceof Error ? error.message : String(error),
-      })),
-    ]);
-    try {
-      await cleanupOldFailedLoginAttempts();
-    } catch {
-      // Non-blocking: lockout cleanup is best-effort
-    }
-    res.status(200).json({ ok: true, recurring, billReminders: bills });
+    await requireCronSecret(req);
+    const result = await executeDailySweep();
+    res.status(200).json({ ok: true, ...result });
   } catch (error) {
     const unauthorized =
       error instanceof Error && error.message === "অননুমোদিত নির্ধারিত কাজ";

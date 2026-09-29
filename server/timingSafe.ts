@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { sha256Hex, timingSafeEqualHex } from "../shared/platform/crypto";
 
 /**
  * Performs a truly constant-time comparison between two strings regardless of
@@ -10,10 +10,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
  * 1. Byte-by-byte comparison timing attacks.
  * 2. Token/password length discovery via early-return on length mismatch.
  */
-export function timingSafeCompare(
+export async function timingSafeCompare(
   candidate: string,
   expected: string
-): boolean {
+): Promise<boolean> {
   if (typeof candidate !== "string" || typeof expected !== "string") {
     return false;
   }
@@ -21,19 +21,19 @@ export function timingSafeCompare(
     return false;
   }
 
-  const candidateHash = createHash("sha256").update(candidate).digest();
-  const expectedHash = createHash("sha256").update(expected).digest();
+  const candidateHash = await sha256Hex(candidate);
+  const expectedHash = await sha256Hex(expected);
 
-  return timingSafeEqual(candidateHash, expectedHash);
+  return timingSafeEqualHex(candidateHash, expectedHash);
 }
 
 /**
  * Validates candidate admin access password or token in constant time.
  */
-export function hasValidAdminPassword(
+export async function hasValidAdminPassword(
   candidate: string,
   expectedPassword?: string
-): boolean {
+): Promise<boolean> {
   if (!candidate || !expectedPassword) return false;
   return timingSafeCompare(candidate, expectedPassword);
 }

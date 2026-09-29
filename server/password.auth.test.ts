@@ -263,6 +263,53 @@ describe("Direct Email & Password Authentication with Admin Approval (tRPC)", ()
     expect(spy).toHaveBeenCalledWith("WrongP@ss999", expect.any(String));
   });
 
+  describe("Registration gating by AUTH_MODE", () => {
+    function restoreAuthMode(previous: string | undefined) {
+      if (previous === undefined) {
+        delete process.env.AUTH_MODE;
+      } else {
+        process.env.AUTH_MODE = previous;
+      }
+    }
+
+    it("blocks public registration when AUTH_MODE is google (production)", async () => {
+      const previous = process.env.AUTH_MODE;
+      process.env.AUTH_MODE = "google";
+      try {
+        const { ctx } = createMockContext();
+        const caller = appRouter.createCaller(ctx);
+        await expect(
+          caller.auth.register({
+            name: "ব্লকড ইউজার",
+            email: "blocked@example.com",
+            password: "SecureP@ss123",
+          })
+        ).rejects.toMatchObject({ code: "FORBIDDEN" });
+        expect(financeDb.createPasswordUser).not.toHaveBeenCalled();
+      } finally {
+        restoreAuthMode(previous);
+      }
+    });
+
+    it("allows public registration in password mode", async () => {
+      const previous = process.env.AUTH_MODE;
+      process.env.AUTH_MODE = "password";
+      try {
+        const { ctx } = createMockContext();
+        const caller = appRouter.createCaller(ctx);
+        const result = await caller.auth.register({
+          name: "সাইন-আপ ইউজার",
+          email: "open@example.com",
+          password: "SecureP@ss123",
+        });
+        expect(result.success).toBe(true);
+        expect(result.pendingApproval).toBe(true);
+      } finally {
+        restoreAuthMode(previous);
+      }
+    });
+  });
+
   it("rejects duplicate registration with same email", async () => {
     const testEmail = "duplicate@example.com";
     const { ctx: regCtx1 } = createMockContext();

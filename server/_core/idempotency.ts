@@ -20,7 +20,7 @@
  */
 
 import { eq, and, lt } from "drizzle-orm";
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../../shared/platform/crypto";
 import { databaseRequired, getDb } from "../db";
 import { idempotencyKeys } from "../../drizzle/schema";
 
@@ -65,8 +65,8 @@ function stableStringify(value: unknown): string {
  * Hash the request body for payload fingerprinting (order-independent, nested-safe).
  * Detects cases where the same idempotency key is sent with different data.
  */
-export function hashRequest(payload: unknown): string {
-  return createHash("sha256").update(stableStringify(payload)).digest("hex");
+export async function hashRequest(payload: unknown): Promise<string> {
+  return sha256Hex(stableStringify(payload));
 }
 
 /**

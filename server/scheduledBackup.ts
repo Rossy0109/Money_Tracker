@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { createCipheriv, randomBytes, createHash } from "node:crypto";
 import * as financeDb from "./db";
 import {
   executeCloudBackup,
@@ -11,27 +10,30 @@ import logger from "./_core/logger";
 import { ENV } from "./_core/env";
 import { isAdminRoleUser } from "./_core/rbac";
 import { extractAuditContext } from "./_core/auditContext";
+import {
+  sha256Hex,
+  randomBytesHex,
+  aesGcmEncrypt,
+  hexToBytes,
+  bytesToHex,
+} from "../shared/platform/crypto";
 
-export function encryptPayload(
+export async function encryptPayload(
   data: string,
   secretKey: string
-): { iv: string; encrypted: string; tag: string } {
-  const key = createHash("sha256").update(secretKey).digest();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-
-  let encrypted = cipher.update(data, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const tag = cipher.getAuthTag().toString("hex");
+): Promise<{ iv: string; encrypted: string; tag: string }> {
+  const keyHex = await sha256Hex(secretKey);
+  const ivBytes = hexToBytes(randomBytesHex(12));
+  const result = await aesGcmEncrypt(keyHex, ivBytes, data);
 
   return {
-    iv: iv.toString("hex"),
-    encrypted,
-    tag,
+    iv: bytesToHex(ivBytes),
+    encrypted: result.encrypted,
+    tag: result.tag,
   };
 }
 
-function hasValidSecret(candidate: string, expectedSecret?: string) {
+async function hasValidSecret(candidate: string, expectedSecret?: string) {
   if (!candidate || !expectedSecret) return false;
   return timingSafeCompare(candidate, expectedSecret);
 }
@@ -51,7 +53,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (hasValidCronSecret(token)) {
+    if (await hasValidCronSecret(token)) {
       return true;
     }
   }
@@ -60,7 +62,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   const cronSecretHeader = req.headers["x-cron-secret"];
   if (
     typeof cronSecretHeader === "string" &&
-    hasValidCronSecret(cronSecretHeader)
+    (await hasValidCronSecret(cronSecretHeader))
   ) {
     return true;
   }
@@ -69,7 +71,7 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   if (req.body) {
     if (
       typeof req.body.cronSecret === "string" &&
-      hasValidCronSecret(req.body.cronSecret)
+      (await hasValidCronSecret(req.body.cronSecret))
     ) {
       return true;
     }
@@ -93,6 +95,31 @@ async function verifyBackupAuthorization(req: Request): Promise<boolean> {
 }
 
 /**
+ * Build a safe, one-line diagnostic from a thrown value. Prefers the typed
+ * MySQL error fields (code / errno / sqlState / sqlMessage) that String(error)
+ * silently drops, but never includes data values or stack traces.
+ */
+function dbErrorFragment(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as {
+      code?: unknown;
+      errno?: unknown;
+      sqlState?: unknown;
+      sqlMessage?: unknown;
+    };
+    const parts: string[] = [];
+    if (typeof e.code === "string" && e.code) parts.push(e.code);
+    if (typeof e.errno === "number") parts.push(`errno=${e.errno}`);
+    if (typeof e.sqlState === "string" && e.sqlState)
+      parts.push(`sqlState=${e.sqlState}`);
+    if (typeof e.sqlMessage === "string" && e.sqlMessage)
+      parts.push(e.sqlMessage);
+    if (parts.length) return parts.join(" ");
+  }
+  return String(error);
+}
+
+/**
  * Verify backup integrity after upload by re-reading and checking checksum.
  * Returns true if the backup is verifiable, false otherwise.
  */
@@ -103,9 +130,7 @@ async function verifyBackupIntegrity(
 ): Promise<{ verified: boolean; error?: string }> {
   try {
     const reExport = await financeDb.exportProjectBackup(userId, projectId);
-    const reChecksum = createHash("sha256")
-      .update(JSON.stringify(reExport, null, 2))
-      .digest("hex");
+    const reChecksum = await sha256Hex(JSON.stringify(reExport, null, 2));
     if (reChecksum === expectedChecksum) {
       return { verified: true };
     }
@@ -114,8 +139,66 @@ async function verifyBackupIntegrity(
       error: `Checksum mismatch: expected ${expectedChecksum.slice(0, 12)}..., got ${reChecksum.slice(0, 12)}...`,
     };
   } catch (error) {
-    return { verified: false, error: `Verification failed: ${String(error)}` };
+    return { verified: false, error: `Verification failed: ${dbErrorFragment(error)}` };
   }
+}
+
+export async function executeScheduledBackup(): Promise<void> {
+  const adminUsers = await financeDb.listUsersForAdmin();
+  const activeUsers = adminUsers.filter(u => u.status === "active");
+
+  let totalProjectsBackedUp = 0;
+  let verifiedCount = 0;
+  let failedCount = 0;
+  const backupResults = [];
+
+  for (const user of activeUsers) {
+    const projects = await financeDb.listProjects(user.id);
+    for (const project of projects) {
+      const cloudResult: CloudBackupResult & {
+        integrityVerified?: boolean;
+        integrityError?: string;
+      } = await executeCloudBackup(user.id, project.id);
+
+      if (cloudResult.success && cloudResult.checksum) {
+        const verification = await verifyBackupIntegrity(
+          user.id,
+          project.id,
+          cloudResult.checksum
+        );
+        if (verification.verified) {
+          verifiedCount++;
+          cloudResult.integrityVerified = true;
+        } else {
+          failedCount++;
+          cloudResult.integrityVerified = false;
+          cloudResult.integrityError = verification.error;
+          logger.warn(
+            `Backup integrity check failed for project ${project.id}: ${verification.error}`
+          );
+        }
+      } else if (!cloudResult.success) {
+        failedCount++;
+      }
+
+      backupResults.push(cloudResult);
+      totalProjectsBackedUp++;
+    }
+  }
+
+  const storedCount = backupResults.filter(r => r.success).length;
+  await financeDb.logAudit({
+    actorUserId: activeUsers[0]?.id ?? (await financeDb.systemActorUserId()),
+    action:
+      failedCount === 0 && totalProjectsBackedUp > 0
+        ? "backup_created"
+        : "update",
+    entityType:
+      failedCount === 0 && totalProjectsBackedUp > 0
+        ? "cloud_backup"
+        : "cloud_backup_failed",
+    summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
+  });
 }
 
 export async function runScheduledBackup(
@@ -132,78 +215,15 @@ export async function runScheduledBackup(
   }
 
   try {
-    const adminUsers = await financeDb.listUsersForAdmin();
-    const activeUsers = adminUsers.filter(u => u.status === "active");
-
-    let totalProjectsBackedUp = 0;
-    let verifiedCount = 0;
-    let failedCount = 0;
-    const backupResults = [];
-
-    for (const user of activeUsers) {
-      const projects = await financeDb.listProjects(user.id);
-      for (const project of projects) {
-        const cloudResult: CloudBackupResult & {
-          integrityVerified?: boolean;
-          integrityError?: string;
-        } = await executeCloudBackup(user.id, project.id);
-
-        // Post-upload integrity verification — only meaningful when something was stored.
-        if (cloudResult.success && cloudResult.checksum) {
-          const verification = await verifyBackupIntegrity(
-            user.id,
-            project.id,
-            cloudResult.checksum
-          );
-          if (verification.verified) {
-            verifiedCount++;
-            cloudResult.integrityVerified = true;
-          } else {
-            failedCount++;
-            cloudResult.integrityVerified = false;
-            cloudResult.integrityError = verification.error;
-            logger.warn(
-              `Backup integrity check failed for project ${project.id}: ${verification.error}`
-            );
-          }
-        } else if (!cloudResult.success) {
-          failedCount++;
-        }
-
-        backupResults.push(cloudResult);
-        totalProjectsBackedUp++;
-      }
-    }
-
-    const storedCount = backupResults.filter(r => r.success).length;
-    // Log the scheduled backup audit — only count verified when a payload was actually stored.
-    await financeDb.logAudit({
-      actorUserId: activeUsers[0]?.id ?? (await financeDb.systemActorUserId()),
-      action:
-        failedCount === 0 && totalProjectsBackedUp > 0
-          ? "backup_created"
-          : "update",
-      entityType:
-        failedCount === 0 && totalProjectsBackedUp > 0
-          ? "cloud_backup"
-          : "cloud_backup_failed",
-      summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
-      auditContext: extractAuditContext(req),
-    });
-
-    res.status(failedCount > 0 && storedCount === 0 ? 500 : 200).json({
-      success: storedCount > 0,
+    await executeScheduledBackup();
+    res.status(200).json({
+      success: true,
       timestamp: new Date().toISOString(),
-      backedUpProjectsCount: totalProjectsBackedUp,
-      storedProjectsCount: storedCount,
-      integrityVerified: verifiedCount,
-      integrityFailed: failedCount,
-      details: backupResults,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: String(error),
+      error: `Scheduled backup failed: ${dbErrorFragment(error)}`,
     });
   }
 }

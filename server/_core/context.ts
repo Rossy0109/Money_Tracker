@@ -29,7 +29,7 @@ export async function createContext(
   let adminElevation: AdminElevationPayload | null = null;
   if (user && (await isAdminRoleUser(user.id))) {
     const rawAdminToken = extractAdminTokenFromRequest(opts.req);
-    const verified = verifyAdminToken(rawAdminToken);
+    const verified = await verifyAdminToken(rawAdminToken);
     if (verified && verified.userId === user.id) {
       adminElevation = verified;
     }

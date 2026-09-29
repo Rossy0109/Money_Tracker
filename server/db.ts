@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   and,
   asc,
@@ -13,6 +12,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { sha256Hex, randomBytesBase64Url } from "../shared/platform/crypto";
 import {
   getDb,
   closeDatabaseConnection,
@@ -182,7 +182,7 @@ function decimalFromCents(value: number) {
   return (value / 100).toFixed(2);
 }
 
-function transactionFingerprint(input: {
+async function transactionFingerprint(input: {
   projectId: number;
   categoryId: number;
   accountId?: number;
@@ -192,20 +192,18 @@ function transactionFingerprint(input: {
   note?: string;
   occurredAt: Date;
 }) {
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        projectId: input.projectId,
-        categoryId: input.categoryId,
-        accountId: input.accountId ?? null,
-        type: input.type,
-        amountCents: cents(input.amount),
-        paymentMethod: input.paymentMethod.trim(),
-        note: input.note?.trim() || null,
-        occurredAt: input.occurredAt.toISOString(),
-      })
-    )
-    .digest("hex");
+  return sha256Hex(
+    JSON.stringify({
+      projectId: input.projectId,
+      categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
+      type: input.type,
+      amountCents: cents(input.amount),
+      paymentMethod: input.paymentMethod.trim(),
+      note: input.note?.trim() || null,
+      occurredAt: input.occurredAt.toISOString(),
+    })
+  );
 }
 
 async function selectForUpdate<T>(query: unknown): Promise<T> {
@@ -247,9 +245,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   // Bootstrap admin is determined only by configured email/owner identity —
   // never by a caller-supplied users.role value (legacy column is display-only).
   const isBootstrapAdmin =
-    (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
+    (bootstrapEmail && (await timingSafeCompare(normalizedEmail, bootstrapEmail))) ||
     (ownerOpenId
-      ? timingSafeCompare(user.openId, ownerOpenId)
+      ? await timingSafeCompare(user.openId, ownerOpenId)
       : openIdMatchesOwner(user.openId, ownerOpenId));
 
   const shouldSetRole = isBootstrapAdmin || user.role !== undefined;
@@ -443,9 +441,9 @@ export async function createPasswordUser(input: {
   const bootstrapEmail = (ENV.adminBootstrapEmail || "").trim().toLowerCase();
   const ownerOpenId = ENV.ownerOpenId;
   const isBootstrapAdmin =
-    (bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)) ||
+    (bootstrapEmail && (await timingSafeCompare(normalizedEmail, bootstrapEmail))) ||
     (ownerOpenId
-      ? timingSafeCompare(openId, ownerOpenId)
+      ? await timingSafeCompare(openId, ownerOpenId)
       : openId === ownerOpenId);
   const role = isBootstrapAdmin ? ("admin" as const) : ("user" as const);
   const status = isBootstrapAdmin ? ("active" as const) : ("pending" as const);
@@ -508,8 +506,8 @@ export async function createPasswordResetToken(email: string) {
   }
 
   // Generate secure random token
-  const crypto = await import("node:crypto");
-  const resetToken = crypto.randomBytes(32).toString("base64url");
+  const crypto = await import("../shared/platform/crypto");
+  const resetToken = crypto.randomBytesBase64Url(32);
   const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
   await db
@@ -1157,36 +1155,47 @@ export async function submitVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  const [voucher] = await db
-    .select()
-    .from(financeVouchers)
-    .where(
-      and(
-        eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId)
+  return db.transaction(async tx => {
+    const [voucher] = await tx
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.projectId, projectId)
+        )
       )
-    )
-    .limit(1);
-  if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
-  assertVoucherTransition(voucher.status, "submitted");
+      .limit(1);
+    if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
+    assertVoucherTransition(voucher.status, "submitted");
 
-  await db
-    .update(financeVouchers)
-    .set({
-      status: "submitted",
-      submittedBy: userId,
-      submittedAt: new Date(),
-    })
-    .where(eq(financeVouchers.id, voucherId));
+    // Status-guarded UPDATE: the row can only move draft -> submitted once,
+    // so two concurrent submitters can't double-transition (see postVoucher).
+    const transition = await tx
+      .update(financeVouchers)
+      .set({
+        status: "submitted",
+        submittedBy: userId,
+        submittedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.status, "draft")
+        )
+      );
+    if (!transition[0]?.affectedRows)
+      throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
 
-  await db.insert(financeVoucherAudit).values({
-    voucherId,
-    actorUserId: userId,
-    action: "submit",
-    snapshot: JSON.stringify({ from: voucher.status, to: "submitted" }),
+    await tx.insert(financeVoucherAudit).values({
+      voucherId,
+      actorUserId: userId,
+      action: "submit",
+      snapshot: JSON.stringify({ from: voucher.status, to: "submitted" }),
+    });
+
+    return { voucherId, status: "submitted" };
   });
-
-  return { voucherId, status: "submitted" };
 }
 
 /** Approve a submitted voucher (or return to draft). */
@@ -1199,53 +1208,64 @@ export async function approveVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  const [voucher] = await db
-    .select()
-    .from(financeVouchers)
-    .where(
-      and(
-        eq(financeVouchers.id, voucherId),
-        eq(financeVouchers.projectId, projectId)
+  return db.transaction(async tx => {
+    const [voucher] = await tx
+      .select()
+      .from(financeVouchers)
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.projectId, projectId)
+        )
       )
-    )
-    .limit(1);
-  if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
+      .limit(1);
+    if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
 
-  // Self-approval prevention: the voucher creator cannot approve their own voucher.
-  if (action === "approve" && voucher.userId === userId) {
-    throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
-  }
+    // Self-approval prevention: the voucher creator cannot approve their own voucher.
+    if (action === "approve" && voucher.userId === userId) {
+      throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
+    }
 
-  // 4-eyes (maker ≠ checker): the submitter cannot approve their own submission.
-  if (action === "approve" && voucher.submittedBy === userId) {
-    throw new Error("প্রস্তুতকারক নিজে অনুমোদন করতে পারবেন না (চার-চোখ নীতি)");
-  }
+    // 4-eyes (maker ≠ checker): the submitter cannot approve their own submission.
+    if (action === "approve" && voucher.submittedBy === userId) {
+      throw new Error("প্রস্তুতকারক নিজে অনুমোদন করতে পারবেন না (চার-চোখ নীতি)");
+    }
 
-  const targetStatus = action === "approve" ? "approved" : "draft";
-  assertVoucherTransition(voucher.status, targetStatus);
+    const targetStatus = action === "approve" ? "approved" : "draft";
+    assertVoucherTransition(voucher.status, targetStatus);
 
-  await db
-    .update(financeVouchers)
-    .set({
-      status: targetStatus,
-      ...(action === "approve"
-        ? { approvedBy: userId, approvedAt: new Date() }
-        : {}),
-    })
-    .where(eq(financeVouchers.id, voucherId));
+    // Status-guarded UPDATE: submitted can only be consumed once, so two
+    // concurrent approvers can't both win (see postVoucher).
+    const transition = await tx
+      .update(financeVouchers)
+      .set({
+        status: targetStatus,
+        ...(action === "approve"
+          ? { approvedBy: userId, approvedAt: new Date() }
+          : {}),
+      })
+      .where(
+        and(
+          eq(financeVouchers.id, voucherId),
+          eq(financeVouchers.status, "submitted")
+        )
+      );
+    if (!transition[0]?.affectedRows)
+      throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
 
-  await db.insert(financeVoucherAudit).values({
-    voucherId,
-    actorUserId: userId,
-    action: "approve",
-    snapshot: JSON.stringify({
-      from: voucher.status,
-      to: targetStatus,
-      action,
-    }),
+    await tx.insert(financeVoucherAudit).values({
+      voucherId,
+      actorUserId: userId,
+      action: "approve",
+      snapshot: JSON.stringify({
+        from: voucher.status,
+        to: targetStatus,
+        action,
+      }),
+    });
+
+    return { voucherId, status: targetStatus };
   });
-
-  return { voucherId, status: targetStatus };
 }
 
 async function postVoucherInternals(
@@ -5412,7 +5432,7 @@ export async function createTransaction(
     throw new Error("লেনদেনের পরিমাণ শূন্যের বড় হতে হবে");
   const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const cleanIdempKey = input.idempotencyKey?.trim() || null;
-  const fingerprint = transactionFingerprint(input);
+  const fingerprint = await transactionFingerprint(input);
   const finalNote = input.note?.trim() || null;
   const db = databaseRequired(await getDb());
   const result = await db.transaction(async tx => {

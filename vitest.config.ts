@@ -11,6 +11,12 @@ export default defineConfig({
       "@": path.resolve(templateRoot, "client", "src"),
       "@shared": path.resolve(templateRoot, "shared"),
       "@assets": path.resolve(templateRoot, "attached_assets"),
+      // `cloudflare:sockets` only exists inside workerd; Node tests get a stub.
+      "cloudflare:sockets": path.resolve(
+        templateRoot,
+        "worker",
+        "cloudflareSocketsStub.ts"
+      ),
     },
   },
   test: {

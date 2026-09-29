@@ -1,6 +1,11 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
 import { parseCookie as parseCookieHeader } from "cookie";
 import type { Request } from "express";
+import {
+  randomBytesBase64Url,
+  timingSafeEqual,
+  encodeBase64Url,
+  decodeBase64Url,
+} from "../../shared/platform/crypto";
 
 export const GITHUB_CALLBACK_PATH = "/api/auth/github/callback";
 export const GITHUB_LOGIN_PATH = "/api/auth/github/login";
@@ -20,7 +25,7 @@ export type GitHubIdentity = {
 type FetchLike = typeof fetch;
 
 function randomBase64Url(bytes: number) {
-  return randomBytes(bytes).toString("base64url");
+  return randomBytesBase64Url(bytes);
 }
 
 export function createGitHubTransaction(): GitHubTransaction {
@@ -30,7 +35,7 @@ export function createGitHubTransaction(): GitHubTransaction {
 }
 
 export function encodeGitHubTransaction(transaction: GitHubTransaction) {
-  return Buffer.from(JSON.stringify(transaction)).toString("base64url");
+  return encodeBase64Url(JSON.stringify(transaction));
 }
 
 export function decodeGitHubTransaction(
@@ -38,9 +43,7 @@ export function decodeGitHubTransaction(
 ): GitHubTransaction | null {
   if (!value) return null;
   try {
-    const parsed = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8")
-    ) as Partial<GitHubTransaction>;
+    const parsed = JSON.parse(decodeBase64Url(value)) as Partial<GitHubTransaction>;
     if (typeof parsed.state !== "string" || parsed.state.length < 32) {
       return null;
     }
@@ -55,11 +58,7 @@ export function transactionMatchesGitHubState(
   state: string | undefined
 ) {
   if (!transaction || !state) return false;
-  const expected = Buffer.from(transaction.state);
-  const received = Buffer.from(state);
-  return (
-    expected.length === received.length && timingSafeEqual(expected, received)
-  );
+  return timingSafeEqual(transaction.state, state);
 }
 
 export function createGitHubAuthorizationUrl(

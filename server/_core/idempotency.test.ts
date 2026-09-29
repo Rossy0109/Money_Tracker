@@ -51,24 +51,24 @@ import {
 const mockGetDb = vi.mocked(getDb);
 
 describe("hashRequest", () => {
-  it("produces consistent hash for same input", () => {
-    expect(hashRequest({ projectId: 1, amount: 100 })).toBe(
-      hashRequest({ projectId: 1, amount: 100 })
+  it("produces consistent hash for same input", async () => {
+    expect(await hashRequest({ projectId: 1, amount: 100 })).toBe(
+      await hashRequest({ projectId: 1, amount: 100 })
     );
   });
-  it("produces different hash for different input", () => {
-    expect(hashRequest({ projectId: 1, amount: 100 })).not.toBe(
-      hashRequest({ projectId: 1, amount: 200 })
+  it("produces different hash for different input", async () => {
+    expect(await hashRequest({ projectId: 1, amount: 100 })).not.toBe(
+      await hashRequest({ projectId: 1, amount: 200 })
     );
   });
-  it("produces same hash regardless of key insertion order", () => {
-    expect(hashRequest({ b: 2, a: 1 })).toBe(hashRequest({ a: 1, b: 2 }));
+  it("produces same hash regardless of key insertion order", async () => {
+    expect(await hashRequest({ b: 2, a: 1 })).toBe(await hashRequest({ a: 1, b: 2 }));
   });
-  it("hashes null to a 64-char hex string", () => {
-    expect(hashRequest(null)).toMatch(/^[a-f0-9]{64}$/);
+  it("hashes null to a 64-char hex string", async () => {
+    expect(await hashRequest(null)).toMatch(/^[a-f0-9]{64}$/);
   });
-  it("hashes undefined to a 64-char hex string", () => {
-    expect(hashRequest(undefined)).toMatch(/^[a-f0-9]{64}$/);
+  it("hashes undefined to a 64-char hex string", async () => {
+    expect(await hashRequest(undefined)).toMatch(/^[a-f0-9]{64}$/);
   });
 });
 

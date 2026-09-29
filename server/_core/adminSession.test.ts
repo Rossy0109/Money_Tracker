@@ -7,11 +7,11 @@ import {
 import { ADMIN_SESSION_COOKIE } from "../../shared/const";
 
 describe("Admin Elevation Session Management", () => {
-  it("issues and verifies a valid HMAC admin token", () => {
-    const token = issueAdminToken(1, "system-owner", 15 * 60 * 1000);
+  it("issues and verifies a valid HMAC admin token", async () => {
+    const token = await issueAdminToken(1, "system-owner", 15 * 60 * 1000);
     expect(token).toBeDefined();
 
-    const payload = verifyAdminToken(token);
+    const payload = await verifyAdminToken(token);
     expect(payload).not.toBeNull();
     expect(payload?.userId).toBe(1);
     expect(payload?.openId).toBe("system-owner");
@@ -19,14 +19,14 @@ describe("Admin Elevation Session Management", () => {
     expect(payload?.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  it("rejects tampered admin tokens in constant time", () => {
-    const token = issueAdminToken(1, "system-owner", 15 * 60 * 1000);
+  it("rejects tampered admin tokens in constant time", async () => {
+    const token = await issueAdminToken(1, "system-owner", 15 * 60 * 1000);
     const [payload, signature] = token.split(".");
 
     // Tamper with signature
     const tamperedSig =
       signature.slice(0, -2) + (signature.slice(-2) === "00" ? "ff" : "00");
-    expect(verifyAdminToken(`${payload}.${tamperedSig}`)).toBeNull();
+    expect(await verifyAdminToken(`${payload}.${tamperedSig}`)).toBeNull();
 
     // Tamper with payload
     const modifiedPayload = Buffer.from(
@@ -38,13 +38,13 @@ describe("Admin Elevation Session Management", () => {
         expiresAt: Date.now() + 60000,
       })
     ).toString("base64url");
-    expect(verifyAdminToken(`${modifiedPayload}.${signature}`)).toBeNull();
+    expect(await verifyAdminToken(`${modifiedPayload}.${signature}`)).toBeNull();
   });
 
-  it("rejects expired admin tokens", () => {
+  it("rejects expired admin tokens", async () => {
     // Expired 1 second ago
-    const token = issueAdminToken(1, "system-owner", -1000);
-    expect(verifyAdminToken(token)).toBeNull();
+    const token = await issueAdminToken(1, "system-owner", -1000);
+    expect(await verifyAdminToken(token)).toBeNull();
   });
 
   it("extracts token from cookie or x-admin-token or AdminBearer header", () => {

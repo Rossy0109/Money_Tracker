@@ -11,8 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AUTH_MODE: google
-  VITE_AUTH_MODE: google
   GOOGLE_OAUTH_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
   GOOGLE_OAUTH_CLIENT_SECRET: ci-placeholder-secret
   GOOGLE_OAUTH_REDIRECT_URI: http://localhost:3000/api/auth/google/callback
@@ -25,6 +23,9 @@ jobs:
   # ── Gate 1: Install + Typecheck + Lint + Build ──────────────────────────────
   verify:
     runs-on: ubuntu-latest
+    env:
+      AUTH_MODE: google
+      VITE_AUTH_MODE: google
     steps:
       - uses: actions/checkout@v7
 
@@ -74,6 +75,51 @@ jobs:
           path: coverage/
           retention-days: 7
           if-no-files-found: ignore
+
+  # ── Gate 2b: Worker runtime tests (Hono shim, tRPC fetch, R2/KV wiring) ────
+  worker:
+    runs-on: ubuntu-latest
+    needs: [verify]
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: money_tracker
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      NODE_ENV: test
+      ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The MariaDB service starts empty; worker login/auth tests need schema.
+      - name: Apply database schema
+        run: node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"
+
+      - name: Worker tests
+        run: pnpm test:worker
+
+      - name: Worker bundle (wrangler dry-run)
+        # wrangler needs dist/public for the [assets] binding
+        run: |
+          pnpm build
+          pnpm build:worker
 
   # ── Gate 3: Isolated server E2E (MariaDB service, throwaway DB) ─────────────
   e2e:

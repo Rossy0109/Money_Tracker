@@ -1,36 +1,51 @@
 import { TRPCError } from "@trpc/server";
-import type { Request } from "express";
 
 /**
- * Per-process (in-memory) rate limiter.
+ * Pluggable rate limit store.
  *
- * Limitations for multi-instance deployments: counters are local to this
- * Node process, so N instances each allow up to `max` independently. Auth
- * hardening does NOT rely on this alone:
- *   - DB-backed account lockout (failed_login_attempts) is multi-instance safe
- *     and is enforced on every password login.
- *   - express-rate-limit (app.ts) provides an additional IP-based layer.
- * If you need strict cross-instance limits, back this store with Redis/DB.
+ * Node path: in-memory Map (per-process, best-effort).
+ * Worker path: KV-backed store (distributed, multi-instance safe).
  */
-interface RateLimitRecord {
+export interface RateLimitRecord {
   count: number;
   resetAt: number;
 }
 
-const rateLimitStore = new Map<string, RateLimitRecord>();
+export interface RateLimitStore {
+  get(key: string): Promise<RateLimitRecord | null> | RateLimitRecord | null;
+  set(
+    key: string,
+    record: RateLimitRecord
+  ): Promise<void> | void;
+  delete(key: string): Promise<void> | void;
+}
 
-// Clean up expired entries every 5 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    rateLimitStore.forEach((record, key) => {
-      if (now > record.resetAt) {
-        rateLimitStore.delete(key);
-      }
-    });
-  },
-  5 * 60 * 1000
-).unref?.();
+class MemoryRateLimitStore implements RateLimitStore {
+  private map = new Map<string, RateLimitRecord>();
+
+  get(key: string): RateLimitRecord | null {
+    return this.map.get(key) ?? null;
+  }
+
+  set(key: string, record: RateLimitRecord): void {
+    this.map.set(key, record);
+  }
+
+  delete(key: string): void {
+    this.map.delete(key);
+  }
+}
+
+let store: RateLimitStore = new MemoryRateLimitStore();
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+export function setRateLimitStore(s: RateLimitStore): void {
+  store = s;
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+}
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -41,18 +56,17 @@ export interface RateLimitOptions {
 
 /**
  * Resolve a stable client IP for rate-limit keys.
- *
- * Prefer Express `req.ip` (computed with `trust proxy` so only the trusted
- * hop's X-Forwarded-For entry is used). Never key on the raw X-Forwarded-For
- * header: clients can spoof it to mint fresh rate-limit buckets.
  */
 export function getClientIp(
-  req?: Pick<Request, "ip" | "socket" | "headers"> | null
+  req?: {
+    ip?: string;
+    socket?: { remoteAddress?: string };
+    headers: Record<string, unknown>;
+  } | null
 ): string {
   if (req?.ip) return req.ip;
   const socketIp = req?.socket?.remoteAddress;
   if (socketIp) return socketIp;
-  // Last resort only — still take a single hop, not the full spoofable list.
   const xff = req?.headers?.["x-forwarded-for"];
   const firstHop = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
   return firstHop || "unknown-ip";
@@ -62,11 +76,10 @@ export function getClientIp(
  * Checks rate limits by key (e.g., IP address or user identifier).
  * Throws TRPCError with code TOO_MANY_REQUESTS when limit is exceeded.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   options: RateLimitOptions
-): { remaining: number; resetAt: number } {
-  // Skip rate limiting in testing environments
+): Promise<{ remaining: number; resetAt: number }> {
   if (
     process.env.NODE_ENV === "test" ||
     process.env.ISOLATED_E2E_DATABASE === "true"
@@ -76,10 +89,10 @@ export function checkRateLimit(
 
   const storeKey = `${options.keyPrefix || "rl"}:${key}`;
   const now = Date.now();
-  const record = rateLimitStore.get(storeKey);
+  const record = await store.get(storeKey);
 
   if (!record || now > record.resetAt) {
-    rateLimitStore.set(storeKey, {
+    await store.set(storeKey, {
       count: 1,
       resetAt: now + options.windowMs,
     });
@@ -92,17 +105,21 @@ export function checkRateLimit(
       code: "TOO_MANY_REQUESTS",
       message:
         options.message ||
-        `খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ${retryAfterSec} সেকেন্ড পর আবার চেষ্টা করুন।`,
+        `খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে। ${retryAfterSec} সেকেন্ড পর আবার চেষ্টা করুন।`,
     });
   }
 
   record.count += 1;
+  await store.set(storeKey, record);
   return { remaining: options.max - record.count, resetAt: record.resetAt };
 }
 
 /**
  * Reset rate limit counter for a specific key (e.g., on successful login).
  */
-export function resetRateLimit(key: string, keyPrefix = "rl"): void {
-  rateLimitStore.delete(`${keyPrefix}:${key}`);
+export async function resetRateLimit(
+  key: string,
+  keyPrefix = "rl"
+): Promise<void> {
+  await store.delete(`${keyPrefix}:${key}`);
 }

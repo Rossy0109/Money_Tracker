@@ -317,7 +317,7 @@ export function registerOAuthRoutes(app: Express) {
           maxAge: googleTransactionCookieMaxAge,
         }
       );
-      res.redirect(302, createGoogleAuthorizationUrl(discovery, transaction));
+      res.redirect(302, await createGoogleAuthorizationUrl(discovery, transaction));
     } catch (error) {
       logger.error(
         { err: error instanceof Error ? error : new Error(String(error)) },
@@ -360,7 +360,7 @@ export function registerOAuthRoutes(app: Express) {
       const bootstrapEmail = ENV.adminBootstrapEmail.trim().toLowerCase();
       const normalizedEmail = (identity.email || "").trim().toLowerCase();
       const role =
-        bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)
+        bootstrapEmail && (await timingSafeCompare(normalizedEmail, bootstrapEmail))
           ? "admin"
           : undefined;
 
@@ -482,7 +482,7 @@ export function registerOAuthRoutes(app: Express) {
         .toLowerCase();
       const normalizedEmail = (identity.email || "").trim().toLowerCase();
       const role =
-        bootstrapEmail && timingSafeCompare(normalizedEmail, bootstrapEmail)
+        bootstrapEmail && (await timingSafeCompare(normalizedEmail, bootstrapEmail))
           ? "admin"
           : undefined;
 
