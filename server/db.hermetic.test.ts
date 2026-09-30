@@ -212,4 +212,229 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     30000
   );
+
+  it(
+    "runs the session lifecycle",
+    async () => {
+      const {
+        createUserSession,
+        getSessionByRefreshToken,
+        countActiveSessions,
+        revokeSession,
+        revokeAllUserSessions,
+        findRevokedSessionByToken,
+        cleanupExpiredSessions,
+      } = await import("./db");
+      const future = new Date(Date.now() + 3600_000);
+      await createUserSession(
+        userId,
+        "sess-hermetic-1",
+        "refresh-hermetic-1",
+        "vitest",
+        "127.0.0.1",
+        future,
+        future
+      );
+      const session = await getSessionByRefreshToken("refresh-hermetic-1");
+      expect(session?.userId).toBe(userId);
+      expect(await countActiveSessions(userId)).toBe(1);
+
+      await revokeSession("refresh-hermetic-1");
+      expect(await countActiveSessions(userId)).toBe(0);
+      const revoked = await findRevokedSessionByToken("sess-hermetic-1");
+      expect(revoked.length).toBe(1);
+
+      await createUserSession(
+        userId,
+        "sess-hermetic-2",
+        "refresh-hermetic-2",
+        "vitest",
+        "127.0.0.1",
+        future,
+        future
+      );
+      await revokeAllUserSessions(userId);
+      expect(await countActiveSessions(userId)).toBe(0);
+
+      const past = new Date(Date.now() - 3600_000);
+      await createUserSession(
+        userId,
+        "sess-hermetic-3",
+        "refresh-hermetic-3",
+        "vitest",
+        "127.0.0.1",
+        past,
+        past
+      );
+      await cleanupExpiredSessions();
+      expect(
+        await getSessionByRefreshToken("refresh-hermetic-3")
+      ).toBeUndefined();
+    },
+    60000
+  );
+
+  it(
+    "enforces the voucher state machine",
+    async () => {
+      const {
+        getChartOfAccounts,
+        createVoucherWithEntries,
+        submitVoucher,
+        approveVoucher,
+      } = await import("./db");
+      const chart = await getChartOfAccounts(userId, projectId);
+      const debitCoa = chart.find(a => a.code === "1110");
+      const creditCoa = chart.find(a => a.code === "4100");
+      expect(debitCoa?.id).toBeGreaterThan(0);
+      expect(creditCoa?.id).toBeGreaterThan(0);
+      if (!debitCoa || !creditCoa)
+        throw new Error("Canonical chart accounts missing");
+
+      await expect(
+        createVoucherWithEntries(userId, {
+          projectId,
+          date: new Date(),
+          narration: "unbalanced",
+          debits: [{ accountId: debitCoa.id, amount: 100 }],
+          credits: [{ accountId: creditCoa.id, amount: 99 }],
+        })
+      ).rejects.toThrow();
+
+      const { voucherId } = await createVoucherWithEntries(userId, {
+        projectId,
+        date: new Date(),
+        narration: "hermetic draft",
+        debits: [{ accountId: debitCoa.id, amount: 100 }],
+        credits: [{ accountId: creditCoa.id, amount: 100 }],
+      });
+      expect(voucherId).toBeGreaterThan(0);
+
+      const submitted = await submitVoucher(userId, projectId, voucherId);
+      expect(submitted.status).toBe("submitted");
+      // Double submit is an illegal transition.
+      await expect(
+        submitVoucher(userId, projectId, voucherId)
+      ).rejects.toThrow();
+      // Maker cannot check their own voucher.
+      await expect(
+        approveVoucher(userId, projectId, voucherId, "approve")
+      ).rejects.toThrow();
+      // Return to draft, then submit again.
+      await approveVoucher(userId, projectId, voucherId, "return");
+      const resubmitted = await submitVoucher(userId, projectId, voucherId);
+      expect(resubmitted.status).toBe("submitted");
+    },
+    60000
+  );
+
+  it(
+    "builds the monthly report from recorded transactions",
+    async () => {
+      const { getMonthlyReport } = await import("./db");
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const report = await getMonthlyReport(userId, projectId, monthKey);
+      // State so far: one income txn of 700, expense deleted.
+      expect(report.totalIncome).toBe(700);
+      expect(report.totalExpense).toBe(0);
+      expect(report.netAmount).toBe(700);
+      expect(report.transactionCount).toBe(1);
+      expect(report.monthKey).toBe(monthKey);
+      expect(report.financialPosition.accountBalance).toBe(1700);
+    },
+    60000
+  );
+
+  it(
+    "creates and partially settles a debt",
+    async () => {
+      const { createDue, settleDue, getOverview, getMonthlyReport } =
+        await import("./db");
+      const account = (await getOverview(userId, projectId)).accounts[0];
+      const before = Number(account.currentBalance);
+      const due = await createDue(userId, {
+        projectId,
+        type: "debt",
+        counterparty: "Hermetic Lender",
+        amount: 300,
+        openedAt: new Date(),
+      });
+      expect(Number(due.outstandingAmount)).toBe(300);
+
+      // Overpaying must be rejected.
+      await expect(
+        settleDue(userId, {
+          projectId,
+          dueId: due.id,
+          accountId: account.id,
+          amount: 500,
+          occurredAt: new Date(),
+        })
+      ).rejects.toThrow();
+
+      await settleDue(userId, {
+        projectId,
+        dueId: due.id,
+        accountId: account.id,
+        amount: 100,
+        occurredAt: new Date(),
+      });
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const report = await getMonthlyReport(userId, projectId, monthKey);
+      expect(report.totalDebt).toBe(200);
+      const overview = await getOverview(userId, projectId);
+      expect(
+        Number(
+          overview.accounts.find(a => a.id === account.id)?.currentBalance
+        )
+      ).toBe(before - 100);
+    },
+    60000
+  );
+
+  it(
+    "generates a due recurring run",
+    async () => {
+      const {
+        createRecurringTemplate,
+        generateRecurringNow,
+        getOverview,
+      } = await import("./db");
+      const overview0 = await getOverview(userId, projectId);
+      const expenseCat = overview0.categories.find(
+        c => c.type === "expense"
+      )!;
+      const account = overview0.accounts[0];
+      const before = Number(account.currentBalance);
+      const txnCount = overview0.transactions.length;
+
+      const templateId = await createRecurringTemplate(userId, {
+        projectId,
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        type: "expense",
+        amount: 50,
+        paymentMethod: "cash",
+        frequency: "monthly",
+        scheduleDay: 1,
+        nextRunAt: new Date(Date.now() - 86_400_000),
+      });
+      const result = await generateRecurringNow(
+        userId,
+        projectId,
+        templateId,
+        new Date()
+      );
+      expect(result.created).toBeGreaterThanOrEqual(1);
+
+      const overview = await getOverview(userId, projectId);
+      expect(overview.transactions.length).toBeGreaterThan(txnCount);
+      expect(
+        Number(
+          overview.accounts.find(a => a.id === account.id)?.currentBalance
+        )
+      ).toBe(before - 50 * result.created);
+    },
+    60000
+  );
 });
