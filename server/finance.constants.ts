@@ -1,5 +1,5 @@
 export const DEFAULT_CATEGORIES = {
-  income: ["Salary", "Business", "Investment"],
+  income: ["Salary", "Business", "Investment", "পাওনা আদায়"],
   expense: [
     "মেয়র স্যার",
     "রছি ভাই",

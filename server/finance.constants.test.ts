@@ -111,6 +111,7 @@ describe("DEFAULT_CATEGORIES", () => {
       "Salary",
       "Business",
       "Investment",
+      "পাওনা আদায়",
     ]);
     expect(DEFAULT_CATEGORIES.expense).toHaveLength(12);
     expect(DEFAULT_CATEGORIES.expense).toContain("বেতন");
