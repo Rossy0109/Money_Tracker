@@ -83,7 +83,7 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
   );
 
   it(
-    "createProject seeds the 15 default categories",
+    "createProject seeds the 16 default categories",
     async () => {
       const { createProject, getOverview } = await import("./db");
       const project = await createProject(userId, "Hermetic");
@@ -91,10 +91,15 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
       if (!project.id) throw new Error("Project creation returned no id");
       projectId = project.id;
       const overview = await getOverview(userId, projectId);
-      expect(overview.categories).toHaveLength(15);
+      expect(overview.categories).toHaveLength(16);
+      expect(
+        overview.categories.some(
+          c => c.type === "income" && c.name === "পাওনা আদায়"
+        )
+      ).toBe(true);
       expect(
         overview.categories.filter(c => c.type === "income")
-      ).toHaveLength(3);
+      ).toHaveLength(4);
       expect(overview.categories.map(c => c.name)).toContain("বেতন");
     },
     30000

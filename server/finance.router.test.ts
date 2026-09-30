@@ -137,7 +137,7 @@ describe("finance router", () => {
 
   it("defines the user-approved Bengali default expense categories", () => {
     expect(DEFAULT_CATEGORIES).toEqual({
-      income: ["Salary", "Business", "Investment"],
+      income: ["Salary", "Business", "Investment", "পাওনা আদায়"],
       expense: [
         "মেয়র স্যার",
         "রছি ভাই",
