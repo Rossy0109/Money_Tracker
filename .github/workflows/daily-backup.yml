@@ -19,6 +19,46 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Root cause of the silent 2026-09 failures: the Supabase storage bucket
+      # did not exist, so every upload got "Bucket not found" and the server
+      # recorded success:false without throwing — an HTTP 200 lie. Verify the
+      # destination exists (and create it if the admin key allows) BEFORE
+      # triggering, so a missing bucket fails loudly with a clear message.
+      - name: Ensure Supabase backup bucket exists
+        env:
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_ADMIN_KEY: ${{ secrets.SUPABASE_KEY }}
+          BUCKET: amar-hisab-backups
+        run: |
+          set -euo pipefail
+          if [ -z "$SB_URL" ] || [ -z "$SB_ADMIN_KEY" ]; then
+            echo "SUPABASE_URL and SUPABASE_KEY GitHub secrets are required to verify the backup bucket."
+            exit 1
+          fi
+          BASE="$(printf '%s' "$SB_URL" | tr -d '\r\n')"
+
+          buckets=$(curl -s --max-time 20 "$BASE/storage/v1/bucket" \
+            -H "apikey: $SB_ADMIN_KEY" -H "Authorization: Bearer $SB_ADMIN_KEY")
+          if echo "$buckets" | jq -e --arg b "$BUCKET" '.[] | select(.name == $b)' >/dev/null 2>&1; then
+            echo "Bucket '$BUCKET' exists — destination ready."
+            exit 0
+          fi
+
+          echo "Bucket '$BUCKET' missing. Supabase said: $(printf '%.300s' "$buckets")"
+          code=$(curl -s -o create_out.json -w "%{http_code}" --max-time 20 \
+            -X POST "$BASE/storage/v1/bucket" \
+            -H "apikey: $SB_ADMIN_KEY" -H "Authorization: Bearer $SB_ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$BUCKET\",\"public\":false,\"fileSizeLimit\":\"52428800\"}")
+          echo "Create response ($code): $(cat create_out.json)"
+          if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+            echo "Bucket creation failed — SUPABASE_KEY is likely not a service-role/admin key."
+            echo "Create the bucket in the Supabase dashboard (Storage → New bucket → name: $BUCKET),"
+            echo "or store a service-role key as the SUPABASE_KEY GitHub secret."
+            exit 1
+          fi
+          echo "Bucket '$BUCKET' created."
+
       - name: Trigger Remote Backup Endpoint
         env:
           APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
