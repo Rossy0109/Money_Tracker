@@ -8,7 +8,7 @@ in `server/db.ts`, grouped by section. Updated each batch.
 - **M** = covered by a mock-DB unit test (imports `./db` with mocked drizzle)
 - **–** = not yet covered by a direct test (may still be exercised by e2e)
 
-Last updated: 2026-09-30 · hermetic suite: **16/16 passing** · `pnpm check` clean
+Last updated: 2026-09-30 · hermetic suite: **23/23 passing** · `pnpm check` clean
 
 ## 1. Users & passwords
 | Function | Status |
@@ -57,26 +57,26 @@ Last updated: 2026-09-30 · hermetic suite: **16/16 passing** · `pnpm check` cl
 | createVoucherWithEntries | H |
 | submitVoucher | H |
 | approveVoucher | H |
-| postVoucher | – |
-| reverseVoucher | – |
+| postVoucher | H (transition guards) |
+| reverseVoucher | H (transition guards) |
 
 ## 5. Chart of accounts & groups
 | Function | Status |
 |---|---|
-| seedDefaultAccountTypes | – |
-| getAccountTypes | – |
+| seedDefaultAccountTypes | H |
+| getAccountTypes | H |
 | getChartOfAccounts | H |
-| getChartOfAccountById | – |
-| createChartOfAccount | – |
-| updateChartOfAccount | – |
-| deleteChartOfAccount | – |
+| getChartOfAccountById | H |
+| createChartOfAccount | H |
+| updateChartOfAccount | H |
+| deleteChartOfAccount | H |
 | seedDefaultChartOfAccounts | – |
 | getChartOfAccountsTree | – |
 | adjustChartOfAccountBalance | – |
-| listAccountGroups | – |
-| createAccountGroup | – |
-| updateAccountGroup | – |
-| deleteAccountGroup | – |
+| listAccountGroups | H |
+| createAccountGroup | H |
+| updateAccountGroup | H |
+| deleteAccountGroup | H |
 
 ## 6. Fiscal periods & locks
 | Function | Status |
@@ -128,8 +128,8 @@ Last updated: 2026-09-30 · hermetic suite: **16/16 passing** · `pnpm check` cl
 | getOverview | H |
 | getBudgetPlan | H |
 | getFinanceAnalytics | – |
-| searchTransactions | – |
-| listTransactionsPaginated | – |
+| searchTransactions | H |
+| listTransactionsPaginated | H |
 | getMonthlyReport | H |
 
 ## 11. Dues
@@ -211,29 +211,29 @@ Last updated: 2026-09-30 · hermetic suite: **16/16 passing** · `pnpm check` cl
 ## 20. Inventory
 | Function | Status |
 |---|---|
-| listInventoryItems | – |
-| createInventoryItem | – |
-| updateInventoryItem | – |
-| adjustInventoryStock | – |
-| deleteInventoryItem | – |
+| listInventoryItems | H |
+| createInventoryItem | H |
+| updateInventoryItem | H |
+| adjustInventoryStock | H |
+| deleteInventoryItem | H |
 
 ## 21. Employees & payroll
 | Function | Status |
 |---|---|
-| getEmployees | – |
-| createEmployee | – |
-| updateEmployee | – |
-| deleteEmployee | M |
-| getSalaryPayments | – |
-| disburseSalary | – |
-| getEmployeeAdvances | – |
-| createEmployeeAdvance | – |
+| getEmployees | H |
+| createEmployee | H |
+| updateEmployee | H |
+| deleteEmployee | H (+M) |
+| getSalaryPayments | H |
+| disburseSalary | H |
+| getEmployeeAdvances | H |
+| createEmployeeAdvance | H |
 
 ## 22. Firm profile
 | Function | Status |
 |---|---|
-| getFirmProfile | – |
-| saveFirmProfile | – |
+| getFirmProfile | H |
+| saveFirmProfile | H |
 
 ## 23. Private storage objects
 | Function | Status |
@@ -249,3 +249,6 @@ Last updated: 2026-09-30 · hermetic suite: **16/16 passing** · `pnpm check` cl
 - Batch 4 (this file + suite): budgets, bills, accounts CRUD, period locks,
   voucher settings, invoices — hermetic suite now **16 tests**, 47/139
   db.ts functions covered hermetically, 8 more via mock-DB unit tests
+- Batch 5: chart of accounts + groups, employees/salary/advances, inventory,
+  firm profile, search/pagination, voucher post/reverse guards — suite now
+  **23 tests**, 76/139 db.ts functions covered hermetically
