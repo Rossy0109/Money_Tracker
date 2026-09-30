@@ -1047,4 +1047,89 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     60000
   );
+
+  it(
+    "creates, renames, and deletes custom categories with guards",
+    async () => {
+      const {
+        createCategory,
+        updateCategory,
+        deleteCategory,
+        createTransaction,
+        getOverview,
+      } = await import("./db");
+      await expect(
+        createCategory(userId, {
+          projectId,
+          type: "income",
+          name: "   ",
+        })
+      ).rejects.toThrow();
+
+      const created = await createCategory(userId, {
+        projectId,
+        type: "expense",
+        name: "Hermetic Snacks",
+      });
+      expect(created?.isDefault).toBe(false);
+      await expect(
+        createCategory(userId, {
+          projectId,
+          type: "expense",
+          name: "Hermetic Snacks",
+        })
+      ).rejects.toThrow();
+      // Same name in the other type is a different category.
+      const twin = await createCategory(userId, {
+        projectId,
+        type: "income",
+        name: "Hermetic Snacks",
+      });
+      expect(twin?.type).toBe("income");
+
+      const renamed = await updateCategory(userId, projectId, created!.id, {
+        name: "Hermetic Snacks v2",
+      });
+      expect(renamed?.name).toBe("Hermetic Snacks v2");
+      expect(
+        (await getOverview(userId, projectId)).categories.some(
+          c => c.id === created!.id && c.name === "Hermetic Snacks v2"
+        )
+      ).toBe(true);
+
+      // Default categories are protected.
+      const overview = await getOverview(userId, projectId);
+      const salaryCat = overview.categories.find(c => c.name === "বেতন")!;
+      await expect(
+        deleteCategory(userId, projectId, salaryCat.id)
+      ).rejects.toThrow();
+
+      // Categories in use are protected: post a transaction first.
+      const account = overview.accounts[0];
+      await createTransaction(userId, {
+        projectId,
+        categoryId: created!.id,
+        accountId: account.id,
+        type: "expense",
+        amount: 25,
+        paymentMethod: "cash",
+        occurredAt: new Date(),
+      });
+      await expect(
+        deleteCategory(userId, projectId, created!.id)
+      ).rejects.toThrow();
+
+      // Unused custom categories delete cleanly.
+      await deleteCategory(userId, projectId, twin!.id);
+      expect(
+        (await getOverview(userId, projectId)).categories.some(
+          c => c.id === twin!.id
+        )
+      ).toBe(false);
+      await expect(
+        deleteCategory(userId, projectId, twin!.id)
+      ).rejects.toThrow();
+    },
+    60000
+  );
 });

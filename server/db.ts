@@ -9,6 +9,7 @@ import {
   like,
   lt,
   lte,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -853,6 +854,161 @@ async function ensureDefaultCategories(userId: number, projectId: number) {
     // while letting a concurrent seeder win instead of raising a duplicate key.
     await db.insert(financeCategories).ignore().values(missing);
   }
+}
+
+export async function createCategory(
+  userId: number,
+  input: {
+    projectId: number;
+    type: "income" | "expense";
+    name: string;
+  }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const name = input.name.trim();
+  if (!name) throw new Error("ক্যাটাগরির নাম প্রদান করুন");
+  if (name.length > 120) throw new Error("ক্যাটাগরির নাম ১২০ অক্ষরের মধ্যে রাখুন");
+  const db = databaseRequired(await getDb());
+  const [existing] = await db
+    .select({ id: financeCategories.id })
+    .from(financeCategories)
+    .where(
+      and(
+        eq(financeCategories.userId, userId),
+        eq(financeCategories.projectId, input.projectId),
+        eq(financeCategories.name, name),
+        eq(financeCategories.type, input.type)
+      )
+    )
+    .limit(1);
+  if (existing) throw new Error("এই নামে ক্যাটাগরি ইতিমধ্যে রয়েছে");
+  const result = await db.insert(financeCategories).values({
+    userId,
+    projectId: input.projectId,
+    name,
+    type: input.type,
+    isDefault: false,
+  });
+  const id = Number(result[0].insertId);
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "category",
+    entityId: id,
+    summary: `Category created: ${name} (${input.type})`,
+  });
+  const [created] = await db
+    .select()
+    .from(financeCategories)
+    .where(eq(financeCategories.id, id))
+    .limit(1);
+  return created;
+}
+
+export async function updateCategory(
+  userId: number,
+  projectId: number,
+  id: number,
+  input: { name: string }
+) {
+  const existing = await assertOwnedCategory(userId, projectId, id);
+  const name = input.name.trim();
+  if (!name) throw new Error("ক্যাটাগরির নাম প্রদান করুন");
+  if (name.length > 120) throw new Error("ক্যাটাগরির নাম ১২০ অক্ষরের মধ্যে রাখুন");
+  const db = databaseRequired(await getDb());
+  const [conflict] = await db
+    .select({ id: financeCategories.id })
+    .from(financeCategories)
+    .where(
+      and(
+        eq(financeCategories.userId, userId),
+        eq(financeCategories.projectId, projectId),
+        eq(financeCategories.name, name),
+        eq(financeCategories.type, existing.type),
+        ne(financeCategories.id, id)
+      )
+    )
+    .limit(1);
+  if (conflict) throw new Error("এই নামে ক্যাটাগরি ইতিমধ্যে রয়েছে");
+  await db
+    .update(financeCategories)
+    .set({ name })
+    .where(eq(financeCategories.id, id));
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "category",
+    entityId: id,
+    summary: `Category renamed: ${existing.name} -> ${name}`,
+  });
+  const [updated] = await db
+    .select()
+    .from(financeCategories)
+    .where(eq(financeCategories.id, id))
+    .limit(1);
+  return updated;
+}
+
+export async function deleteCategory(
+  userId: number,
+  projectId: number,
+  id: number
+) {
+  const existing = await assertOwnedCategory(userId, projectId, id);
+  if (existing.isDefault)
+    throw new Error("ডিফল্ট ক্যাটাগরি মোছা যাবে না");
+  const db = databaseRequired(await getDb());
+  const [usage] = await db
+    .select({ id: financeTransactions.id })
+    .from(financeTransactions)
+    .where(
+      and(
+        eq(financeTransactions.userId, userId),
+        eq(financeTransactions.projectId, projectId),
+        eq(financeTransactions.categoryId, id)
+      )
+    )
+    .limit(1);
+  if (usage)
+    throw new Error("এই ক্যাটাগরিতে লেনদেন রয়েছে; আগে ওই লেনদেনগুলো সরান");
+  const [budget] = await db
+    .select({ id: financeBudgets.id })
+    .from(financeBudgets)
+    .where(
+      and(
+        eq(financeBudgets.userId, userId),
+        eq(financeBudgets.projectId, projectId),
+        eq(financeBudgets.categoryId, id)
+      )
+    )
+    .limit(1);
+  if (budget)
+    throw new Error("এই ক্যাটাগরিতে বাজেট রয়েছে; আগে বাজেট সরান");
+  const [recurring] = await db
+    .select({ id: financeRecurringTransactions.id })
+    .from(financeRecurringTransactions)
+    .where(
+      and(
+        eq(financeRecurringTransactions.userId, userId),
+        eq(financeRecurringTransactions.projectId, projectId),
+        eq(financeRecurringTransactions.categoryId, id)
+      )
+    )
+    .limit(1);
+  if (recurring)
+    throw new Error("এই ক্যাটাগরিতে পুনরাবৃত্ত লেনদেন রয়েছে; আগে সেটি সরান");
+  await db.delete(financeCategories).where(eq(financeCategories.id, id));
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "delete",
+    entityType: "category",
+    entityId: id,
+    summary: `Category deleted: ${existing.name} (${existing.type})`,
+  });
+  return { success: true };
 }
 
 async function ensureVoucherSettings(userId: number, projectId: number) {

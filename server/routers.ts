@@ -1376,6 +1376,44 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.deleteAccount(ctx.user!.id, input.projectId, input.id)
       ),
+    addCategory: inputOnlyWithPermission("accounting", "create")
+      .input(
+        z.object({
+          projectId,
+          type: z.enum(["income", "expense"]),
+          name: z.string().trim().min(1).max(120),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await checkRateLimit(`${ctx.user!.id}:category`, {
+          windowMs: 15 * 60 * 1000,
+          max: 50,
+          keyPrefix: "user",
+        });
+        return financeDb.createCategory(ctx.user!.id, input);
+      }),
+    updateCategory: protectedWithPermission("accounting", "update")
+      .input(
+        z.object({
+          projectId,
+          id: z.number().int().positive(),
+          name: z.string().trim().min(1).max(120),
+        })
+      )
+      .mutation(({ ctx, input }) => {
+        const { id, projectId: scopedProjectId, ...values } = input;
+        return financeDb.updateCategory(
+          ctx.user!.id,
+          scopedProjectId,
+          id,
+          values
+        );
+      }),
+    deleteCategory: protectedWithPermission("accounting", "delete")
+      .input(z.object({ projectId, id: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.deleteCategory(ctx.user!.id, input.projectId, input.id)
+      ),
     saveBudget: inputOnlyWithPermission("budget", "create")
       .input(
         z.object({
