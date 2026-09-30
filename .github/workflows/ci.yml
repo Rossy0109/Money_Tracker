@@ -155,6 +155,14 @@ jobs:
           ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
         run: pnpm test:migrations
 
+      # Hermetic db.ts suite (disposable scratch DBs) — self-skips in the
+      # `test` job because no database is reachable there, so run it here
+      # where MariaDB is already provisioned.
+      - name: Hermetic DB unit suite
+        env:
+          ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+        run: pnpm exec vitest run server/db.hermetic.test.ts
+
       - name: Server E2E tests
         env:
           ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker

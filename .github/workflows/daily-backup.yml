@@ -17,6 +17,8 @@ jobs:
     name: Trigger Scheduled Encrypted Backup
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - name: Trigger Remote Backup Endpoint
         env:
           APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
@@ -48,4 +50,46 @@ jobs:
             exit 1
           fi
 
-          echo "Automated daily backup completed successfully."
+          echo "Automated daily backup endpoint returned 200."
+
+      # HTTP 200 alone never proved storage: uploads that fail are counted,
+      # not thrown. The endpoint now reports counts and answers 500 when any
+      # project failed — assert them here so a hollow 200 cannot pass.
+      - name: Assert backup result counts
+        run: |
+          echo "Response payload: $(jq -c '{success, projects, stored, verified, failed}' response.json)"
+          if ! jq -e '.success == true
+                      and (.projects // 0) >= 1
+                      and .stored == .projects
+                      and .verified == .projects
+                      and (.failed // 1) == 0' response.json > /dev/null; then
+            echo "Backup response did not report a complete success:"
+            jq . response.json
+            exit 1
+          fi
+          echo "Counts confirmed: every project stored and verified."
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Ground truth: the audit row is written from inside the backup run and
+      # `cloud_backup` is only recorded when every upload succeeded and the
+      # integrity re-export matched. This catches silent storage failures the
+      # HTTP status and even the response body cannot.
+      - name: Verify backup audit trail in database
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          VERIFY_WINDOW_MINUTES: "30"
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PROD_DATABASE_URL secret is not set — the audit trail cannot be verified."
+            echo "Set it (same value as Vercel Production DATABASE_URL) to re-enable verification."
+            exit 1
+          fi
+          node scripts/verify-backup-audit.mjs
