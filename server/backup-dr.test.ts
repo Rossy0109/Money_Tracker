@@ -270,3 +270,44 @@ describe("BackupDb Functions", () => {
     expect(typeof backupDb.countProjectRecords).toBe("function");
   });
 });
+
+// ─── Supabase storage key precedence (anon gets 403'd by bucket RLS) ────────
+
+describe("Supabase storage key precedence", () => {
+  it("uploadToSupabase prefers SUPABASE_SERVICE_ROLE_KEY over the anon key", () => {
+    const source = readFileSync(
+      new URL("./cloudBackupService.ts", import.meta.url),
+      "utf8"
+    );
+    const start = source.indexOf("async function uploadToSupabase");
+    expect(start).toBeGreaterThan(-1);
+    const end = source.indexOf("async function uploadToS3");
+    expect(end).toBeGreaterThan(start);
+    const body = source.slice(start, end);
+    const serviceIdx = body.indexOf("SUPABASE_SERVICE_ROLE_KEY");
+    const anonIdx = body.indexOf("SUPABASE_ANON_KEY");
+    expect(serviceIdx).toBeGreaterThan(-1);
+    expect(anonIdx).toBeGreaterThan(-1);
+    // The private backup bucket has no anon INSERT policy: using the anon
+    // key first made every upload fail 403 while the endpoint reported 200.
+    expect(serviceIdx).toBeLessThan(anonIdx);
+  });
+
+  it("health storage probe prefers the service-role key", () => {
+    const source = readFileSync(
+      new URL("./healthChecks.ts", import.meta.url),
+      "utf8"
+    );
+    const bucketCheck = source.indexOf("storage/v1/bucket/");
+    expect(bucketCheck).toBeGreaterThan(-1);
+    const window = source.slice(
+      Math.max(0, bucketCheck - 500),
+      bucketCheck + 500
+    );
+    // anon cannot see a private bucket — it would report "bucket missing".
+    expect(window).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(window.indexOf("SUPABASE_SERVICE_ROLE_KEY")).toBeLessThan(
+      window.indexOf("supabase.supabaseAnonKey")
+    );
+  });
+});
