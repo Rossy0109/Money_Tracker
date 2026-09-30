@@ -72,7 +72,15 @@ describe("RBAC startup initializer", () => {
 
     await initializeRBACSystem();
 
-    expect(state.createConnection).toHaveBeenCalledWith(databaseUrl);
+    // The lock connection must use explicit parsed options (never the raw
+    // URL string — mysql2's legacy parser drops hosts with query params).
+    expect(state.createConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "localhost",
+        database: "money_tracker",
+        user: "user",
+      })
+    );
     expect(state.connection.query.mock.calls[0][0]).toContain("GET_LOCK");
     expect(state.connection.query.mock.calls[0][1][0]).toBe(lockName);
     expect(state.connection.query.mock.calls[0][1][1]).toBeGreaterThanOrEqual(
