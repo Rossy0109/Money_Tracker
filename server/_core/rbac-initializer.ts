@@ -1,5 +1,6 @@
 import { createConnection } from "mysql2/promise";
 import { sha256Hex } from "../../shared/platform/crypto";
+import { parseDatabaseUrl } from "./dbConnection";
 import { seedDefaultRBAC } from "./seed-rbac";
 import { migrateExistingUsersToRBAC } from "./migrate-existing-users-rbac";
 import { initializeRBAC, markRBACUnavailable } from "./rbac";
@@ -32,14 +33,33 @@ async function runInitialization(): Promise<void> {
   await initializeRBAC();
 }
 
+/**
+ * Build explicit mysql2 connection options from a DATABASE_URL.
+ * Never pass the raw URL string to mysql2: its legacy parser drops hosts
+ * from URLs with unencoded query params (TiDB's ?ssl={...}), silently
+ * connecting to localhost instead (production outage, "page not loading").
+ */
+export function buildRbacLockConnectionOptions(databaseUrl: string) {
+  if (!databaseUrl)
+    throw new Error("Database unavailable for RBAC startup lock");
+  const config = parseDatabaseUrl(databaseUrl);
+  return {
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+    ssl: config.ssl,
+  };
+}
+
 export async function runWithRBACLock(
   databaseUrl: string,
   initialize: () => Promise<void>
 ): Promise<void> {
-  if (!databaseUrl)
-    throw new Error("Database unavailable for RBAC startup lock");
-
-  const connection = await createConnection(databaseUrl);
+  const connection = await createConnection(
+    buildRbacLockConnectionOptions(databaseUrl)
+  );
   const lockName = await getRBACLockName(databaseUrl);
   let failed = false;
   let failure: unknown;
