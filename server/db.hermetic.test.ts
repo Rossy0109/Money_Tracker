@@ -710,4 +710,336 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     60000
   );
+
+  it(
+    "runs the chart-of-accounts lifecycle",
+    async () => {
+      const {
+        seedDefaultAccountTypes,
+        getAccountTypes,
+        getChartOfAccounts,
+        createChartOfAccount,
+        getChartOfAccountById,
+        updateChartOfAccount,
+        deleteChartOfAccount,
+      } = await import("./db");
+      await seedDefaultAccountTypes();
+      await seedDefaultAccountTypes();
+      const types = await getAccountTypes();
+      expect(types.map(t => t.code)).toEqual(
+        expect.arrayContaining(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"])
+      );
+      const assetType = types.find(t => t.code === "ASSET")!;
+
+      const created = await createChartOfAccount(userId, {
+        projectId,
+        accountTypeId: assetType.id,
+        code: "1900",
+        name: "Hermetic Test Asset",
+      });
+      expect(created?.code).toBe("1900");
+      await expect(
+        createChartOfAccount(userId, {
+          projectId,
+          accountTypeId: assetType.id,
+          code: "1900",
+          name: "Duplicate",
+        })
+      ).rejects.toThrow();
+
+      const renamed = await updateChartOfAccount(userId, projectId, created!.id, {
+        name: "Hermetic Test Asset v2",
+      });
+      expect(renamed?.name).toBe("Hermetic Test Asset v2");
+
+      // Canonical cash (1110) is referenced by voucher entries — protected.
+      const cash = (await getChartOfAccounts(userId, projectId)).find(
+        a => a.code === "1110"
+      );
+      if (cash) {
+        await expect(
+          deleteChartOfAccount(userId, projectId, cash.id)
+        ).rejects.toThrow();
+      }
+
+      await deleteChartOfAccount(userId, projectId, created!.id);
+      expect(
+        await getChartOfAccountById(userId, projectId, created!.id)
+      ).toBeUndefined();
+    },
+    60000
+  );
+
+  it(
+    "runs the account-group lifecycle",
+    async () => {
+      const {
+        getAccountTypes,
+        createAccountGroup,
+        listAccountGroups,
+        updateAccountGroup,
+        deleteAccountGroup,
+      } = await import("./db");
+      const assetType = (await getAccountTypes()).find(t => t.code === "ASSET")!;
+
+      const { id } = await createAccountGroup(userId, {
+        projectId,
+        accountTypeId: assetType.id,
+        code: "GRP-1",
+        name: "Hermetic Group",
+      });
+      await expect(
+        createAccountGroup(userId, {
+          projectId,
+          accountTypeId: assetType.id,
+          code: "GRP-1",
+          name: "Duplicate",
+        })
+      ).rejects.toThrow();
+      expect(
+        (await listAccountGroups(userId, projectId)).some(g => g.id === id)
+      ).toBe(true);
+
+      await updateAccountGroup(userId, projectId, id, {
+        name: "Hermetic Group v2",
+      });
+      expect(
+        (await listAccountGroups(userId, projectId)).find(g => g.id === id)?.name
+      ).toBe("Hermetic Group v2");
+
+      await deleteAccountGroup(userId, projectId, id);
+      expect(
+        (await listAccountGroups(userId, projectId)).some(g => g.id === id)
+      ).toBe(false);
+      await expect(deleteAccountGroup(userId, projectId, id)).rejects.toThrow();
+    },
+    60000
+  );
+
+  it(
+    "runs employees, salary, advances, and the delete guard",
+    async () => {
+      const {
+        createEmployee,
+        getEmployees,
+        updateEmployee,
+        disburseSalary,
+        getSalaryPayments,
+        createEmployeeAdvance,
+        getEmployeeAdvances,
+        deleteEmployee,
+        getOverview,
+      } = await import("./db");
+      const account = (await getOverview(userId, projectId)).accounts[0];
+      await expect(
+        createEmployee(userId, { projectId, name: "   ", baseSalary: 0 })
+      ).rejects.toThrow();
+
+      const { id } = await createEmployee(userId, {
+        projectId,
+        name: "Hermetic Worker",
+        designation: "Clerk",
+        baseSalary: 10000,
+      });
+      expect((await getEmployees(userId, projectId)).some(e => e.id === id)).toBe(
+        true
+      );
+      await updateEmployee(userId, projectId, id, { designation: "Senior Clerk" });
+      expect(
+        (await getEmployees(userId, projectId)).find(e => e.id === id)?.designation
+      ).toBe("Senior Clerk");
+
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const salary = await disburseSalary(userId, {
+        projectId,
+        employeeId: id,
+        monthKey,
+        baseSalary: 10000,
+        bonusAmount: 1000,
+        accountId: account.id,
+      });
+      expect(salary.success).toBe(true);
+      const payments = await getSalaryPayments(userId, projectId, monthKey);
+      const mine = payments.find(p => p.employeeName === "Hermetic Worker");
+      expect(mine?.status).toBe("paid");
+      expect(Number(mine?.netPayable)).toBe(11000);
+
+      await createEmployeeAdvance(userId, {
+        projectId,
+        employeeId: id,
+        amount: 2000,
+        accountId: account.id,
+      });
+      expect(
+        (await getEmployeeAdvances(userId, projectId, id)).some(
+          a => a.employeeName === "Hermetic Worker"
+        )
+      ).toBe(true);
+
+      // Financial history blocks the delete.
+      await expect(deleteEmployee(userId, projectId, id)).rejects.toThrow();
+      const { id: cleanId } = await createEmployee(userId, {
+        projectId,
+        name: "Hermetic Temp",
+        baseSalary: 5000,
+      });
+      expect((await deleteEmployee(userId, projectId, cleanId)).success).toBe(
+        true
+      );
+    },
+    90000
+  );
+
+  it(
+    "runs the inventory lifecycle with floored stock",
+    async () => {
+      const {
+        createInventoryItem,
+        listInventoryItems,
+        updateInventoryItem,
+        adjustInventoryStock,
+        deleteInventoryItem,
+      } = await import("./db");
+      const { id } = await createInventoryItem({
+        userId,
+        projectId,
+        name: "Hermetic Widget",
+        unit: "pcs",
+        purchasePrice: 60,
+        sellingPrice: 100,
+        currentStock: 20,
+      });
+      expect(
+        (await listInventoryItems(userId, projectId)).some(i => i.id === id)
+      ).toBe(true);
+
+      await updateInventoryItem(userId, projectId, id, { sellingPrice: 120 });
+      expect(
+        (await listInventoryItems(userId, projectId)).find(i => i.id === id)
+          ?.sellingPrice
+      ).toBe("120.00");
+
+      const afterSale = await adjustInventoryStock(
+        userId,
+        projectId,
+        id,
+        -5,
+        "hermetic sale"
+      );
+      expect(afterSale.currentStock).toBe(15);
+      const floored = await adjustInventoryStock(
+        userId,
+        projectId,
+        id,
+        -100,
+        "hermetic overdraw"
+      );
+      expect(floored.currentStock).toBe(0);
+
+      await deleteInventoryItem(userId, projectId, id);
+      expect(
+        (await listInventoryItems(userId, projectId)).some(i => i.id === id)
+      ).toBe(false);
+      await expect(
+        adjustInventoryStock(userId, projectId, id, 1, "gone")
+      ).rejects.toThrow();
+    },
+    60000
+  );
+
+  it(
+    "saves and merges the firm profile",
+    async () => {
+      const { getFirmProfile, saveFirmProfile } = await import("./db");
+      const defaults = await getFirmProfile(userId, projectId);
+      expect(defaults.name).toBe("");
+
+      await saveFirmProfile(userId, projectId, {
+        name: "Hermetic Traders",
+        phone: "01000000000",
+      });
+      const saved = await getFirmProfile(userId, projectId);
+      expect(saved.name).toBe("Hermetic Traders");
+      expect(saved.phone).toBe("01000000000");
+
+      await saveFirmProfile(userId, projectId, { address: "Dhaka" });
+      const merged = await getFirmProfile(userId, projectId);
+      expect(merged.name).toBe("Hermetic Traders");
+      expect(merged.address).toBe("Dhaka");
+    },
+    30000
+  );
+
+  it(
+    "searches and paginates transactions",
+    async () => {
+      const { searchTransactions, listTransactionsPaginated } = await import(
+        "./db"
+      );
+      const income = await searchTransactions(userId, {
+        projectId,
+        type: "income",
+        minAmount: 100,
+        limit: 10,
+      });
+      expect(income.length).toBeGreaterThanOrEqual(1);
+      expect(income.every(t => t.type === "income")).toBe(true);
+      expect(income[0].categoryName.length).toBeGreaterThan(0);
+
+      const cheapExpenses = await searchTransactions(userId, {
+        projectId,
+        type: "expense",
+        maxAmount: 60,
+        limit: 10,
+      });
+      expect(cheapExpenses.some(t => Number(t.amount) === 50)).toBe(true);
+
+      const page = await listTransactionsPaginated(userId, {
+        projectId,
+        page: 1,
+        pageSize: 2,
+      });
+      expect(page.items.length).toBeLessThanOrEqual(2);
+      expect(page.pagination.total).toBeGreaterThanOrEqual(2);
+      expect(page.pagination.totalPages).toBeGreaterThanOrEqual(1);
+      expect(page.aggregations.totalIncome).toBeGreaterThanOrEqual(700);
+      expect(page.aggregations.netAmount).toBe(
+        page.aggregations.totalIncome - page.aggregations.totalExpense
+      );
+    },
+    60000
+  );
+
+  it(
+    "guards voucher posting and reversal transitions",
+    async () => {
+      const {
+        getChartOfAccounts,
+        createVoucherWithEntries,
+        postVoucher,
+        reverseVoucher,
+      } = await import("./db");
+      const chart = await getChartOfAccounts(userId, projectId);
+      const debitCoa = chart.find(a => a.code === "1110")!;
+      const creditCoa = chart.find(a => a.code === "4100")!;
+      const { voucherId } = await createVoucherWithEntries(userId, {
+        projectId,
+        date: new Date(),
+        narration: "hermetic guard draft",
+        debits: [{ accountId: debitCoa.id, amount: 10 }],
+        credits: [{ accountId: creditCoa.id, amount: 10 }],
+      });
+
+      // Draft can be neither posted nor reversed.
+      await expect(postVoucher(userId, projectId, voucherId)).rejects.toThrow();
+      await expect(
+        reverseVoucher(userId, projectId, {
+          originalVoucherId: voucherId,
+          reason: "must fail",
+          date: new Date(),
+        })
+      ).rejects.toThrow();
+    },
+    60000
+  );
 });
