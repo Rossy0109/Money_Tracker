@@ -143,7 +143,19 @@ async function verifyBackupIntegrity(
   }
 }
 
-export async function executeScheduledBackup(): Promise<void> {
+/**
+ * Counts from the most recent scheduled run. HTTP 200 alone never proved the
+ * payload reached cloud storage (upload failures are counted, not thrown), so
+ * callers — including the daily-backup workflow — must assert on these numbers.
+ */
+export interface ScheduledBackupSummary {
+  projects: number;
+  stored: number;
+  verified: number;
+  failed: number;
+}
+
+export async function executeScheduledBackup(): Promise<ScheduledBackupSummary> {
   const adminUsers = await financeDb.listUsersForAdmin();
   const activeUsers = adminUsers.filter(u => u.status === "active");
 
@@ -199,6 +211,13 @@ export async function executeScheduledBackup(): Promise<void> {
         : "cloud_backup_failed",
     summary: `Scheduled backup completed: ${totalProjectsBackedUp} projects, ${storedCount} stored, ${verifiedCount} verified, ${failedCount} failed integrity`,
   });
+
+  return {
+    projects: totalProjectsBackedUp,
+    stored: storedCount,
+    verified: verifiedCount,
+    failed: failedCount,
+  };
 }
 
 export async function runScheduledBackup(
@@ -215,9 +234,21 @@ export async function runScheduledBackup(
   }
 
   try {
-    await executeScheduledBackup();
+    const summary = await executeScheduledBackup();
+    if (summary.failed > 0) {
+      // Anything that failed to store or verify must surface as an HTTP error:
+      // Vercel Cron and the GitHub workflow both treat non-2xx as failure.
+      res.status(500).json({
+        success: false,
+        error: `Scheduled backup completed with ${summary.failed} failed project(s)`,
+        ...summary,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
     res.status(200).json({
       success: true,
+      ...summary,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

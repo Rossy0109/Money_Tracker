@@ -34,6 +34,12 @@ This document describes the backup and disaster recovery procedures for the Mone
 7. A SHA-256 checksum is computed and stored in the backup envelope
 8. Post-upload integrity verification: checksum is re-verified
 9. An audit log entry is created for every backup
+10. The endpoint responds with counts (`projects`, `stored`, `verified`,
+    `failed`) and answers **HTTP 500** when any project failed to store or
+    verify — a hollow HTTP 200 can no longer hide a failed backup
+11. The `Daily Automated Finance Backup` GitHub workflow triggers the same
+    endpoint at 18:00 UTC, asserts those counts with `jq`, then verifies the
+    `audit_logs` row in the production database (see Automated Verification)
 
 ---
 
@@ -45,6 +51,20 @@ This document describes the backup and disaster recovery procedures for the Mone
 | ----------------------- | -------------------------------------------------- |
 | `BACKUP_ENCRYPTION_KEY` | Dedicated encryption key for backups (min 6 chars) |
 | `CRON_SECRET`           | Authentication for Vercel Cron / GitHub Actions    |
+
+> **Key rotation 2026-09-30:** `BACKUP_ENCRYPTION_KEY` was missing from the
+> Vercel project (backups failed 2026-09-24 → 2026-09-29) and the previous key
+> lived only in the deleted Vercel project `moneytrackerbd`. Any backup
+> encrypted before that rotation is therefore likely **undecryptable**. The
+> current key is stored in Vercel Production and in the operator's password
+> manager — keep both in sync.
+
+Required GitHub Actions secrets for backup verification:
+
+| Secret                | Purpose                                                  |
+| --------------------- | -------------------------------------------------------- |
+| `CRON_SECRET`         | Authorizes the workflow to trigger the backup endpoint   |
+| `PROD_DATABASE_URL`   | Lets `scripts/verify-backup-audit.mjs` read `audit_logs` |
 
 ### Explicitly Prohibited
 
@@ -103,6 +123,11 @@ The health check system monitors:
 
 - `backup.last`: Last database backup age (warns if > 48 hours)
 - `backup.pending`: Pending/failed backup count
+- **Production Health Watch** (`.github/workflows/health-watch.yml`): probes
+  `/api/healthz`, the unauthenticated tRPC `auth.me` endpoint (returns 500
+  exactly when DB/RBAC wiring breaks — `healthz` never touches the database),
+  and the web root every 15 minutes. Three consecutive failures open (or
+  refresh) a `health-watch` issue; the issue auto-closes when the probe passes.
 
 ---
 
@@ -137,11 +162,14 @@ After restore:
 
 ### Backup Failure
 
-1. Check the scheduled backup response for `success: false`
+1. Check the scheduled backup response for `success: false` and its counts
+   (`stored` / `verified` / `failed`)
 2. Verify `BACKUP_ENCRYPTION_KEY` is set and >= 6 characters
 3. Verify `CRON_SECRET` matches the Vercel/GitHub configuration
 4. Check cloud provider status (Supabase, S3, Google Drive)
-5. Check the audit log for error details
+5. Check the audit log for error details (`cloud_backup_failed` rows)
+6. The GitHub `Daily Automated Finance Backup` run is red — its log shows
+   which assertion failed (counts vs. audit trail)
 
 ### Restore Failure
 
@@ -166,6 +194,14 @@ After restore:
 - Every backup is verified post-upload via checksum comparison
 - Health checks monitor backup freshness
 - Integrity verification failures are logged as warnings
+- The `daily-backup` workflow fails unless the endpoint reports
+  `projects >= 1`, `stored == projects`, `verified == projects`, `failed == 0`
+- Then `scripts/verify-backup-audit.mjs` reads `audit_logs` via
+  `PROD_DATABASE_URL` and fails unless the newest row in the last 30 minutes is
+  `cloud_backup` (written only when every upload + integrity check passed) —
+  proof of storage that an HTTP status alone can never give
+- The **Production Health Watch** workflow alerts on outage (see Backup Health
+  Monitoring)
 
 ### Manual Verification
 

@@ -10,10 +10,11 @@ tier or optional-off. Keep it that way with the guardrails below.
 | TiDB Cloud | Serverless free tier | Cluster `356891`, `ap-southeast-1`, state ACTIVE, public endpoint open to all (required for Vercel) |
 | Google OAuth | Free | Client ID/secret in Vercel env; redirect URI must exactly match production URL |
 | GitHub OAuth | Free, optional | Blank = login button hidden, app still works |
-| Sentry | Optional-off | Code only inits when `SENTRY_DSN` is set — no DSN = $0 and zero overhead |
+| Sentry | Optional-off | Code only inits when `SENTRY_DSN` is set — no DSN = $0 and zero overhead; still unprovisioned (needs a Sentry account/DSN) |
 | Vercel Blob / S3 / Supabase / Drive backups | Optional-off | All env-gated in `cloudBackupService.ts`; unset = local-only backups, $0 |
 | Umami analytics | Optional-off | Both `VITE_ANALYTICS_*` blank = no script injected |
 | GitHub Actions CI | Free | Public repo = unlimited minutes |
+| GitHub Actions health watch + backup verification | Free | 15-min probe (`health-watch.yml`) opens a repo issue on outage; the daily backup job asserts response counts **and** the `audit_logs` row via `scripts/verify-backup-audit.mjs` |
 | Cloudflare worker | Free tier | Only billed if used; `wrangler deploy` stays within 100k req/day free allowance |
 
 ## Guardrails (do not break these)

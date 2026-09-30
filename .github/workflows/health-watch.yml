@@ -1,0 +1,130 @@
+name: Production Health Watch
+
+# Cheap outage detector: probes the live app every 15 minutes and opens (or
+# refreshes) a repository issue while production is unhealthy. healthz alone
+# is not enough — it never touches the database, so the probe also calls the
+# tRPC auth.me endpoint, which returns 500 exactly when DB/RBAC wiring breaks.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Override target app URL (for testing)"
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: production-health-watch
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      APP_URL: ${{ inputs.app_url || 'https://money-tracker-blond-pi.vercel.app' }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: "Production health check failing"
+    steps:
+      - name: Probe production endpoints
+        id: probe
+        run: |
+          set +e
+          FAILURES=""
+          ATTEMPTS=3
+
+          # probe <label> <url> <acceptable codes>
+          probe() {
+            local label="$1" url="$2" okcodes="$3"
+            local code=""
+            for i in 1 2 3; do
+              code=$(curl -s -o "body_${label}.txt" -w "%{http_code}" --max-time 25 "$url")
+              if [ -z "$code" ]; then code="000"; fi
+              case " ${okcodes} " in
+                *" ${code} "*) return 0 ;;
+              esac
+              if [ "$i" -lt "$ATTEMPTS" ]; then sleep 15; fi
+            done
+            local snippet
+            snippet=$(head -c 300 "body_${label}.txt" 2>/dev/null)
+            FAILURES="${FAILURES}- ${label} (${url}) failed: HTTP ${code} — ${snippet}"$'\n'
+            return 1
+          }
+
+          echo "Probing $APP_URL ..."
+          probe healthz "${APP_URL%/}/api/healthz" "200"
+          probe api "${APP_URL%/}/api/trpc/auth.me" "200 401 403 429"
+          probe web "${APP_URL%/}/" "200"
+
+          if [ -n "$FAILURES" ]; then
+            {
+              echo "reason<<REASON_EOF"
+              printf '%s' "$FAILURES"
+              echo "REASON_EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "::error::Production unhealthy:"
+            printf '%s' "$FAILURES"
+            exit 1
+          fi
+
+          echo "Production healthy (healthz, trpc auth.me, web all OK)"
+          echo "reason=" >> "$GITHUB_OUTPUT"
+
+      - name: Open or refresh alert issue
+        if: failure()
+        env:
+          # Passed via env, never spliced into the script source: the value
+          # contains response-body snippets that must stay inert text.
+          REASON: ${{ steps.probe.outputs.reason }}
+        run: |
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          ## Production health watch alert
+
+          - **When:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          - **Workflow run:** ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - **Target:** ${APP_URL}
+
+          ### Failure detail
+          \`\`\`
+          ${REASON}
+          \`\`\`
+
+          The probe retries 3 times (15s apart) before alerting, so this is
+          not a single blip. Check the latest Vercel deployment and logs for
+          \`api\`, then re-run this workflow to confirm recovery — the issue
+          auto-closes when the probe passes.
+          EOF
+          )
+
+          EXISTING=$(gh issue list --state open \
+            --search "${ISSUE_TITLE} in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body "$BODY"
+            echo "Refreshed existing alert issue #$EXISTING"
+          else
+            gh label create health-watch --color B60205 \
+              --description "Automated production health alerts" 2>/dev/null || true
+            gh issue create --title "$ISSUE_TITLE" --label health-watch --body "$BODY"
+          fi
+
+      - name: Resolve alert issue when healthy
+        if: success()
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --state open \
+            --search "${ISSUE_TITLE} in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" \
+              --comment "Recovered: health watch probe passed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')."
+            echo "Closed alert issue #$EXISTING"
+          else
+            echo "No open alert issue — production healthy."
+          fi
