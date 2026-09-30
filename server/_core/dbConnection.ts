@@ -8,8 +8,13 @@ let _pool: Pool | null = null;
 /**
  * Parse a DATABASE_URL (mysql:// or jdbc:mysql://) and return mysql2 pool config.
  * Handles sslMode/ssl-mode/useSSL params and jdbc: prefix.
+ *
+ * Exported for reuse: mysql2's own URI-string parser (legacy url.parse) mangles
+ * URLs with unencoded query params (e.g. TiDB's ?ssl={"rejectUnauthorized":true}),
+ * silently falling back to localhost. Always parse with this (WHATWG URL) and
+ * pass explicit options to mysql2 instead of the raw string.
  */
-function parseDatabaseUrl(url: string) {
+export function parseDatabaseUrl(url: string) {
   let u = url.trim();
   if (/^jdbc:mysql:/i.test(u)) u = u.replace(/^jdbc:/i, "");
   const parsed = new URL(u);
