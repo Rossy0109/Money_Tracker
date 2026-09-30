@@ -437,4 +437,277 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     60000
   );
+
+  it(
+    "upserts monthly budgets",
+    async () => {
+      const { upsertBudget, getBudgetPlan, getOverview } = await import(
+        "./db"
+      );
+      const expenseCat = (
+        await getOverview(userId, projectId)
+      ).categories.find(c => c.type === "expense")!;
+      const monthKey = new Date().toISOString().slice(0, 7);
+
+      await upsertBudget(userId, {
+        projectId,
+        categoryId: expenseCat.id,
+        monthKey,
+        amount: 5000,
+      });
+      const plan1 = await getBudgetPlan(userId, projectId, monthKey);
+      expect(
+        plan1.plans.find(p => p.categoryId === expenseCat.id)?.currentBudget
+      ).toBe(5000);
+
+      await upsertBudget(userId, {
+        projectId,
+        categoryId: expenseCat.id,
+        monthKey,
+        amount: 6000,
+      });
+      const plan2 = await getBudgetPlan(userId, projectId, monthKey);
+      expect(
+        plan2.plans.find(p => p.categoryId === expenseCat.id)?.currentBudget
+      ).toBe(6000);
+    },
+    60000
+  );
+
+  it(
+    "runs the bill reminder lifecycle",
+    async () => {
+      const {
+        createBill,
+        updateBill,
+        setBillPaid,
+        deleteBill,
+        getAutomationOverview,
+      } = await import("./db");
+      const dueAt = new Date(Date.now() + 7 * 86_400_000);
+      await createBill(userId, {
+        projectId,
+        title: "Hermetic power bill",
+        amount: 1200,
+        dueAt,
+      });
+      const created = (
+        await getAutomationOverview(userId, projectId)
+      ).bills.find(b => b.title === "Hermetic power bill");
+      expect(created?.amount).toBe(1200);
+      expect(created?.isPaid).toBe(false);
+      if (!created) throw new Error("Bill not found after creation");
+
+      await updateBill(userId, projectId, created.id, {
+        title: "Hermetic power bill v2",
+        amount: 1300,
+        dueAt,
+        isPaid: false,
+      });
+      await setBillPaid(userId, projectId, created.id, true);
+      const paid = (await getAutomationOverview(userId, projectId)).bills.find(
+        b => b.id === created.id
+      );
+      expect(paid?.title).toBe("Hermetic power bill v2");
+      expect(paid?.amount).toBe(1300);
+      expect(paid?.isPaid).toBe(true);
+
+      await deleteBill(userId, projectId, created.id);
+      const after = (await getAutomationOverview(userId, projectId)).bills.find(
+        b => b.id === created.id
+      );
+      expect(after).toBeUndefined();
+      await expect(
+        updateBill(userId, projectId, created.id, {
+          title: "gone",
+          amount: 1,
+          dueAt,
+          isPaid: false,
+        })
+      ).rejects.toThrow("Bill not found");
+    },
+    60000
+  );
+
+  it(
+    "updates accounts and guards deleting accounts with transactions",
+    async () => {
+      const { createAccount, updateAccount, deleteAccount, getOverview } =
+        await import("./db");
+      const account = (await getOverview(userId, projectId)).accounts[0];
+      const before = Number(account.currentBalance);
+
+      await updateAccount(userId, account.id, {
+        projectId,
+        name: "Hermetic Cash v2",
+        type: "cash",
+        openingBalance: 1200,
+      });
+      const updated = (await getOverview(userId, projectId)).accounts.find(
+        a => a.id === account.id
+      );
+      expect(updated?.name).toBe("Hermetic Cash v2");
+      // Opening moved 1000 -> 1200, so the live balance follows by +200.
+      expect(Number(updated?.currentBalance)).toBe(before + 200);
+
+      const spare = await createAccount(userId, {
+        projectId,
+        name: "Spare",
+        type: "bank",
+        openingBalance: 0,
+      });
+      await deleteAccount(userId, projectId, spare.id);
+      const after = (await getOverview(userId, projectId)).accounts.find(
+        a => a.id === spare.id
+      );
+      expect(after).toBeUndefined();
+
+      await expect(
+        deleteAccount(userId, projectId, account.id)
+      ).rejects.toThrow();
+    },
+    60000
+  );
+
+  it(
+    "locks and unlocks fiscal periods",
+    async () => {
+      const {
+        lockPeriod,
+        unlockPeriod,
+        isPeriodLocked,
+        getPeriodLocks,
+        assertPeriodNotLocked,
+      } = await import("./db");
+      const monthKey = "2000-01";
+      expect(await isPeriodLocked(userId, projectId, monthKey)).toBe(false);
+
+      await lockPeriod(userId, projectId, monthKey, "hermetic audit");
+      expect(await isPeriodLocked(userId, projectId, monthKey)).toBe(true);
+      expect(
+        (await getPeriodLocks(userId, projectId)).some(
+          l => l.monthKey === monthKey
+        )
+      ).toBe(true);
+      await expect(lockPeriod(userId, projectId, monthKey)).rejects.toThrow();
+      await expect(
+        assertPeriodNotLocked(userId, projectId, new Date(`${monthKey}-15`))
+      ).rejects.toThrow();
+
+      await unlockPeriod(userId, projectId, monthKey);
+      expect(await isPeriodLocked(userId, projectId, monthKey)).toBe(false);
+      await assertPeriodNotLocked(
+        userId,
+        projectId,
+        new Date(`${monthKey}-15`)
+      );
+    },
+    60000
+  );
+
+  it(
+    "reads and updates voucher settings",
+    async () => {
+      const { getVoucherSettings, updateVoucherSettings } = await import(
+        "./db"
+      );
+      const defaults = await getVoucherSettings(userId, projectId);
+      expect(defaults.nextNumber).toBeGreaterThanOrEqual(
+        defaults.startNumber
+      );
+
+      await expect(
+        updateVoucherSettings(userId, {
+          projectId,
+          prefix: "T",
+          startNumber: 100,
+          endNumber: 50,
+        })
+      ).rejects.toThrow();
+
+      const updated = await updateVoucherSettings(userId, {
+        projectId,
+        prefix: "T",
+        startNumber: 1,
+        endNumber: 9999,
+      });
+      expect(updated.prefix).toBe("T");
+      expect(updated.startNumber).toBe(1);
+      expect(updated.endNumber).toBe(9999);
+    },
+    60000
+  );
+
+  it(
+    "runs the invoice lifecycle with totals math",
+    async () => {
+      const {
+        createInvoice,
+        getInvoiceById,
+        listInvoices,
+        updateInvoiceStatus,
+        deleteInvoice,
+      } = await import("./db");
+      await expect(
+        createInvoice(userId, {
+          projectId,
+          clientName: "   ",
+          issueDate: new Date(),
+          dueDate: new Date(),
+          items: [{ description: "x", quantity: 1, unitPrice: 10 }],
+        })
+      ).rejects.toThrow();
+      await expect(
+        createInvoice(userId, {
+          projectId,
+          clientName: "Hermetic Co",
+          issueDate: new Date(),
+          dueDate: new Date(),
+          items: [],
+        })
+      ).rejects.toThrow();
+
+      // 2x100 +10% VAT = 220; 1x50 +0% = 50; subtotal 250, vat 20,
+      // discount 30 -> grand total 240.
+      const invoice = await createInvoice(userId, {
+        projectId,
+        clientName: "Hermetic Co",
+        issueDate: new Date(),
+        dueDate: new Date(),
+        discountAmount: 30,
+        items: [
+          { description: "Widget", quantity: 2, unitPrice: 100, vatRate: 10 },
+          { description: "Gadget", quantity: 1, unitPrice: 50 },
+        ],
+      });
+      expect(Number(invoice.subtotal)).toBe(250);
+      expect(Number(invoice.vatAmount)).toBe(20);
+      expect(Number(invoice.grandTotal)).toBe(240);
+      expect(invoice.status).toBe("unpaid");
+      expect(invoice.invoiceNumber.length).toBeGreaterThan(0);
+
+      const fetched = await getInvoiceById(
+        userId,
+        projectId,
+        invoice.id
+      );
+      expect(fetched?.clientName).toBe("Hermetic Co");
+      expect(
+        (await listInvoices(userId, projectId)).some(i => i.id === invoice.id)
+      ).toBe(true);
+
+      const paid = await updateInvoiceStatus(userId, projectId, invoice.id, {
+        status: "paid",
+        paidAmount: 240,
+      });
+      expect(paid?.status).toBe("paid");
+      expect(Number(paid?.paidAmount)).toBe(240);
+
+      await deleteInvoice(userId, projectId, invoice.id);
+      expect(
+        (await listInvoices(userId, projectId)).some(i => i.id === invoice.id)
+      ).toBe(false);
+    },
+    60000
+  );
 });
