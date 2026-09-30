@@ -8,7 +8,7 @@ in `server/db.ts`, grouped by section. Updated each batch.
 - **M** = covered by a mock-DB unit test (imports `./db` with mocked drizzle)
 - **–** = not yet covered by a direct test (may still be exercised by e2e)
 
-Last updated: 2026-09-30 · hermetic suite: **23/23 passing** · `pnpm check` clean
+Last updated: 2026-09-30 · hermetic suite: **24/24 passing** · `pnpm check` clean
 
 ## 1. Users & passwords
 | Function | Status |
@@ -241,6 +241,13 @@ Last updated: 2026-09-30 · hermetic suite: **23/23 passing** · `pnpm check` cl
 | registerPrivateStorageObject | – |
 | getPrivateStorageObjectForDownload | – |
 
+## 24. Categories (user-managed)
+| Function | Status |
+|---|---|
+| createCategory | H |
+| updateCategory | H |
+| deleteCategory | H |
+
 ## Batch history
 - Batch 1 (PR #177): 16 files, 83 unit tests (pure utils, no DB)
 - Batch 2 (PR #180): 6 files, 29 unit tests (mocked DB/network)
@@ -252,3 +259,7 @@ Last updated: 2026-09-30 · hermetic suite: **23/23 passing** · `pnpm check` cl
 - Batch 5: chart of accounts + groups, employees/salary/advances, inventory,
   firm profile, search/pagination, voucher post/reverse guards — suite now
   **23 tests**, 76/139 db.ts functions covered hermetically
+- Category feature: create/update/deleteCategory (server + finance router
+  mutations + Categories page add/delete UI) with guards (unique per
+  type, defaults protected, in-use protected) — suite now **24 tests**,
+  79 functions covered hermetically

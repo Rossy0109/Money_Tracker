@@ -3,7 +3,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useActiveProject } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Tags, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Plus, Tags, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { useState } from "react";
 import { useRoute } from "wouter";
 
 type CategoryType = "income" | "expense";
@@ -67,6 +68,24 @@ export default function Categories() {
   const expenseCategories = categories.filter(
     category => category.type === "expense"
   );
+  const utils = trpc.useUtils();
+  const [newName, setNewName] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const addCategory = trpc.finance.addCategory.useMutation({
+    onSuccess: () => {
+      setNewName("");
+      setFormError(null);
+      void utils.finance.overview.invalidate();
+    },
+    onError: error => setFormError(error.message),
+  });
+  const deleteCategory = trpc.finance.deleteCategory.useMutation({
+    onSuccess: () => {
+      setFormError(null);
+      void utils.finance.overview.invalidate();
+    },
+    onError: error => setFormError(error.message),
+  });
 
   const projectSelector = projects.length ? (
     <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
@@ -162,6 +181,50 @@ export default function Categories() {
           </div>
         </header>
 
+        <section
+          aria-label="নতুন ক্যাটাগরি যোগ করুন"
+          className="finance-card space-y-3 p-5"
+        >
+          <h2 className="font-semibold text-[#183d34]">
+            নতুন {selectedType === "income" ? "আয়ের" : "ব্যয়ের"} ক্যাটাগরি যোগ
+            করুন
+          </h2>
+          <form
+            className="flex flex-col gap-3 sm:flex-row"
+            onSubmit={event => {
+              event.preventDefault();
+              if (activeProjectId === null) return;
+              addCategory.mutate({
+                projectId: activeProjectId,
+                type: selectedType,
+                name: newName,
+              });
+            }}
+          >
+            <input
+              aria-label="ক্যাটাগরির নাম"
+              value={newName}
+              onChange={event => setNewName(event.target.value)}
+              placeholder="যেমন: ফ্রিল্যান্সিং"
+              maxLength={120}
+              className="h-11 flex-1 rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+            />
+            <Button
+              type="submit"
+              disabled={addCategory.isPending || !newName.trim()}
+              className="h-11 rounded-xl bg-[#1e6b3a] text-white hover:bg-[#17552d]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              যোগ করুন
+            </Button>
+          </form>
+          {formError ? (
+            <p role="alert" className="text-sm font-medium text-[#b54a35]">
+              {formError}
+            </p>
+          ) : null}
+        </section>
+
         {overview.isLoading || projectsLoading ? (
           <LoadingState />
         ) : selectedCategories.length ? (
@@ -179,7 +242,7 @@ export default function Categories() {
                 >
                   <Icon className="h-5 w-5" />
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[#183d34]">
                     {category.name}
                   </p>
@@ -189,6 +252,24 @@ export default function Categories() {
                       : "ব্যয়ের লেনদেন"}
                   </p>
                 </div>
+                {category.isDefault ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label={`${category.name} মুছুন`}
+                    disabled={deleteCategory.isPending}
+                    onClick={() => {
+                      if (activeProjectId === null) return;
+                      deleteCategory.mutate({
+                        projectId: activeProjectId,
+                        id: category.id,
+                      });
+                    }}
+                    className="rounded-xl border-[#f0d4cd] text-[#b54a35] hover:bg-[#fff0ed]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </article>
             ))}
           </section>
