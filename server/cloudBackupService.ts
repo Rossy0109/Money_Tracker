@@ -87,9 +87,13 @@ async function uploadToSupabase(
   fileName: string,
   supabaseConfig: { url: string; bucket: string }
 ): Promise<boolean> {
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY ||
+  // Prefer the service-role key: the backup bucket is private and has no
+  // anon INSERT policy, so the publishable/anon key gets 403 RLS on every
+  // upload (that, not a network error, is what silently stored nothing).
+  // Mirrors ENV.supabaseStorageKey. Server-side only — never sent to a client.
+  const storageKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     "";
   const endpoint = `${supabaseConfig.url}/storage/v1/object/${supabaseConfig.bucket}/${fileName}`;
 
@@ -97,8 +101,8 @@ async function uploadToSupabase(
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${anonKey}`,
-        apikey: anonKey,
+        Authorization: `Bearer ${storageKey}`,
+        apikey: storageKey,
         "Content-Type": "application/json",
         "x-upsert": "true",
       },

@@ -132,12 +132,17 @@ export async function runHealthChecks(
     });
   } else {
     const probe = await timed(async () => {
+      // Probe with the service-role key: anon cannot see private buckets
+      // (it gets 404 even when the bucket exists) and would misreport the
+      // backup destination as missing.
+      const probeKey =
+        process.env.SUPABASE_SERVICE_ROLE_KEY || supabase.supabaseAnonKey;
       const response = await fetch(
         `${supabase.supabaseUrl}/storage/v1/bucket/${supabase.storageBucket ?? "amar-hisab-backups"}`,
         {
           headers: {
-            apikey: supabase.supabaseAnonKey,
-            Authorization: `Bearer ${supabase.supabaseAnonKey}`,
+            apikey: probeKey,
+            Authorization: `Bearer ${probeKey}`,
           },
           signal: AbortSignal.timeout(10_000),
         }
