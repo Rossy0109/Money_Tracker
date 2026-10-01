@@ -35,6 +35,7 @@ export interface HealthSummary {
   lastBackup: "ok" | "stale" | "none";
   lastSync: "ok" | "stale" | "none";
   integrity: ProbeStatus;
+  overallStatus?: ProbeStatus;
 }
 
 export interface HealthReport {
@@ -369,6 +370,10 @@ export async function runHealthChecks(
     integrity: toRate("integrity"),
   };
 
+  const overallStatus =
+    summary.database === "ok" && summary.storage !== "fail" && summary.auth !== "fail"
+      ? "ok"
+      : "degraded";
   return {
     appVersion: APP_VERSION,
     schemaVersion: SCHEMA_VERSION,
@@ -376,5 +381,6 @@ export async function runHealthChecks(
     checks,
     summary,
     integrity,
-  };
+    overallStatus,
+  } as HealthReport;
 }

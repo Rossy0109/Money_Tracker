@@ -41,10 +41,10 @@ jobs:
 
       - name: Run schema reconciliation
         env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.PROD_DATABASE_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "PROD_DATABASE_URL secret is not set on GitHub (repo Settings → Secrets → Actions)."
+            echo "DATABASE_URL secret is not set on GitHub (repo Settings → Secrets → Actions)."
             echo "Copy it from Vercel project Settings → Environment Variables → DATABASE_URL (Production)."
             echo "Never paste database credentials into code, logs, or chat."
             exit 1
