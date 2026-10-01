@@ -31,6 +31,11 @@ jobs:
     env:
       APP_URL: ${{ inputs.app_url || 'https://money-tracker-blond-pi.vercel.app' }}
       GH_TOKEN: ${{ github.token }}
+      # No actions/checkout runs in this job, so there is no git remote for the
+      # gh CLI to resolve. Without this, every gh command aborts with
+      # "failed to run git: fatal: not a git repository" and — under set -e —
+      # takes down a step that was only meant to report or clear an alert.
+      GH_REPO: ${{ github.repository }}
       ISSUE_TITLE: "Production health check failing"
     steps:
       - name: Probe production endpoints
