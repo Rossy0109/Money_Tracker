@@ -14,7 +14,7 @@ tier or optional-off. Keep it that way with the guardrails below.
 | Vercel Blob / S3 / Supabase / Drive backups | Optional-off | All env-gated in `cloudBackupService.ts`; unset = local-only backups, $0 |
 | Umami analytics | Optional-off | Both `VITE_ANALYTICS_*` blank = no script injected |
 | GitHub Actions CI | Free | Public repo = unlimited minutes |
-| GitHub Actions health watch + backup verification | Free | 15-min probe (`health-watch.yml`) opens a repo issue on outage; the daily backup job asserts response counts **and** the `audit_logs` row via `scripts/verify-backup-audit.mjs` |
+| GitHub Actions health watch + backup verification | Free | 15-min probe (`health-watch.yml`) opens a repo issue on outage; the daily backup job asserts response counts **and** re-reads the `audit_logs` row via the cron-protected `/api/scheduled/backup-audit` endpoint (no prod DB credentials in Actions) |
 | Cloudflare worker | Free tier | Only billed if used; `wrangler deploy` stays within 100k req/day free allowance |
 
 ## Guardrails (do not break these)

@@ -18,6 +18,7 @@ import {
   runDailySweep,
 } from "../server/scheduledFinance";
 import { runScheduledBackup } from "../server/scheduledBackup";
+import { runScheduledBackupAudit } from "../server/scheduledBackupAudit";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { TrpcContext } from "../server/_core/context";
 import type { WorkerEnv } from "./env";
@@ -81,6 +82,7 @@ export function createWorkerApp(env: WorkerEnv) {
     { method: "ALL", path: "/api/scheduled/finance-recurring", handler: runScheduledRecurring as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/finance-bill-reminder", handler: runScheduledBillReminder as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/finance-backup", handler: runScheduledBackup as unknown as RouteHandler },
+    { method: "ALL", path: "/api/scheduled/backup-audit", handler: runScheduledBackupAudit as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/daily-sweep", handler: runDailySweep as unknown as RouteHandler },
   ];
 

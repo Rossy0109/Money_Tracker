@@ -18,6 +18,7 @@ import {
   runDailySweep,
 } from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
+import { runScheduledBackupAudit } from "../scheduledBackupAudit";
 import { ENV } from "./env";
 import logger from "./logger";
 
@@ -280,6 +281,8 @@ export function createApiApp() {
   app.all("/api/scheduled/finance-recurring", runScheduledRecurring);
   app.all("/api/scheduled/finance-bill-reminder", runScheduledBillReminder);
   app.all("/api/scheduled/finance-backup", runScheduledBackup);
+  // Read-only proof for the daily workflow: the audit row behind the run.
+  app.all("/api/scheduled/backup-audit", runScheduledBackupAudit);
   app.all("/api/scheduled/daily-sweep", runDailySweep);
   app.use(
     "/api/trpc",

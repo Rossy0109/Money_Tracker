@@ -49,7 +49,7 @@ function hasValidCronSecret(candidate: string) {
   return hasValidSecret(candidate, cronSecret);
 }
 
-async function verifyBackupAuthorization(req: Request): Promise<boolean> {
+export async function verifyBackupAuthorization(req: Request): Promise<boolean> {
   // 1. Check Authorization Bearer token (standard Vercel Cron / GitHub Actions header)
   const authHeader = req.headers["authorization"];
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {

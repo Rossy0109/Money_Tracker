@@ -61,10 +61,14 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 Required GitHub Actions secrets for backup verification:
 
-| Secret                | Purpose                                                  |
-| --------------------- | -------------------------------------------------------- |
-| `CRON_SECRET`         | Authorizes the workflow to trigger the backup endpoint   |
-| `PROD_DATABASE_URL`   | Lets `scripts/verify-backup-audit.mjs` read `audit_logs` |
+| Secret        | Purpose                                                |
+| ------------- | ------------------------------------------------------ |
+| `CRON_SECRET` | Authorizes both the backup trigger and the audit read  |
+
+Production database credentials are deliberately **not** needed: the audit
+trail is read back through the cron-protected
+`/api/scheduled/backup-audit` endpoint, so a rotated DB password can never
+silently disable backup verification (it already did once).
 
 ### Explicitly Prohibited
 
@@ -191,15 +195,21 @@ After restore:
 
 ### Automated Verification
 
-- Every backup is verified post-upload via checksum comparison
-- Health checks monitor backup freshness
-- Integrity verification failures are logged as warnings
+- Every backup is verified post-upload by re-exporting the project and
+  comparing checksums. Both sides are **normalized** first (`exportedAt`
+  dropped, row arrays sorted by `id`): `exportProjectBackup` stamps
+  `exportedAt: new Date()` on every call and its queries have no `ORDER BY`, so
+  a raw hash comparison could never match and every backup used to be counted
+  as an integrity failure.
+- Integrity verification failures are logged and counted — they fail the run,
+  not just a warning
 - The `daily-backup` workflow fails unless the endpoint reports
   `projects >= 1`, `stored == projects`, `verified == projects`, `failed == 0`
-- Then `scripts/verify-backup-audit.mjs` reads `audit_logs` via
-  `PROD_DATABASE_URL` and fails unless the newest row in the last 30 minutes is
-  `cloud_backup` (written only when every upload + integrity check passed) —
-  proof of storage that an HTTP status alone can never give
+- Then `GET /api/scheduled/backup-audit` (cron secret) must report
+  `verified: true`: the newest `audit_logs` row within 30 minutes is
+  `cloud_backup`, written only when every upload + integrity check passed —
+  proof of storage that an HTTP status alone can never give. The endpoint also
+  returns `history` for triage, and `reason` when it cannot verify
 - The **Production Health Watch** workflow alerts on outage (see Backup Health
   Monitoring)
 
