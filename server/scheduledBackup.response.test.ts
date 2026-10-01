@@ -19,7 +19,12 @@ vi.mock("./db", () => dbMocks);
 const cloudMocks = vi.hoisted(() => ({
   executeCloudBackup: vi.fn(),
 }));
-vi.mock("./cloudBackupService", () => cloudMocks);
+// Keep the real normalizeBackupForChecksum — only executeCloudBackup is mocked.
+vi.mock("./cloudBackupService", async importOriginal => {
+  const actual =
+    await importOriginal<typeof import("./cloudBackupService")>();
+  return { ...actual, ...cloudMocks };
+});
 
 const sdkMocks = vi.hoisted(() => ({
   sdk: { authenticateRequest: vi.fn() },
@@ -62,6 +67,7 @@ function baseResult(
     provider: "local_encrypted",
     fileName: "backup-test.enc.json",
     checksum: "a".repeat(64),
+    verifyChecksum: "a".repeat(64),
     byteSize: 1024,
     encrypted: true,
     timestamp: "2026-09-30T00:00:00.000Z",
@@ -95,10 +101,21 @@ describe("runScheduledBackup response contract", () => {
 
   it("returns 200 with counts when every project stores and verifies", async () => {
     stubActiveWorkspace();
-    const payload = { projectId: 10, transactions: 3 };
+    // `exportedAt` changes on every export, so the verify checksum is computed
+    // without it — a raw re-export hash could never match the upload hash.
+    const payload = {
+      projectId: 10,
+      transactions: 3,
+      exportedAt: new Date("2026-09-30T10:00:00.000Z"),
+    };
     dbMocks.exportProjectBackup.mockResolvedValue(payload);
     const checksum = await sha256Hex(JSON.stringify(payload, null, 2));
-    cloudMocks.executeCloudBackup.mockResolvedValue(baseResult({ checksum }));
+    const verifyChecksum = await sha256Hex(
+      JSON.stringify({ projectId: 10, transactions: 3 }, null, 2)
+    );
+    cloudMocks.executeCloudBackup.mockResolvedValue(
+      baseResult({ checksum, verifyChecksum })
+    );
 
     const res = makeRes();
     await runScheduledBackup(makeReq(CRON_SECRET), res as unknown as Response);
@@ -146,7 +163,7 @@ describe("runScheduledBackup response contract", () => {
   it("returns 500 when the integrity re-export checksum mismatches", async () => {
     stubActiveWorkspace();
     cloudMocks.executeCloudBackup.mockResolvedValue(
-      baseResult({ checksum: "b".repeat(64) })
+      baseResult({ verifyChecksum: "b".repeat(64) })
     );
 
     const res = makeRes();
@@ -157,6 +174,45 @@ describe("runScheduledBackup response contract", () => {
     expect(dbMocks.logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "cloud_backup_failed" })
     );
+  });
+
+  it("verifies when the re-export returns rows in a different order", async () => {
+    stubActiveWorkspace();
+    const payload = {
+      projectId: 10,
+      transactions: [
+        { id: 2, amount: 20 },
+        { id: 1, amount: 10 },
+      ],
+    };
+    dbMocks.exportProjectBackup.mockResolvedValue(payload);
+    const verifyChecksum = await sha256Hex(
+      JSON.stringify(
+        {
+          projectId: 10,
+          transactions: [
+            { id: 1, amount: 10 },
+            { id: 2, amount: 20 },
+          ],
+        },
+        null,
+        2
+      )
+    );
+    cloudMocks.executeCloudBackup.mockResolvedValue(
+      baseResult({ verifyChecksum })
+    );
+
+    const res = makeRes();
+    await runScheduledBackup(makeReq(CRON_SECRET), res as unknown as Response);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      stored: 1,
+      verified: 1,
+      failed: 0,
+    });
   });
 
   it("rejects unauthorized requests without running a backup", async () => {

@@ -31,6 +31,10 @@ export interface CloudBackupResult {
   provider: "supabase" | "s3" | "google_drive" | "local_encrypted";
   fileName: string;
   checksum: string;
+  /** Hash of the normalized export — comparable across two exports of the
+   * same rows (unlike `checksum`, which covers the exact uploaded bytes and
+   * therefore the volatile `exportedAt` timestamp). */
+  verifyChecksum: string;
   byteSize: number;
   encrypted: boolean;
   timestamp: string;
@@ -243,6 +247,39 @@ async function writeLocalEncryptedSnapshot(
 /**
  * Performs encrypted automated backup to configured cloud storage providers.
  */
+/**
+ * Canonicalize an export so two exports of the same rows hash identically.
+ *
+ * `exportProjectBackup` stamps `exportedAt: new Date()` on every call and its
+ * queries have no ORDER BY, so neither the timestamp nor the row order may feed
+ * a checksum that compares export #1 against a later re-export — doing so made
+ * every scheduled backup fail its integrity gate even though nothing changed.
+ */
+export function normalizeBackupForChecksum(backup: unknown): unknown {
+  if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
+    return backup;
+  }
+  const normalized: Record<string, unknown> = {
+    ...(backup as Record<string, unknown>),
+  };
+  delete normalized.exportedAt;
+  for (const [key, value] of Object.entries(normalized)) {
+    if (
+      !Array.isArray(value) ||
+      !value.every(
+        row => row !== null && typeof row === "object" && "id" in row
+      )
+    ) {
+      continue;
+    }
+    normalized[key] = [...value].sort(
+      (a, b) =>
+        Number((a as { id: unknown }).id) - Number((b as { id: unknown }).id)
+    );
+  }
+  return normalized;
+}
+
 export async function executeCloudBackup(
   userId: number,
   projectId: number,
@@ -250,7 +287,13 @@ export async function executeCloudBackup(
 ): Promise<CloudBackupResult> {
   const backupData = await financeDb.exportProjectBackup(userId, projectId);
   const rawJson = JSON.stringify(backupData, null, 2);
+  // checksum = hash of the exact bytes uploaded (byte-accurate for restore).
   const checksum = await sha256Hex(rawJson);
+  // verifyChecksum = hash of the normalized export (exportedAt dropped, rows
+  // sorted by id) so a later re-export of the same rows compares equal.
+  const verifyChecksum = await sha256Hex(
+    JSON.stringify(normalizeBackupForChecksum(backupData), null, 2)
+  );
   const timestamp = new Date().toISOString();
   const safeProjectName =
     backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) ||
@@ -337,6 +380,7 @@ export async function executeCloudBackup(
     provider: targetProvider,
     fileName,
     checksum,
+    verifyChecksum,
     byteSize: byteLength(finalPayload),
     encrypted: true,
     timestamp,

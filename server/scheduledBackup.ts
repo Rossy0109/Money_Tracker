@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import * as financeDb from "./db";
 import {
   executeCloudBackup,
+  normalizeBackupForChecksum,
   type CloudBackupResult,
 } from "./cloudBackupService";
 import { sdk } from "./_core/sdk";
@@ -126,17 +127,22 @@ function dbErrorFragment(error: unknown): string {
 async function verifyBackupIntegrity(
   userId: number,
   projectId: number,
-  expectedChecksum: string
+  expectedVerifyChecksum: string
 ): Promise<{ verified: boolean; error?: string }> {
   try {
     const reExport = await financeDb.exportProjectBackup(userId, projectId);
-    const reChecksum = await sha256Hex(JSON.stringify(reExport, null, 2));
-    if (reChecksum === expectedChecksum) {
+    // Compare normalized exports: `exportedAt` is regenerated on every export
+    // and row order is not guaranteed, so hashing the raw re-export could
+    // never match the upload-time hash.
+    const reChecksum = await sha256Hex(
+      JSON.stringify(normalizeBackupForChecksum(reExport), null, 2)
+    );
+    if (reChecksum === expectedVerifyChecksum) {
       return { verified: true };
     }
     return {
       verified: false,
-      error: `Checksum mismatch: expected ${expectedChecksum.slice(0, 12)}..., got ${reChecksum.slice(0, 12)}...`,
+      error: `Checksum mismatch: expected ${expectedVerifyChecksum.slice(0, 12)}..., got ${reChecksum.slice(0, 12)}...`,
     };
   } catch (error) {
     return { verified: false, error: `Verification failed: ${dbErrorFragment(error)}` };
@@ -176,7 +182,7 @@ export async function executeScheduledBackup(): Promise<ScheduledBackupSummary> 
         const verification = await verifyBackupIntegrity(
           user.id,
           project.id,
-          cloudResult.checksum
+          cloudResult.verifyChecksum
         );
         if (verification.verified) {
           verifiedCount++;
