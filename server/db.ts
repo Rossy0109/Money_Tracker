@@ -7119,35 +7119,6 @@ export async function restoreProjectBackup(
 ) {
   const db = databaseRequired(await getDb());
   assertBackupReferences(input.backup);
-  // Optional: envelope checksum verification (defense-in-depth). Only checked if
-  // the uploaded backup includes both iv/encrypted/tag and checksum (cloud
-  // backups do).
-  const { sha256Hex, hexToBytes, aesGcmDecrypt } = await import("../shared/platform/crypto");
-  const backupData = input.backup as Record<string, unknown>;
-  if (
-    backupData &&
-    typeof backupData === "object" &&
-    typeof backupData.iv === "string" &&
-    typeof backupData.encrypted === "string" &&
-    typeof backupData.tag === "string" &&
-    typeof backupData.checksum === "string"
-  ) {
-    try {
-      const keyHex = await sha256Hex(process.env.BACKUP_ENCRYPTION_KEY || "");
-      const plaintext = await aesGcmDecrypt(
-        keyHex,
-        hexToBytes(backupData.iv as string),
-        backupData.encrypted as string,
-        backupData.tag as string
-      );
-      const actual = await sha256Hex(plaintext);
-      if (actual !== backupData.checksum) {
-        throw new Error("ব্যাকআপ চেকসাম মিলছে না — ডেটা বিকৃত হতে পারে");
-      }
-    } catch (e) {
-      if (e instanceof Error && /checksum mismatch|বিকৃত হতে পারে/.test(e.message)) throw e;
-    }
-  }
 
   const [existing] = await db
     .select({ id: financeProjects.id })

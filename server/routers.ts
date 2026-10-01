@@ -11,6 +11,10 @@ import {
   getCloudStorageConfig,
   executeCloudBackup,
 } from "./cloudBackupService";
+import {
+  BackupIntegrityError,
+  verifyRestoreEnvelope,
+} from "./backupIntegrity";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./routers/auth";
 import * as accountingCore from "./accounting-core";
@@ -328,6 +332,13 @@ const backupRecurring = z.object({
 });
 const projectBackupInput = z
   .object({
+    // Optional envelope fields for encrypted cloud backups. Absent for the
+    // app's own plaintext export; when present they must be complete and are
+    // verified before anything touches the database.
+    iv: z.string().trim().min(16).max(64).optional(),
+    encrypted: z.string().trim().min(1).max(40_000_000).optional(),
+    tag: z.string().trim().min(16).max(64).optional(),
+    checksum: z.string().trim().regex(/^[0-9a-f]{64}$/i).optional(),
     formatVersion: z.enum([
       "finance-project-backup-v1",
       "finance-project-backup-v2",
@@ -385,6 +396,29 @@ const projectBackupInput = z
         message: "ভাউচার রেঞ্জ সঠিক নয়",
       });
   });
+
+/**
+ * Verify a restore payload before any database work happens.
+ *
+ * Encrypted cloud backups carry an envelope (iv/encrypted/tag/checksum); when
+ * present it is checked fail-closed — a wrong key, a tampered file, or plaintext
+ * that does not match what the envelope attests to all reject the restore. The
+ * app's own plaintext export has no envelope and is passed through unchanged.
+ */
+async function assertBackupEnvelope(backup: unknown): Promise<void> {
+  try {
+    await verifyRestoreEnvelope(backup, ENV.backupEncryptionKey);
+  } catch (error) {
+    if (error instanceof BackupIntegrityError) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message,
+        cause: error.code,
+      });
+    }
+    throw error;
+  }
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -773,7 +807,10 @@ export const appRouter = router({
       ),
     previewProjectBackup: protectedWithPermission("backup", "restore")
       .input(z.object({ backup: projectBackupInput }))
-      .mutation(({ input }) => financeDb.previewProjectBackup(input.backup)),
+      .mutation(async ({ input }) => {
+        await assertBackupEnvelope(input.backup);
+        return financeDb.previewProjectBackup(input.backup);
+      }),
     restoreProjectBackup: protectedWithPermission("backup", "restore")
       .input(
         z.object({
@@ -782,12 +819,13 @@ export const appRouter = router({
           backup: projectBackupInput,
         })
       )
-      .mutation(({ ctx, input }) =>
-        financeDb.restoreProjectBackup(ctx.user!.id, {
+      .mutation(async ({ ctx, input }) => {
+        await assertBackupEnvelope(input.backup);
+        return financeDb.restoreProjectBackup(ctx.user!.id, {
           projectName: input.projectName,
           backup: input.backup,
-        })
-      ),
+        });
+      }),
     households: protectedWithPermission("accounting", "read").query(({ ctx }) =>
       financeDb.listHouseholds(ctx.user!.id)
     ),
