@@ -295,9 +295,13 @@ export async function executeCloudBackup(
     JSON.stringify(normalizeBackupForChecksum(backupData), null, 2)
   );
   const timestamp = new Date().toISOString();
+  const sanitized = backupData.project.name
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   const safeProjectName =
-    backupData.project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) ||
-    "project";
+    sanitized.length > 0
+      ? sanitized.slice(0, 32)
+      : `project-${projectId}`;
 
   const secret = encryptionKey || ENV.backupEncryptionKey;
   if (!secret) {

@@ -238,3 +238,10 @@ To manually verify a backup:
 | `S3_SECRET_ACCESS_KEY`  | No       | (none)  | S3 secret key                            |
 | `S3_REGION`             | No       | auto    | S3 region                                |
 | `S3_ENDPOINT`           | No       | (none)  | Custom S3-compatible endpoint            |
+
+
+### Backup Encryption Key: Rotation & Recoverability
+
+- **Store it safely**: `~/.money-tracker-backup-key` contains the 64-hex `BACKUP_ENCRYPTION_KEY` used to encrypt all cloud backups. Back it up in a password manager and/or offline safe (not in git). Set `chmod 600` on the file and treat it as production-critical.
+- **Key rotation caveat**: backups encrypted before a key rotation are unrecoverable with the new key. Before rotating, decrypt/export any backups you must keep, or ensure the old key is archived.
+- **Verifying recoverability**: the manual restore drill (decrypt the latest `.enc.json` and check `sha256(plaintext) == envelope.checksum`) proves both key correctness and storage integrity.
