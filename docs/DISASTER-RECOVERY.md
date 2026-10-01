@@ -191,6 +191,12 @@ After restore:
 
 ---
 
+
+### Secrets Hygiene
+
+- **GitHub Actions**: the backup workflow no longer connects directly to the production database. `CRON_SECRET` is the only secret it needs for verification. `db-reconcile.yml` is manual-only and accepts either `DATABASE_URL` or `PROD_DATABASE_URL` (falls back to the legacy name). The `PROD_DATABASE_URL` Actions secret is stale relative to Vercel's current value; rotate or remove it only after deciding whether to keep db-reconcile's direct-DB path. If you migrate db-reconcile to a read-only API, you can drop prod DB credentials from Actions entirely.
+
+
 ## Verification Procedure
 
 ### Automated Verification
@@ -245,3 +251,11 @@ To manually verify a backup:
 - **Store it safely**: `~/.money-tracker-backup-key` contains the 64-hex `BACKUP_ENCRYPTION_KEY` used to encrypt all cloud backups. Back it up in a password manager and/or offline safe (not in git). Set `chmod 600` on the file and treat it as production-critical.
 - **Key rotation caveat**: backups encrypted before a key rotation are unrecoverable with the new key. Before rotating, decrypt/export any backups you must keep, or ensure the old key is archived.
 - **Verifying recoverability**: the manual restore drill (decrypt the latest `.enc.json` and check `sha256(plaintext) == envelope.checksum`) proves both key correctness and storage integrity.
+
+### Quarterly Restore Drill (Recommended)
+
+1. **Pick a recent backup**: from Supabase Storage bucket `amar-hisab-backups`, download the latest `.enc.json` file.
+2. **Decrypt**: using `~/.money-tracker-backup-key` (64-hex), decrypt `iv/encrypted/tag` with AES-GCM and verify `sha256(plaintext) === envelope.checksum`.
+3. **Restore to a throwaway project**: in a non-production environment, call `restoreProjectBackup` with the decrypted payload under a unique project name. Do not overwrite production data.
+4. **Sanity-check**: compare key record counts (transactions, vouchers, ledger/journal lines) against the envelope/manifest and confirm the project opens.
+5. **Log it**: record the date, object name, and result in your operations log.

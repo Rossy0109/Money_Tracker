@@ -19,6 +19,7 @@ import {
 } from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
 import { runScheduledBackupAudit } from "../scheduledBackupAudit";
+import { runHealthChecks } from "../healthChecks";
 import { ENV } from "./env";
 import logger from "./logger";
 
@@ -293,7 +294,32 @@ export function createApiApp() {
   );
 
   // Debug routes (guarded by env) — must come before the catch-all
-  registerDebugRoutes(app);
+
+  // Health checks (cron-protected) — returns structured checks; does not bypass auth
+  app.all("/api/health-checks", async (req: Request, res: Response) => {
+    const authHeader = req.headers["authorization"];
+    const cronSecret =
+      process.env.CRON_SECRET ||
+      process.env.BACKUP_CRON_SECRET ||
+      ENV.backupCronSecret;
+    let ok = false;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7).trim();
+      if (cronSecret && token) {
+        const { timingSafeCompare } = await import("../timingSafe");
+        ok = await timingSafeCompare(token, cronSecret);
+      }
+    }
+    if (!ok) {
+      res.status(403).json({ ok: false, error: "অননুমোদিত অনুরোধ" });
+      return;
+    }
+    const result = await runHealthChecks(null);
+    res.status(result.summary.database === "ok" ? 200 : 503).json(result);
+  });
+
+
+    registerDebugRoutes(app);
 
   // 404 for unknown API paths. This stays inside the shared pipeline so
   // /api/* semantics are identical in every runtime. The generic (non-API)
