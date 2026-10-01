@@ -254,8 +254,34 @@ To manually verify a backup:
 
 ### Quarterly Restore Drill (Recommended)
 
-1. **Pick a recent backup**: from Supabase Storage bucket `amar-hisab-backups`, download the latest `.enc.json` file.
-2. **Decrypt**: using `~/.money-tracker-backup-key` (64-hex), decrypt `iv/encrypted/tag` with AES-GCM and verify `sha256(plaintext) === envelope.checksum`.
-3. **Restore to a throwaway project**: in a non-production environment, call `restoreProjectBackup` with the decrypted payload under a unique project name. Do not overwrite production data.
-4. **Sanity-check**: compare key record counts (transactions, vouchers, ledger/journal lines) against the envelope/manifest and confirm the project opens.
-5. **Log it**: record the date, object name, and result in your operations log.
+1. **Pick a recent backup**: from Supabase Storage bucket `amar-hisab-backups`, download the latest `.enc.json` object.
+2. **Decrypt and verify locally**:
+   ```bash
+   node scripts/decrypt-cloud-backup.mjs <downloaded-object>.enc.json
+   ```
+   This derives the key from `BACKUP_ENCRYPTION_KEY_FILE` (default
+   `~/.money-tracker-backup-key`), decrypts AES-GCM, and refuses to write
+   anything unless `sha256(plaintext) === envelope.checksum`. It writes
+   `<object>.restore.json` with mode `600` — the plaintext export **plus** the
+   `iv`/`encrypted`/`tag`/`checksum` envelope fields.
+3. **Upload the `.restore.json` file** through the app's restore screen. The
+   server re-verifies the envelope before touching the database, so a restore
+   from a cloud backup is now checked, not just assumed:
+   - the envelope must be complete (no half-stripped files),
+   - the ciphertext must decrypt and match `checksum`,
+   - and the rows in the file must match what the envelope attests to — editing
+     any transaction after decryption is rejected with `payload_mismatch`.
+4. **Restore to a throwaway project**: use a unique project name and a
+   non-production environment. A restore always creates a new project, so
+   production data is never overwritten.
+5. **Sanity-check**: compare record counts (accounts, transactions, vouchers,
+   ledger/journal lines) and confirm the project opens.
+6. **Log it**: record the date, object name, and result in your operations log.
+7. **Delete the plaintext** `.restore.json` when finished — it is unencrypted.
+
+> Backups exported from the app's own backup screen are plaintext and carry no
+> envelope, so there is nothing for the server to verify. Restoring those is
+> allowed and works exactly as before; the envelope check only applies to files
+> that came from a cloud backup.
+
+

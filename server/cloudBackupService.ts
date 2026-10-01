@@ -6,6 +6,7 @@ import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import { ENV } from "./_core/env";
 import logger from "./_core/logger";
 import { sha256Hex, byteLength } from "../shared/platform/crypto";
+import { normalizeBackupForChecksum } from "./backupIntegrity";
 
 export interface CloudStorageConfig {
   supabase?: {
@@ -247,38 +248,7 @@ async function writeLocalEncryptedSnapshot(
 /**
  * Performs encrypted automated backup to configured cloud storage providers.
  */
-/**
- * Canonicalize an export so two exports of the same rows hash identically.
- *
- * `exportProjectBackup` stamps `exportedAt: new Date()` on every call and its
- * queries have no ORDER BY, so neither the timestamp nor the row order may feed
- * a checksum that compares export #1 against a later re-export — doing so made
- * every scheduled backup fail its integrity gate even though nothing changed.
- */
-export function normalizeBackupForChecksum(backup: unknown): unknown {
-  if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
-    return backup;
-  }
-  const normalized: Record<string, unknown> = {
-    ...(backup as Record<string, unknown>),
-  };
-  delete normalized.exportedAt;
-  for (const [key, value] of Object.entries(normalized)) {
-    if (
-      !Array.isArray(value) ||
-      !value.every(
-        row => row !== null && typeof row === "object" && "id" in row
-      )
-    ) {
-      continue;
-    }
-    normalized[key] = [...value].sort(
-      (a, b) =>
-        Number((a as { id: unknown }).id) - Number((b as { id: unknown }).id)
-    );
-  }
-  return normalized;
-}
+export { normalizeBackupForChecksum } from "./backupIntegrity";
 
 export async function executeCloudBackup(
   userId: number,
