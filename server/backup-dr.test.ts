@@ -81,6 +81,7 @@ describe("CloudBackupResult Shape", () => {
       provider: "s3",
       fileName: "test-backup-2024-01-01-abc123.enc.json",
       checksum: "a".repeat(64),
+      verifyChecksum: "b".repeat(64),
       byteSize: 1024,
       encrypted: true,
       timestamp: "2024-01-01T00:00:00.000Z",
@@ -91,6 +92,7 @@ describe("CloudBackupResult Shape", () => {
     expect(result.success).toBe(true);
     expect(result.encrypted).toBe(true);
     expect(result.checksum).toHaveLength(64);
+    expect(result.verifyChecksum).toHaveLength(64);
   });
 });
 
