@@ -109,27 +109,42 @@ jobs:
           fi
           echo "Counts confirmed: every project stored and verified."
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
       # Ground truth: the audit row is written from inside the backup run and
       # `cloud_backup` is only recorded when every upload succeeded and the
       # integrity re-export matched. This catches silent storage failures the
       # HTTP status and even the response body cannot.
-      - name: Verify backup audit trail in database
+      #
+      # Read through the cron-protected API rather than connecting to the
+      # production database from GitHub: a prod DB credential in Actions is a
+      # far bigger blast radius than the cron secret, and it silently rots
+      # whenever the DB password rotates (it already had).
+      - name: Verify backup audit trail
         env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.BACKUP_CRON_SECRET }}
           VERIFY_WINDOW_MINUTES: "30"
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "PROD_DATABASE_URL secret is not set — the audit trail cannot be verified."
-            echo "Set it (same value as Vercel Production DATABASE_URL) to re-enable verification."
+          if [ -z "$BACKUP_SECRET" ]; then
+            echo "Failing loudly: CRON_SECRET (or BACKUP_CRON_SECRET) secret not set on GitHub."
             exit 1
           fi
-          node scripts/verify-backup-audit.mjs
+
+          AUDIT_URL="${APP_URL%/}/api/scheduled/backup-audit?windowMinutes=$VERIFY_WINDOW_MINUTES"
+          HTTP_CODE=$(curl -s -o audit.json -w "%{http_code}" -X GET "$AUDIT_URL" \
+            -H "Authorization: Bearer $BACKUP_SECRET")
+
+          cat audit.json
+          echo ""
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Audit read failed with status code $HTTP_CODE"
+            exit 1
+          fi
+
+          if ! jq -e '.verified == true' audit.json > /dev/null; then
+            echo "Backup audit trail did not prove storage + integrity:"
+            jq '{verified, reason, audit}' audit.json
+            exit 1
+          fi
+
+          echo "OK: audit row #$(jq -r '.audit.id' audit.json) proves storage + integrity — $(jq -r '.audit.summary' audit.json)"

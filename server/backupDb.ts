@@ -5,7 +5,7 @@
  * No separate backup_records table is needed — the audit_logs table
  * already captures backup_created events with checksums and filenames.
  */
-import { eq, and, desc, sql, type SQL } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
 import { auditLogs } from "../drizzle/schema";
 
@@ -31,6 +31,42 @@ export async function getDriveConnection(_userId: number): Promise<{
  * Find the most recent backup of a given kind for a user from audit_logs.
  * Returns null if no backup has been recorded.
  */
+export interface CloudBackupAuditRow {
+  id: number;
+  entityType: string;
+  summary: string;
+  createdAt: Date;
+}
+
+/**
+ * Newest backup audit rows, newest first.
+ *
+ * A scheduled run writes exactly one row (`cloud_backup` only when every
+ * project stored AND passed its integrity re-export check, otherwise
+ * `cloud_backup_failed`), so a handful of rows is enough to both judge the
+ * latest run and print recent history. Callers apply their own time window.
+ */
+export async function latestCloudBackupAuditRows(
+  limit = 5
+): Promise<CloudBackupAuditRow[]> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+
+  return db
+    .select({
+      id: auditLogs.id,
+      entityType: auditLogs.entityType,
+      summary: auditLogs.summary,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(
+      inArray(auditLogs.entityType, ["cloud_backup", "cloud_backup_failed"])
+    )
+    .orderBy(desc(auditLogs.id))
+    .limit(Math.min(Math.max(Math.trunc(limit) || 5, 1), 50));
+}
+
 export async function lastBackupForKind(
   userId: number,
   _kind: string
