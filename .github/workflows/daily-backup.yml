@@ -148,3 +148,16 @@ jobs:
           fi
 
           echo "OK: audit row #$(jq -r '.audit.id' audit.json) proves storage + integrity — $(jq -r '.audit.summary' audit.json)"
+
+      # Retention runs last, so objects are only ever removed after this run's
+      # backup has been proven stored and verified. Without this the bucket grows
+      # without bound. Selection is floor-guarded (see
+      # scripts/lib/backup-retention.mjs): only `*-backup-YYYY-MM-DD-*.enc.json`
+      # names are eligible and each project keeps its newest 7 regardless of age.
+      - name: Prune expired backups
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BACKUP_RETENTION_DAYS: "90"
+          BACKUP_KEEP_PER_PROJECT: "7"
+        run: node scripts/prune-backups.mjs --apply

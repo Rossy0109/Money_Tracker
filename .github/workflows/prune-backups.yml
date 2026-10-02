@@ -1,0 +1,55 @@
+name: Prune Expired Backups
+
+# Standalone entry point for backup retention, so pruning can be inspected or
+# re-run without triggering a full backup. The same script also runs as the last
+# step of the daily backup job, which is the normal path.
+#
+# Default is a dry run. Deletion requires apply=true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually delete objects older than the retention window"
+        type: boolean
+        default: false
+      retention_days:
+        description: "Keep backups newer than this many days"
+        type: string
+        default: "90"
+      keep_per_project:
+        description: "Minimum backups to keep per project regardless of age"
+        type: string
+        default: "7"
+
+permissions: {}
+
+concurrency:
+  group: prune-backups
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune expired backups
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Plan (dry run)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.retention_days }}
+          BACKUP_KEEP_PER_PROJECT: ${{ inputs.keep_per_project }}
+        run: node scripts/prune-backups.mjs
+
+      # Separate step so the plan is always in the log before anything is
+      # deleted, and so a dry run genuinely deletes nothing.
+      - name: Apply
+        if: ${{ inputs.apply == true }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.retention_days }}
+          BACKUP_KEEP_PER_PROJECT: ${{ inputs.keep_per_project }}
+        run: node scripts/prune-backups.mjs --apply
