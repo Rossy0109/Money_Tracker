@@ -426,6 +426,53 @@ describe("finance router", () => {
     });
   });
 
+  it("keeps the extended backup scope through input validation", async () => {
+    const backup = {
+      formatVersion: "finance-project-backup-v2" as const,
+      exportedAt: new Date("2026-10-02T00:00:00.000Z"),
+      project: { id: 88, name: "মূল হিসাব" },
+      accounts: [],
+      categories: [],
+      transactions: [],
+      budgets: [],
+      bills: [],
+      dues: [],
+      settlements: [],
+      recurring: [],
+      voucherSettings: null,
+      vouchers: [{ id: 9, voucherNo: "JV-1" }],
+      accountGroups: [{ id: 1, accountTypeId: 1, parentId: null, code: "G" }],
+      fiscalPeriods: [{ id: 1, name: "2026", status: "closed" }],
+      periodLocks: [{ id: 1, monthKey: "2026-01" }],
+      voucherReversals: [
+        { id: 1, originalVoucherId: 9, reversalVoucherId: 9 },
+      ],
+      voucherAudit: [{ id: 1, voucherId: 9 }],
+      voucherReferences: [{ id: 1, voucherId: 9 }],
+    };
+    financeDb.previewProjectBackup.mockResolvedValue({
+      sourceProjectName: "মূল হিসাব",
+      exportedAt: backup.exportedAt,
+      counts: {},
+      transactionDateRange: null,
+      restorationPolicy: "নতুন প্রজেক্টে পুনরুদ্ধার হবে",
+    });
+    const caller = appRouter.createCaller(authenticatedContext);
+
+    await caller.finance.previewProjectBackup({ backup });
+
+    const forwarded = financeDb.previewProjectBackup.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(forwarded.accountGroups).toHaveLength(1);
+    expect(forwarded.fiscalPeriods).toHaveLength(1);
+    expect(forwarded.periodLocks).toHaveLength(1);
+    expect(forwarded.voucherReversals).toHaveLength(1);
+    expect(forwarded.voucherAudit).toHaveLength(1);
+    expect(forwarded.voucherReferences).toHaveLength(1);
+  });
+
   it("keeps household profiles, invitation inboxes, roles, and shared budgets scoped to the signed-in member", async () => {
     const caller = appRouter.createCaller(authenticatedContext);
     const household = { id: 17, name: "আমাদের পরিবার", role: "owner" };
