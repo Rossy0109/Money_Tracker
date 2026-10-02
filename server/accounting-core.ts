@@ -16,6 +16,7 @@
 
 import { eq, and, gte, inArray, lte, sql } from "drizzle-orm";
 import { assertOwnedProject, databaseRequired, getDb } from "./db";
+import { fromCents, toCents } from "./money";
 import {
   financeChartOfAccounts,
   financeAccountTypes,
@@ -26,17 +27,7 @@ import {
 } from "../drizzle/schema";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-/** Multiply a decimal-string by 100 and round to integer cents. */
-function toCents(v: string | number): number {
-  const n = typeof v === "string" ? parseFloat(v) : v;
-  return Math.round(n * 100);
-}
-
-/** Convert integer cents back to a decimal number. */
-function fromCents(c: number): number {
-  return c / 100;
-}
+// toCents/fromCents come from ./money — see the note there.
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
