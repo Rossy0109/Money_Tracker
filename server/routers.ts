@@ -384,6 +384,21 @@ const projectBackupInput = z
       .max(20000)
       .optional(),
     journalLines: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    accountGroups: z.array(z.record(z.string(), z.any())).max(5000).optional(),
+    fiscalPeriods: z.array(z.record(z.string(), z.any())).max(5000).optional(),
+    periodLocks: z.array(z.record(z.string(), z.any())).max(20000).optional(),
+    voucherReversals: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
+    voucherAudit: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
+    voucherReferences: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
   })
   .superRefine((backup, context) => {
     if (

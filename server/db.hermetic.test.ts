@@ -1132,4 +1132,221 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     60000
   );
+  it(
+    "project backup round-trips period controls, account groups and voucher audit",
+    async () => {
+      const {
+        createProject,
+        createVoucherWithEntries,
+        createAccountGroup,
+        getChartOfAccounts,
+        seedDefaultAccountTypes,
+        lockPeriod,
+        exportProjectBackup,
+        restoreProjectBackup,
+        getDb,
+        databaseRequired,
+      } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const {
+        financeFiscalPeriods,
+        financeVoucherReversals,
+        financeVoucherReferences,
+        financeVoucherAudit,
+        financePeriodLocks,
+        financeAccountGroups,
+        financeAccountTypes,
+        financeVouchers,
+      } = await import("../drizzle/schema");
+
+      await seedDefaultAccountTypes();
+      const scopeProject = await createProject(userId, "Backup scope");
+      if (!scopeProject.id) throw new Error("Scope project missing");
+      const scopeId = scopeProject.id;
+      const db = databaseRequired(await getDb());
+
+      const [periodRow] = await db
+        .insert(financeFiscalPeriods)
+        .values({
+          userId,
+          projectId: scopeId,
+          name: "2026",
+          startDate: new Date("2026-01-01T00:00:00.000Z"),
+          endDate: new Date("2026-12-31T00:00:00.000Z"),
+          status: "closed",
+          closedAt: new Date("2026-06-30T00:00:00.000Z"),
+          closedBy: userId,
+        })
+        .execute();
+      const periodId = Number(periodRow.insertId);
+
+      const chart = await getChartOfAccounts(userId, scopeId);
+      const debitCoa = chart.find(a => a.code === "1110");
+      const creditCoa = chart.find(a => a.code === "4100");
+      if (!debitCoa || !creditCoa)
+        throw new Error("Canonical chart accounts missing");
+
+      const { voucherId: originalId } = await createVoucherWithEntries(
+        userId,
+        {
+          projectId: scopeId,
+          date: new Date("2026-02-01T00:00:00.000Z"),
+          narration: "scope original",
+          debits: [{ accountId: debitCoa.id, amount: 100 }],
+          credits: [{ accountId: creditCoa.id, amount: 100 }],
+          references: [
+            {
+              refType: "cheque",
+              refNumber: "CHQ-77",
+              refDate: new Date("2026-02-01T00:00:00.000Z"),
+            },
+          ],
+          fiscalPeriodId: periodId,
+        }
+      );
+      const { voucherId: reversalId } = await createVoucherWithEntries(
+        userId,
+        {
+          projectId: scopeId,
+          date: new Date("2026-02-02T00:00:00.000Z"),
+          narration: "scope reversal",
+          debits: [{ accountId: debitCoa.id, amount: 100 }],
+          credits: [{ accountId: creditCoa.id, amount: 100 }],
+        }
+      );
+      await db
+        .insert(financeVoucherReversals)
+        .values({
+          userId,
+          projectId: scopeId,
+          originalVoucherId: originalId,
+          reversalVoucherId: reversalId,
+          reason: "স্কোপ রিভার্সাল",
+          reversedAt: new Date("2026-03-01T00:00:00.000Z"),
+          reversedBy: userId,
+        })
+        .execute();
+
+      const [assetType] = await db
+        .select()
+        .from(financeAccountTypes)
+        .where(eq(financeAccountTypes.code, "ASSET"))
+        .limit(1);
+      if (!assetType) throw new Error("System account types missing");
+      const parentGroup = await createAccountGroup(userId, {
+        projectId: scopeId,
+        accountTypeId: assetType.id,
+        code: "SCOP",
+        name: "Scope parent",
+      });
+      const childGroup = await createAccountGroup(userId, {
+        projectId: scopeId,
+        accountTypeId: assetType.id,
+        parentId: parentGroup.id,
+        code: "SCHL",
+        name: "Scope child",
+      });
+      await lockPeriod(userId, scopeId, "2026-03", "স্কোপ লক");
+
+      const backup = await exportProjectBackup(userId, scopeId);
+      expect(backup.fiscalPeriods).toHaveLength(1);
+      expect(backup.periodLocks).toHaveLength(1);
+      expect(backup.accountGroups).toHaveLength(2);
+      expect(backup.voucherReversals).toHaveLength(1);
+      expect(backup.voucherReferences).toHaveLength(1);
+      // One "create" audit row per voucher; the reversal row is inserted directly.
+      expect(backup.voucherAudit).toHaveLength(2);
+
+      const restored = await restoreProjectBackup(userId, {
+        projectName: "Backup scope restored",
+        backup,
+      });
+      const restoredId = restored.projectId;
+      expect(restoredId).toBeGreaterThan(0);
+
+      const restoredPeriods = await db
+        .select()
+        .from(financeFiscalPeriods)
+        .where(eq(financeFiscalPeriods.projectId, restoredId));
+      expect(restoredPeriods).toHaveLength(1);
+      expect(restoredPeriods[0].name).toBe("2026");
+      expect(restoredPeriods[0].status).toBe("closed");
+      expect(restoredPeriods[0].closedAt).not.toBeNull();
+      // The source actor may not exist in a fresh database.
+      expect(restoredPeriods[0].closedBy).toBeNull();
+
+      const restoredLocks = await db
+        .select()
+        .from(financePeriodLocks)
+        .where(eq(financePeriodLocks.projectId, restoredId));
+      expect(restoredLocks).toHaveLength(1);
+      expect(restoredLocks[0].monthKey).toBe("2026-03");
+      expect(restoredLocks[0].reason).toBe("স্কোপ লক");
+      expect(restoredLocks[0].lockedBy).toBe(userId);
+
+      const restoredGroups = await db
+        .select()
+        .from(financeAccountGroups)
+        .where(eq(financeAccountGroups.projectId, restoredId));
+      expect(restoredGroups).toHaveLength(2);
+      const restoredParent = restoredGroups.find(g => g.code === "SCOP");
+      const restoredChild = restoredGroups.find(g => g.code === "SCHL");
+      if (!restoredParent || !restoredChild)
+        throw new Error("Restored account groups missing");
+      expect(restoredChild.parentId).toBe(restoredParent.id);
+      expect(restoredChild.parentId).not.toBe(childGroup.id);
+
+      const restoredVouchers = await db
+        .select()
+        .from(financeVouchers)
+        .where(eq(financeVouchers.projectId, restoredId));
+      expect(restoredVouchers).toHaveLength(2);
+      const restoredVoucherIds = new Set(restoredVouchers.map(v => v.id));
+      const restoredOriginal = restoredVouchers.find(
+        v => v.narration === "scope original"
+      );
+      expect(restoredOriginal?.fiscalPeriodId).toBe(restoredPeriods[0].id);
+
+      const restoredReversals = await db
+        .select()
+        .from(financeVoucherReversals)
+        .where(eq(financeVoucherReversals.projectId, restoredId));
+      expect(restoredReversals).toHaveLength(1);
+      expect(restoredReversals[0].reason).toBe("স্কোপ রিভার্সাল");
+      expect(
+        restoredVoucherIds.has(restoredReversals[0].originalVoucherId)
+      ).toBe(true);
+      expect(
+        restoredVoucherIds.has(restoredReversals[0].reversalVoucherId)
+      ).toBe(true);
+      expect(restoredReversals[0].originalVoucherId).not.toBe(originalId);
+      expect(restoredReversals[0].reversedBy).toBe(userId);
+
+      const restoredRefs = await db
+        .select()
+        .from(financeVoucherReferences)
+        .innerJoin(
+          financeVouchers,
+          eq(financeVoucherReferences.voucherId, financeVouchers.id)
+        )
+        .where(eq(financeVouchers.projectId, restoredId));
+      expect(restoredRefs).toHaveLength(1);
+      expect(restoredRefs[0].finance_voucher_references.refNumber).toBe(
+        "CHQ-77"
+      );
+
+      const restoredAudit = await db
+        .select()
+        .from(financeVoucherAudit)
+        .innerJoin(
+          financeVouchers,
+          eq(financeVoucherAudit.voucherId, financeVouchers.id)
+        )
+        .where(eq(financeVouchers.projectId, restoredId));
+      expect(restoredAudit.length).toBe(backup.voucherAudit?.length);
+      expect(restoredAudit[0].finance_voucher_audit.action).toBe("create");
+      expect(restoredAudit[0].finance_voucher_audit.actorUserId).toBe(userId);
+    },
+    120000
+  );
 });

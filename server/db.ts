@@ -6753,6 +6753,12 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     ledgerEntries,
     journalEntries,
     journalLines,
+    accountGroups,
+    fiscalPeriods,
+    periodLocks,
+    voucherReversals,
+    voucherAudit,
+    voucherReferences,
   ] = await Promise.all([
     db
       .select()
@@ -6910,6 +6916,71 @@ export async function exportProjectBackup(userId: number, projectId: number) {
       )
       .where(eq(financeJournalEntries.projectId, projectId))
       .then(rows => rows.map(r => r.finance_journal_lines)),
+    db
+      .select()
+      .from(financeAccountGroups)
+      .where(
+        and(
+          eq(financeAccountGroups.userId, userId),
+          eq(financeAccountGroups.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeFiscalPeriods)
+      .where(
+        and(
+          eq(financeFiscalPeriods.userId, userId),
+          eq(financeFiscalPeriods.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financePeriodLocks)
+      .where(
+        and(
+          eq(financePeriodLocks.userId, userId),
+          eq(financePeriodLocks.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeVoucherReversals)
+      .where(
+        and(
+          eq(financeVoucherReversals.userId, userId),
+          eq(financeVoucherReversals.projectId, projectId)
+        )
+      ),
+    // Voucher-scoped children carry no projectId, so they ride on the voucher join.
+    db
+      .select()
+      .from(financeVoucherAudit)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherAudit.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_audit)),
+    db
+      .select()
+      .from(financeVoucherReferences)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherReferences.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_references)),
   ]);
   return {
     formatVersion: "finance-project-backup-v2" as const,
@@ -6932,11 +7003,18 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     ledgerEntries,
     journalEntries,
     journalLines,
+    // Period controls + voucher audit trail (optional for older backups).
+    accountGroups,
+    fiscalPeriods,
+    periodLocks,
+    voucherReversals,
+    voucherAudit,
+    voucherReferences,
   };
 }
 
-function assertUniqueBackupIds(rows: Array<{ id: number }>, label: string) {
-  if (new Set(rows.map(row => row.id)).size !== rows.length)
+function assertUniqueBackupIds(rows: Array<{ id?: unknown }>, label: string) {
+  if (new Set(rows.map(row => Number(row.id))).size !== rows.length)
     throw new Error(`${label} ব্যাকআপে একই আইডি একাধিকবার আছে`);
 }
 
@@ -7020,6 +7098,12 @@ type ProjectBackupLike = {
   ledgerEntries?: Array<Record<string, unknown>>;
   journalEntries?: Array<Record<string, unknown>>;
   journalLines?: Array<Record<string, unknown>>;
+  accountGroups?: Array<Record<string, unknown>>;
+  fiscalPeriods?: Array<Record<string, unknown>>;
+  periodLocks?: Array<Record<string, unknown>>;
+  voucherReversals?: Array<Record<string, unknown>>;
+  voucherAudit?: Array<Record<string, unknown>>;
+  voucherReferences?: Array<Record<string, unknown>>;
   formatVersion?: string;
 };
 
@@ -7039,6 +7123,19 @@ function backupNullableText(value: unknown): string | null {
 function backupNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** JSON columns may round-trip as an object or as the stored JSON text. */
+function backupJson(value: unknown): unknown {
+  if (value == null) return {};
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return { raw: value };
+    }
+  }
+  return value;
 }
 
 function assertBackupReferences(backup: ProjectBackupLike) {
@@ -7075,6 +7172,56 @@ function assertBackupReferences(backup: ProjectBackupLike) {
     ensureCategory(row.categoryId);
     ensureAccount(row.accountId);
   });
+  for (const [rows, label] of [
+    [backup.voucherDebits, "ডেবিট লাইন"],
+    [backup.voucherCredits, "ক্রেডিট লাইন"],
+    [backup.ledgerEntries, "লেজার এন্ট্রি"],
+    [backup.voucherAudit, "ভাউচার অডিট"],
+    [backup.voucherReferences, "ভাউচার রেফারেন্স"],
+    [backup.voucherReversals, "ভাউচার রিভার্সাল"],
+    [backup.accountGroups, "অ্যাকাউন্ট গ্রুপ"],
+    [backup.fiscalPeriods, "আর্থিক সময়কাল"],
+    [backup.periodLocks, "পিরিয়ড লক"],
+  ] as const) {
+    if (rows) assertUniqueBackupIds(rows, label);
+  }
+  const voucherIds = new Set(
+    (backup.vouchers ?? []).map(row => Number(row.id))
+  );
+  const journalEntryIds = new Set(
+    (backup.journalEntries ?? []).map(row => Number(row.id))
+  );
+  const ensureVoucher = (id: unknown) => {
+    if (id !== null && id !== undefined && !voucherIds.has(Number(id)))
+      throw new Error("ব্যাকআপের একটি ভাউচার রেফারেন্স সঠিক নয়");
+  };
+  for (const rows of [
+    backup.voucherDebits,
+    backup.voucherCredits,
+    backup.ledgerEntries,
+    backup.voucherAudit,
+    backup.voucherReferences,
+  ]) {
+    rows?.forEach(row => ensureVoucher(row.voucherId));
+  }
+  backup.voucherReversals?.forEach(row => {
+    ensureVoucher(row.originalVoucherId);
+    ensureVoucher(row.reversalVoucherId);
+  });
+  backup.journalLines?.forEach(row => {
+    const id = Number(row.journalEntryId);
+    if (!journalEntryIds.has(id))
+      throw new Error("ব্যাকআপের একটি জার্নাল লাইন রেফারেন্স সঠিক নয়");
+  });
+  const groupIds = new Set(
+    (backup.accountGroups ?? []).map(row => Number(row.id))
+  );
+  backup.accountGroups?.forEach(row => {
+    if (row.parentId != null && !groupIds.has(Number(row.parentId)))
+      throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট গ্রুপ প্যারেন্ট সঠিক নয়");
+    if (!Number.isInteger(Number(row.accountTypeId)))
+      throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট টাইপ রেফারেন্স সঠিক নয়");
+  });
 }
 
 export function previewProjectBackup(backup: ProjectBackupLike) {
@@ -7101,6 +7248,12 @@ export function previewProjectBackup(backup: ProjectBackupLike) {
       ledgerEntries: backup.ledgerEntries?.length ?? 0,
       journalEntries: backup.journalEntries?.length ?? 0,
       journalLines: backup.journalLines?.length ?? 0,
+      accountGroups: backup.accountGroups?.length ?? 0,
+      fiscalPeriods: backup.fiscalPeriods?.length ?? 0,
+      periodLocks: backup.periodLocks?.length ?? 0,
+      voucherReversals: backup.voucherReversals?.length ?? 0,
+      voucherAudit: backup.voucherAudit?.length ?? 0,
+      voucherReferences: backup.voucherReferences?.length ?? 0,
     },
     transactionDateRange: transactionDates.length
       ? {
@@ -7152,6 +7305,71 @@ export async function restoreProjectBackup(
     const transactionMap = new Map<number, number>();
     const settlementMap = new Map<number, number>();
     const journalMap = new Map<number, number>();
+    const fiscalPeriodMap = new Map<number, number>();
+    const accountGroupMap = new Map<number, number>();
+
+    for (const row of input.backup.fiscalPeriods ?? []) {
+      const result = await tx
+        .insert(financeFiscalPeriods)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          name: backupText(row.name),
+          startDate: backupDate(row.startDate),
+          endDate: backupDate(row.endDate),
+          status: (row.status ?? "open") as
+            | "open"
+            | "closed"
+            | "locked",
+          closedAt: row.closedAt == null ? null : backupDate(row.closedAt),
+          closedBy: null,
+        })
+        .execute();
+      fiscalPeriodMap.set(Number(row.id), Number(result[0].insertId));
+    }
+    for (const row of input.backup.accountGroups ?? []) {
+      const result = await tx
+        .insert(financeAccountGroups)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          accountTypeId: Number(row.accountTypeId),
+          parentId: null,
+          code: backupText(row.code),
+          name: backupText(row.name),
+          nameBn: backupNullableText(row.nameBn),
+          description: backupNullableText(row.description),
+          sortOrder: backupNumber(row.sortOrder),
+          isSystem: Boolean(row.isSystem),
+        })
+        .execute();
+      accountGroupMap.set(Number(row.id), Number(result[0].insertId));
+    }
+    for (const row of input.backup.accountGroups ?? []) {
+      if (row.parentId == null) continue;
+      const restoredId = accountGroupMap.get(Number(row.id));
+      const parentId = accountGroupMap.get(Number(row.parentId));
+      if (restoredId && parentId)
+        await tx
+          .update(financeAccountGroups)
+          .set({ parentId })
+          .where(eq(financeAccountGroups.id, restoredId))
+          .execute();
+    }
+    for (const row of input.backup.periodLocks ?? []) {
+      await tx
+        .insert(financePeriodLocks)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          monthKey: backupText(row.monthKey),
+          lockedAt: row.lockedAt == null ? new Date() : backupDate(row.lockedAt),
+          // NOT NULL: attribute the lock to the restoring owner.
+          lockedBy: userId,
+          reason: backupNullableText(row.reason),
+        })
+        .execute();
+    }
 
     for (const row of input.backup.accounts) {
       const result = await tx
@@ -7410,15 +7628,19 @@ export async function restoreProjectBackup(
               "draft" | "submitted" | "approved" | "posted" | "reversed") ??
             "draft",
           voucherType: backupText(row.voucherType) || "general",
-          fiscalPeriodId: null,
+          fiscalPeriodId:
+            row.fiscalPeriodId == null
+              ? null
+              : (fiscalPeriodMap.get(Number(row.fiscalPeriodId)) ?? null),
           submittedBy: null,
-          submittedAt: null,
+          submittedAt:
+            row.submittedAt == null ? null : backupDate(row.submittedAt),
           approvedBy: null,
-          approvedAt: null,
+          approvedAt: row.approvedAt == null ? null : backupDate(row.approvedAt),
           postedBy: null,
-          postedAt: null,
+          postedAt: row.postedAt == null ? null : backupDate(row.postedAt),
           reversedBy: null,
-          reversedAt: null,
+          reversedAt: row.reversedAt == null ? null : backupDate(row.reversedAt),
           reversalReference: backupNullableText(row.reversalReference),
           isArchived: Boolean(row.isArchived),
         })
@@ -7426,6 +7648,70 @@ export async function restoreProjectBackup(
       if (row.id != null)
         voucherMap.set(Number(row.id), Number(result[0].insertId));
       voucherNoMap.set(backupText(row.voucherNo), Number(result[0].insertId));
+    }
+    for (const row of input.backup.voucherReversals ?? []) {
+      const originalVoucherId = voucherMap.get(Number(row.originalVoucherId));
+      const reversalVoucherId = voucherMap.get(Number(row.reversalVoucherId));
+      if (!originalVoucherId || !reversalVoucherId) continue;
+      await tx
+        .insert(financeVoucherReversals)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          originalVoucherId,
+          reversalVoucherId,
+          reason: backupText(row.reason),
+          reversedAt:
+            row.reversedAt == null ? new Date() : backupDate(row.reversedAt),
+          // NOT NULL: the original actor may not exist in a fresh database.
+          reversedBy: userId,
+        })
+        .execute();
+    }
+    for (const row of input.backup.voucherAudit ?? []) {
+      const voucherId = voucherMap.get(Number(row.voucherId));
+      if (!voucherId) continue;
+      await tx
+        .insert(financeVoucherAudit)
+        .values({
+          voucherId,
+          // NOT NULL: the original actor may not exist in a fresh database.
+          actorUserId: userId,
+          action:
+            (row.action as
+              | "create"
+              | "submit"
+              | "approve"
+              | "post"
+              | "cancel"
+              | "reverse") ?? "create",
+          snapshot: backupJson(row.snapshot),
+          createdAt:
+            row.createdAt == null ? new Date() : backupDate(row.createdAt),
+        })
+        .execute();
+    }
+    for (const row of input.backup.voucherReferences ?? []) {
+      const voucherId = voucherMap.get(Number(row.voucherId));
+      if (!voucherId) continue;
+      await tx
+        .insert(financeVoucherReferences)
+        .values({
+          voucherId,
+          refType:
+            (row.refType as
+              | "cheque"
+              | "bill"
+              | "invoice"
+              | "challan"
+              | "other") ?? "other",
+          refNumber: backupText(row.refNumber),
+          refDate: row.refDate == null ? null : backupDate(row.refDate),
+          relatedEntityType: backupNullableText(row.relatedEntityType),
+          relatedEntityId:
+            row.relatedEntityId == null ? null : Number(row.relatedEntityId),
+        })
+        .execute();
     }
     for (const row of input.backup.transactions) {
       const restoredId = transactionMap.get(row.id);

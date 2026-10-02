@@ -55,6 +55,30 @@ function downloadJson(payload: unknown, filename: string) {
 type ProjectBackupJson =
   inferRouterInputs<AppRouter>["finance"]["previewProjectBackup"]["backup"];
 
+const BACKUP_COUNT_LABELS: Record<string, string> = {
+  accounts: "অ্যাকাউন্ট",
+  categories: "ক্যাটাগরি",
+  transactions: "লেনদেন",
+  budgets: "বাজেট",
+  bills: "বিল",
+  dues: "দেনা-পাওনা",
+  settlements: "সমন্বয়",
+  recurring: "পুনরাবৃত্ত",
+  chartOfAccounts: "চার্ট অবঅ্যাকাউন্টস",
+  vouchers: "ভাউচার",
+  voucherDebits: "ডেবিট লাইন",
+  voucherCredits: "ক্রেডিট লাইন",
+  ledgerEntries: "লেজার এন্ট্রি",
+  journalEntries: "জার্নাল এন্ট্রি",
+  journalLines: "জার্নাল লাইন",
+  accountGroups: "অ্যাকাউন্ট গ্রুপ",
+  fiscalPeriods: "আর্থিক সময়কাল",
+  periodLocks: "পিরিয়ড লক",
+  voucherReversals: "ভাউচার রিভার্সাল",
+  voucherAudit: "ভাউচার অডিট",
+  voucherReferences: "ভাউচার রেফারেন্স",
+};
+
 type BackupPreview = {
   sourceProjectName: string;
   exportedAt: Date | string;
@@ -484,21 +508,7 @@ export default function FinanceBackup() {
                         className="rounded-xl bg-white p-2 text-center"
                       >
                         <p className="text-xs text-[#617b70]">
-                          {label === "accounts"
-                            ? "অ্যাকাউন্ট"
-                            : label === "categories"
-                              ? "ক্যাটাগরি"
-                              : label === "transactions"
-                                ? "লেনদেন"
-                                : label === "budgets"
-                                  ? "বাজেট"
-                                  : label === "bills"
-                                    ? "বিল"
-                                    : label === "dues"
-                                      ? "দেনা-পাওনা"
-                                      : label === "settlements"
-                                        ? "সমন্বয়"
-                                        : "পুনরাবৃত্ত"}
+                          {BACKUP_COUNT_LABELS[label] ?? label}
                         </p>
                         <p className="mt-1 font-bold text-[#234b3b]">
                           {new Intl.NumberFormat("bn-BD").format(Number(count))}

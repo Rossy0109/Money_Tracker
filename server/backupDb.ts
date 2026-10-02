@@ -161,6 +161,12 @@ export async function countProjectRecords(
     financeLedgerEntries,
     financeJournalEntries,
     financeJournalLines,
+    financeVoucherReversals,
+    financeVoucherAudit,
+    financeVoucherReferences,
+    financeFiscalPeriods,
+    financePeriodLocks,
+    financeAccountGroups,
   } = await import("../drizzle/schema");
 
   await assertOwnedProject(userId, projectId);
@@ -248,5 +254,19 @@ export async function countProjectRecords(
     ledgerEntries: await countByVoucherIds(financeLedgerEntries as never),
     journalEntries: journalIds.length,
     journalLines: journalLineCount,
+    accountGroups: await countTable(financeAccountGroups, [
+      sql`${projectIdColumn(financeAccountGroups)} = ${projectId}`,
+    ]),
+    fiscalPeriods: await countTable(financeFiscalPeriods, [
+      sql`${projectIdColumn(financeFiscalPeriods)} = ${projectId}`,
+    ]),
+    periodLocks: await countTable(financePeriodLocks, [
+      sql`${projectIdColumn(financePeriodLocks)} = ${projectId}`,
+    ]),
+    voucherReversals: await countTable(financeVoucherReversals, [
+      sql`${projectIdColumn(financeVoucherReversals)} = ${projectId}`,
+    ]),
+    voucherAudit: await countByVoucherIds(financeVoucherAudit as never),
+    voucherReferences: await countByVoucherIds(financeVoucherReferences as never),
   };
 }
