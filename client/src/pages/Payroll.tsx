@@ -1017,7 +1017,7 @@ export default function Payroll() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs font-semibold text-gray-700 mb-1 block">
                     মূল বেতন (৳) *

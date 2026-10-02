@@ -331,7 +331,7 @@ export default function Invoices() {
                 </div>
 
                 {/* Dates */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs font-semibold text-[#244b3c]">
                       ইস্যু তারিখ
@@ -379,9 +379,9 @@ export default function Invoices() {
                     {items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="grid grid-cols-12 gap-2 items-center bg-[#fafdfb] p-2.5 rounded-xl border border-[#e4ede7]"
+                        className="grid grid-cols-2 gap-2 items-center bg-[#fafdfb] p-2.5 rounded-xl border border-[#e4ede7] sm:grid-cols-12"
                       >
-                        <div className="col-span-5">
+                        <div className="col-span-2 sm:col-span-5">
                           <Input
                             placeholder="বিবরণ বা পণ্য বাছাই"
                             list="inventory-datalist"
@@ -397,7 +397,7 @@ export default function Invoices() {
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <Input
                             type="number"
                             min="1"
@@ -410,7 +410,7 @@ export default function Invoices() {
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <Input
                             type="number"
                             min="0"
@@ -423,7 +423,7 @@ export default function Invoices() {
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <Input
                             type="number"
                             min="0"
@@ -435,7 +435,7 @@ export default function Invoices() {
                             className="h-8.5 text-xs rounded-lg bg-white"
                           />
                         </div>
-                        <div className="col-span-1 text-center">
+                        <div className="col-span-1 text-center sm:col-span-1">
                           {items.length > 1 && (
                             <button
                               type="button"
