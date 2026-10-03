@@ -33,6 +33,7 @@ import {
   Search,
   Plus,
 } from "lucide-react";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 const formatBdt = (val: number | string | null | undefined) =>
   "৳ " +
@@ -463,7 +464,7 @@ export default function Payroll() {
             </div>
 
             <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              <ScrollShadow>
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
                     <tr>
@@ -565,7 +566,7 @@ export default function Payroll() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </ScrollShadow>
             </div>
           </TabsContent>
 
@@ -596,7 +597,7 @@ export default function Payroll() {
             </div>
 
             <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              <ScrollShadow>
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
                     <tr>
@@ -708,7 +709,7 @@ export default function Payroll() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </ScrollShadow>
             </div>
           </TabsContent>
 
@@ -730,7 +731,7 @@ export default function Payroll() {
             </div>
 
             <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              <ScrollShadow>
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
                     <tr>
@@ -802,7 +803,7 @@ export default function Payroll() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </ScrollShadow>
             </div>
           </TabsContent>
         </Tabs>
@@ -1017,7 +1018,7 @@ export default function Payroll() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <Label className="text-xs font-semibold text-gray-700 mb-1 block">
                     মূল বেতন (৳) *

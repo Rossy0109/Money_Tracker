@@ -7,6 +7,7 @@
  */
 import { eq, and, desc, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
+import type { DbOrTx } from "./db";
 import { auditLogs } from "../drizzle/schema";
 
 export async function saveHealthSnapshot(_input: {
@@ -65,6 +66,112 @@ export async function latestCloudBackupAuditRows(
     )
     .orderBy(desc(auditLogs.id))
     .limit(Math.min(Math.max(Math.trunc(limit) || 5, 1), 50));
+}
+
+export interface RestoreDrillRow {
+  id: number;
+  entityType: string;
+  summary: string;
+  projectId: number | null;
+  createdAt: Date;
+}
+
+/**
+ * Newest restore-drill audit rows, newest first. `restore_drill` is written
+ * only when the drill proved download → decrypt → checksum → manifest →
+ * rolled-back restore; `restore_drill_failed` records why it did not.
+ */
+export async function latestRestoreDrillRows(
+  limit = 1
+): Promise<RestoreDrillRow[]> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+
+  return db
+    .select({
+      id: auditLogs.id,
+      entityType: auditLogs.entityType,
+      summary: auditLogs.summary,
+      projectId: auditLogs.projectId,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(
+      inArray(auditLogs.entityType, ["restore_drill", "restore_drill_failed"])
+    )
+    .orderBy(desc(auditLogs.id))
+    .limit(Math.min(Math.max(Math.trunc(limit) || 1, 1), 50));
+}
+
+export interface CloudBackupManifest {
+  auditId: number;
+  createdAt: Date;
+  checksum: string | null;
+  fileName: string | null;
+  provider: string | null;
+  recordCounts: Record<string, number> | null;
+}
+
+/**
+ * The newest `cloud_backup` audit row for one project, parsed back into the
+ * checksum and record counts the backup run recorded. The restore drill
+ * compares a downloaded object against it, so a bucket that silently holds an
+ * older or foreign object cannot pass as "restorable".
+ */
+export async function lastCloudBackupManifest(
+  userId: number,
+  projectId: number
+): Promise<CloudBackupManifest | null> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+
+  const [row] = await db
+    .select({
+      id: auditLogs.id,
+      newData: auditLogs.newData,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.actorUserId, userId),
+        eq(auditLogs.entityType, "cloud_backup"),
+        eq(auditLogs.projectId, projectId)
+      )
+    )
+    .orderBy(desc(auditLogs.id))
+    .limit(1);
+
+  if (!row) return null;
+
+  let checksum: string | null = null;
+  let fileName: string | null = null;
+  let provider: string | null = null;
+  let recordCounts: Record<string, number> | null = null;
+  try {
+    const parsed =
+      typeof row.newData === "string"
+        ? JSON.parse(row.newData)
+        : (row.newData as unknown);
+    const data = (parsed ?? {}) as Record<string, unknown>;
+    if (typeof data.checksum === "string") checksum = data.checksum;
+    if (typeof data.fileName === "string") fileName = data.fileName;
+    if (typeof data.provider === "string") provider = data.provider;
+    if (data.recordCounts && typeof data.recordCounts === "object") {
+      recordCounts = data.recordCounts as Record<string, number>;
+    }
+  } catch {
+    // Unparseable newData is reported as missing fields, not as an error.
+  }
+
+  return {
+    auditId: row.id,
+    createdAt: row.createdAt,
+    checksum,
+    fileName,
+    provider,
+    recordCounts,
+  };
 }
 
 export async function lastBackupForKind(
@@ -142,9 +249,20 @@ export async function backupStatusSummary(
 /**
  * Count records in a project for backup manifest verification.
  */
+export interface CountProjectRecordsOptions {
+  /**
+   * Count on this executor instead of a fresh connection — how the restore
+   * drill reads rows that only exist inside its still-open transaction.
+   */
+  executor?: DbOrTx;
+  /** Skip assertOwnedProject when the caller already proved ownership. */
+  skipOwnershipCheck?: boolean;
+}
+
 export async function countProjectRecords(
   userId: number,
-  projectId: number
+  projectId: number,
+  options: CountProjectRecordsOptions = {}
 ): Promise<Record<string, number>> {
   const { getDb, databaseRequired, assertOwnedProject } = await import("./db");
   const {
@@ -161,10 +279,18 @@ export async function countProjectRecords(
     financeLedgerEntries,
     financeJournalEntries,
     financeJournalLines,
+    financeVoucherReversals,
+    financeVoucherAudit,
+    financeVoucherReferences,
+    financeFiscalPeriods,
+    financePeriodLocks,
+    financeAccountGroups,
   } = await import("../drizzle/schema");
 
-  await assertOwnedProject(userId, projectId);
-  const db = databaseRequired(await getDb());
+  if (!options.skipOwnershipCheck) {
+    await assertOwnedProject(userId, projectId);
+  }
+  const db = options.executor ?? databaseRequired(await getDb());
 
   const countTable = async (table: MySqlTable, conditions: SQL[]) => {
     const [result] = await db
@@ -248,5 +374,19 @@ export async function countProjectRecords(
     ledgerEntries: await countByVoucherIds(financeLedgerEntries as never),
     journalEntries: journalIds.length,
     journalLines: journalLineCount,
+    accountGroups: await countTable(financeAccountGroups, [
+      sql`${projectIdColumn(financeAccountGroups)} = ${projectId}`,
+    ]),
+    fiscalPeriods: await countTable(financeFiscalPeriods, [
+      sql`${projectIdColumn(financeFiscalPeriods)} = ${projectId}`,
+    ]),
+    periodLocks: await countTable(financePeriodLocks, [
+      sql`${projectIdColumn(financePeriodLocks)} = ${projectId}`,
+    ]),
+    voucherReversals: await countTable(financeVoucherReversals, [
+      sql`${projectIdColumn(financeVoucherReversals)} = ${projectId}`,
+    ]),
+    voucherAudit: await countByVoucherIds(financeVoucherAudit as never),
+    voucherReferences: await countByVoucherIds(financeVoucherReferences as never),
   };
 }

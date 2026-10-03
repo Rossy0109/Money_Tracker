@@ -1,0 +1,71 @@
+name: Daily Accounting Audit
+
+on:
+  schedule:
+    # 05:30 UTC (11:30 AM Bangladesh Standard Time) — after the overnight
+    # activity, before the day's entries, so a broken balance is seen while
+    # there is still time to find the voucher that caused it.
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: accounting-audit
+  cancel-in-progress: false
+
+jobs:
+  accounting-audit:
+    name: Check Double-Entry Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The audit runs on the server: it sums every project's voucher lines,
+      # cached totals, ledger rows and journal entries, compares them in
+      # integer cents, and records the verdict. Actions only carries the cron
+      # secret — no production database credential ever leaves Vercel for this
+      # (same trust boundary as the backup trigger, and a stale DB password
+      # can never rot this check).
+      - name: Run the accounting audit
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
+          # Preferred secret: CRON_SECRET (matches server hasValidCronSecret).
+          # BACKUP_CRON_SECRET is accepted as a legacy alias by the server.
+          # ADMIN_ACCESS_PASSWORD must never authorize the audit.
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.BACKUP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_SECRET" ]; then
+            echo "Failing loudly: CRON_SECRET (or BACKUP_CRON_SECRET) secret not set on GitHub."
+            echo "A silently-skipped audit is worse than a red job — set the secret to re-enable."
+            exit 1
+          fi
+
+          TARGET_URL="${APP_URL%/}/api/scheduled/accounting-audit"
+          echo "Running the accounting audit at: $TARGET_URL (GET — same method as Vercel Cron)"
+
+          HTTP_CODE=$(curl -s -o audit.json -w "%{http_code}" --max-time 600 -X GET "$TARGET_URL" \
+            -H "Authorization: Bearer $BACKUP_SECRET")
+
+          cat audit.json
+          echo ""
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Accounting audit failed with status code $HTTP_CODE"
+            exit 1
+          fi
+
+      # HTTP 200 alone never proves the books balance: the endpoint answers
+      # 200 with verified:false whenever a level disagrees (voucher lines,
+      # cached totals, ledger, journal, trial balance). Assert the verdict so
+      # a hollow 200 cannot pass as "the accounting data is consistent".
+      - name: Assert the audit verdict
+        run: |
+          if ! jq -e '.verified == true' audit.json > /dev/null; then
+            echo "Accounting audit found unbalanced data:"
+            jq '{verified, reason, projects, violations, samples}' audit.json
+            exit 1
+          fi
+          echo "OK: $(jq -r '.projects' audit.json) project(s) balanced — $(jq -r '.reason // "no violations"' audit.json)"

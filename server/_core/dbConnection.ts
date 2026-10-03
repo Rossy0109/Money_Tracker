@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
+import { instrumentPool } from "./queryTiming";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _externalDb: ReturnType<typeof drizzle> | null = null;
@@ -82,6 +83,7 @@ export async function getDb() {
     try {
       const config = parseDatabaseUrl(process.env.DATABASE_URL);
       _pool = createPool(config);
+      instrumentPool(_pool);
       _db = drizzle(_pool, { logger: false }) as unknown as ReturnType<typeof drizzle>;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);

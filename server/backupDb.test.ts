@@ -133,6 +133,12 @@ describe("countProjectRecords", () => {
       ledgerEntries: 0,
       journalEntries: 0,
       journalLines: 0,
+      accountGroups: 0,
+      fiscalPeriods: 0,
+      periodLocks: 0,
+      voucherReversals: 0,
+      voucherAudit: 0,
+      voucherReferences: 0,
     });
   });
 
@@ -159,5 +165,40 @@ describe("countProjectRecords", () => {
     expect(counts.voucherDebits).toBe(7);
     expect(counts.voucherCredits).toBe(6);
     expect(counts.transactions).toBe(3);
+  });
+
+  it("counts period controls and voucher audit children", async () => {
+    // Query order: voucher ids, journal ids, journal lines, then the
+    // record counts, then the period/audit counts added by backup scope.
+    state.queue.push(
+      [{ id: 5 }],
+      [{ id: 7 }],
+      [{ count: 6 }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      [{ count: 2 }],
+      [{ count: 3 }],
+      [{ count: 4 }],
+      [{ count: 5 }],
+      [{ count: 1 }],
+      [{ count: 2 }],
+      [{ count: 3 }],
+      [{ count: 4 }],
+      [{ count: 7 }],
+      [{ count: 8 }]
+    );
+    const counts = await countProjectRecords(1, 2);
+    expect(counts.accountGroups).toBe(1);
+    expect(counts.fiscalPeriods).toBe(2);
+    expect(counts.periodLocks).toBe(3);
+    expect(counts.voucherReversals).toBe(4);
+    expect(counts.voucherAudit).toBe(7);
+    expect(counts.voucherReferences).toBe(8);
+    expect(counts.voucherDebits).toBe(3);
+    expect(counts.journalLines).toBe(6);
   });
 });

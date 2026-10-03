@@ -15,6 +15,13 @@ import {
 } from "drizzle-orm";
 import { sha256Hex, randomBytesBase64Url } from "../shared/platform/crypto";
 import {
+  decimalFromCents,
+  fromCents,
+  sumCents,
+  sumMoney,
+  toCents,
+} from "./money";
+import {
   getDb,
   closeDatabaseConnection,
   databaseRequired,
@@ -107,9 +114,9 @@ export type {
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
-type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
-type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
-type DbOrTx = DbHandle | DbTx;
+export type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+export type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
+export type DbOrTx = DbHandle | DbTx;
 type DbRow = {
   id: number;
   accountId: number | null;
@@ -175,14 +182,6 @@ function signedAmount(type: "income" | "expense", amount: string | number) {
   return type === "income" ? amountNumber : -amountNumber;
 }
 
-function cents(value: string | number) {
-  return Math.round(Number(value) * 100);
-}
-
-function decimalFromCents(value: number) {
-  return (value / 100).toFixed(2);
-}
-
 async function transactionFingerprint(input: {
   projectId: number;
   categoryId: number;
@@ -199,7 +198,7 @@ async function transactionFingerprint(input: {
       categoryId: input.categoryId,
       accountId: input.accountId ?? null,
       type: input.type,
-      amountCents: cents(input.amount),
+      amountCents: toCents(input.amount),
       paymentMethod: input.paymentMethod.trim(),
       note: input.note?.trim() || null,
       occurredAt: input.occurredAt.toISOString(),
@@ -1145,11 +1144,11 @@ async function assertCanonicalAccountTx(
 
 function validateVoucherInput(input: VoucherInput) {
   const totalDebitCents = input.debits.reduce(
-    (sum, entry) => sum + cents(entry.amount),
+    (sum, entry) => sum + toCents(entry.amount),
     0
   );
   const totalCreditCents = input.credits.reduce(
-    (sum, entry) => sum + cents(entry.amount),
+    (sum, entry) => sum + toCents(entry.amount),
     0
   );
   if (totalDebitCents !== totalCreditCents)
@@ -1207,7 +1206,7 @@ async function createVoucherWithEntriesInTx(
       voucherId,
       accountId: null,
       chartOfAccountId: entry.accountId,
-      amount: decimalFromCents(cents(entry.amount)),
+      amount: decimalFromCents(toCents(entry.amount)),
       narration: entry.narration?.trim() || null,
       sortOrder: index,
     }))
@@ -1217,7 +1216,7 @@ async function createVoucherWithEntriesInTx(
       voucherId,
       accountId: null,
       chartOfAccountId: entry.accountId,
-      amount: decimalFromCents(cents(entry.amount)),
+      amount: decimalFromCents(toCents(entry.amount)),
       narration: entry.narration?.trim() || null,
       sortOrder: index,
     }))
@@ -1465,8 +1464,10 @@ async function postVoucherInternals(
         `ক্যাননিক্যাল হিসাবখাতা পাওয়া যায়নি: ${entry.accountId}`
       );
     const delta =
-      entry.entryType === "debit" ? cents(entry.amount) : -cents(entry.amount);
-    const runningBalance = cents(account.currentBalance) + delta;
+      entry.entryType === "debit"
+        ? toCents(entry.amount)
+        : -toCents(entry.amount);
+    const runningBalance = toCents(account.currentBalance) + delta;
     account.currentBalance = decimalFromCents(runningBalance);
     await tx
       .update(financeChartOfAccounts)
@@ -1482,18 +1483,18 @@ async function postVoucherInternals(
       accountId: null,
       chartOfAccountId: entry.accountId,
       entryType: entry.entryType,
-      amount: decimalFromCents(cents(entry.amount)),
+      amount: decimalFromCents(toCents(entry.amount)),
       runningBalance: decimalFromCents(runningBalance),
       postedAt: date,
     });
   }
 
   const totalDebitCents = debits.reduce(
-    (sum, entry) => sum + cents(entry.amount),
+    (sum, entry) => sum + toCents(entry.amount),
     0
   );
   const totalCreditCents = credits.reduce(
-    (sum, entry) => sum + cents(entry.amount),
+    (sum, entry) => sum + toCents(entry.amount),
     0
   );
   const journalNo = `JE-${String(voucherId).padStart(8, "0")}`;
@@ -1515,7 +1516,7 @@ async function postVoucherInternals(
       journalEntryId,
       accountId: entry.accountId,
       entryType: "debit" as const,
-      amount: decimalFromCents(cents(entry.amount)),
+      amount: decimalFromCents(toCents(entry.amount)),
       narration: entry.narration?.trim() || null,
       sortOrder: index,
     })),
@@ -1523,7 +1524,7 @@ async function postVoucherInternals(
       journalEntryId,
       accountId: entry.accountId,
       entryType: "credit" as const,
-      amount: decimalFromCents(cents(entry.amount)),
+      amount: decimalFromCents(toCents(entry.amount)),
       narration: entry.narration?.trim() || null,
       sortOrder: debits.length + index,
     })),
@@ -3153,8 +3154,8 @@ async function recalculateReconciliation(
       eq(financeBankReconciliationItems.reconciliationId, reconciliationId)
     );
 
-  let matchedDebits = 0;
-  let matchedCredits = 0;
+  let matchedDebitCents = 0;
+  let matchedCreditCents = 0;
   for (const item of items) {
     if (item.matched && item.ledgerEntryId) {
       const [ledger] = await db
@@ -3164,8 +3165,8 @@ async function recalculateReconciliation(
         .limit(1);
       if (ledger) {
         if (ledger.entryType === "debit")
-          matchedDebits += Number(ledger.amount);
-        else matchedCredits += Number(ledger.amount);
+          matchedDebitCents += toCents(ledger.amount);
+        else matchedCreditCents += toCents(ledger.amount);
       }
     }
   }
@@ -3176,15 +3177,15 @@ async function recalculateReconciliation(
     .where(eq(financeBankReconciliations.id, reconciliationId))
     .limit(1);
 
-  const adjustedBookBalance =
-    Number(rec.bookBalance) + matchedDebits - matchedCredits;
-  const difference = Number(rec.statementBalance) - adjustedBookBalance;
+  const adjustedBookCents =
+    toCents(rec.bookBalance) + matchedDebitCents - matchedCreditCents;
+  const differenceCents = toCents(rec.statementBalance) - adjustedBookCents;
 
   await db
     .update(financeBankReconciliations)
     .set({
-      difference: decimal(difference),
-      status: Math.abs(difference) < 0.01 ? "completed" : "in_progress",
+      difference: decimalFromCents(differenceCents),
+      status: Math.abs(differenceCents) < 1 ? "completed" : "in_progress",
     })
     .where(eq(financeBankReconciliations.id, reconciliationId));
 }
@@ -3209,7 +3210,7 @@ export async function completeBankReconciliation(
     )
     .limit(1);
   if (!rec) throw new Error("রিকোনসিলিয়েশন পাওয়া যায়নি");
-  if (Math.abs(Number(rec.difference)) > 0.01) {
+  if (Math.abs(toCents(rec.difference)) > 1) {
     throw new Error(
       "ডিফারেন্স ০.০১ এর চেয়ে বেশি; রিকোনসিলিয়েশন সম্পন্ন করা যাবে না"
     );
@@ -3719,14 +3720,14 @@ export async function getHouseholdOverview(
           .orderBy(desc(financeSharedExpenses.occurredAt))
       ).filter(expense => activeBudgetIds.has(expense.budgetId))
     : [];
-  const spentByBudget = new Map<number, number>();
+  const spentByBudgetCents = new Map<number, number>();
   for (const expense of expenses)
-    spentByBudget.set(
+    spentByBudgetCents.set(
       expense.budgetId,
-      (spentByBudget.get(expense.budgetId) ?? 0) + Number(expense.amount)
+      (spentByBudgetCents.get(expense.budgetId) ?? 0) + toCents(expense.amount)
     );
   const sharedBudgets = budgets.map(budget => {
-    const spent = spentByBudget.get(budget.id) ?? 0;
+    const spent = fromCents(spentByBudgetCents.get(budget.id) ?? 0);
     const amount = Number(budget.amount);
     return { ...budget, ...calculateSharedBudgetProgress(amount, spent) };
   });
@@ -4284,26 +4285,29 @@ export async function getOverview(userId: number, projectId: number) {
       ),
     getVoucherSettings(userId, projectId),
   ]);
-  const totalBalance = accounts.reduce(
-    (sum, account) => sum + Number(account.currentBalance),
-    0
+  const totalBalance = sumMoney(
+    accounts.map(account => account.currentBalance)
   );
-  const totalIncome = transactions
-    .filter(row => row.type === "income")
-    .reduce((sum, row) => sum + Number(row.amount), 0);
-  const totalExpense = transactions
-    .filter(row => row.type === "expense")
-    .reduce((sum, row) => sum + Number(row.amount), 0);
+  const incomeCents = sumCents(
+    transactions.filter(row => row.type === "income").map(row => row.amount)
+  );
+  const expenseCents = sumCents(
+    transactions.filter(row => row.type === "expense").map(row => row.amount)
+  );
+  const totalIncome = fromCents(incomeCents);
+  const totalExpense = fromCents(expenseCents);
   const budgetProgress = budgets.map(budget => {
     const category = categories.find(item => item.id === budget.categoryId);
-    const spent = transactions
-      .filter(
-        row =>
-          row.categoryId === budget.categoryId &&
-          row.type === "expense" &&
-          row.occurredAt.toISOString().slice(0, 7) === budget.monthKey
-      )
-      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const spent = sumMoney(
+      transactions
+        .filter(
+          row =>
+            row.categoryId === budget.categoryId &&
+            row.type === "expense" &&
+            row.occurredAt.toISOString().slice(0, 7) === budget.monthKey
+        )
+        .map(row => row.amount)
+    );
     return { ...budget, categoryName: category?.name ?? "Unknown", spent };
   });
   const budgetCandidates = budgetProgress.map(budget => ({
@@ -4326,20 +4330,24 @@ export async function getOverview(userId: number, projectId: number) {
     const key = date.toISOString().slice(0, 7);
     return {
       monthKey: key,
-      income: transactions
-        .filter(
-          row =>
-            row.type === "income" &&
-            row.occurredAt.toISOString().slice(0, 7) === key
-        )
-        .reduce((sum, row) => sum + Number(row.amount), 0),
-      expense: transactions
-        .filter(
-          row =>
-            row.type === "expense" &&
-            row.occurredAt.toISOString().slice(0, 7) === key
-        )
-        .reduce((sum, row) => sum + Number(row.amount), 0),
+      income: sumMoney(
+        transactions
+          .filter(
+            row =>
+              row.type === "income" &&
+              row.occurredAt.toISOString().slice(0, 7) === key
+          )
+          .map(row => row.amount)
+      ),
+      expense: sumMoney(
+        transactions
+          .filter(
+            row =>
+              row.type === "expense" &&
+              row.occurredAt.toISOString().slice(0, 7) === key
+          )
+          .map(row => row.amount)
+      ),
     };
   });
   const displayTransactions = transactions.map(transaction => ({
@@ -4364,12 +4372,14 @@ export async function getOverview(userId: number, projectId: number) {
           : null,
       })),
   }));
-  const totalDebt = dues
-    .filter(due => due.type === "debt")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
-  const totalReceivable = dues
-    .filter(due => due.type === "receivable")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
+  const totalDebt = sumMoney(
+    dues.filter(due => due.type === "debt").map(due => due.outstandingAmount)
+  );
+  const totalReceivable = sumMoney(
+    dues
+      .filter(due => due.type === "receivable")
+      .map(due => due.outstandingAmount)
+  );
   return {
     accounts,
     categories,
@@ -4389,7 +4399,7 @@ export async function getOverview(userId: number, projectId: number) {
       totalExpense,
       totalDebt,
       totalReceivable,
-      netAmount: totalIncome - totalExpense,
+      netAmount: fromCents(incomeCents - expenseCents),
     },
   };
 }
@@ -4449,13 +4459,15 @@ export async function getBudgetPlan(
         budget.categoryId === category.id &&
         budget.monthKey === previousMonthKey
     );
-    const previousSpent = transactions
-      .filter(
-        transaction =>
-          transaction.categoryId === category.id &&
-          monthKey(transaction.occurredAt) === previousMonthKey
-      )
-      .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    const previousSpent = sumMoney(
+      transactions
+        .filter(
+          transaction =>
+            transaction.categoryId === category.id &&
+            monthKey(transaction.occurredAt) === previousMonthKey
+        )
+        .map(transaction => transaction.amount)
+    );
     const suggestedAmount = Number(previousBudget?.amount ?? previousSpent);
     return {
       categoryId: category.id,
@@ -4499,31 +4511,39 @@ export async function getFinanceAnalytics(
   const currentMonthKey = monthKey();
   const data = Array.from({ length: months }, (_, offset) => {
     const key = offsetMonthKey(currentMonthKey, -(months - 1 - offset));
-    const income = transactions
-      .filter(
-        transaction =>
-          transaction.type === "income" &&
-          monthKey(transaction.occurredAt) === key
-      )
-      .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
-    const expense = transactions
-      .filter(
-        transaction =>
-          transaction.type === "expense" &&
-          monthKey(transaction.occurredAt) === key
-      )
-      .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
-    const budgeted = budgets
-      .filter(budget => budget.monthKey === key)
-      .reduce((sum, budget) => sum + Number(budget.amount), 0);
+    const incomeCents = sumCents(
+      transactions
+        .filter(
+          transaction =>
+            transaction.type === "income" &&
+            monthKey(transaction.occurredAt) === key
+        )
+        .map(transaction => transaction.amount)
+    );
+    const expenseCents = sumCents(
+      transactions
+        .filter(
+          transaction =>
+            transaction.type === "expense" &&
+            monthKey(transaction.occurredAt) === key
+        )
+        .map(transaction => transaction.amount)
+    );
+    const budgetedCents = sumCents(
+      budgets
+        .filter(budget => budget.monthKey === key)
+        .map(budget => budget.amount)
+    );
     return {
       monthKey: key,
-      income,
-      expense,
-      savings: income - expense,
-      budgeted,
+      income: fromCents(incomeCents),
+      expense: fromCents(expenseCents),
+      savings: fromCents(incomeCents - expenseCents),
+      budgeted: fromCents(budgetedCents),
       budgetUsagePercentage:
-        budgeted > 0 ? Math.round((expense / budgeted) * 100) : null,
+        budgetedCents > 0
+          ? Math.round((expenseCents / budgetedCents) * 100)
+          : null,
     };
   });
   return { data };
@@ -4701,6 +4721,7 @@ export async function listTransactionsPaginated(
   const total = Number(aggregations?.totalCount ?? 0);
   const totalIncome = Number(aggregations?.totalIncome ?? 0);
   const totalExpense = Number(aggregations?.totalExpense ?? 0);
+  const netAmount = fromCents(toCents(totalIncome) - toCents(totalExpense));
 
   const items = transactions.map(transaction => ({
     ...transaction,
@@ -4725,7 +4746,7 @@ export async function listTransactionsPaginated(
       totalCount: total,
       totalIncome,
       totalExpense,
-      netAmount: totalIncome - totalExpense,
+      netAmount,
     },
   };
 }
@@ -4796,43 +4817,54 @@ export async function getMonthlyReport(
   const monthTransactions = transactions.filter(transaction =>
     isInSelectedMonth(transaction.occurredAt)
   );
-  const totalIncome = monthTransactions
-    .filter(transaction => transaction.type === "income")
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
-  const totalExpense = monthTransactions
-    .filter(transaction => transaction.type === "expense")
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  const incomeCents = sumCents(
+    monthTransactions
+      .filter(transaction => transaction.type === "income")
+      .map(transaction => transaction.amount)
+  );
+  const expenseCents = sumCents(
+    monthTransactions
+      .filter(transaction => transaction.type === "expense")
+      .map(transaction => transaction.amount)
+  );
+  const totalIncome = fromCents(incomeCents);
+  const totalExpense = fromCents(expenseCents);
   const categoryTotals = categories
     .map(category => ({
       name: category.name,
       type: category.type,
-      total: monthTransactions
-        .filter(transaction => transaction.categoryId === category.id)
-        .reduce((sum, transaction) => sum + Number(transaction.amount), 0),
+      total: sumMoney(
+        monthTransactions
+          .filter(transaction => transaction.categoryId === category.id)
+          .map(transaction => transaction.amount)
+      ),
     }))
     .filter(category => category.total > 0);
-  const totalDebt = dues
-    .filter(due => due.type === "debt")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
-  const totalReceivable = dues
-    .filter(due => due.type === "receivable")
-    .reduce((sum, due) => sum + Number(due.outstandingAmount), 0);
-  const totalAccountBalance = accounts.reduce(
-    (sum, account) => sum + Number(account.currentBalance),
-    0
+  const totalDebt = sumMoney(
+    dues.filter(due => due.type === "debt").map(due => due.outstandingAmount)
+  );
+  const totalReceivable = sumMoney(
+    dues
+      .filter(due => due.type === "receivable")
+      .map(due => due.outstandingAmount)
+  );
+  const totalAccountBalance = sumMoney(
+    accounts.map(account => account.currentBalance)
   );
   const previousExpenseCategoryTotals = categories
     .filter(category => category.type === "expense")
     .map(category => ({
       name: category.name,
-      total: transactions
-        .filter(
-          transaction =>
-            transaction.type === "expense" &&
-            transaction.categoryId === category.id &&
-            isInPreviousMonth(transaction.occurredAt)
-        )
-        .reduce((sum, transaction) => sum + Number(transaction.amount), 0),
+      total: sumMoney(
+        transactions
+          .filter(
+            transaction =>
+              transaction.type === "expense" &&
+              transaction.categoryId === category.id &&
+              isInPreviousMonth(transaction.occurredAt)
+          )
+          .map(transaction => transaction.amount)
+      ),
     }));
   const transactionDetails = monthTransactions.map(transaction => ({
     occurredAt: transaction.occurredAt,
@@ -4858,7 +4890,7 @@ export async function getMonthlyReport(
     monthKey: targetMonthKey,
     totalIncome,
     totalExpense,
-    netAmount: totalIncome - totalExpense,
+    netAmount: fromCents(incomeCents - expenseCents),
     categoryTotals,
     totalDebt,
     totalReceivable,
@@ -5034,7 +5066,7 @@ export async function settleDue(
       projectId: input.projectId,
       dueId: input.dueId,
       accountId: input.accountId ?? null,
-      amount: decimalFromCents(cents(input.amount)),
+      amount: decimalFromCents(toCents(input.amount)),
       voucherNo: settlementVoucher.voucherNo,
       voucherId: settlementVoucher.voucherId,
       note: input.note?.trim() || null,
@@ -5174,7 +5206,7 @@ async function syncWalletOpeningBalanceInTx(
       .limit(1)
   );
   if (!wallet) return;
-  const amountCents = cents(wallet.openingBalance);
+  const amountCents = toCents(wallet.openingBalance);
   if (amountCents === 0 && !wallet.openingBalanceVoucherId) return;
   await reverseWalletOpeningVoucherInTx(
     tx,
@@ -5236,7 +5268,7 @@ async function runOpeningBalanceBackfill(
       .orderBy(financeAccounts.id)
   );
   const pending = candidates.filter(
-    row => !row.openingBalanceVoucherId && cents(row.openingBalance) !== 0
+    row => !row.openingBalanceVoucherId && toCents(row.openingBalance) !== 0
   );
   const slice = pending.slice(0, Math.max(1, options?.limit ?? 200));
   const posted: number[] = [];
@@ -5584,7 +5616,7 @@ export async function createTransaction(
   );
   if (input.accountId)
     await assertOwnedAccount(userId, input.projectId, input.accountId);
-  if (!Number.isFinite(input.amount) || cents(input.amount) <= 0)
+  if (!Number.isFinite(input.amount) || toCents(input.amount) <= 0)
     throw new Error("লেনদেনের পরিমাণ শূন্যের বড় হতে হবে");
   const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const cleanIdempKey = input.idempotencyKey?.trim() || null;
@@ -5624,7 +5656,7 @@ export async function createTransaction(
             accountId: input.accountId ?? null,
             categoryId: input.categoryId,
             type: input.type,
-            amount: decimalFromCents(cents(input.amount)),
+            amount: decimalFromCents(toCents(input.amount)),
             paymentMethod: input.paymentMethod.trim(),
             note: finalNote,
             occurredAt: input.occurredAt,
@@ -5690,7 +5722,7 @@ export async function createTransaction(
       chartOfAccountId: voucher.cashOrAccountId,
       categoryId: input.categoryId,
       type: input.type,
-      amount: decimalFromCents(cents(input.amount)),
+      amount: decimalFromCents(toCents(input.amount)),
       voucherNo: voucher.voucherNo,
       paymentMethod: input.paymentMethod.trim(),
       note: finalNote,
@@ -5738,7 +5770,7 @@ export async function updateTransaction(
   );
   if (input.accountId)
     await assertOwnedAccount(userId, input.projectId, input.accountId);
-  if (cents(input.amount) <= 0)
+  if (toCents(input.amount) <= 0)
     throw new Error("লেনদেনের পরিমাণ শূন্যের বড় হতে হবে");
   const mappings = await ensureCanonicalMappings(userId, input.projectId);
   const db = databaseRequired(await getDb());
@@ -5809,7 +5841,7 @@ export async function updateTransaction(
         chartOfAccountId: replacement.cashOrAccountId,
         categoryId: input.categoryId,
         type: input.type,
-        amount: decimalFromCents(cents(input.amount)),
+        amount: decimalFromCents(toCents(input.amount)),
         voucherNo: replacement.voucherNo,
         paymentMethod: input.paymentMethod.trim(),
         note: input.note?.trim() || null,
@@ -6679,7 +6711,7 @@ export async function getAccountingReconciliation(
   // Wallets whose opening balance is non-zero but has no ledger voucher: their
   // cash is missing from the trial balance and the balance sheet.
   const walletsMissingOpeningVoucher = unpostedOpening.filter(
-    row => cents(row.openingBalance) !== 0
+    row => toCents(row.openingBalance) !== 0
   );
   return {
     generatedAt: new Date(),
@@ -6753,6 +6785,12 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     ledgerEntries,
     journalEntries,
     journalLines,
+    accountGroups,
+    fiscalPeriods,
+    periodLocks,
+    voucherReversals,
+    voucherAudit,
+    voucherReferences,
   ] = await Promise.all([
     db
       .select()
@@ -6910,6 +6948,71 @@ export async function exportProjectBackup(userId: number, projectId: number) {
       )
       .where(eq(financeJournalEntries.projectId, projectId))
       .then(rows => rows.map(r => r.finance_journal_lines)),
+    db
+      .select()
+      .from(financeAccountGroups)
+      .where(
+        and(
+          eq(financeAccountGroups.userId, userId),
+          eq(financeAccountGroups.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeFiscalPeriods)
+      .where(
+        and(
+          eq(financeFiscalPeriods.userId, userId),
+          eq(financeFiscalPeriods.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financePeriodLocks)
+      .where(
+        and(
+          eq(financePeriodLocks.userId, userId),
+          eq(financePeriodLocks.projectId, projectId)
+        )
+      ),
+    db
+      .select()
+      .from(financeVoucherReversals)
+      .where(
+        and(
+          eq(financeVoucherReversals.userId, userId),
+          eq(financeVoucherReversals.projectId, projectId)
+        )
+      ),
+    // Voucher-scoped children carry no projectId, so they ride on the voucher join.
+    db
+      .select()
+      .from(financeVoucherAudit)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherAudit.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_audit)),
+    db
+      .select()
+      .from(financeVoucherReferences)
+      .innerJoin(
+        financeVouchers,
+        eq(financeVoucherReferences.voucherId, financeVouchers.id)
+      )
+      .where(
+        and(
+          eq(financeVouchers.userId, userId),
+          eq(financeVouchers.projectId, projectId)
+        )
+      )
+      .then(rows => rows.map(r => r.finance_voucher_references)),
   ]);
   return {
     formatVersion: "finance-project-backup-v2" as const,
@@ -6932,11 +7035,18 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     ledgerEntries,
     journalEntries,
     journalLines,
+    // Period controls + voucher audit trail (optional for older backups).
+    accountGroups,
+    fiscalPeriods,
+    periodLocks,
+    voucherReversals,
+    voucherAudit,
+    voucherReferences,
   };
 }
 
-function assertUniqueBackupIds(rows: Array<{ id: number }>, label: string) {
-  if (new Set(rows.map(row => row.id)).size !== rows.length)
+function assertUniqueBackupIds(rows: Array<{ id?: unknown }>, label: string) {
+  if (new Set(rows.map(row => Number(row.id))).size !== rows.length)
     throw new Error(`${label} ব্যাকআপে একই আইডি একাধিকবার আছে`);
 }
 
@@ -7020,6 +7130,12 @@ type ProjectBackupLike = {
   ledgerEntries?: Array<Record<string, unknown>>;
   journalEntries?: Array<Record<string, unknown>>;
   journalLines?: Array<Record<string, unknown>>;
+  accountGroups?: Array<Record<string, unknown>>;
+  fiscalPeriods?: Array<Record<string, unknown>>;
+  periodLocks?: Array<Record<string, unknown>>;
+  voucherReversals?: Array<Record<string, unknown>>;
+  voucherAudit?: Array<Record<string, unknown>>;
+  voucherReferences?: Array<Record<string, unknown>>;
   formatVersion?: string;
 };
 
@@ -7039,6 +7155,19 @@ function backupNullableText(value: unknown): string | null {
 function backupNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** JSON columns may round-trip as an object or as the stored JSON text. */
+function backupJson(value: unknown): unknown {
+  if (value == null) return {};
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return { raw: value };
+    }
+  }
+  return value;
 }
 
 function assertBackupReferences(backup: ProjectBackupLike) {
@@ -7075,6 +7204,56 @@ function assertBackupReferences(backup: ProjectBackupLike) {
     ensureCategory(row.categoryId);
     ensureAccount(row.accountId);
   });
+  for (const [rows, label] of [
+    [backup.voucherDebits, "ডেবিট লাইন"],
+    [backup.voucherCredits, "ক্রেডিট লাইন"],
+    [backup.ledgerEntries, "লেজার এন্ট্রি"],
+    [backup.voucherAudit, "ভাউচার অডিট"],
+    [backup.voucherReferences, "ভাউচার রেফারেন্স"],
+    [backup.voucherReversals, "ভাউচার রিভার্সাল"],
+    [backup.accountGroups, "অ্যাকাউন্ট গ্রুপ"],
+    [backup.fiscalPeriods, "আর্থিক সময়কাল"],
+    [backup.periodLocks, "পিরিয়ড লক"],
+  ] as const) {
+    if (rows) assertUniqueBackupIds(rows, label);
+  }
+  const voucherIds = new Set(
+    (backup.vouchers ?? []).map(row => Number(row.id))
+  );
+  const journalEntryIds = new Set(
+    (backup.journalEntries ?? []).map(row => Number(row.id))
+  );
+  const ensureVoucher = (id: unknown) => {
+    if (id !== null && id !== undefined && !voucherIds.has(Number(id)))
+      throw new Error("ব্যাকআপের একটি ভাউচার রেফারেন্স সঠিক নয়");
+  };
+  for (const rows of [
+    backup.voucherDebits,
+    backup.voucherCredits,
+    backup.ledgerEntries,
+    backup.voucherAudit,
+    backup.voucherReferences,
+  ]) {
+    rows?.forEach(row => ensureVoucher(row.voucherId));
+  }
+  backup.voucherReversals?.forEach(row => {
+    ensureVoucher(row.originalVoucherId);
+    ensureVoucher(row.reversalVoucherId);
+  });
+  backup.journalLines?.forEach(row => {
+    const id = Number(row.journalEntryId);
+    if (!journalEntryIds.has(id))
+      throw new Error("ব্যাকআপের একটি জার্নাল লাইন রেফারেন্স সঠিক নয়");
+  });
+  const groupIds = new Set(
+    (backup.accountGroups ?? []).map(row => Number(row.id))
+  );
+  backup.accountGroups?.forEach(row => {
+    if (row.parentId != null && !groupIds.has(Number(row.parentId)))
+      throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট গ্রুপ প্যারেন্ট সঠিক নয়");
+    if (!Number.isInteger(Number(row.accountTypeId)))
+      throw new Error("ব্যাকআপের একটি অ্যাকাউন্ট টাইপ রেফারেন্স সঠিক নয়");
+  });
 }
 
 export function previewProjectBackup(backup: ProjectBackupLike) {
@@ -7101,6 +7280,12 @@ export function previewProjectBackup(backup: ProjectBackupLike) {
       ledgerEntries: backup.ledgerEntries?.length ?? 0,
       journalEntries: backup.journalEntries?.length ?? 0,
       journalLines: backup.journalLines?.length ?? 0,
+      accountGroups: backup.accountGroups?.length ?? 0,
+      fiscalPeriods: backup.fiscalPeriods?.length ?? 0,
+      periodLocks: backup.periodLocks?.length ?? 0,
+      voucherReversals: backup.voucherReversals?.length ?? 0,
+      voucherAudit: backup.voucherAudit?.length ?? 0,
+      voucherReferences: backup.voucherReferences?.length ?? 0,
     },
     transactionDateRange: transactionDates.length
       ? {
@@ -7113,9 +7298,20 @@ export function previewProjectBackup(backup: ProjectBackupLike) {
   };
 }
 
+export interface RestoreProjectBackupOptions {
+  /**
+   * Runs inside the restore transaction, immediately before commit. The
+   * restore drill uses this to count what the backup just wrote and then
+   * throw — the transaction rolls back, so a rehearsal never leaves a project
+   * behind and never reaches the audit log.
+   */
+  insideTransaction?: (tx: DbTx, projectId: number) => Promise<void>;
+}
+
 export async function restoreProjectBackup(
   userId: number,
-  input: { projectName: string; backup: ProjectBackupLike }
+  input: { projectName: string; backup: ProjectBackupLike },
+  options?: RestoreProjectBackupOptions
 ) {
   const db = databaseRequired(await getDb());
   assertBackupReferences(input.backup);
@@ -7152,6 +7348,71 @@ export async function restoreProjectBackup(
     const transactionMap = new Map<number, number>();
     const settlementMap = new Map<number, number>();
     const journalMap = new Map<number, number>();
+    const fiscalPeriodMap = new Map<number, number>();
+    const accountGroupMap = new Map<number, number>();
+
+    for (const row of input.backup.fiscalPeriods ?? []) {
+      const result = await tx
+        .insert(financeFiscalPeriods)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          name: backupText(row.name),
+          startDate: backupDate(row.startDate),
+          endDate: backupDate(row.endDate),
+          status: (row.status ?? "open") as
+            | "open"
+            | "closed"
+            | "locked",
+          closedAt: row.closedAt == null ? null : backupDate(row.closedAt),
+          closedBy: null,
+        })
+        .execute();
+      fiscalPeriodMap.set(Number(row.id), Number(result[0].insertId));
+    }
+    for (const row of input.backup.accountGroups ?? []) {
+      const result = await tx
+        .insert(financeAccountGroups)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          accountTypeId: Number(row.accountTypeId),
+          parentId: null,
+          code: backupText(row.code),
+          name: backupText(row.name),
+          nameBn: backupNullableText(row.nameBn),
+          description: backupNullableText(row.description),
+          sortOrder: backupNumber(row.sortOrder),
+          isSystem: Boolean(row.isSystem),
+        })
+        .execute();
+      accountGroupMap.set(Number(row.id), Number(result[0].insertId));
+    }
+    for (const row of input.backup.accountGroups ?? []) {
+      if (row.parentId == null) continue;
+      const restoredId = accountGroupMap.get(Number(row.id));
+      const parentId = accountGroupMap.get(Number(row.parentId));
+      if (restoredId && parentId)
+        await tx
+          .update(financeAccountGroups)
+          .set({ parentId })
+          .where(eq(financeAccountGroups.id, restoredId))
+          .execute();
+    }
+    for (const row of input.backup.periodLocks ?? []) {
+      await tx
+        .insert(financePeriodLocks)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          monthKey: backupText(row.monthKey),
+          lockedAt: row.lockedAt == null ? new Date() : backupDate(row.lockedAt),
+          // NOT NULL: attribute the lock to the restoring owner.
+          lockedBy: userId,
+          reason: backupNullableText(row.reason),
+        })
+        .execute();
+    }
 
     for (const row of input.backup.accounts) {
       const result = await tx
@@ -7410,15 +7671,19 @@ export async function restoreProjectBackup(
               "draft" | "submitted" | "approved" | "posted" | "reversed") ??
             "draft",
           voucherType: backupText(row.voucherType) || "general",
-          fiscalPeriodId: null,
+          fiscalPeriodId:
+            row.fiscalPeriodId == null
+              ? null
+              : (fiscalPeriodMap.get(Number(row.fiscalPeriodId)) ?? null),
           submittedBy: null,
-          submittedAt: null,
+          submittedAt:
+            row.submittedAt == null ? null : backupDate(row.submittedAt),
           approvedBy: null,
-          approvedAt: null,
+          approvedAt: row.approvedAt == null ? null : backupDate(row.approvedAt),
           postedBy: null,
-          postedAt: null,
+          postedAt: row.postedAt == null ? null : backupDate(row.postedAt),
           reversedBy: null,
-          reversedAt: null,
+          reversedAt: row.reversedAt == null ? null : backupDate(row.reversedAt),
           reversalReference: backupNullableText(row.reversalReference),
           isArchived: Boolean(row.isArchived),
         })
@@ -7426,6 +7691,70 @@ export async function restoreProjectBackup(
       if (row.id != null)
         voucherMap.set(Number(row.id), Number(result[0].insertId));
       voucherNoMap.set(backupText(row.voucherNo), Number(result[0].insertId));
+    }
+    for (const row of input.backup.voucherReversals ?? []) {
+      const originalVoucherId = voucherMap.get(Number(row.originalVoucherId));
+      const reversalVoucherId = voucherMap.get(Number(row.reversalVoucherId));
+      if (!originalVoucherId || !reversalVoucherId) continue;
+      await tx
+        .insert(financeVoucherReversals)
+        .values({
+          userId,
+          projectId: restoredProjectId,
+          originalVoucherId,
+          reversalVoucherId,
+          reason: backupText(row.reason),
+          reversedAt:
+            row.reversedAt == null ? new Date() : backupDate(row.reversedAt),
+          // NOT NULL: the original actor may not exist in a fresh database.
+          reversedBy: userId,
+        })
+        .execute();
+    }
+    for (const row of input.backup.voucherAudit ?? []) {
+      const voucherId = voucherMap.get(Number(row.voucherId));
+      if (!voucherId) continue;
+      await tx
+        .insert(financeVoucherAudit)
+        .values({
+          voucherId,
+          // NOT NULL: the original actor may not exist in a fresh database.
+          actorUserId: userId,
+          action:
+            (row.action as
+              | "create"
+              | "submit"
+              | "approve"
+              | "post"
+              | "cancel"
+              | "reverse") ?? "create",
+          snapshot: backupJson(row.snapshot),
+          createdAt:
+            row.createdAt == null ? new Date() : backupDate(row.createdAt),
+        })
+        .execute();
+    }
+    for (const row of input.backup.voucherReferences ?? []) {
+      const voucherId = voucherMap.get(Number(row.voucherId));
+      if (!voucherId) continue;
+      await tx
+        .insert(financeVoucherReferences)
+        .values({
+          voucherId,
+          refType:
+            (row.refType as
+              | "cheque"
+              | "bill"
+              | "invoice"
+              | "challan"
+              | "other") ?? "other",
+          refNumber: backupText(row.refNumber),
+          refDate: row.refDate == null ? null : backupDate(row.refDate),
+          relatedEntityType: backupNullableText(row.relatedEntityType),
+          relatedEntityId:
+            row.relatedEntityId == null ? null : Number(row.relatedEntityId),
+        })
+        .execute();
     }
     for (const row of input.backup.transactions) {
       const restoredId = transactionMap.get(row.id);
@@ -7539,6 +7868,10 @@ export async function restoreProjectBackup(
           sortOrder: Number(row.sortOrder ?? 0),
         })
         .execute();
+    }
+
+    if (options?.insideTransaction) {
+      await options.insideTransaction(tx, restoredProjectId);
     }
 
     return restoredProjectId;
@@ -8555,7 +8888,7 @@ export async function disburseSalary(
         chartOfAccountId: salaryVoucher.cashOrAccountId,
         categoryId,
         type: "expense",
-        amount: decimalFromCents(cents(paid)),
+        amount: decimalFromCents(toCents(paid)),
         voucherNo: salaryVoucher.voucherNo,
         voucherId: salaryVoucher.voucherId,
         paymentMethod: employee.paymentMethod,
@@ -8815,20 +9148,16 @@ export async function getStatementData(
     accountName: r.accountName ?? null,
   }));
 
-  const income = items
-    .filter(i => i.type === "income")
-    .reduce((s, i) => s + Number(i.amount), 0);
-  const expense = items
-    .filter(i => i.type === "expense")
-    .reduce((s, i) => s + Number(i.amount), 0);
-  const openingBalance = accounts.reduce(
-    (s, a) => s + Number(a.openingBalance),
-    0
+  const incomeCents = sumCents(
+    items.filter(i => i.type === "income").map(i => i.amount)
   );
-  const closingBalance = accounts.reduce(
-    (s, a) => s + Number(a.currentBalance),
-    0
+  const expenseCents = sumCents(
+    items.filter(i => i.type === "expense").map(i => i.amount)
   );
+  const income = fromCents(incomeCents);
+  const expense = fromCents(expenseCents);
+  const openingBalance = sumMoney(accounts.map(a => a.openingBalance));
+  const closingBalance = sumMoney(accounts.map(a => a.currentBalance));
 
   return {
     project: { id: project?.id ?? input.projectId, name: project?.name ?? "" },
@@ -8843,7 +9172,7 @@ export async function getStatementData(
       count: items.length,
       income,
       expense,
-      netAmount: income - expense,
+      netAmount: fromCents(incomeCents - expenseCents),
       openingBalance,
       closingBalance,
     },

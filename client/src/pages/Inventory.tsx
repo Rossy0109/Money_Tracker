@@ -28,6 +28,7 @@ import {
   TrendingUp,
   SlidersHorizontal,
 } from "lucide-react";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 export default function Inventory() {
   const { activeProjectId } = useActiveProject();
@@ -509,7 +510,7 @@ export default function Inventory() {
                 : "ইনভেন্টরিতে এখনও কোনো পণ্য যুক্ত করা হয়নি।"}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <ScrollShadow>
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="bg-[#f5f8f5] text-[#214c3e] font-semibold border-b border-[#dde8e0]">
                   <tr>
@@ -633,7 +634,7 @@ export default function Inventory() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </ScrollShadow>
           )}
         </div>
 

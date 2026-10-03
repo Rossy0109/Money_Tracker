@@ -54,10 +54,22 @@ export type BackupEnvelopeFields = Partial<
 export type BackupIntegrityCode =
   | "partial_envelope"
   | "missing_key"
+  | "unknown_key"
   | "decrypt_failed"
   | "checksum_mismatch"
   | "malformed_plaintext"
   | "payload_mismatch";
+
+/**
+ * Key ids are a short SHA-256 fingerprint of the key material: an envelope can
+ * name the key that sealed it without exposing anything usable, and decryption
+ * can pick the right key out of the keyring instead of guessing.
+ */
+export const KEY_ID_LENGTH = 16;
+
+export async function keyIdForSecret(secret: string): Promise<string> {
+  return (await sha256Hex(secret)).slice(0, KEY_ID_LENGTH);
+}
 
 export class BackupIntegrityError extends Error {
   readonly code: BackupIntegrityCode;
@@ -126,7 +138,7 @@ function canonicalJson(value: unknown): string {
  */
 export function detectBackupEnvelope(
   payload: unknown
-): BackupEnvelopeFields & { present: BackupEnvelopeKey[] } {
+): BackupEnvelopeFields & { present: BackupEnvelopeKey[]; keyId?: string } {
   const source = (payload ?? {}) as Record<string, unknown>;
   const found: BackupEnvelopeFields = {};
   const present: BackupEnvelopeKey[] = [];
@@ -137,17 +149,22 @@ export function detectBackupEnvelope(
       present.push(key);
     }
   }
-  return { ...found, present };
+  const keyId = source.keyId;
+  return {
+    ...found,
+    present,
+    ...(typeof keyId === "string" && keyId.length > 0 ? { keyId } : {}),
+  };
 }
 
-function withoutEnvelopeKeys(payload: unknown): unknown {
+export function withoutEnvelopeKeys(payload: unknown): unknown {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return payload;
   }
   const copy: Record<string, unknown> = {
     ...(payload as Record<string, unknown>),
   };
-  for (const key of BACKUP_ENVELOPE_KEYS) {
+  for (const key of [...BACKUP_ENVELOPE_KEYS, "keyId"]) {
     delete copy[key];
   }
   return copy;
@@ -168,48 +185,15 @@ function withoutEnvelopeKeys(payload: unknown): unknown {
  */
 export async function verifyRestoreEnvelope(
   payload: unknown,
-  secretKey: string | undefined
+  secretKeys: string | readonly string[] | undefined
 ): Promise<RestoreEnvelopeCheck> {
-  const { present, iv, encrypted, tag, checksum } =
-    detectBackupEnvelope(payload);
+  const { present } = detectBackupEnvelope(payload);
 
   if (present.length === 0) {
     return { verified: false, reason: "no_envelope" };
   }
-  if (present.length !== BACKUP_ENVELOPE_KEYS.length) {
-    throw new BackupIntegrityError(
-      "partial_envelope",
-      "ব্যাকআপ ফাইলটি অসম্পূর্ণ — এনভেলোপের কিছু অংশ অনুপস্থিত। পুরো ফাইলটি আবার ডাউনলোড করুন।"
-    );
-  }
-  if (!secretKey) {
-    throw new BackupIntegrityError(
-      "missing_key",
-      "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি — যাচাই করা যায়নি।"
-    );
-  }
 
-  let plaintext: string;
-  try {
-    plaintext = await aesGcmDecrypt(
-      await sha256Hex(secretKey),
-      hexToBytes(iv as string),
-      encrypted as string,
-      tag as string
-    );
-  } catch {
-    throw new BackupIntegrityError(
-      "decrypt_failed",
-      "ব্যাকআপ ডিক্রিপ্ট করা যায়নি — কী সঠিক নয় বা ফাইলটি ক্ষতিগ্রস্ত।"
-    );
-  }
-
-  if ((await sha256Hex(plaintext)) !== checksum) {
-    throw new BackupIntegrityError(
-      "checksum_mismatch",
-      "ব্যাকআপ চেকসাম মিলছে না — ডেটা বিকৃত হতে পারে।"
-    );
-  }
+  const { plaintext } = await decryptEnvelopePayload(payload, secretKeys);
 
   let attested: unknown;
   try {
@@ -233,4 +217,90 @@ export async function verifyRestoreEnvelope(
   }
 
   return { verified: true };
+}
+
+export interface DecryptedEnvelope {
+  plaintext: string;
+  checksum: string;
+  /** The key that opened the envelope, when the envelope named one. */
+  keyId: string | null;
+}
+
+/**
+ * Decrypt a sealed envelope with the keyring and verify its checksum.
+ *
+ * Shared by the restore path (which then compares the payload's own rows with
+ * the plaintext) and by the weekly restore drill, which downloads the raw
+ * `.enc.json` object from the bucket: that cloud envelope wraps the export
+ * instead of spreading it, so only these two steps apply to it.
+ */
+export async function decryptEnvelopePayload(
+  payload: unknown,
+  secretKeys: string | readonly string[] | undefined
+): Promise<DecryptedEnvelope> {
+  const { present, iv, encrypted, tag, checksum, keyId } =
+    detectBackupEnvelope(payload);
+  if (present.length !== BACKUP_ENVELOPE_KEYS.length) {
+    throw new BackupIntegrityError(
+      "partial_envelope",
+      "ব্যাকআপ ফাইলটি অসম্পূর্ণ — এনভেলোপের কিছু অংশ অনুপস্থিত। পুরো ফাইলটি আবার ডাউনলোড করুন।"
+    );
+  }
+
+  const keys = (
+    typeof secretKeys === "string" ? [secretKeys] : [...(secretKeys ?? [])]
+  ).filter(secret => secret.length > 0);
+  if (keys.length === 0) {
+    throw new BackupIntegrityError(
+      "missing_key",
+      "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি — যাচাই করা যায়নি।"
+    );
+  }
+
+  // An envelope that names its key only accepts that key; an envelope without
+  // one (written before key ids existed) is tried against the whole keyring.
+  let candidates = keys;
+  if (keyId) {
+    const matched: string[] = [];
+    for (const secret of keys) {
+      if ((await keyIdForSecret(secret)) === keyId) matched.push(secret);
+    }
+    if (matched.length === 0) {
+      throw new BackupIntegrityError(
+        "unknown_key",
+        "ব্যাকআপটি এমন একটি কী দিয়ে এনক্রিপ্ট করা যা কনফিগারে নেই — BACKUP_ENCRYPTION_KEYS-এ পুরনো কী রাখুন।"
+      );
+    }
+    candidates = matched;
+  }
+
+  let plaintext: string | null = null;
+  for (const secret of candidates) {
+    try {
+      plaintext = await aesGcmDecrypt(
+        await sha256Hex(secret),
+        hexToBytes(iv as string),
+        encrypted as string,
+        tag as string
+      );
+      break;
+    } catch {
+      // Wrong key for this candidate — keep trying the rest of the keyring.
+    }
+  }
+  if (plaintext === null) {
+    throw new BackupIntegrityError(
+      "decrypt_failed",
+      "ব্যাকআপ ডিক্রিপ্ট করা যায়নি — কী সঠিক নয় বা ফাইলটি ক্ষতিগ্রস্ত।"
+    );
+  }
+
+  if ((await sha256Hex(plaintext)) !== checksum) {
+    throw new BackupIntegrityError(
+      "checksum_mismatch",
+      "ব্যাকআপ চেকসাম মিলছে না — ডেটা বিকৃত হতে পারে।"
+    );
+  }
+
+  return { plaintext, checksum: checksum as string, keyId: keyId ?? null };
 }

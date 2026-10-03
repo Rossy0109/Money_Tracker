@@ -19,6 +19,7 @@ import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
 import {
+  Activity,
   Banknote,
   BookOpen,
   Boxes,
@@ -33,6 +34,7 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  Menu,
   Plus,
   Printer,
   Receipt,
@@ -46,6 +48,7 @@ import {
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import {
   isAdminUser,
   isInputOnlyUser,
@@ -177,6 +180,12 @@ const menuItems: MenuItem[] = [
     permission: "backup.view",
   },
   {
+    icon: Activity,
+    label: "সিস্টেম হেলথ",
+    href: "/health",
+    permission: "settings.view",
+  },
+  {
     icon: Tags,
     label: "ক্যাটাগরি",
     href: "/categories",
@@ -216,6 +225,123 @@ const inputOnlyMenuItems: MenuItem[] = [
     permission: "user.read",
   },
 ];
+
+/**
+ * Phone tab bar. Five taps beat a 21-item drawer: four short labels for the
+ * most-used destinations plus "more" for everything else in the sidebar.
+ * Filtered with the same permission rule as the sidebar, so a user who cannot
+ * see a page in the drawer never sees it here either.
+ */
+const bottomTabs: MenuItem[] = [
+  {
+    icon: LayoutDashboard,
+    label: "ড্যাশবোর্ড",
+    href: "/",
+    permission: "accounting.read",
+  },
+  {
+    icon: ReceiptText,
+    label: "ভাউচার",
+    href: "/vouchers",
+    permission: "voucher.read",
+  },
+  {
+    icon: Receipt,
+    label: "লেনদেন",
+    href: "/#transactions",
+    permission: "accounting.create",
+  },
+  {
+    icon: Printer,
+    label: "রিপোর্ট",
+    href: "/reports",
+    permission: "reports.view",
+  },
+];
+
+const inputOnlyBottomTabs: MenuItem[] = [
+  {
+    icon: ReceiptText,
+    label: "লেনদেন",
+    href: "/#transactions",
+    permission: "accounting.create",
+  },
+  {
+    icon: WalletCards,
+    label: "অ্যাকাউন্ট",
+    href: "/#accounts",
+    permission: "accounting.create",
+  },
+  {
+    icon: ChartNoAxesCombined,
+    label: "বাজেট",
+    href: "/#budgets",
+    permission: "budget.create",
+  },
+  {
+    icon: KeyRound,
+    label: "প্রোফাইল",
+    href: "/account",
+    permission: "user.read",
+  },
+];
+
+function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
+  const [path] = useLocation();
+  const { setOpenMobile } = useSidebar();
+
+  const isActive = (href: string) => {
+    const [route, hash] = href.split("#");
+    const base = route || "/";
+    if (path !== base) return false;
+    if (hash) return window.location.hash === `#${hash}`;
+    return true;
+  };
+
+  return (
+    <nav
+      aria-label="দ্রুত নেভিগেশন"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#0c2b22] bg-[#113a30] pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_18px_rgba(17,58,48,0.18)] md:hidden"
+    >
+      <ul className="flex items-stretch">
+        {tabs.map(tab => {
+          const active = isActive(tab.href);
+          return (
+            <li key={tab.href} className="min-w-0 flex-1">
+              <a
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#bcecc6] ${
+                  active
+                    ? "rounded-t-xl bg-[#d8f2dd] font-semibold text-[#113a30]"
+                    : "text-[#b9d2c2] hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <tab.icon className="h-5 w-5" aria-hidden="true" />
+                <span className="w-full truncate text-[10px] leading-tight">
+                  {tab.label}
+                </span>
+              </a>
+            </li>
+          );
+        })}
+        <li className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => setOpenMobile(true)}
+            aria-label="সব মেনু খুলুন"
+            className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center text-[#b9d2c2] hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#bcecc6]"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+            <span className="w-full truncate text-[10px] leading-tight">
+              আরও
+            </span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  );
+}
 
 function DashboardSidebarContent({
   visibleMenuItems,
@@ -397,6 +523,9 @@ export default function DashboardLayout({
     : menuItems.filter(
         item => !item.permission || hasPermission(user, item.permission)
       );
+  const visibleBottomTabs = (
+    isInputOnly ? inputOnlyBottomTabs : bottomTabs
+  ).filter(item => !item.permission || hasPermission(user, item.permission));
 
   return (
     <SidebarProvider defaultOpen>
@@ -406,7 +535,7 @@ export default function DashboardLayout({
         user={user}
         logout={logout}
       />
-      <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4]">
+      <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4] pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 md:hidden">
           <SidebarTrigger
             aria-label="নেভিগেশন মেনু খুলুন"
@@ -463,6 +592,7 @@ export default function DashboardLayout({
         <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">
           © {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।
         </footer>
+        <BottomTabBar tabs={visibleBottomTabs} />
       </SidebarInset>
     </SidebarProvider>
   );

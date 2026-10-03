@@ -15,6 +15,7 @@ import {
   BackupIntegrityError,
   verifyRestoreEnvelope,
 } from "./backupIntegrity";
+import { getBackupKeySecrets } from "./backupKeys";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./routers/auth";
 import * as accountingCore from "./accounting-core";
@@ -339,6 +340,7 @@ const projectBackupInput = z
     encrypted: z.string().trim().min(1).max(40_000_000).optional(),
     tag: z.string().trim().min(16).max(64).optional(),
     checksum: z.string().trim().regex(/^[0-9a-f]{64}$/i).optional(),
+    keyId: z.string().trim().regex(/^[0-9a-f]{1,64}$/i).optional(),
     formatVersion: z.enum([
       "finance-project-backup-v1",
       "finance-project-backup-v2",
@@ -384,6 +386,21 @@ const projectBackupInput = z
       .max(20000)
       .optional(),
     journalLines: z.array(z.record(z.string(), z.any())).max(50000).optional(),
+    accountGroups: z.array(z.record(z.string(), z.any())).max(5000).optional(),
+    fiscalPeriods: z.array(z.record(z.string(), z.any())).max(5000).optional(),
+    periodLocks: z.array(z.record(z.string(), z.any())).max(20000).optional(),
+    voucherReversals: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
+    voucherAudit: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
+    voucherReferences: z
+      .array(z.record(z.string(), z.any()))
+      .max(50000)
+      .optional(),
   })
   .superRefine((backup, context) => {
     if (
@@ -407,7 +424,7 @@ const projectBackupInput = z
  */
 async function assertBackupEnvelope(backup: unknown): Promise<void> {
   try {
-    await verifyRestoreEnvelope(backup, ENV.backupEncryptionKey);
+    await verifyRestoreEnvelope(backup, getBackupKeySecrets());
   } catch (error) {
     if (error instanceof BackupIntegrityError) {
       throw new TRPCError({

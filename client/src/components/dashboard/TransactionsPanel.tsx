@@ -13,6 +13,8 @@ import {
 import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
+import { useRowGestures } from "@/mobile/useRowGestures";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 
@@ -74,7 +76,6 @@ export function TransactionsPanel({
 
   const visibleVirtualRows = useMemo(() => {
     if (!isVirtualMode) return paginatedRows;
-    // eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual exposes startIndex/endIndex as refs
     return filteredRows.slice(virtualizer.startIndex, virtualizer.endIndex + 1);
   }, [
     isVirtualMode,
@@ -145,10 +146,10 @@ export function TransactionsPanel({
         </div>
       </div>
 
-      <div
-        // eslint-disable-next-line react-hooks/refs
-        ref={virtualizer.containerRef}
-        className={`mt-5 overflow-x-auto ${isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}`}
+      <ScrollShadow
+        scrollerRef={virtualizer.containerRef}
+        className="mt-5"
+        scrollerClassName={isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}
       >
         <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-y border-[#e8eee9] text-xs text-[#71867c] sticky top-0 bg-white z-10">
@@ -165,69 +166,14 @@ export function TransactionsPanel({
           </thead>
           <tbody>
             {visibleVirtualRows.length ? (
-              visibleVirtualRows.map((row, _idx) => (
-                <tr
+              visibleVirtualRows.map(row => (
+                <TransactionRow
                   key={row.id}
-                  className="border-b border-[#edf1ee] hover:bg-[#fbfdfb] transition-colors"
-                  style={{ height: `${ROW_HEIGHT}px` }}
-                >
-                  <td className="px-2 py-3 text-[#647d72] whitespace-nowrap">
-                    {dateText(row.occurredAt)}
-                  </td>
-                  <td className="px-2 py-3">
-                    <p
-                      className="max-w-48 truncate font-medium text-[#264a3f]"
-                      title={row.note ?? ""}
-                    >
-                      {row.note ?? "—"}
-                    </p>
-                  </td>
-                  <td className="px-2 py-3">
-                    <p className="font-medium text-[#264a3f]">
-                      {row.categoryName}
-                    </p>
-                    <p className="text-xs text-[#819188]">
-                      {row.paymentMethod}
-                    </p>
-                  </td>
-                  <td className="px-2 py-3 text-[#647d72]">
-                    {row.accountName ?? "—"}
-                  </td>
-                  <td
-                    className={`px-2 py-3 text-right font-semibold whitespace-nowrap ${row.type === "income" ? "text-[#278050]" : "text-[#c4675d]"}`}
-                  >
-                    {row.type === "income" ? "+" : "−"}
-                    {bdt(row.amount)}
-                  </td>
-                  <td className="px-2 py-3">
-                    <div className="flex justify-end gap-2">
-                      {onVoucher && (
-                        <button
-                          onClick={() => onVoucher(row)}
-                          aria-label="ভাউচার প্রিন্ট"
-                          title="ভাউচার দেখুন ও প্রিন্ট করুন"
-                          className="text-[#577d6e] hover:text-[#184438] p-1"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onEdit(row)}
-                        aria-label="সম্পাদনা"
-                        className="text-[#577d6e] hover:text-[#184438] p-1"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(row.id)}
-                        aria-label="মুছুন"
-                        className="text-[#bd6a63] hover:text-[#8e3933] p-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  row={row}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onVoucher={onVoucher}
+                />
               ))
             ) : (
               <tr>
@@ -242,7 +188,7 @@ export function TransactionsPanel({
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollShadow>
 
       {/* Pagination Footer */}
       {!isVirtualMode && filteredRows.length > pageSize && (
@@ -293,5 +239,83 @@ export function TransactionsPanel({
         </div>
       )}
     </article>
+  );
+}
+
+function TransactionRow({
+  row,
+  onEdit,
+  onDelete,
+  onVoucher,
+}: {
+  row: TransactionRow;
+  onEdit: (row: TransactionRow) => void;
+  onDelete: (id: number) => void;
+  onVoucher?: (row: TransactionRow) => void;
+}) {
+  const gestures = useRowGestures({
+    row,
+    onEdit,
+    onDelete: target => onDelete(target.id),
+    onLongPress: onEdit,
+  });
+
+  return (
+    <tr
+      {...gestures}
+      className="border-b border-[#edf1ee] hover:bg-[#fbfdfb] transition-colors"
+      style={{ height: `${ROW_HEIGHT}px`, touchAction: "pan-y" }}
+    >
+      <td className="px-2 py-3 text-[#647d72] whitespace-nowrap">
+        {dateText(row.occurredAt)}
+      </td>
+      <td className="px-2 py-3">
+        <p
+          className="max-w-48 truncate font-medium text-[#264a3f]"
+          title={row.note ?? ""}
+        >
+          {row.note ?? "—"}
+        </p>
+      </td>
+      <td className="px-2 py-3">
+        <p className="font-medium text-[#264a3f]">{row.categoryName}</p>
+        <p className="text-xs text-[#819188]">{row.paymentMethod}</p>
+      </td>
+      <td className="px-2 py-3 text-[#647d72]">{row.accountName ?? "—"}</td>
+      <td
+        className={`px-2 py-3 text-right font-semibold whitespace-nowrap ${row.type === "income" ? "text-[#278050]" : "text-[#c4675d]"}`}
+      >
+        {row.type === "income" ? "+" : "−"}
+        {bdt(row.amount)}
+      </td>
+      <td className="px-2 py-3">
+        <div className="flex justify-end gap-2">
+          {onVoucher && (
+            <button
+              onClick={() => onVoucher(row)}
+              aria-label="ভাউচার প্রিন্ট"
+              title="ভাউচার দেখুন ও প্রিন্ট করুন"
+              className="text-[#577d6e] hover:text-[#184438] p-1"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={() => onEdit(row)}
+            aria-label="সম্পাদনা"
+            className="text-[#577d6e] hover:text-[#184438] p-1"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onDelete(row.id)}
+            aria-label="মুছুন"
+            className="text-[#bd6a63] hover:text-[#8e3933] p-1"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
