@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 const monthLabel = (value: string) =>
   new Intl.DateTimeFormat("bn-BD", { month: "short", year: "numeric" }).format(
@@ -577,7 +578,7 @@ export default function FinanceInsights() {
                     </Button>
                   </div>
                 </form>
-                <div className="overflow-x-auto rounded-xl border border-[#e4ece6]">
+                <ScrollShadow className="rounded-xl border border-[#e4ece6]">
                   <table className="w-full min-w-[720px] text-left text-sm">
                     <thead className="bg-[#f3f7f4] text-xs text-[#527064]">
                       <tr>
@@ -642,7 +643,7 @@ export default function FinanceInsights() {
                       )}
                     </tbody>
                   </table>
-                </div>
+                </ScrollShadow>
               </CardContent>
             </Card>
           </>

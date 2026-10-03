@@ -2,9 +2,14 @@ import { sql } from "drizzle-orm";
 import { ENV } from "./_core/env";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import {
+  latestAccountingAuditRows,
+  verifyAccountingAuditRow,
+} from "./accountingAudit";
+import {
   backupStatusSummary,
   getDriveConnection,
   lastBackupForKind,
+  latestRestoreDrillRows,
   saveHealthSnapshot,
 } from "./backupDb";
 import { getDb } from "./db";
@@ -12,6 +17,8 @@ import { getAccessToken } from "./drive/driveOAuth";
 import { findDriveFileByName } from "./drive/driveApi";
 import { runIntegrityCheck } from "./integrityCheck";
 import { APP_VERSION, SCHEMA_VERSION } from "./backupManifest";
+import { getPerformanceSummary } from "./_core/requestMetrics";
+import { getQueryTimingStats } from "./_core/queryTiming";
 
 export type ProbeStatus = "ok" | "fail" | "unknown" | "not_configured";
 
@@ -35,6 +42,8 @@ export interface HealthSummary {
   lastBackup: "ok" | "stale" | "none";
   lastSync: "ok" | "stale" | "none";
   integrity: ProbeStatus;
+  accountingInvariants: ProbeStatus;
+  restoreDrill: ProbeStatus;
   overallStatus?: ProbeStatus;
 }
 
@@ -51,6 +60,7 @@ export interface HealthReport {
     diffs: number;
     checkedAt: string;
   }>;
+  overallStatus?: ProbeStatus;
 }
 
 function timed<T>(
@@ -316,6 +326,59 @@ export async function runHealthChecks(
     });
   }
 
+  // Double-entry proof: the daily accounting audit records whether debits and
+  // credits still balance at every level. A violated invariant fails the
+  // health panel; a run that never happened stays "unknown".
+  const accountingRows = await latestAccountingAuditRows(1).catch(() => []);
+  const accountingVerdict = verifyAccountingAuditRow(accountingRows);
+  const accountingStatus: ProbeStatus = !accountingRows.length
+    ? "unknown"
+    : accountingVerdict.verified
+      ? "ok"
+      : "fail";
+  checks.push({
+    id: "accounting.invariants",
+    label: "হিসাবের ভারসাম্য (ডাবল-এন্ট্রি)",
+    status: accountingStatus,
+    timestamp: checkedAt,
+    error: accountingVerdict.reason ?? null,
+    details: accountingVerdict.row?.summary,
+    retryAction:
+      accountingStatus === "ok"
+        ? undefined
+        : "accounting-audit ট্রিগার করুন (daily workflow)",
+  });
+
+  // Weekly rehearsal: can the stored object actually be restored? A drill that
+  // has never run or is older than the schedule is as broken as a failed one.
+  const drillRows = await latestRestoreDrillRows(1).catch(() => []);
+  const latestDrill = drillRows[0] ?? null;
+  const drillAgeHours = latestDrill
+    ? backupAgeHours(latestDrill.createdAt)
+    : Infinity;
+  const drillFailed = latestDrill?.entityType === "restore_drill_failed";
+  const drillStatus: ProbeStatus = !latestDrill
+    ? "unknown"
+    : drillFailed || drillAgeHours > 24 * 8
+      ? "fail"
+      : "ok";
+  checks.push({
+    id: "backup.restoreDrill",
+    label: "রিস্টোর ড্রিল (সংরক্ষিত ব্যাকআপ ফিরিয়ে আনা)",
+    status: drillStatus,
+    timestamp: checkedAt,
+    error: !latestDrill
+      ? "এখনো কোনো রিস্টোর ড্রিল চলেনি"
+      : drillFailed
+        ? latestDrill.summary
+        : drillAgeHours > 24 * 8
+          ? `শেষ ড্রিল ${Math.round(drillAgeHours)} ঘণ্টা আগে`
+          : null,
+    details: latestDrill ? latestDrill.summary : undefined,
+    retryAction:
+      drillStatus === "ok" ? undefined : "সাপ্তাহিক ড্রিল ট্রিগার করুন (restore-drill)",
+  });
+
   let integrity: HealthReport["integrity"] = [];
   if (userId) {
     const projects = await import("./db").then(m => m.listProjects(userId));
@@ -347,6 +410,33 @@ export async function runHealthChecks(
     });
   }
 
+  // Informational probes: they never feed summary/overallStatus, they just
+  // put the collected latency numbers in front of whoever reads the report.
+  const perf = getPerformanceSummary();
+  checks.push({
+    id: "performance.requests",
+    label: "রিকোয়েস্ট লেটেন্সি",
+    status: "ok",
+    timestamp: checkedAt,
+    latencyMs: perf.totalRequests > 0 ? perf.p95 : null,
+    details:
+      perf.totalRequests > 0
+        ? `p50 ${perf.p50}ms · p95 ${perf.p95}ms · p99 ${perf.p99}ms · সর্বোচ্চ ${perf.max}ms · ${perf.totalRequests}টি অনুরোধ · ${perf.slowRequests}টি ${perf.slowRequestThresholdMs}ms+ · ${perf.routeCount}টি রুট`
+        : "এই প্রসেসে এখনো কোনো অনুরোধ মাপা হয়নি",
+  });
+
+  const queryTiming = getQueryTimingStats();
+  checks.push({
+    id: "performance.slowQueries",
+    label: "ধীর ডেটাবেস কোয়েরি",
+    status: "ok",
+    timestamp: checkedAt,
+    details:
+      queryTiming.totalQueries > 0
+        ? `${queryTiming.totalQueries}টি কোয়েরি · ${queryTiming.slowQueries}টি ${queryTiming.slowQueryThresholdMs}ms+${queryTiming.recentSlowQueries.length ? ` · সাম্প্রতিক: ${queryTiming.recentSlowQueries[0].durationMs}ms` : ""}`
+        : "এই প্রসেসে এখনো কোনো কোয়েরি মাপা হয়নি",
+  });
+
   const toRate = (id: string) =>
     checks.find(check => check.id === id)?.status ?? "unknown";
   const summary: HealthSummary = {
@@ -368,10 +458,16 @@ export async function runHealthChecks(
     lastBackup: lastBackupStatus,
     lastSync: lastSyncStatus,
     integrity: toRate("integrity"),
+    accountingInvariants: toRate("accounting.invariants"),
+    restoreDrill: toRate("backup.restoreDrill"),
   };
 
   const overallStatus =
-    summary.database === "ok" && summary.storage !== "fail" && summary.auth !== "fail"
+    summary.database === "ok" &&
+    summary.storage !== "fail" &&
+    summary.auth !== "fail" &&
+    summary.accountingInvariants !== "fail" &&
+    summary.restoreDrill !== "fail"
       ? "ok"
       : "degraded";
   return {

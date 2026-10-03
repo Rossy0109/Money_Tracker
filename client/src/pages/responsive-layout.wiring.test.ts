@@ -100,7 +100,7 @@ describe("responsive layout wiring", () => {
       resolve(process.cwd(), "client/src/components/ui/table.tsx"),
       "utf8"
     );
-    expect(table).toContain("overflow-x-auto");
+    expect(table).toContain("<ScrollShadow");
 
     const transactions = readFileSync(
       resolve(
@@ -110,6 +110,12 @@ describe("responsive layout wiring", () => {
       "utf8"
     );
     expect(transactions).toContain("min-w-[560px]");
-    expect(transactions).toContain("overflow-x-auto");
+    expect(transactions).toContain("<ScrollShadow");
+
+    const scrollShadow = readFileSync(
+      resolve(process.cwd(), "client/src/components/ui/scroll-shadow.tsx"),
+      "utf8"
+    );
+    expect(scrollShadow).toContain("overflow-x-auto");
   });
 });

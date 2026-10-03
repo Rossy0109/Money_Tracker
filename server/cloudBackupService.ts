@@ -3,10 +3,10 @@ import path from "node:path";
 import * as financeDb from "./db";
 import { encryptPayload } from "./scheduledBackup";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
-import { ENV } from "./_core/env";
 import logger from "./_core/logger";
 import { sha256Hex, byteLength } from "../shared/platform/crypto";
 import { normalizeBackupForChecksum } from "./backupIntegrity";
+import { activeBackupKeySecret } from "./backupKeys";
 
 export interface CloudStorageConfig {
   supabase?: {
@@ -82,6 +82,20 @@ export function getCloudStorageConfig(): CloudStorageConfig {
           }
         : undefined,
   };
+}
+
+/**
+ * Object-name prefix shared by every backup of a project. Extracted so the
+ * restore drill can list/download exactly what the backup run stored.
+ */
+export function safeBackupProjectName(
+  projectName: string,
+  projectId: number
+): string {
+  const sanitized = projectName
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return sanitized.length > 0 ? sanitized.slice(0, 32) : `project-${projectId}`;
 }
 
 /**
@@ -265,15 +279,12 @@ export async function executeCloudBackup(
     JSON.stringify(normalizeBackupForChecksum(backupData), null, 2)
   );
   const timestamp = new Date().toISOString();
-  const sanitized = backupData.project.name
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const safeProjectName =
-    sanitized.length > 0
-      ? sanitized.slice(0, 32)
-      : `project-${projectId}`;
+  const safeProjectName = safeBackupProjectName(
+    backupData.project.name,
+    projectId
+  );
 
-  const secret = encryptionKey || ENV.backupEncryptionKey;
+  const secret = encryptionKey || activeBackupKeySecret();
   if (!secret) {
     throw new Error(
       "ব্যাকআপ এনক্রিপশন কী কনফিগার করা হয়নি। BACKUP_ENCRYPTION_KEY এনভায়রনমেন্ট ভ্যারিয়েবল সেট করুন।"

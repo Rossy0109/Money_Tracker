@@ -43,6 +43,7 @@ import {
   Building2,
   HandCoins,
 } from "lucide-react";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
 
@@ -926,7 +927,7 @@ export default function PartyLedger() {
 
                 {/* Ledger Statement Table */}
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  <ScrollShadow>
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-[#f2f7f4] text-[#113a30] font-semibold border-b border-[#dde7df]">
@@ -1018,7 +1019,7 @@ export default function PartyLedger() {
                         )}
                       </tbody>
                     </table>
-                  </div>
+                  </ScrollShadow>
                 </CardContent>
               </Card>
             ) : (

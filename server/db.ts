@@ -114,9 +114,9 @@ export type {
 
 const DEFAULT_PROJECT_NAME = "দৈনিক লেনদেনের খাতা";
 
-type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
-type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
-type DbOrTx = DbHandle | DbTx;
+export type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+export type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
+export type DbOrTx = DbHandle | DbTx;
 type DbRow = {
   id: number;
   accountId: number | null;
@@ -7298,9 +7298,20 @@ export function previewProjectBackup(backup: ProjectBackupLike) {
   };
 }
 
+export interface RestoreProjectBackupOptions {
+  /**
+   * Runs inside the restore transaction, immediately before commit. The
+   * restore drill uses this to count what the backup just wrote and then
+   * throw — the transaction rolls back, so a rehearsal never leaves a project
+   * behind and never reaches the audit log.
+   */
+  insideTransaction?: (tx: DbTx, projectId: number) => Promise<void>;
+}
+
 export async function restoreProjectBackup(
   userId: number,
-  input: { projectName: string; backup: ProjectBackupLike }
+  input: { projectName: string; backup: ProjectBackupLike },
+  options?: RestoreProjectBackupOptions
 ) {
   const db = databaseRequired(await getDb());
   assertBackupReferences(input.backup);
@@ -7857,6 +7868,10 @@ export async function restoreProjectBackup(
           sortOrder: Number(row.sortOrder ?? 0),
         })
         .execute();
+    }
+
+    if (options?.insideTransaction) {
+      await options.insideTransaction(tx, restoredProjectId);
     }
 
     return restoredProjectId;
