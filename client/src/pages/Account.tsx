@@ -64,7 +64,7 @@ export default function Account() {
         <div className="finance-card p-5 sm:p-6">
           <p className="section-kicker">আমার অ্যাকাউন্ট</p>
           <h1 className="section-heading">অ্যাকাউন্ট ও পাসওয়ার্ড</h1>
-          <p className="mt-1 text-sm text-[#5c7a6e]">
+          <p className="mt-1 text-sm text-muted-foreground">
             আপনার লগইন তথ্য দেখুন এবং একটি পাসওয়ার্ড সেট করুন, যাতে পরে ইমেইল ও
             পাসওয়ার্ড দিয়ে লগইন করতে পারেন।
           </p>
@@ -73,45 +73,45 @@ export default function Account() {
         <div className="finance-card p-5 sm:p-6">
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f7ec] text-[#197341]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-positive">
                 <User className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-xs text-[#5c7a6e]">নাম</div>
-                <div className="font-semibold text-[#14382f]">
+                <div className="text-xs text-muted-foreground">নাম</div>
+                <div className="font-semibold text-foreground">
                   {user?.name || "—"}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f7ec] text-[#197341]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-positive">
                 <Mail className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-xs text-[#5c7a6e]">ইমেইল</div>
-                <div className="font-semibold text-[#14382f]">
+                <div className="text-xs text-muted-foreground">ইমেইল</div>
+                <div className="font-semibold text-foreground">
                   {user?.email || "—"}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f7ec] text-[#197341]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-positive">
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-xs text-[#5c7a6e]">ভূমিকা</div>
-                <div className="font-semibold text-[#14382f]">
+                <div className="text-xs text-muted-foreground">ভূমিকা</div>
+                <div className="font-semibold text-foreground">
                   {getDisplayRole(user)}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f7ec] text-[#197341]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-positive">
                 <KeyRound className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-xs text-[#5c7a6e]">লগইন পদ্ধতি</div>
-                <div className="font-semibold text-[#14382f]">
+                <div className="text-xs text-muted-foreground">লগইন পদ্ধতি</div>
+                <div className="font-semibold text-foreground">
                   {user?.loginMethod === "google"
                     ? "Google অ্যাকাউন্ট"
                     : user?.loginMethod === "password"
@@ -125,14 +125,14 @@ export default function Account() {
 
         <div className="finance-card p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2">
-            <Lock className="h-4 w-4 text-[#197341]" />
-            <h2 className="text-base font-bold text-[#14382f]">
+            <Lock className="h-4 w-4 text-positive" />
+            <h2 className="text-base font-bold text-foreground">
               {isGoogleOnly ? "পাসওয়ার্ড সেট করুন" : "নতুন পাসওয়ার্ড"}
             </h2>
           </div>
 
           {isGoogleOnly && (
-            <p className="mb-4 rounded-xl border border-[#d6e5db] bg-[#f6faf7] p-3 text-xs leading-5 text-[#3b5d50]">
+            <p className="mb-4 rounded-xl border border-border bg-background p-3 text-xs leading-5 text-foreground">
               এই অ্যাকাউন্টটি এখন Google দিয়ে লগইন করে। একটি পাসওয়ার্ড সেট
               করলে আপনি চাইলে ইমেইল ও পাসওয়ার্ড দিয়েও লগইন করতে পারবেন।
             </p>
@@ -146,23 +146,23 @@ export default function Account() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label className="mb-1.5 block text-xs font-semibold text-[#2b4c40]">
+              <Label className="mb-1.5 block text-xs font-semibold text-foreground">
                 নতুন পাসওয়ার্ড
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8da69c]" />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   placeholder="কমপক্ষে ৬ অক্ষর"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="h-11 rounded-xl border-[#c9dcd0] pl-10 pr-10 focus-visible:ring-[#166534]"
+                  className="h-11 rounded-xl border-border pl-10 pr-10 focus-visible:ring-ring"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#8da69c] hover:text-[#166534]"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-positive"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -174,18 +174,18 @@ export default function Account() {
             </div>
 
             <div>
-              <Label className="mb-1.5 block text-xs font-semibold text-[#2b4c40]">
+              <Label className="mb-1.5 block text-xs font-semibold text-foreground">
                 পাসওয়ার্ড নিশ্চিত করুন
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8da69c]" />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   placeholder="একই পাসওয়ার্ড পুনরায় দিন"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  className="h-11 rounded-xl border-[#c9dcd0] pl-10 pr-10 focus-visible:ring-[#166534]"
+                  className="h-11 rounded-xl border-border pl-10 pr-10 focus-visible:ring-ring"
                 />
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function Account() {
             <Button
               type="submit"
               disabled={setPasswordMutation.isPending}
-              className="h-11 w-full rounded-xl bg-gradient-to-r from-[#173f36] to-[#14532d] text-white font-semibold text-sm shadow-md transition-all hover:from-[#11322b] hover:to-[#0f3f22]"
+              className="h-11 w-full rounded-xl bg-gradient-to-r from-[#173f36] to-primary text-white font-semibold text-sm shadow-md transition-all hover:from-[#11322b] hover:to-primary"
             >
               {setPasswordMutation.isPending
                 ? "সংরক্ষণ হচ্ছে..."

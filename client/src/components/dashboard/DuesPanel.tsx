@@ -34,35 +34,35 @@ export function DuesPanel({
         <Button
           size="sm"
           onClick={onAdd}
-          className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+          className="rounded-xl bg-primary hover:bg-primary/90"
         >
           <Plus className="mr-1 h-4 w-4" />
           যোগ করুন
         </Button>
       </div>
-      <p className="mt-2 text-xs text-[#6d8278]">
+      <p className="mt-2 text-xs text-muted-foreground">
         সমন্বয় করলে বকেয়া কমবে; আয় বা ব্যয়ের হিসাবে যোগ হবে না।
       </p>
-      <div className="mt-4 divide-y divide-[#e8eee9]">
+      <div className="mt-4 divide-y divide-border">
         {dues.length ? (
           dues.map(due => (
             <div key={due.id} className="py-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-[#25483e]">
+                  <p className="font-semibold text-foreground">
                     {due.counterparty}
                   </p>
-                  <p className="mt-1 text-xs text-[#778980]">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {due.voucherNo ? `ভাউচার: ${due.voucherNo} · ` : ""}
                     {due.note ?? "কোনো বিবরণ নেই"}
                   </p>
                 </div>
-                <p className="font-semibold text-[#a56d20]">
+                <p className="font-semibold text-destructive">
                   {bdt(due.outstandingAmount)}
                 </p>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-xs text-[#778980]">
+                <p className="text-xs text-muted-foreground">
                   মোট {bdt(due.originalAmount)} · {dateText(due.openedAt)}
                 </p>
                 <div className="flex items-center gap-2">
@@ -82,10 +82,10 @@ export function DuesPanel({
                           const url = getWhatsAppShareUrl(null, msg);
                           window.open(url, "_blank");
                         }}
-                        className="h-8 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] text-xs font-semibold flex items-center gap-1 shadow-sm"
+                        className="h-8 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-positive text-xs font-semibold flex items-center gap-1 shadow-sm"
                         title="WhatsApp এ বকেয়া তাগাদা পাঠান"
                       >
-                        <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
+                        <MessageCircle className="h-3.5 w-3.5 text-positive" />
                         তাগাদা
                       </Button>
                     )}
@@ -100,14 +100,14 @@ export function DuesPanel({
                 </div>
               </div>
               {due.settlements?.length ? (
-                <div className="mt-3 rounded-lg bg-[#f6faf7] p-2">
-                  <p className="text-xs font-semibold text-[#587466]">
+                <div className="mt-3 rounded-lg bg-background p-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
                     সমন্বয়ের ইতিহাস
                   </p>
                   {due.settlements.map(settlement => (
                     <div
                       key={settlement.id}
-                      className="mt-2 grid gap-1 border-t border-[#e5eee7] pt-2 text-xs text-[#667d72] sm:grid-cols-2"
+                      className="mt-2 grid gap-1 border-t border-border pt-2 text-xs text-muted-foreground sm:grid-cols-2"
                     >
                       <span>
                         {dateText(settlement.occurredAt)} ·{" "}
@@ -115,7 +115,7 @@ export function DuesPanel({
                           ? `ভাউচার: ${settlement.voucherNo}`
                           : "ভাউচার নেই"}
                       </span>
-                      <span className="font-medium text-[#25483e] sm:text-right">
+                      <span className="font-medium text-foreground sm:text-right">
                         {bdt(settlement.amount)} ·{" "}
                         {settlement.accountName ?? "অ্যাকাউন্ট ছাড়া"}
                       </span>
@@ -126,14 +126,14 @@ export function DuesPanel({
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-[#8a9a92]">
+                <p className="mt-3 text-xs text-muted-foreground">
                   এখনও কোনো সমন্বয় হয়নি
                 </p>
               )}
             </div>
           ))
         ) : (
-          <p className="py-5 text-center text-sm text-[#7b8d84]">{`${eyebrow}র কোনো বকেয়া নেই`}</p>
+          <p className="py-5 text-center text-sm text-muted-foreground">{`${eyebrow}র কোনো বকেয়া নেই`}</p>
         )}
       </div>
     </article>

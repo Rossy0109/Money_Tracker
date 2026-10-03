@@ -148,20 +148,20 @@ export default function SystemHealth() {
     return (
       <DashboardLayout>
         <div className="mx-auto max-w-xl px-4 py-12 text-center">
-          <div className="space-y-4 rounded-3xl border border-amber-200 bg-white p-8 shadow-sm">
+          <div className="space-y-4 rounded-3xl border border-amber-200 bg-card p-8 shadow-sm">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-inner">
               <ShieldCheck className="h-7 w-7" />
             </div>
-            <h2 className="text-xl font-bold text-[#173f36]">
+            <h2 className="text-xl font-bold text-foreground">
               সিস্টেম হেলথ দেখার অনুমতি নেই
             </h2>
-            <p className="text-sm leading-relaxed text-[#5c7a6e]">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               সিস্টেম স্ট্যাটাস পাতাটি দেখতে আপনার অ্যাকাউন্টে settings অনুমতি
               থাকতে হবে। প্রয়োজনে অ্যাডমিনের সাথে যোগাযোগ করুন।
             </p>
             <Button
               onClick={() => setLocation("/")}
-              className="rounded-xl bg-[#173f36] px-6 text-white hover:bg-[#102d26]"
+              className="rounded-xl bg-primary px-6 text-primary-foreground hover:bg-primary/90"
             >
               ড্যাশবোর্ডে ফিরে যান
             </Button>
@@ -180,9 +180,9 @@ export default function SystemHealth() {
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
-        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#123c32] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-sidebar p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">
+            <p className="text-xs font-bold tracking-[.18em] text-positive">
               সিস্টেম স্ট্যাটাস
             </p>
             <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">
@@ -199,7 +199,7 @@ export default function SystemHealth() {
               onClick={() => report.refetch()}
               disabled={report.isFetching}
               aria-label="হেলথ রিপোর্ট রিফ্রেশ করুন"
-              className="gap-2 rounded-xl bg-[#bcecc6] font-semibold text-[#123c32] hover:bg-[#a8e0b2] disabled:opacity-70"
+              className="gap-2 rounded-xl bg-border font-semibold text-foreground hover:bg-border disabled:opacity-70"
             >
               {report.isFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -209,7 +209,7 @@ export default function SystemHealth() {
               আবার যাচাই করুন
             </Button>
             {data && (
-              <p className="text-[11px] text-[#bcecc6]">
+              <p className="text-[11px] text-positive">
                 যাচাই: {formatTimestamp(data.checkedAt)} · ভার্সন{" "}
                 {data.appVersion} · স্কিমা {data.schemaVersion}
               </p>
@@ -218,8 +218,8 @@ export default function SystemHealth() {
         </header>
 
         {report.isLoading && (
-          <Card className="border-[#c9e2d3] bg-[#f8fdf9] shadow-sm">
-            <CardContent className="flex items-center justify-center gap-3 py-10 text-[#4e7465]">
+          <Card className="border-border bg-background shadow-sm">
+            <CardContent className="flex items-center justify-center gap-3 py-10 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
               <p className="text-sm font-semibold">
                 হেলথ রিপোর্ট তৈরি হচ্ছে...
@@ -244,7 +244,7 @@ export default function SystemHealth() {
               <Button
                 type="button"
                 onClick={() => report.refetch()}
-                className="rounded-xl bg-[#173f36] px-5 text-white hover:bg-[#102d26]"
+                className="rounded-xl bg-primary px-5 text-primary-foreground hover:bg-primary/90"
               >
                 আবার চেষ্টা করুন
               </Button>
@@ -257,7 +257,7 @@ export default function SystemHealth() {
             <Card
               className={`border shadow-sm ${
                 overall === "ok"
-                  ? "border-[#b7e4c6] bg-[#f3fcf6]"
+                  ? "border-border bg-background"
                   : "border-red-200 bg-red-50"
               }`}
             >
@@ -279,7 +279,7 @@ export default function SystemHealth() {
                   <div>
                     <p
                       className={`text-base font-bold ${
-                        overall === "ok" ? "text-[#14523b]" : "text-red-900"
+                        overall === "ok" ? "text-positive" : "text-red-900"
                       }`}
                     >
                       {overall === "ok"
@@ -288,7 +288,7 @@ export default function SystemHealth() {
                           ? "কিছু সমস্যা পাওয়া গেছে"
                           : "স্ট্যাটাস অজানা"}
                     </p>
-                    <p className="mt-1 text-sm text-[#4e7465]">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {overall === "ok"
                         ? "সকল প্রধান পরীক্ষা সফল হয়েছে।"
                         : "নিচের ব্যর্থ পরীক্ষাগুলো দেখুন এবং প্রয়োজনে রিট্রাই করুন।"}
@@ -310,9 +310,9 @@ export default function SystemHealth() {
                 {summaryEntries.map(([key, value]) => (
                   <div
                     key={key}
-                    className="rounded-2xl border border-[#dce7df] bg-white p-4 shadow-xs"
+                    className="rounded-2xl border border-border bg-card p-4 shadow-xs"
                   >
-                    <p className="text-xs font-semibold text-[#5a7f6f]">
+                    <p className="text-xs font-semibold text-muted-foreground">
                       {SUMMARY_LABELS[key] ?? key}
                     </p>
                     <div className="mt-2">
@@ -334,13 +334,13 @@ export default function SystemHealth() {
                 {data.checks.map(check => (
                   <li
                     key={check.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-[#dce7df] bg-white p-4 shadow-xs sm:flex-row sm:items-start sm:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0 space-y-1">
-                      <p className="text-sm font-bold text-[#173f36]">
+                      <p className="text-sm font-bold text-foreground">
                         {check.label}
                       </p>
-                      <p className="font-mono text-[11px] text-[#7c9188]">
+                      <p className="font-mono text-[11px] text-muted-foreground">
                         {check.id}
                       </p>
                       {check.error && (
@@ -349,12 +349,12 @@ export default function SystemHealth() {
                         </p>
                       )}
                       {check.details && !check.error && (
-                        <p className="text-sm text-[#4e7465]">
+                        <p className="text-sm text-muted-foreground">
                           {check.details}
                         </p>
                       )}
                       {check.retryAction && (
-                        <p className="flex items-start gap-1.5 text-xs text-[#5b856f]">
+                        <p className="flex items-start gap-1.5 text-xs text-positive">
                           <Wrench
                             className="mt-0.5 h-3.5 w-3.5 shrink-0"
                             aria-hidden="true"
@@ -365,7 +365,7 @@ export default function SystemHealth() {
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       {check.latencyMs != null && (
-                        <span className="text-xs font-semibold text-[#7c9188]">
+                        <span className="text-xs font-semibold text-muted-foreground">
                           {Math.round(check.latencyMs)} ms
                         </span>
                       )}
@@ -387,7 +387,7 @@ export default function SystemHealth() {
                 <div className="responsive-table-container">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-[#e4ede7] bg-[#f6faf7] text-xs font-bold uppercase tracking-wide text-[#5a7f6f]">
+                      <tr className="border-b border-border bg-background text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         <th className="px-4 py-3">হিসাবখাতা</th>
                         <th className="px-4 py-3">অবস্থা</th>
                         <th className="px-4 py-3">অমিল</th>
@@ -398,9 +398,9 @@ export default function SystemHealth() {
                       {data.integrity.map(row => (
                         <tr
                           key={row.projectId}
-                          className="border-b border-[#eef4ee] last:border-0"
+                          className="border-b border-border last:border-0"
                         >
-                          <td className="px-4 py-3 font-semibold text-[#173f36]">
+                          <td className="px-4 py-3 font-semibold text-foreground">
                             {row.projectName}
                           </td>
                           <td className="px-4 py-3">
@@ -408,10 +408,10 @@ export default function SystemHealth() {
                               value={row.status === "VERIFIED" ? "ok" : "fail"}
                             />
                           </td>
-                          <td className="px-4 py-3 text-[#4e7465]">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {row.diffs}
                           </td>
-                          <td className="px-4 py-3 text-[#4e7465]">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {formatTimestamp(row.checkedAt)}
                           </td>
                         </tr>
@@ -420,7 +420,7 @@ export default function SystemHealth() {
                   </table>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 rounded-2xl border border-[#dce7df] bg-white p-4 text-sm text-[#5a7f6f]">
+                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
                   <Database className="h-4 w-4" aria-hidden="true" />
                   এই অ্যাকাউন্টের কোনো প্রজেক্টের ইন্টিগ্রিটি ফলাফল নেই।
                 </div>

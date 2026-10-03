@@ -40,7 +40,7 @@ export function AccountingSummarySection({
           <h2 className="section-title">
             {monthText(summary.monthKey)} মাসের লাভ-ক্ষতি ও আর্থিক অবস্থান
           </h2>
-          <p className="mt-1 text-sm text-[#668076]">
+          <p className="mt-1 text-sm text-muted-foreground">
             লাভ-ক্ষতি শুধু নির্বাচিত মাসের আয় ও ব্যয়ের হিসাব। আর্থিক অবস্থানে
             অ্যাকাউন্ট ব্যালেন্স, পাওনা ও দেনা অন্তর্ভুক্ত আছে।
           </p>
@@ -48,7 +48,7 @@ export function AccountingSummarySection({
         <Button
           onClick={onOpenReport}
           variant="outline"
-          className="w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] sm:w-auto"
+          className="w-full rounded-xl border-[#b9d1be] bg-card text-foreground sm:w-auto"
         >
           <Download className="mr-1.5 h-4 w-4" />
           আলাদা রিপোর্ট
@@ -86,7 +86,7 @@ export function AccountingSummarySection({
           tone={financialPosition.netFinancialPosition >= 0 ? "green" : "rose"}
         />
       </div>
-      <p className="mt-4 text-sm text-[#668076]">
+      <p className="mt-4 text-sm text-muted-foreground">
         মোট সম্পদ: {bdt(financialPosition.assets)}
         <span aria-hidden="true"> · </span>
         মোট দেনা: {bdt(financialPosition.debts)}

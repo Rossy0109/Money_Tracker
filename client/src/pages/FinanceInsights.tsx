@@ -156,7 +156,7 @@ export default function FinanceInsights() {
   if (projectsLoading) {
     return (
       <DashboardLayout>
-        <div className="grid min-h-[50vh] place-items-center text-[#43655a]">
+        <div className="grid min-h-[50vh] place-items-center text-foreground">
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
       </DashboardLayout>
@@ -166,9 +166,9 @@ export default function FinanceInsights() {
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
-        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#123c32] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-sidebar p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">
+            <p className="text-xs font-bold tracking-[.18em] text-positive">
               পরিকল্পনা ও বিশ্লেষণ
             </p>
             <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">
@@ -184,7 +184,7 @@ export default function FinanceInsights() {
               aria-label="হিসাবখাতা নির্বাচন"
               value={activeProjectId ?? ""}
               onChange={event => chooseProject(event.target.value)}
-              className="h-11 min-w-0 rounded-xl border border-white/25 bg-white px-3 text-sm font-semibold text-[#123c32] focus:outline-none focus:ring-2 focus:ring-[#bcecc6] sm:min-w-60"
+              className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
             >
               {projects.map(project => (
                 <option key={project.id} value={project.id}>
@@ -204,11 +204,11 @@ export default function FinanceInsights() {
         ) : (
           <>
             <section className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
-              <Card className="border-[#dbe7dd] shadow-sm">
-                <CardHeader className="gap-3 border-b border-[#edf2ee] pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <Card className="border-border shadow-sm">
+                <CardHeader className="gap-3 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                      <Sparkles className="h-5 w-5 text-[#16804c]" />
+                    <CardTitle className="flex items-center gap-2 text-foreground">
+                      <Sparkles className="h-5 w-5 text-positive" />
                       মাসিক বাজেট পরিকল্পনা
                     </CardTitle>
                     <CardDescription className="mt-1">
@@ -216,7 +216,7 @@ export default function FinanceInsights() {
                       কোনো বাজেট বদলানো হবে না।
                     </CardDescription>
                   </div>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     মাস
                     <Input
                       type="month"
@@ -229,20 +229,20 @@ export default function FinanceInsights() {
                 <CardContent className="p-0">
                   {planLoading ? (
                     <div className="grid min-h-48 place-items-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-[#2c6c57]" />
+                      <Loader2 className="h-6 w-6 animate-spin text-positive" />
                     </div>
                   ) : (
-                    <div className="divide-y divide-[#eef3ef]">
+                    <div className="divide-y divide-border">
                       {plan?.plans.map(item => (
                         <article
                           key={item.categoryId}
                           className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                         >
                           <div className="min-w-0">
-                            <p className="font-semibold text-[#1b4035]">
+                            <p className="font-semibold text-foreground">
                               {item.categoryName}
                             </p>
-                            <p className="mt-1 text-xs text-[#6a8278]">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               গত মাসে খরচ {bdt(item.previousSpent)}
                               {item.previousBudget !== null
                                 ? ` · বাজেট ছিল ${bdt(item.previousBudget)}`
@@ -250,12 +250,12 @@ export default function FinanceInsights() {
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-3 sm:justify-end">
-                            <span className="text-sm font-bold text-[#195f45]">
+                            <span className="text-sm font-bold text-positive">
                               প্রস্তাব {bdt(item.suggestedAmount)}
                             </span>
                             <Button
                               size="sm"
-                              className="h-10 rounded-xl bg-[#1b704d] px-3 hover:bg-[#125b3d]"
+                              className="h-10 rounded-xl bg-primary px-3 hover:bg-primary/90"
                               disabled={
                                 item.suggestedAmount <= 0 ||
                                 saveBudget.isPending
@@ -278,10 +278,10 @@ export default function FinanceInsights() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-[#dbe7dd] shadow-sm">
+              <Card className="border-border shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <CalendarDays className="h-5 w-5 text-[#2c6c57]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <CalendarDays className="h-5 w-5 text-positive" />
                     বর্তমান মাসের সারাংশ
                   </CardTitle>
                   <CardDescription>
@@ -289,33 +289,33 @@ export default function FinanceInsights() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-[#edf8ef] p-4">
-                    <p className="text-xs font-medium text-[#477360]">মোট আয়</p>
-                    <p className="mt-1 text-lg font-bold text-[#17643f]">
+                  <div className="rounded-2xl bg-background p-4">
+                    <p className="text-xs font-medium text-muted-foreground">মোট আয়</p>
+                    <p className="mt-1 text-lg font-bold text-positive">
                       {bdt(overview?.totals.totalIncome ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-[#fff2e6] p-4">
-                    <p className="text-xs font-medium text-[#8a5a2b]">
+                    <p className="text-xs font-medium text-destructive">
                       মোট ব্যয়
                     </p>
-                    <p className="mt-1 text-lg font-bold text-[#a34c15]">
+                    <p className="mt-1 text-lg font-bold text-destructive">
                       {bdt(overview?.totals.totalExpense ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-[#eff5ff] p-4">
-                    <p className="text-xs font-medium text-[#476283]">
+                    <p className="text-xs font-medium text-foreground">
                       হাতে থাকা
                     </p>
-                    <p className="mt-1 text-lg font-bold text-[#24548e]">
+                    <p className="mt-1 text-lg font-bold text-foreground">
                       {bdt(overview?.totals.totalBalance ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-[#f7f2ff] p-4">
-                    <p className="text-xs font-medium text-[#69537f]">
+                    <p className="text-xs font-medium text-foreground">
                       নিট ফলাফল
                     </p>
-                    <p className="mt-1 text-lg font-bold text-[#63438b]">
+                    <p className="mt-1 text-lg font-bold text-foreground">
                       {bdt(overview?.totals.netAmount ?? 0)}
                     </p>
                   </div>
@@ -323,10 +323,10 @@ export default function FinanceInsights() {
               </Card>
             </section>
 
-            <Card className="border-[#dbe7dd] shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                  <TrendingUp className="h-5 w-5 text-[#2c6c57]" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <TrendingUp className="h-5 w-5 text-positive" />
                   ছয় মাসের আয়, ব্যয় ও সঞ্চয়
                 </CardTitle>
                 <CardDescription>
@@ -341,7 +341,7 @@ export default function FinanceInsights() {
                 >
                   {analyticsLoading ? (
                     <div className="grid h-full place-items-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-[#2c6c57]" />
+                      <Loader2 className="h-6 w-6 animate-spin text-positive" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
@@ -409,10 +409,10 @@ export default function FinanceInsights() {
                   {analytics?.data.map(point => (
                     <div
                       key={point.monthKey}
-                      className="rounded-xl border border-[#e6eee8] p-3 text-sm"
+                      className="rounded-xl border border-border p-3 text-sm"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-[#284e40]">
+                        <span className="font-semibold text-foreground">
                           {monthLabel(point.monthKey)}
                         </span>
                         <Badge variant="secondary">
@@ -421,9 +421,9 @@ export default function FinanceInsights() {
                             : `বাজেট ${new Intl.NumberFormat("bn-BD").format(point.budgetUsagePercentage)}%`}
                         </Badge>
                       </div>
-                      <p className="mt-2 text-xs text-[#627a70]">
+                      <p className="mt-2 text-xs text-muted-foreground">
                         সঞ্চয়{" "}
-                        <span className="font-bold text-[#315f4c]">
+                        <span className="font-bold text-foreground">
                           {bdt(point.savings)}
                         </span>
                       </p>
@@ -433,10 +433,10 @@ export default function FinanceInsights() {
               </CardContent>
             </Card>
 
-            <Card className="border-[#dbe7dd] shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                  <Search className="h-5 w-5 text-[#2c6c57]" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <Search className="h-5 w-5 text-positive" />
                   লেনদেন খোঁজা ও ফিল্টার
                 </CardTitle>
                 <CardDescription>
@@ -447,9 +447,9 @@ export default function FinanceInsights() {
               <CardContent className="space-y-4">
                 <form
                   onSubmit={applySearch}
-                  className="grid gap-3 rounded-2xl bg-[#f7faf8] p-4 sm:grid-cols-2 lg:grid-cols-4"
+                  className="grid gap-3 rounded-2xl bg-background p-4 sm:grid-cols-2 lg:grid-cols-4"
                 >
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60] lg:col-span-2">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground lg:col-span-2">
                     বিবরণ বা ভাউচার নম্বর
                     <Input
                       value={searchForm.query}
@@ -460,10 +460,10 @@ export default function FinanceInsights() {
                         }))
                       }
                       placeholder="যেমন: বাজার বা V-000123"
-                      className="h-11 bg-white"
+                      className="h-11 bg-card"
                     />
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     ক্যাটাগরি
                     <select
                       value={searchForm.categoryId}
@@ -473,7 +473,7 @@ export default function FinanceInsights() {
                           categoryId: event.target.value,
                         }))
                       }
-                      className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                      className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                     >
                       <option value="">সব ক্যাটাগরি</option>
                       {overview?.categories.map(category => (
@@ -483,7 +483,7 @@ export default function FinanceInsights() {
                       ))}
                     </select>
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     ধরন
                     <select
                       value={searchForm.type}
@@ -493,14 +493,14 @@ export default function FinanceInsights() {
                           type: event.target.value as SearchForm["type"],
                         }))
                       }
-                      className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                      className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                     >
                       <option value="all">সব ধরন</option>
                       <option value="income">আয়</option>
                       <option value="expense">ব্যয়</option>
                     </select>
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     শুরুর তারিখ
                     <Input
                       type="date"
@@ -511,10 +511,10 @@ export default function FinanceInsights() {
                           from: event.target.value,
                         }))
                       }
-                      className="h-11 bg-white"
+                      className="h-11 bg-card"
                     />
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     শেষের তারিখ
                     <Input
                       type="date"
@@ -525,10 +525,10 @@ export default function FinanceInsights() {
                           to: event.target.value,
                         }))
                       }
-                      className="h-11 bg-white"
+                      className="h-11 bg-card"
                     />
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     সর্বনিম্ন টাকা
                     <Input
                       inputMode="decimal"
@@ -541,10 +541,10 @@ export default function FinanceInsights() {
                           minAmount: event.target.value,
                         }))
                       }
-                      className="h-11 bg-white"
+                      className="h-11 bg-card"
                     />
                   </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                  <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                     সর্বোচ্চ টাকা
                     <Input
                       inputMode="decimal"
@@ -557,13 +557,13 @@ export default function FinanceInsights() {
                           maxAmount: event.target.value,
                         }))
                       }
-                      className="h-11 bg-white"
+                      className="h-11 bg-card"
                     />
                   </label>
                   <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
                     <Button
                       type="submit"
-                      className="h-11 flex-1 rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+                      className="h-11 flex-1 rounded-xl bg-primary hover:bg-primary/90"
                     >
                       <Filter className="mr-2 h-4 w-4" />
                       ফিল্টার প্রয়োগ করুন
@@ -571,16 +571,16 @@ export default function FinanceInsights() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-11 rounded-xl bg-white"
+                      className="h-11 rounded-xl bg-card"
                       onClick={clearSearch}
                     >
                       মুছুন
                     </Button>
                   </div>
                 </form>
-                <ScrollShadow className="rounded-xl border border-[#e4ece6]">
+                <ScrollShadow className="rounded-xl border border-border">
                   <table className="w-full min-w-[720px] text-left text-sm">
-                    <thead className="bg-[#f3f7f4] text-xs text-[#527064]">
+                    <thead className="bg-background text-xs text-muted-foreground">
                       <tr>
                         <th className="px-4 py-3">তারিখ</th>
                         <th className="px-4 py-3">ভাউচার</th>
@@ -590,12 +590,12 @@ export default function FinanceInsights() {
                         <th className="px-4 py-3 text-right">টাকা</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#edf2ee]">
+                    <tbody className="divide-y divide-border">
                       {searching ? (
                         <tr>
                           <td
                             colSpan={6}
-                            className="px-4 py-8 text-center text-[#60786d]"
+                            className="px-4 py-8 text-center text-muted-foreground"
                           >
                             <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                           </td>
@@ -603,30 +603,30 @@ export default function FinanceInsights() {
                       ) : results.length ? (
                         results.map(row => (
                           <tr key={row.id}>
-                            <td className="whitespace-nowrap px-4 py-3 text-[#5d776d]">
+                            <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                               {dateLabel(row.occurredAt)}
                             </td>
-                            <td className="px-4 py-3 font-mono text-xs text-[#526e63]">
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                               {row.voucherNo || "—"}
                             </td>
-                            <td className="px-4 py-3 font-medium text-[#284e40]">
+                            <td className="px-4 py-3 font-medium text-foreground">
                               {row.categoryName}
                             </td>
-                            <td className="max-w-64 truncate px-4 py-3 text-[#5d776d]">
+                            <td className="max-w-64 truncate px-4 py-3 text-muted-foreground">
                               {row.note || "—"}
                             </td>
                             <td className="px-4 py-3">
                               <Badge
                                 className={
                                   row.type === "income"
-                                    ? "bg-[#e2f5e7] text-[#17643f] hover:bg-[#e2f5e7]"
-                                    : "bg-[#fff0e5] text-[#a34c15] hover:bg-[#fff0e5]"
+                                    ? "bg-muted text-positive hover:bg-muted"
+                                    : "bg-[#fff0e5] text-destructive hover:bg-[#fff0e5]"
                                 }
                               >
                                 {row.type === "income" ? "আয়" : "ব্যয়"}
                               </Badge>
                             </td>
-                            <td className="px-4 py-3 text-right font-bold text-[#294f42]">
+                            <td className="px-4 py-3 text-right font-bold text-foreground">
                               {bdt(row.amount)}
                             </td>
                           </tr>
@@ -635,7 +635,7 @@ export default function FinanceInsights() {
                         <tr>
                           <td
                             colSpan={6}
-                            className="px-4 py-8 text-center text-[#60786d]"
+                            className="px-4 py-8 text-center text-muted-foreground"
                           >
                             এই শর্তে কোনো লেনদেন পাওয়া যায়নি।
                           </td>

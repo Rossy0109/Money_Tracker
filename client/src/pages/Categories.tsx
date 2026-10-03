@@ -24,20 +24,20 @@ const copy: Record<
     title: "আয়ের ধরনসমূহ",
     description: "আপনার আয়ের লেনদেন যোগ করার সময় এই ক্যাটাগরিগুলো বেছে নিন।",
     icon: TrendingUp,
-    accent: "bg-[#e7f7ec] text-[#197341]",
+    accent: "bg-muted text-positive",
   },
   expense: {
     eyebrow: "ব্যয়ের ক্যাটাগরি",
     title: "ব্যয়ের ধরনসমূহ",
     description: "আপনার ব্যয়ের লেনদেন যোগ করার সময় এই ক্যাটাগরিগুলো বেছে নিন।",
     icon: TrendingDown,
-    accent: "bg-[#fff0ed] text-[#b54a35]",
+    accent: "bg-[#fff0ed] text-destructive",
   },
 };
 
 function LoadingState() {
   return (
-    <div className="finance-card p-8 text-center text-sm text-[#668076]">
+    <div className="finance-card p-8 text-center text-sm text-muted-foreground">
       ক্যাটাগরি লোড হচ্ছে…
     </div>
   );
@@ -88,13 +88,13 @@ export default function Categories() {
   });
 
   const projectSelector = projects.length ? (
-    <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
+    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
       <span>প্রকল্প</span>
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
         onChange={event => selectProject(Number(event.target.value))}
-        className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+        className="h-10 max-w-[240px] rounded-xl border border-border bg-card px-3 text-foreground outline-none focus:ring-2 focus:ring-ring"
       >
         {projects.map((project: { id: number; name: string }) => (
           <option key={project.id} value={project.id}>
@@ -109,19 +109,19 @@ export default function Categories() {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
+          <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-[#28603c] hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-positive hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
             <p className="section-kicker">ক্যাটাগরি</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
               আয় ও ব্যয়ের ক্যাটাগরি
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               সবকিছু একসঙ্গে না রেখে আয়ের ও ব্যয়ের ক্যাটাগরিগুলো আলাদা পৃষ্ঠায়
               সাজানো হয়েছে।
             </p>
@@ -150,18 +150,18 @@ export default function Categories() {
   return (
     <DashboardLayout>
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-        <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
-          <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
+        <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
             <a
               href="/categories"
-              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Tags className="h-4 w-4" />
               সব ক্যাটাগরি
@@ -170,10 +170,10 @@ export default function Categories() {
           <div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
               <p className="section-kicker">{details.eyebrow}</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                 {details.title}
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {details.description}
               </p>
             </div>
@@ -185,7 +185,7 @@ export default function Categories() {
           aria-label="নতুন ক্যাটাগরি যোগ করুন"
           className="finance-card space-y-3 p-5"
         >
-          <h2 className="font-semibold text-[#183d34]">
+          <h2 className="font-semibold text-foreground">
             নতুন {selectedType === "income" ? "আয়ের" : "ব্যয়ের"} ক্যাটাগরি যোগ
             করুন
           </h2>
@@ -207,19 +207,19 @@ export default function Categories() {
               onChange={event => setNewName(event.target.value)}
               placeholder="যেমন: ফ্রিল্যান্সিং"
               maxLength={120}
-              className="h-11 flex-1 rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+              className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-foreground outline-none focus:ring-2 focus:ring-ring"
             />
             <Button
               type="submit"
               disabled={addCategory.isPending || !newName.trim()}
-              className="h-11 rounded-xl bg-[#1e6b3a] text-white hover:bg-[#17552d]"
+              className="h-11 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="mr-2 h-4 w-4" />
               যোগ করুন
             </Button>
           </form>
           {formError ? (
-            <p role="alert" className="text-sm font-medium text-[#b54a35]">
+            <p role="alert" className="text-sm font-medium text-destructive">
               {formError}
             </p>
           ) : null}
@@ -243,10 +243,10 @@ export default function Categories() {
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#183d34]">
+                  <p className="font-semibold text-foreground">
                     {category.name}
                   </p>
-                  <p className="mt-1 text-sm text-[#668076]">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {selectedType === "income"
                       ? "আয়ের লেনদেন"
                       : "ব্যয়ের লেনদেন"}
@@ -265,7 +265,7 @@ export default function Categories() {
                         id: category.id,
                       });
                     }}
-                    className="rounded-xl border-[#f0d4cd] text-[#b54a35] hover:bg-[#fff0ed]"
+                    className="rounded-xl border-[#f0d4cd] text-destructive hover:bg-[#fff0ed]"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -274,19 +274,19 @@ export default function Categories() {
             ))}
           </section>
         ) : (
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+          <div className="finance-card p-8 text-center text-sm text-muted-foreground">
             এই প্রকল্পে এখনো কোনো ক্যাটাগরি নেই।
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d7e5da] bg-white p-4">
-          <p className="text-sm text-[#5f786d]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">
             অন্য ধরনের ক্যাটাগরিও আলাদা পৃষ্ঠায় দেখুন।
           </p>
           <Button
             asChild
             variant="outline"
-            className="rounded-xl border-[#b8d8be] text-[#28603c]"
+            className="rounded-xl border-border text-positive"
           >
             <a href={`/categories/${otherType}`}>
               {otherType === "income" ? "আয়ের ক্যাটাগরি" : "ব্যয়ের ক্যাটাগরি"}
@@ -304,7 +304,7 @@ function CategoryLink({ type, count }: { type: CategoryType; count: number }) {
   return (
     <a
       href={`/categories/${type}`}
-      className="finance-card group block p-6 transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(21,64,51,.10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+      className="finance-card group block p-6 transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(21,64,51,.10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
         className={`grid h-12 w-12 place-items-center rounded-2xl ${details.accent}`}
@@ -312,11 +312,11 @@ function CategoryLink({ type, count }: { type: CategoryType; count: number }) {
         <Icon className="h-5 w-5" />
       </span>
       <p className="mt-5 section-kicker">{details.eyebrow}</p>
-      <h2 className="mt-2 text-xl font-semibold text-[#173f36]">
+      <h2 className="mt-2 text-xl font-semibold text-foreground">
         {details.title}
       </h2>
-      <p className="mt-2 text-sm text-[#668076]">{count}টি ক্যাটাগরি দেখুন</p>
-      <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#28603c]">
+      <p className="mt-2 text-sm text-muted-foreground">{count}টি ক্যাটাগরি দেখুন</p>
+      <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-positive">
         আলাদা পৃষ্ঠায় যান <ArrowLeft className="h-4 w-4 rotate-180" />
       </span>
     </a>

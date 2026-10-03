@@ -36,7 +36,7 @@ export function PrintPreviewFrame({
         <Button
           onClick={onPrint}
           disabled={busy}
-          className="h-10 rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+          className="h-10 rounded-xl bg-primary hover:bg-primary/90"
         >
           <Printer className="mr-1.5 h-4 w-4" />
           {printLabel}
@@ -46,19 +46,19 @@ export function PrintPreviewFrame({
             onClick={onPdf}
             disabled={busy}
             variant="outline"
-            className="h-10 rounded-xl border-[#dce7e0] text-[#173f36]"
+            className="h-10 rounded-xl border-border text-foreground"
           >
             <FileDown className="mr-1.5 h-4 w-4" />
             PDF ডাউনলোড
           </Button>
         )}
       </div>
-      <div className="overflow-auto rounded-2xl border border-[#dce7e0] bg-[#e8ebe6] p-3">
+      <div className="overflow-auto rounded-2xl border border-border bg-muted p-3">
         <iframe
           title={title}
           srcDoc={srcDoc}
           sandbox="allow-same-origin"
-          className="mx-auto block h-[70vh] min-h-[540px] w-full max-w-[210mm] border-0 bg-white shadow-lg"
+          className="mx-auto block h-[70vh] min-h-[540px] w-full max-w-[210mm] border-0 bg-card shadow-lg"
         />
       </div>
     </div>

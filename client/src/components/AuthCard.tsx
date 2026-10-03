@@ -136,11 +136,11 @@ export function AuthCard({
   };
 
   return (
-    <main className="min-h-screen min-h-[100dvh] w-full bg-gradient-to-br from-[#f2f7f4] via-[#edf5f0] to-[#e4efe8] flex items-center justify-center p-3 sm:p-6 md:p-8">
+    <main className="min-h-screen min-h-[100dvh] w-full bg-gradient-to-br from-background via-muted to-muted flex items-center justify-center p-3 sm:p-6 md:p-8">
       <div className="w-full max-w-md my-auto">
         {/* Top App Identity */}
         <div className="text-center mb-5 sm:mb-6">
-          <div className="inline-flex items-center justify-center h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-white p-1.5 shadow-xl shadow-green-950/10 mb-3 ring-4 ring-white/90 overflow-hidden">
+          <div className="inline-flex items-center justify-center h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-card p-1.5 shadow-xl shadow-green-950/10 mb-3 ring-4 ring-white/90 overflow-hidden">
             <img
               src={logoUrl || "/logo.png"}
               alt="Ahmed's Financial Accounting"
@@ -150,30 +150,30 @@ export function AuthCard({
               }}
             />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f]">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
             Ahmed's Financial Accounting
           </h1>
-          <p className="text-xs sm:text-sm text-[#527768] mt-1 font-medium">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
             ব্যক্তিগত ও বাণিজ্যিক হিসাবের ১০০% নিরাপদ ক্লাউড
           </p>
         </div>
 
         {/* Auth Card Box */}
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#d6e5db] shadow-[0_20px_50px_rgba(20,56,47,0.08)] p-5 sm:p-8">
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-border shadow-[0_20px_50px_rgba(20,56,47,0.08)] p-5 sm:p-8">
           {pendingUser ? (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
                 <Clock className="h-7 w-7 animate-pulse" />
               </div>
-              <h2 className="text-lg font-bold text-[#14382f]">
+              <h2 className="text-lg font-bold text-foreground">
                 অ্যাকাউন্ট অনুমোদনের অপেক্ষায়
               </h2>
-              <div className="p-3.5 rounded-2xl bg-[#fafdfb] border border-[#d6e5db] text-xs text-[#3b5d50] space-y-1.5 text-left">
-                <p className="font-semibold text-[#14382f]">
+              <div className="p-3.5 rounded-2xl bg-card border border-border text-xs text-foreground space-y-1.5 text-left">
+                <p className="font-semibold text-foreground">
                   ব্যবহারকারী: {pendingUser.name || "নতুন সদস্য"}
                 </p>
-                <p className="text-[#59786a]">ইমেইল: {pendingUser.email}</p>
-                <p className="text-amber-700 font-medium pt-1 border-t border-[#e2ece5]">
+                <p className="text-muted-foreground">ইমেইল: {pendingUser.email}</p>
+                <p className="text-amber-700 font-medium pt-1 border-t border-border">
                   আপনার নিবন্ধন গ্রহণ করা হয়েছে। প্রধান অ্যাডমিনের অনুমোদন
                   পাওয়ার পর আপনি ড্যাশবোর্ড ব্যবহার করতে পারবেন।
                 </p>
@@ -183,7 +183,7 @@ export function AuthCard({
                   type="button"
                   variant="outline"
                   onClick={() => utils.auth.me.invalidate()}
-                  className="w-full h-11 rounded-xl border-[#c9dcd0] text-[#1e3b32] font-semibold text-xs flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl border-border text-foreground font-semibold text-xs flex items-center justify-center gap-2"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   অবস্থা যাচাই করুন (Refresh Status)
@@ -203,17 +203,17 @@ export function AuthCard({
             <>
               {/* Role Type Selection: User vs Admin */}
               <div className="mb-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5c7a6e] mb-1.5 text-center">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5 text-center">
                   লগইন ধরন নির্বাচন করুন
                 </div>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-[#eef4f0] rounded-2xl">
+                <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-2xl">
                   <button
                     type="button"
                     onClick={() => handleRoleSelect("user")}
                     className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                       roleMode === "user"
-                        ? "bg-white text-[#14382f] shadow-sm font-bold"
-                        : "text-[#5b7468] hover:text-[#14382f]"
+                        ? "bg-card text-foreground shadow-sm font-bold"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <User className="h-4 w-4" />
@@ -224,8 +224,8 @@ export function AuthCard({
                     onClick={() => handleRoleSelect("admin")}
                     className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                       roleMode === "admin"
-                        ? "bg-[#14382f] text-white shadow-sm font-bold"
-                        : "text-[#5b7468] hover:text-[#14382f]"
+                        ? "bg-primary text-primary-foreground shadow-sm font-bold"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -236,7 +236,7 @@ export function AuthCard({
 
               {/* Mode Switcher: Login vs Sign Up (Only for regular users) */}
               {roleMode === "user" && !isGoogleAuth && (
-                <div className="grid grid-cols-2 p-1 bg-[#f4f7f5] rounded-xl mb-5 border border-[#e1ece4]">
+                <div className="grid grid-cols-2 p-1 bg-background rounded-xl mb-5 border border-border">
                   <button
                     type="button"
                     onClick={() => {
@@ -245,8 +245,8 @@ export function AuthCard({
                     }}
                     className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                       mode === "login"
-                        ? "bg-white text-[#14382f] shadow-xs"
-                        : "text-[#627c70] hover:text-[#14382f]"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     লগইন (Sign In)
@@ -260,8 +260,8 @@ export function AuthCard({
                     }}
                     className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                       mode === "register"
-                        ? "bg-white text-[#14382f] shadow-xs"
-                        : "text-[#627c70] hover:text-[#14382f]"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     নতুন সাইন-আপ (Sign Up)
@@ -271,7 +271,7 @@ export function AuthCard({
 
               {/* Admin Notice */}
               {roleMode === "admin" && (
-                <div className="mb-4 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-[#14532d] text-xs flex items-center gap-2">
+                <div className="mb-4 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-positive text-xs flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>
                     অ্যাডমিনিস্ট্রেটর পোর্টাল: সম্পূর্ণ নিয়ন্ত্রণ ও সকল
@@ -282,13 +282,13 @@ export function AuthCard({
 
               {/* Pending Approval Success Banner */}
               {pendingApprovalMsg && (
-                <div className="mb-5 p-4 rounded-2xl bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] text-xs leading-5">
+                <div className="mb-5 p-4 rounded-2xl bg-background border border-border text-positive text-xs leading-5">
                   <div className="flex items-center gap-2 font-bold mb-1 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-[#16a34a]" />
+                    <CheckCircle2 className="h-4 w-4 text-positive" />
                     <span>রেজিস্ট্রেশন সফল হয়েছে</span>
                   </div>
                   <p>{pendingApprovalMsg}</p>
-                  <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#15803d]">
+                  <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-positive">
                     <Clock className="h-3.5 w-3.5" />
                     <span>
                       অ্যাডমিন অনুমোদন সম্পন্ন হলে এখান থেকে লগইন করুন।
@@ -303,7 +303,7 @@ export function AuthCard({
                   type="button"
                   variant="outline"
                   onClick={() => startLogin()}
-                  className="w-full h-11 sm:h-12 rounded-xl border-[#c9dcd0] hover:bg-[#f3f9f5] text-[#1e3b32] font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition-colors shadow-xs"
+                  className="w-full h-11 sm:h-12 rounded-xl border-border hover:bg-background text-foreground font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition-colors shadow-xs"
                 >
                   <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24">
                     <path
@@ -331,9 +331,9 @@ export function AuthCard({
               {/* Divider */}
               <div className="relative my-5 text-center">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#dce7e0]" />
+                  <div className="w-full border-t border-border" />
                 </div>
-                <span className="relative bg-white px-3 text-[11px] font-medium text-[#7c998e]">
+                <span className="relative bg-card px-3 text-[11px] font-medium text-muted-foreground">
                   অথবা ইমেইল ও পাসওয়ার্ড
                 </span>
               </div>
@@ -355,58 +355,58 @@ export function AuthCard({
               >
                 {mode === "register" && roleMode === "user" && (
                   <div>
-                    <Label className="text-xs font-semibold text-[#2b4c40] mb-1.5 block">
+                    <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                       আপনার পূর্ণ নাম
                     </Label>
                     <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8da69c]" />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="text"
                         required
                         placeholder="যেমন: কামরুল হাসান"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
+                        className="pl-10 h-11 rounded-xl border-border focus-visible:ring-ring bg-background text-sm"
                       />
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#2b4c40] mb-1.5 block">
+                  <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                     ইমেইল এড্রেস
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8da69c]" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="email"
                       required
                       placeholder="name@example.com"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
+                      className="pl-10 h-11 rounded-xl border-border focus-visible:ring-ring bg-background text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#2b4c40] mb-1.5 block">
+                  <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                     পাসওয়ার্ড
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8da69c]" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type={showPassword ? "text" : "password"}
                       required
                       placeholder="কমপক্ষে ৬ অক্ষর"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className="pl-10 pr-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
+                      className="pl-10 pr-10 h-11 rounded-xl border-border focus-visible:ring-ring bg-background text-sm"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8da69c] hover:text-[#166534] p-1"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-positive p-1"
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -419,18 +419,18 @@ export function AuthCard({
 
                 {mode === "register" && roleMode === "user" && (
                   <div>
-                    <Label className="text-xs font-semibold text-[#2b4c40] mb-1.5 block">
+                    <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                       পাসওয়ার্ড নিশ্চিত করুন
                     </Label>
                     <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8da69c]" />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         type={showPassword ? "text" : "password"}
                         required
                         placeholder="একই পাসওয়ার্ড পুনরায় দিন"
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
-                        className="pl-10 h-11 rounded-xl border-[#c9dcd0] focus-visible:ring-[#166534] bg-[#fafcfb] text-sm"
+                        className="pl-10 h-11 rounded-xl border-border focus-visible:ring-ring bg-background text-sm"
                       />
                     </div>
                   </div>
@@ -439,7 +439,7 @@ export function AuthCard({
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 rounded-xl bg-gradient-to-r from-[#173f36] to-[#14532d] hover:from-[#11322b] hover:to-[#0f3f22] text-white font-semibold text-sm shadow-md transition-all mt-2"
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-primary-foreground font-semibold text-sm shadow-md transition-all mt-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
@@ -462,14 +462,14 @@ export function AuthCard({
               </form>
 
               {/* Mobile browser advice */}
-              <div className="mt-4 p-2.5 rounded-xl bg-[#f6faf7] text-[11px] leading-4 text-[#5b7468]">
+              <div className="mt-4 p-2.5 rounded-xl bg-background text-[11px] leading-4 text-muted-foreground">
                 মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব
                 ব্যবহার করুন। cookies ও সেশন ডেটা অনুমতি দিন।
               </div>
 
               {/* Footer Features Info */}
-              <div className="mt-4 pt-3 border-t border-[#eaf1ec] flex items-center justify-center gap-2 text-[11px] text-[#698579]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#166534]" />
+              <div className="mt-4 pt-3 border-t border-border flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-positive" />
                 <span>
                   ১০০% এনক্রিপ্টেড এবং সম্পূর্ণ সুরক্ষিত ব্যক্তিগত ক্লাউড
                 </span>

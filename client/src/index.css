@@ -27,6 +27,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-positive: var(--positive);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -55,6 +56,7 @@
   --accent-foreground: #173f36;
   --destructive: #c75e53;
   --destructive-foreground: #ffffff;
+  --positive: #166534;
   --border: #dce7df;
   --input: #d4e1d7;
   --ring: #3d8966;
@@ -85,6 +87,7 @@
   --accent-foreground: #d8f2dd;
   --destructive: #e07a6e;
   --destructive-foreground: #ffffff;
+  --positive: #4ade80;
   --border: #24382f;
   --input: #24382f;
   --ring: #3d8966;

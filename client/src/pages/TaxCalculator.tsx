@@ -73,28 +73,28 @@ export default function TaxCalculator() {
     <DashboardLayout>
       <div className="space-y-6 pb-12">
         {/* Header Banner */}
-        <div className="bg-white p-5 sm:p-7 rounded-3xl border border-[#dce7df] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-card p-5 sm:p-7 rounded-3xl border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#166534]">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
               <Calculator className="h-4 w-4" />
               <span>National Board of Revenue (NBR) Bangladesh</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f] mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
               আয়কর ও ভ্যাট ক্যালকুলেটর (FY 2024-2026)
             </h1>
-            <p className="text-xs sm:text-sm text-[#5a7a6c] mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               বাংলাদেশের সর্বশেষ অর্থ আইন অনুযায়ী ব্যক্তিগত আয়কর, স্ল্যাব
               ভিত্তিক ট্যাক্স ও বিনিয়োগ রেয়াত হিসাব করুন।
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#f0f7f2] p-3 rounded-2xl border border-[#cde4d5]">
-            <ShieldCheck className="h-5 w-5 text-[#166534]" />
+          <div className="flex items-center gap-2 bg-background p-3 rounded-2xl border border-border">
+            <ShieldCheck className="h-5 w-5 text-positive" />
             <div className="text-xs">
-              <span className="block font-bold text-[#14382f]">
+              <span className="block font-bold text-foreground">
                 করমুক্ত আয় সীমা
               </span>
-              <span className="text-[#517565]">
+              <span className="text-muted-foreground">
                 ৳ {result.initialThreshold.toLocaleString()} পর্যন্ত ০% ট্যাক্স
               </span>
             </div>
@@ -106,22 +106,22 @@ export default function TaxCalculator() {
           {/* Left Column: Inputs */}
           <div className="lg:col-span-7 space-y-5">
             {/* Category & City Selection */}
-            <div className="bg-white p-5 rounded-3xl border border-[#dce7df] shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-[#14382f] flex items-center gap-2">
-                <Building className="h-4 w-4 text-[#166534]" /> করদাতার
+            <div className="bg-card p-5 rounded-3xl border border-border shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Building className="h-4 w-4 text-positive" /> করদাতার
                 ক্যাটাগরি ও অবস্থান
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     করদাতা শ্রেণি
                   </Label>
                   <Select
                     value={category}
                     onValueChange={(val: GenderCategory) => setCategory(val)}
                   >
-                    <SelectTrigger className="mt-1 h-10 rounded-xl border-[#cfe0d5] text-xs">
+                    <SelectTrigger className="mt-1 h-10 rounded-xl border-border text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -142,7 +142,7 @@ export default function TaxCalculator() {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     এলাকা (ন্যূনতম করের জন্য)
                   </Label>
                   <Select
@@ -151,7 +151,7 @@ export default function TaxCalculator() {
                       val: "dhaka_ctg" | "other_city" | "non_city"
                     ) => setCityType(val)}
                   >
-                    <SelectTrigger className="mt-1 h-10 rounded-xl border-[#cfe0d5] text-xs">
+                    <SelectTrigger className="mt-1 h-10 rounded-xl border-border text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -171,15 +171,15 @@ export default function TaxCalculator() {
             </div>
 
             {/* Income Inputs */}
-            <div className="bg-white p-5 rounded-3xl border border-[#dce7df] shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-[#14382f] flex items-center gap-2">
-                <Coins className="h-4 w-4 text-[#166534]" /> বাৎসরিক আয়ের বিবরণ
+            <div className="bg-card p-5 rounded-3xl border border-border shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Coins className="h-4 w-4 text-positive" /> বাৎসরিক আয়ের বিবরণ
                 (টাকা)
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     চাকরির মোট বেতন (Salary)
                   </Label>
                   <Input
@@ -187,15 +187,15 @@ export default function TaxCalculator() {
                     min="0"
                     value={salaryIncome}
                     onChange={e => setSalaryIncome(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
-                  <span className="text-[10px] text-[#719385]">
+                  <span className="text-[10px] text-muted-foreground">
                     ১/৩ অংশ বা ৪.৫ লাখ টাকা পর্যন্ত স্বয়ংক্রিয়ভাবে করমুক্ত
                   </span>
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     ব্যবসা বা পেশাগত নিট মুনাফা
                   </Label>
                   <Input
@@ -203,12 +203,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={businessIncome}
                     onChange={e => setBusinessIncome(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     বাড়ি ভাড়া ও সম্পত্তি থেকে আয়
                   </Label>
                   <Input
@@ -216,12 +216,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={houseRentIncome}
                     onChange={e => setHouseRentIncome(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     অন্যান্য উৎস ও ব্যাংকের মুনাফা
                   </Label>
                   <Input
@@ -229,12 +229,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={otherIncome}
                     onChange={e => setOtherIncome(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     উৎসে কর্তিত কর / অগ্রিম ট্যাক্স (TDS / Advance Tax)
                   </Label>
                   <Input
@@ -243,22 +243,22 @@ export default function TaxCalculator() {
                     value={tds}
                     onChange={e => setTds(e.target.value)}
                     placeholder="ইতোমধ্যে কর্তন করা ট্যাক্স"
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
               </div>
             </div>
 
             {/* Investments for Tax Rebate */}
-            <div className="bg-white p-5 rounded-3xl border border-[#dce7df] shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-[#14382f] flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[#166534]" /> কর রেয়াতযোগ্য
+            <div className="bg-card p-5 rounded-3xl border border-border shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-positive" /> কর রেয়াতযোগ্য
                 বিনিয়োগ (Rebate)
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     জাতীয় সঞ্চয়পত্র (Sanchayapatra)
                   </Label>
                   <Input
@@ -266,12 +266,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={sanchayapatra}
                     onChange={e => setSanchayapatra(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     ডিপিএস (DPS - সর্বোচ্চ ১.২ লাখ)
                   </Label>
                   <Input
@@ -279,12 +279,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={dps}
                     onChange={e => setDps(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     শেয়ার বাজার বিনিয়োগ (Stocks)
                   </Label>
                   <Input
@@ -292,12 +292,12 @@ export default function TaxCalculator() {
                     min="0"
                     value={stockMarket}
                     onChange={e => setStockMarket(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     জীবন বীমা প্রিমিয়াম (Life Insurance)
                   </Label>
                   <Input
@@ -305,7 +305,7 @@ export default function TaxCalculator() {
                     min="0"
                     value={lifeInsurance}
                     onChange={e => setLifeInsurance(e.target.value)}
-                    className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                    className="mt-1 h-10 rounded-xl border-border"
                   />
                 </div>
               </div>
@@ -316,13 +316,13 @@ export default function TaxCalculator() {
           <div className="lg:col-span-5 space-y-5">
             <div className="bg-gradient-to-br from-[#113a30] via-[#14473b] to-[#0f342b] text-white p-6 rounded-3xl shadow-xl space-y-5 sticky top-6">
               <div>
-                <span className="text-xs font-semibold text-[#a8dcbc] uppercase tracking-wider">
+                <span className="text-xs font-semibold text-positive uppercase tracking-wider">
                   বাৎসরিক কর বিবরণী
                 </span>
                 <div className="text-3xl font-bold text-white mt-1">
                   ৳ {result.remainingTaxToPay.toLocaleString()}
                 </div>
-                <p className="text-xs text-[#b8dfc9] mt-0.5">
+                <p className="text-xs text-positive mt-0.5">
                   চূড়ান্ত প্রদেয় নিট আয়কর (TDS কর্তনের পর)
                 </p>
               </div>
@@ -341,7 +341,7 @@ export default function TaxCalculator() {
                   <span className="text-[#b9d6c5]">
                     করমুক্ত ভাতা / অব্যাহতি:
                   </span>
-                  <span className="font-semibold text-[#8ce0a3]">
+                  <span className="font-semibold text-positive">
                     - ৳ {result.exemptIncome.toLocaleString()}
                   </span>
                 </div>
@@ -365,7 +365,7 @@ export default function TaxCalculator() {
                   <span className="text-[#b9d6c5]">
                     বিনিয়োগ কর রেয়াত (১৫%):
                   </span>
-                  <span className="font-semibold text-[#8ce0a3]">
+                  <span className="font-semibold text-positive">
                     - ৳ {result.taxRebate.toLocaleString()}
                   </span>
                 </div>
@@ -374,7 +374,7 @@ export default function TaxCalculator() {
                     <span className="text-[#b9d6c5]">
                       ইতোমধ্যে প্রদত্ত ট্যাক্স (TDS):
                     </span>
-                    <span className="font-semibold text-[#8ce0a3]">
+                    <span className="font-semibold text-positive">
                       - ৳ {Number(tds).toLocaleString()}
                     </span>
                   </div>
@@ -402,7 +402,7 @@ export default function TaxCalculator() {
               </div>
 
               <div className="p-3 bg-white/10 rounded-2xl text-[11px] leading-4 text-[#bad8c6]">
-                <HelpCircle className="h-3.5 w-3.5 inline mr-1 text-[#8ce0a3]" />
+                <HelpCircle className="h-3.5 w-3.5 inline mr-1 text-positive" />
                 উৎস: জাতীয় রাজস্ব বোর্ড (NBR) ও বাংলাদেশ অর্থ আইন। হিসাবটি
                 ব্যক্তিগত আয়কর রিটার্ন জমাদানের সুবিধার্থে নির্মিত।
               </div>

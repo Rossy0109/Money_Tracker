@@ -37,7 +37,7 @@ export function SettlementDialog({
           <DialogTitle>দেনা/পাওনা সমন্বয়</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+          <p className="rounded-xl bg-background p-3 text-sm text-positive">
             এই সমন্বয়টি আয় বা ব্যয় নয়; কেবল বকেয়া পরিমাণ কমাবে।
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -89,7 +89,7 @@ export function SettlementDialog({
               ))}
             </select>
           </Field>
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+          <p className="rounded-xl bg-background p-3 text-sm text-positive">
             ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।
           </p>
           <Field label="বিবরণ">
@@ -105,7 +105,7 @@ export function SettlementDialog({
           </Field>
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             বকেয়া সমন্বয় করুন
           </Button>

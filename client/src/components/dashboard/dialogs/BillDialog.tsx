@@ -69,7 +69,7 @@ export function BillDialog({
             />
           </Field>
           {editingBillId && (
-            <label className="flex items-center gap-2 text-sm text-[#38594d]">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={form.isPaid}
@@ -82,7 +82,7 @@ export function BillDialog({
           )}
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             সংরক্ষণ করুন
           </Button>

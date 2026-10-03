@@ -56,7 +56,7 @@ export function PwaInstallButton() {
         type="button"
         variant="outline"
         size="icon"
-        className="h-11 w-11 rounded-xl border-[#cfe0d3] bg-white text-[#173f36] hover:bg-[#edf8ef]"
+        className="h-11 w-11 rounded-xl border-border bg-card text-foreground hover:bg-background"
         aria-label="মোবাইলের হোমস্ক্রিনে অ্যাপ যোগ করুন"
         title="হোমস্ক্রিনে যোগ করুন"
         onClick={
@@ -72,7 +72,7 @@ export function PwaInstallButton() {
       {showIosHelp && (
         <div
           role="status"
-          className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-[#cfe0d3] bg-white p-3 text-xs leading-5 text-[#365b4b] shadow-lg"
+          className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-card p-3 text-xs leading-5 text-foreground shadow-lg"
         >
           Safari-এর শেয়ার বাটন চাপুন, তারপর{" "}
           <strong>হোম স্ক্রিনে যোগ করুন</strong> নির্বাচন করুন।

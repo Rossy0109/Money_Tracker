@@ -211,7 +211,7 @@ export default function FamilyHousehold() {
         <header className="rounded-[1.75rem] bg-[#143f35] p-5 text-white shadow-[0_18px_45px_rgba(20,63,53,.16)] sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="flex items-center gap-2 text-xs font-bold tracking-[.14em] text-[#bfe7c9]">
+              <p className="flex items-center gap-2 text-xs font-bold tracking-[.14em] text-positive">
                 <House className="h-4 w-4" /> পরিবারের হিসাব
               </p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -243,10 +243,10 @@ export default function FamilyHousehold() {
         </header>
 
         {invitations.length > 0 && (
-          <Alert className="border-[#81b99a] bg-[#edf9ef] text-[#174b30]">
+          <Alert className="border-[#81b99a] bg-background text-positive">
             <UsersRound aria-hidden="true" />
             <AlertTitle>পারিবারিক আমন্ত্রণ অপেক্ষায় আছে</AlertTitle>
-            <AlertDescription className="mt-2 space-y-2 text-[#285d42]">
+            <AlertDescription className="mt-2 space-y-2 text-positive">
               {invitations.map(item => (
                 <div
                   key={item.membershipId}
@@ -258,7 +258,7 @@ export default function FamilyHousehold() {
                   </span>
                   <Button
                     size="sm"
-                    className="h-10 bg-[#1d6b42] hover:bg-[#155434]"
+                    className="h-10 bg-primary hover:bg-primary/90"
                     onClick={() =>
                       acceptInvitation.mutate({
                         membershipId: item.membershipId,
@@ -273,10 +273,10 @@ export default function FamilyHousehold() {
           </Alert>
         )}
 
-        <Card className="border-[#dce9df] shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-[#173f36]">
-              <Plus className="h-5 w-5 text-[#2b7a4b]" /> নতুন পারিবারিক
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Plus className="h-5 w-5 text-positive" /> নতুন পারিবারিক
               প্রোফাইল
             </CardTitle>
             <CardDescription>
@@ -293,7 +293,7 @@ export default function FamilyHousehold() {
               maxLength={120}
             />
             <Button
-              className="h-11 min-w-40 bg-[#173f36] hover:bg-[#0d3028]"
+              className="h-11 min-w-40 bg-primary hover:bg-primary/90"
               disabled={!householdName.trim() || createHousehold.isPending}
               onClick={() =>
                 createHousehold.mutate({ name: householdName.trim() })
@@ -313,10 +313,10 @@ export default function FamilyHousehold() {
         ) : overview ? (
           <>
             <section className="grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-              <Card className="border-[#dce9df]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <UsersRound className="h-5 w-5 text-[#2b7a4b]" /> সদস্য
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <UsersRound className="h-5 w-5 text-positive" /> সদস্য
                     প্রোফাইল
                   </CardTitle>
                   <CardDescription>
@@ -338,7 +338,7 @@ export default function FamilyHousehold() {
                   {overview.members.map(member => (
                     <div
                       key={member.id}
-                      className="rounded-xl border border-[#e2ece4] p-3"
+                      className="rounded-xl border border-border p-3"
                     >
                       <MemberRow
                         name={
@@ -351,7 +351,7 @@ export default function FamilyHousehold() {
                         status={member.status}
                       />
                       {canManage && member.status !== "revoked" && (
-                        <div className="mt-3 flex flex-wrap gap-2 border-t border-[#edf2ee] pt-3">
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
                           <Button
                             variant="outline"
                             size="sm"
@@ -392,10 +392,10 @@ export default function FamilyHousehold() {
                 </CardContent>
               </Card>
 
-              <Card className="border-[#dce9df]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <UserPlus className="h-5 w-5 text-[#2b7a4b]" /> সদস্য
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <UserPlus className="h-5 w-5 text-positive" /> সদস্য
                     আমন্ত্রণ
                   </CardTitle>
                   <CardDescription>
@@ -447,7 +447,7 @@ export default function FamilyHousehold() {
                         </SelectContent>
                       </Select>
                       <Button
-                        className="h-11 w-full bg-[#173f36] hover:bg-[#0d3028]"
+                        className="h-11 w-full bg-primary hover:bg-primary/90"
                         disabled={
                           !invite.email.trim() || inviteMember.isPending
                         }
@@ -464,7 +464,7 @@ export default function FamilyHousehold() {
                       </Button>
                     </div>
                   ) : (
-                    <p className="rounded-xl bg-[#f6faf7] p-4 text-sm leading-6 text-[#567267]">
+                    <p className="rounded-xl bg-background p-4 text-sm leading-6 text-muted-foreground">
                       সদস্য যুক্ত বা ভূমিকা পরিবর্তনের অধিকার শুধু পরিচালকের
                       আছে।
                     </p>
@@ -474,10 +474,10 @@ export default function FamilyHousehold() {
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-              <Card className="border-[#dce9df]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <WalletCards className="h-5 w-5 text-[#2b7a4b]" /> শেয়ার করা
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <WalletCards className="h-5 w-5 text-positive" /> শেয়ার করা
                     বাজেট
                   </CardTitle>
                   <CardDescription>
@@ -489,14 +489,14 @@ export default function FamilyHousehold() {
                     overview.sharedBudgets.map(item => (
                       <div
                         key={item.id}
-                        className="rounded-xl border border-[#e3ece5] p-3.5"
+                        className="rounded-xl border border-border p-3.5"
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <div className="min-w-0">
-                            <p className="break-words font-semibold text-[#193d34]">
+                            <p className="break-words font-semibold text-foreground">
                               {item.label}
                             </p>
-                            <p className="mt-1 text-xs text-[#668075]">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               খরচ {taka(item.spent)} /{" "}
                               {taka(Number(item.amount))}
                             </p>
@@ -510,7 +510,7 @@ export default function FamilyHousehold() {
                           value={Math.min(100, item.percent)}
                           className="mt-3 h-2.5"
                         />
-                        <p className="mt-2 text-xs text-[#668075]">
+                        <p className="mt-2 text-xs text-muted-foreground">
                           {item.remaining >= 0
                             ? `বাকি ${taka(item.remaining)}`
                             : `সীমার চেয়ে ${taka(Math.abs(item.remaining))} বেশি`}
@@ -518,12 +518,12 @@ export default function FamilyHousehold() {
                       </div>
                     ))
                   ) : (
-                    <p className="rounded-xl bg-[#f6faf7] p-4 text-sm text-[#5d766b]">
+                    <p className="rounded-xl bg-background p-4 text-sm text-muted-foreground">
                       এই মাসে এখনো কোনো শেয়ার করা বাজেট নেই।
                     </p>
                   )}
                   {canManage && (
-                    <div className="grid gap-2 border-t border-[#e7eee8] pt-4 sm:grid-cols-[1fr_150px_auto]">
+                    <div className="grid gap-2 border-t border-border pt-4 sm:grid-cols-[1fr_150px_auto]">
                       <Input
                         className="h-11"
                         value={budget.label}
@@ -548,7 +548,7 @@ export default function FamilyHousehold() {
                         placeholder="টাকা"
                       />
                       <Button
-                        className="h-11 bg-[#173f36] hover:bg-[#0d3028]"
+                        className="h-11 bg-primary hover:bg-primary/90"
                         disabled={
                           !budget.label.trim() || !Number(budget.amount)
                         }
@@ -568,10 +568,10 @@ export default function FamilyHousehold() {
                 </CardContent>
               </Card>
 
-              <Card className="border-[#dce9df]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <Plus className="h-5 w-5 text-[#2b7a4b]" /> পরিবারের খরচ যোগ
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <Plus className="h-5 w-5 text-positive" /> পরিবারের খরচ যোগ
                     করুন
                   </CardTitle>
                   <CardDescription>
@@ -626,7 +626,7 @@ export default function FamilyHousehold() {
                         placeholder="বিবরণ (ঐচ্ছিক)"
                       />
                       <Button
-                        className="h-11 w-full bg-[#1d6b42] hover:bg-[#155434]"
+                        className="h-11 w-full bg-primary hover:bg-primary/90"
                         disabled={
                           !expense.budgetId ||
                           !Number(expense.amount) ||
@@ -646,14 +646,14 @@ export default function FamilyHousehold() {
                       </Button>
                     </div>
                   ) : (
-                    <p className="rounded-xl bg-[#f6faf7] p-4 text-sm leading-6 text-[#5d766b]">
+                    <p className="rounded-xl bg-background p-4 text-sm leading-6 text-muted-foreground">
                       এই প্রোফাইলে খরচ যোগ করার অনুমতি আপনার নেই। পরিচালক বা
                       সম্পাদক তা করতে পারবেন।
                     </p>
                   )}
                   {overview.recentExpenses.length > 0 && (
-                    <div className="mt-5 border-t border-[#e7eee8] pt-4">
-                      <p className="mb-2 text-xs font-bold tracking-wide text-[#557468]">
+                    <div className="mt-5 border-t border-border pt-4">
+                      <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
                         সাম্প্রতিক খরচ
                       </p>
                       {overview.recentExpenses.slice(0, 4).map(item => (
@@ -661,10 +661,10 @@ export default function FamilyHousehold() {
                           key={item.id}
                           className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span className="break-words text-[#3d5b4e]">
+                          <span className="break-words text-foreground">
                             {item.note || "পরিবারের খরচ"}
                           </span>
-                          <strong className="shrink-0 text-[#173f36]">
+                          <strong className="shrink-0 text-foreground">
                             {taka(Number(item.amount))}
                           </strong>
                         </div>
@@ -676,11 +676,11 @@ export default function FamilyHousehold() {
             </section>
 
             <section>
-              <Card className="border-[#dce9df] shadow-sm">
+              <Card className="border-border shadow-sm">
                 <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                      <ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" />{" "}
+                    <CardTitle className="flex items-center gap-2 text-foreground">
+                      <ChartColumnIncreasing className="h-5 w-5 text-positive" />{" "}
                       সদস্যভিত্তিক ব্যয় বিশ্লেষণ
                     </CardTitle>
                     <CardDescription>
@@ -691,7 +691,7 @@ export default function FamilyHousehold() {
                   {contributorSpend.length > 0 && (
                     <Badge
                       variant="secondary"
-                      className="w-fit bg-[#e8f5eb] text-[#215b37]"
+                      className="w-fit bg-muted text-positive"
                     >
                       মোট {taka(contributorTotal)}
                     </Badge>
@@ -753,17 +753,17 @@ export default function FamilyHousehold() {
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="divide-y divide-[#e7eee8] rounded-xl border border-[#e0ebe2]">
+                      <div className="divide-y divide-border rounded-xl border border-border">
                         {contributorSpend.map(item => (
                           <div
                             key={item.contributorUserId}
                             className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="min-w-0">
-                              <p className="break-words font-semibold text-[#193d34]">
+                              <p className="break-words font-semibold text-foreground">
                                 {item.contributorName}
                               </p>
-                              <p className="mt-0.5 text-xs text-[#668075]">
+                              <p className="mt-0.5 text-xs text-muted-foreground">
                                 {new Intl.NumberFormat("bn-BD").format(
                                   item.entryCount
                                 )}
@@ -774,7 +774,7 @@ export default function FamilyHousehold() {
                                 %
                               </p>
                             </div>
-                            <strong className="shrink-0 text-[#173f36]">
+                            <strong className="shrink-0 text-foreground">
                               {taka(item.amount)}
                             </strong>
                           </div>
@@ -782,12 +782,12 @@ export default function FamilyHousehold() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-[#cbded0] bg-[#f7fbf8] p-6 text-center">
-                      <ChartColumnIncreasing className="mx-auto h-8 w-8 text-[#5f9873]" />
-                      <p className="mt-3 font-semibold text-[#244f3e]">
+                    <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center">
+                      <ChartColumnIncreasing className="mx-auto h-8 w-8 text-positive" />
+                      <p className="mt-3 font-semibold text-foreground">
                         এ মাসে সদস্যভিত্তিক খরচের তথ্য নেই
                       </p>
-                      <p className="mt-1 text-sm leading-6 text-[#668075]">
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
                         পরিচালক বা সম্পাদক শেয়ার করা বাজেটে খরচ যোগ করলে এখানে
                         সদস্য অনুযায়ী বিশ্লেষণ দেখা যাবে।
                       </p>
@@ -798,11 +798,11 @@ export default function FamilyHousehold() {
             </section>
 
             <section ref={monthlyChartExportRef}>
-              <Card className="border-[#dce9df] bg-white shadow-sm">
+              <Card className="border-border bg-card shadow-sm">
                 <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                      <ChartColumnIncreasing className="h-5 w-5 text-[#2b7a4b]" />{" "}
+                    <CardTitle className="flex items-center gap-2 text-foreground">
+                      <ChartColumnIncreasing className="h-5 w-5 text-positive" />{" "}
                       সদস্যদের মাসিক খরচের তুলনা
                     </CardTitle>
                     <CardDescription>
@@ -818,7 +818,7 @@ export default function FamilyHousehold() {
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Badge
                           variant="secondary"
-                          className="w-fit bg-[#e8f5eb] text-[#215b37]"
+                          className="w-fit bg-muted text-positive"
                         >
                           ৬ মাসে {taka(monthlyComparisonTotal)}
                         </Badge>
@@ -826,7 +826,7 @@ export default function FamilyHousehold() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]"
+                          className="h-9 border-border bg-card text-positive hover:bg-background"
                           disabled={chartExporting !== null}
                           onClick={() => exportMonthlyComparison("image")}
                         >
@@ -841,7 +841,7 @@ export default function FamilyHousehold() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-9 border-[#b9d6c1] bg-white text-[#1e5f3b] hover:bg-[#edf8ef]"
+                          className="h-9 border-border bg-card text-positive hover:bg-background"
                           disabled={chartExporting !== null}
                           onClick={() => exportMonthlyComparison("pdf")}
                         >
@@ -856,7 +856,7 @@ export default function FamilyHousehold() {
                       <div className="space-y-1 sm:ml-auto sm:max-w-sm">
                         <Label
                           htmlFor="household-pdf-title"
-                          className="text-xs font-medium text-[#527064]"
+                          className="text-xs font-medium text-muted-foreground"
                         >
                           PDF-এর কাস্টম শিরোনাম
                         </Label>
@@ -864,7 +864,7 @@ export default function FamilyHousehold() {
                           id="household-pdf-title"
                           value={pdfTitle}
                           onChange={event => setPdfTitle(event.target.value)}
-                          className="h-9 bg-white text-sm"
+                          className="h-9 bg-card text-sm"
                           maxLength={120}
                           placeholder={defaultPdfTitle}
                           aria-label="PDF-এর কাস্টম শিরোনাম"
@@ -939,7 +939,7 @@ export default function FamilyHousehold() {
                         {monthlyContributors.map((member, index) => (
                           <div
                             key={member.contributorUserId}
-                            className="rounded-xl border border-[#e0ebe2] bg-[#fbfdfb] p-3"
+                            className="rounded-xl border border-border bg-card p-3"
                           >
                             <div className="flex items-center gap-2">
                               <span
@@ -951,14 +951,14 @@ export default function FamilyHousehold() {
                                     ],
                                 }}
                               />
-                              <p className="break-words font-semibold text-[#193d34]">
+                              <p className="break-words font-semibold text-foreground">
                                 {member.contributorName}
                               </p>
                             </div>
-                            <p className="mt-2 text-lg font-bold text-[#173f36]">
+                            <p className="mt-2 text-lg font-bold text-foreground">
                               {taka(member.amount)}
                             </p>
-                            <p className="mt-0.5 text-xs text-[#668075]">
+                            <p className="mt-0.5 text-xs text-muted-foreground">
                               ৬ মাসে{" "}
                               {new Intl.NumberFormat("bn-BD").format(
                                 member.entryCount
@@ -970,12 +970,12 @@ export default function FamilyHousehold() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-[#cbded0] bg-[#f7fbf8] p-6 text-center">
-                      <ChartColumnIncreasing className="mx-auto h-8 w-8 text-[#5f9873]" />
-                      <p className="mt-3 font-semibold text-[#244f3e]">
+                    <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center">
+                      <ChartColumnIncreasing className="mx-auto h-8 w-8 text-positive" />
+                      <p className="mt-3 font-semibold text-foreground">
                         গত ৬ মাসে তুলনা করার মতো তথ্য নেই
                       </p>
-                      <p className="mt-1 text-sm leading-6 text-[#668075]">
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
                         শেয়ার করা বাজেটে খরচ যোগ হলে এখানে সদস্যদের মাসভিত্তিক
                         তুলনা দেখা যাবে।
                       </p>
@@ -986,13 +986,13 @@ export default function FamilyHousehold() {
             </section>
           </>
         ) : (
-          <Card className="border-dashed border-[#c8d9cc]">
+          <Card className="border-dashed border-border">
             <CardContent className="p-10 text-center">
-              <UsersRound className="mx-auto h-9 w-9 text-[#4d8967]" />
-              <h2 className="mt-3 text-lg font-semibold text-[#173f36]">
+              <UsersRound className="mx-auto h-9 w-9 text-positive" />
+              <h2 className="mt-3 text-lg font-semibold text-foreground">
                 একটি পারিবারিক প্রোফাইল তৈরি করুন
               </h2>
-              <p className="mt-2 text-sm text-[#688176]">
+              <p className="mt-2 text-sm text-muted-foreground">
                 তারপর সদস্যদের আমন্ত্রণ দিন ও একসঙ্গে মাসিক বাজেট পরিচালনা করুন।
               </p>
             </CardContent>
@@ -1023,21 +1023,21 @@ function MemberRow({
           ? "প্রত্যাখ্যাত"
           : "অপসারিত";
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-[#f8fbf8] p-2.5 sm:flex-row sm:items-center sm:bg-transparent sm:p-0">
+    <div className="flex flex-col gap-2 rounded-xl bg-background p-2.5 sm:flex-row sm:items-center sm:bg-transparent sm:p-0">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e8f4eb] text-sm font-bold text-[#276b44]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-muted text-sm font-bold text-positive">
           {name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0">
-          <p className="break-words font-medium text-[#173f36]">{name}</p>
-          {email && <p className="break-all text-xs text-[#6d8579]">{email}</p>}
+          <p className="break-words font-medium text-foreground">{name}</p>
+          {email && <p className="break-all text-xs text-muted-foreground">{email}</p>}
         </div>
       </div>
       <div className="flex flex-row items-center gap-2 sm:ml-auto sm:flex-col sm:items-end sm:gap-1">
-        <Badge variant="secondary" className="bg-[#edf5ef] text-[#326e4a]">
+        <Badge variant="secondary" className="bg-muted text-positive">
           {roleLabel(role)}
         </Badge>
-        <span className="text-[11px] text-[#698176]">{statusLabel}</span>
+        <span className="text-[11px] text-muted-foreground">{statusLabel}</span>
       </div>
     </div>
   );
@@ -1064,7 +1064,7 @@ function BudgetStatus({
         isExceeded
           ? "bg-rose-100 text-rose-700 hover:bg-rose-100"
           : status === "normal"
-            ? "bg-[#eaf5ec] text-[#286442] hover:bg-[#eaf5ec]"
+            ? "bg-muted text-positive hover:bg-muted"
             : "bg-amber-100 text-amber-800 hover:bg-amber-100"
       }
     >

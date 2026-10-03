@@ -146,20 +146,20 @@ export default function FinanceBackup() {
     return (
       <DashboardLayout>
         <div className="max-w-xl mx-auto py-12 px-4 text-center">
-          <div className="bg-white rounded-3xl p-8 border border-amber-200 shadow-sm space-y-4">
+          <div className="bg-card rounded-3xl p-8 border border-amber-200 shadow-sm space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
               <ShieldCheck className="w-7 h-7" />
             </div>
-            <h2 className="text-xl font-bold text-[#173f36]">
+            <h2 className="text-xl font-bold text-foreground">
               ব্যাকআপ অনুমতি প্রয়োজন
             </h2>
-            <p className="text-sm text-[#5c7a6e] leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               ব্যাকআপ দেখা, ডাউনলোড বা পুনরুদ্ধারের জন্য আপনার অ্যাকাউন্টে
               backup অনুমতি থাকতে হবে। প্রয়োজনে অ্যাডমিনের সাথে যোগাযোগ করুন।
             </p>
             <Button
               onClick={() => setLocation("/")}
-              className="rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] px-6"
+              className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 px-6"
             >
               ড্যাশবোর্ডে ফিরে যান
             </Button>
@@ -249,9 +249,9 @@ export default function FinanceBackup() {
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
-        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#123c32] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-sidebar p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">
+            <p className="text-xs font-bold tracking-[.18em] text-positive">
               নিরাপদ ব্যাকআপ ও ক্লাউড সিঙ্ক
             </p>
             <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">
@@ -269,7 +269,7 @@ export default function FinanceBackup() {
               aria-label="ব্যাকআপের হিসাবখাতা নির্বাচন"
               value={activeProjectId ?? ""}
               onChange={event => chooseProject(event.target.value)}
-              className="h-11 min-w-0 rounded-xl border border-white/25 bg-white px-3 text-sm font-semibold text-[#123c32] focus:outline-none focus:ring-2 focus:ring-[#bcecc6] sm:min-w-60"
+              className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
             >
               {projects.map(project => (
                 <option key={project.id} value={project.id}>
@@ -281,15 +281,15 @@ export default function FinanceBackup() {
         </header>
 
         {/* Automated Cloud Storage Card */}
-        <Card className="border-[#c9e2d3] bg-[#f8fdf9] shadow-sm">
+        <Card className="border-border bg-background shadow-sm">
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <CardTitle className="flex items-center gap-2 text-[#154637]">
-                  <Cloud className="h-5 w-5 text-[#1b704d]" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <Cloud className="h-5 w-5 text-positive" />
                   স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (Automated Cloud Storage)
                 </CardTitle>
-                <CardDescription className="text-[#4e7465]">
+                <CardDescription className="text-muted-foreground">
                   AWS S3 / R2, Google Drive এবং Supabase Storage-এ AES-256-GCM
                   এনক্রিপ্টেড দৈনিক শিডিউলড ব্যাকআপ।
                 </CardDescription>
@@ -323,33 +323,33 @@ export default function FinanceBackup() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
-                <p className="text-xs font-semibold text-[#5a7f6f]">
+              <div className="rounded-2xl border border-border bg-card p-3.5">
+                <p className="text-xs font-semibold text-muted-foreground">
                   এনক্রিপশন নিরাপত্তা
                 </p>
-                <p className="mt-1 font-bold text-sm text-[#143e30]">
+                <p className="mt-1 font-bold text-sm text-foreground">
                   AES-256-GCM
                 </p>
-                <p className="mt-0.5 text-[11px] text-[#719283]">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   SHA-256 ইন্টিগ্রিটি চেকসাম সহ
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
-                <p className="text-xs font-semibold text-[#5a7f6f]">
+              <div className="rounded-2xl border border-border bg-card p-3.5">
+                <p className="text-xs font-semibold text-muted-foreground">
                   অটোমেটেড শিডিউল
                 </p>
-                <p className="mt-1 font-bold text-sm text-[#143e30]">
+                <p className="mt-1 font-bold text-sm text-foreground">
                   প্রতিদিন রাত ১২:০০
                 </p>
-                <p className="mt-0.5 text-[11px] text-[#719283]">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   ক্রন জব দ্বারা স্বয়ংক্রিয় ব্যাকআপ
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#d6ebd9] bg-white p-3.5">
-                <p className="text-xs font-semibold text-[#5a7f6f]">
+              <div className="rounded-2xl border border-border bg-card p-3.5">
+                <p className="text-xs font-semibold text-muted-foreground">
                   ক্লাউড প্রোভাইডার
                 </p>
-                <p className="mt-1 font-bold text-sm text-[#143e30]">
+                <p className="mt-1 font-bold text-sm text-foreground">
                   {storageConfig?.supabase?.enabled
                     ? "Supabase Storage"
                     : storageConfig?.s3?.enabled
@@ -358,14 +358,14 @@ export default function FinanceBackup() {
                         ? "Google Drive"
                         : "এনক্রিপ্টেড স্ন্যাপশট"}
                 </p>
-                <p className="mt-0.5 text-[11px] text-[#719283]">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   অফ-সাইট ব্যাকআপ সিঙ্ক
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <p className="text-xs text-[#527768]">
+              <p className="text-xs text-muted-foreground">
                 এখনই নির্বাচিত হিসাবখাতার একটি এনক্রিপ্টেড ব্যাকআপ ক্লাউড
                 স্টোরেজে পাঠাতে পারেন।
               </p>
@@ -374,7 +374,7 @@ export default function FinanceBackup() {
                 disabled={
                   !projectId || !canExportBackup || triggerCloudBackup.isPending
                 }
-                className="h-11 rounded-xl bg-[#173f36] hover:bg-[#0f2e27] text-white font-semibold flex items-center gap-2 px-5 shrink-0"
+                className="h-11 rounded-xl bg-primary hover:bg-[#0f2e27] text-primary-foreground font-semibold flex items-center gap-2 px-5 shrink-0"
               >
                 {triggerCloudBackup.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -388,10 +388,10 @@ export default function FinanceBackup() {
             </div>
 
             {cloudBackupResult && (
-              <Alert className="border-[#cce5d4] bg-white text-[#184637]">
-                <CheckCircle2 className="h-4 w-4 text-[#1a7a4c]" />
+              <Alert className="border-border bg-card text-foreground">
+                <CheckCircle2 className="h-4 w-4 text-positive" />
                 <AlertTitle>ক্লাউড ব্যাকআপ সফল</AlertTitle>
-                <AlertDescription className="text-xs space-y-1 mt-1 text-[#436758]">
+                <AlertDescription className="text-xs space-y-1 mt-1 text-foreground">
                   <p>
                     <strong>ফাইল:</strong> {cloudBackupResult.fileName}
                   </p>
@@ -411,10 +411,10 @@ export default function FinanceBackup() {
         </Card>
 
         <section className="grid gap-5 lg:grid-cols-2">
-          <Card className="border-[#dbe7dd] shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                <HardDriveDownload className="h-5 w-5 text-[#2c6c57]" />
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <HardDriveDownload className="h-5 w-5 text-positive" />
                 প্রজেক্ট ব্যাকআপ ডাউনলোড
               </CardTitle>
               <CardDescription>
@@ -423,7 +423,7 @@ export default function FinanceBackup() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert className="border-[#d6e7da] bg-[#f2faf3] text-[#244a3a]">
+              <Alert className="border-border bg-background text-foreground">
                 <ShieldCheck className="h-4 w-4" />
                 <AlertTitle>ডিভাইসে নিজে সংরক্ষণ করুন</AlertTitle>
                 <AlertDescription>
@@ -432,7 +432,7 @@ export default function FinanceBackup() {
                 </AlertDescription>
               </Alert>
               <Button
-                className="h-12 w-full rounded-xl bg-[#1b704d] hover:bg-[#125b3d]"
+                className="h-12 w-full rounded-xl bg-primary hover:bg-primary/90"
                 disabled={
                   !projectId || !canExportBackup || exportBackup.isFetching
                 }
@@ -446,17 +446,17 @@ export default function FinanceBackup() {
                 ব্যাকআপ ডাউনলোড করুন
               </Button>
               {!canExportBackup && (
-                <p className="text-xs text-[#8a6d3b]">
+                <p className="text-xs text-muted-foreground">
                   ডাউনলোডের জন্য backup.create অনুমতি প্রয়োজন।
                 </p>
               )}
             </CardContent>
           </Card>
 
-          <Card className="border-[#dbe7dd] shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                <FileUp className="h-5 w-5 text-[#2c6c57]" />
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <FileUp className="h-5 w-5 text-positive" />
                 ব্যাকআপ যাচাই ও পুনরুদ্ধার
               </CardTitle>
               <CardDescription>
@@ -465,7 +465,7 @@ export default function FinanceBackup() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Label className="grid gap-2 text-sm font-semibold text-[#365d4d]">
+              <Label className="grid gap-2 text-sm font-semibold text-foreground">
                 ব্যাকআপ JSON ফাইল
                 <Input
                   aria-label="ব্যাকআপ JSON ফাইল নির্বাচন"
@@ -473,29 +473,29 @@ export default function FinanceBackup() {
                   accept="application/json,.json"
                   onChange={readBackupFile}
                   disabled={!canRestoreBackup}
-                  className="h-11 cursor-pointer bg-white disabled:opacity-60"
+                  className="h-11 cursor-pointer bg-card disabled:opacity-60"
                 />
               </Label>
               {!canRestoreBackup && (
-                <p className="text-xs text-[#8a6d3b]">
+                <p className="text-xs text-muted-foreground">
                   যাচাই ও পুনরুদ্ধারের জন্য backup.restore অনুমতি প্রয়োজন।
                 </p>
               )}
               {previewBackup.isPending && (
-                <div className="flex items-center gap-2 text-sm text-[#567164]">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   ফাইল যাচাই হচ্ছে…
                 </div>
               )}
               {preview && (
-                <div className="rounded-2xl border border-[#d9e8dc] bg-[#f7fbf8] p-4">
+                <div className="rounded-2xl border border-border bg-background p-4">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#218252]" />
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-positive" />
                     <div>
-                      <p className="font-semibold text-[#1a4335]">
+                      <p className="font-semibold text-foreground">
                         ব্যাকআপটি পুনরুদ্ধারের জন্য প্রস্তুত
                       </p>
-                      <p className="mt-1 text-sm text-[#597367]">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         উৎস: {preview.sourceProjectName} · রপ্তানি:{" "}
                         {formatDate(preview.exportedAt)}
                       </p>
@@ -505,19 +505,19 @@ export default function FinanceBackup() {
                     {Object.entries(preview.counts).map(([label, count]) => (
                       <div
                         key={label}
-                        className="rounded-xl bg-white p-2 text-center"
+                        className="rounded-xl bg-card p-2 text-center"
                       >
-                        <p className="text-xs text-[#617b70]">
+                        <p className="text-xs text-muted-foreground">
                           {BACKUP_COUNT_LABELS[label] ?? label}
                         </p>
-                        <p className="mt-1 font-bold text-[#234b3b]">
+                        <p className="mt-1 font-bold text-foreground">
                           {new Intl.NumberFormat("bn-BD").format(Number(count))}
                         </p>
                       </div>
                     ))}
                   </div>
                   {preview.transactionDateRange && (
-                    <p className="mt-3 text-xs text-[#567164]">
+                    <p className="mt-3 text-xs text-muted-foreground">
                       লেনদেনের সময়কাল:{" "}
                       {formatDate(preview.transactionDateRange.from)} থেকে{" "}
                       {formatDate(preview.transactionDateRange.to)}
@@ -530,36 +530,36 @@ export default function FinanceBackup() {
         </section>
 
         {preview && (
-          <Card className="border-[#edc975] bg-[#fffaf0] shadow-sm">
+          <Card className="border-[#edc975] bg-background shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#754c00]">
+              <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
                 নতুন হিসাবখাতায় নিরাপদ পুনরুদ্ধার
               </CardTitle>
-              <CardDescription className="text-[#805f21]">
+              <CardDescription className="text-foreground">
                 বিদ্যমান হিসাব বদলাবে না। পুনরুদ্ধারকৃত পুনরাবৃত্ত এন্ট্রি ও
                 বিল-রিমাইন্ডারের স্বয়ংক্রিয় সময়সূচি বন্ধ থাকবে; প্রয়োজনে নতুন
                 হিসাবখাতা থেকে আপনি নিজে চালু করবেন।
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Label className="grid gap-2 text-sm font-semibold text-[#6e531f]">
+              <Label className="grid gap-2 text-sm font-semibold text-foreground">
                 নতুন হিসাবখাতার নাম
                 <Input
                   value={restoreName}
                   onChange={event => setRestoreName(event.target.value)}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                 />
               </Label>
-              <Label className="grid gap-2 text-sm font-semibold text-[#6e531f]">
+              <Label className="grid gap-2 text-sm font-semibold text-foreground">
                 অনুমোদনের জন্য লিখুন:{" "}
-                <code className="rounded bg-white px-1.5 py-0.5">
+                <code className="rounded bg-card px-1.5 py-0.5">
                   RESTORE_NEW_PROJECT
                 </code>
                 <Input
                   value={confirmation}
                   onChange={event => setConfirmation(event.target.value)}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                   placeholder="RESTORE_NEW_PROJECT"
                 />
               </Label>

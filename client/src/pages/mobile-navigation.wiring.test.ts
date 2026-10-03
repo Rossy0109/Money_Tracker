@@ -24,7 +24,7 @@ describe("phone bottom tab bar wiring", () => {
 
   it("renders only below md, respects the safe area, and marks the current page", () => {
     expect(layout).toContain(
-      "fixed inset-x-0 bottom-0 z-40 border-t border-[#0c2b22] bg-[#113a30] pb-[env(safe-area-inset-bottom)]"
+      "fixed inset-x-0 bottom-0 z-40 border-t border-[#0c2b22] bg-primary pb-[env(safe-area-inset-bottom)]"
     );
     expect(layout).toContain("md:hidden");
     expect(layout).toContain('aria-current={active ? "page" : undefined}');

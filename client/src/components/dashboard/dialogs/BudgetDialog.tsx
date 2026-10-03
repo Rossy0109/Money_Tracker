@@ -68,7 +68,7 @@ export function BudgetDialog({
           </Field>
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             বাজেট সংরক্ষণ করুন
           </Button>

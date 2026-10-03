@@ -578,11 +578,11 @@ export default function PartyLedger() {
         {/* Page Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#113a30] sm:text-3xl flex items-center gap-2.5">
-              <Users className="h-7 w-7 text-[#1b7340]" />
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2.5">
+              <Users className="h-7 w-7 text-positive" />
               পার্টি ও খতিয়ান খাতা (Party Ledger)
             </h1>
-            <p className="mt-1 text-sm text-[#5a786d]">
+            <p className="mt-1 text-sm text-muted-foreground">
               সকল দেনাদার, পাওনাদার ও সরবরাহকারীর সম্পূর্ণ লেনদেনের ইতিহাস ও
               রানিং ব্যালেন্স
             </p>
@@ -596,7 +596,7 @@ export default function PartyLedger() {
                 utils.finance.invoices.invalidate();
                 toast.success("তথ্য রিফ্রেশ হয়েছে");
               }}
-              className="border-[#c9ddd0] text-[#113a30] hover:bg-[#ebf4ee]"
+              className="border-border text-foreground hover:bg-muted"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" />
               রিফ্রেশ
@@ -606,71 +606,71 @@ export default function PartyLedger() {
 
         {/* Overview Summary Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-[#dde7df] bg-white shadow-sm">
+          <Card className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#668076]">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 মোট পার্টি সংখ্যা
               </CardTitle>
-              <Users className="h-4 w-4 text-[#1b7340]" />
+              <Users className="h-4 w-4 text-positive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#113a30]">
+              <div className="text-2xl font-bold text-foreground">
                 {parties.length} জন
               </div>
-              <p className="text-xs text-[#5a786d] mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 দেনাদার ও সরবরাহকারী
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-[#dde7df] bg-white shadow-sm">
+          <Card className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#1b7340]">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-positive">
                 মোট পাওনা (Receivables)
               </CardTitle>
-              <ArrowDownLeft className="h-4 w-4 text-[#1b7340]" />
+              <ArrowDownLeft className="h-4 w-4 text-positive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#1b7340]">
+              <div className="text-2xl font-bold text-positive">
                 {bdt(totalReceivable)}
               </div>
-              <p className="text-xs text-[#5a786d] mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 আমরা গ্রাহকের নিকট পাবো
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-[#dde7df] bg-white shadow-sm">
+          <Card className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#b91c1c]">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-destructive">
                 মোট দেনা (Payables)
               </CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-[#b91c1c]" />
+              <ArrowUpRight className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-[#b91c1c]">
+              <div className="text-2xl font-bold text-destructive">
                 {bdt(totalDebt)}
               </div>
-              <p className="text-xs text-[#5a786d] mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 আমরা সরবরাহকারীকে দেবো
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-[#dde7df] bg-white shadow-sm">
+          <Card className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#113a30]">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 নিট দেনা/পাওনা ব্যালেন্স
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-[#113a30]" />
+              <TrendingUp className="h-4 w-4 text-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${netBalance >= 0 ? "text-[#1b7340]" : "text-[#b91c1c]"}`}
+                className={`text-2xl font-bold ${netBalance >= 0 ? "text-positive" : "text-destructive"}`}
               >
                 {bdt(Math.abs(netBalance))}
               </div>
-              <p className="text-xs text-[#5a786d] mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {netBalance >= 0 ? "সর্বমোট নিট পাওনা" : "সর্বমোট নিট দেনা"}
               </p>
             </CardContent>
@@ -681,23 +681,23 @@ export default function PartyLedger() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Party List & Search */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="border-[#dde7df] bg-white shadow-sm">
+            <Card className="border-border bg-card shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold text-[#113a30]">
+                <CardTitle className="text-base font-bold text-foreground">
                   পার্টি তালিকা
                 </CardTitle>
-                <CardDescription className="text-xs text-[#5a786d]">
+                <CardDescription className="text-xs text-muted-foreground">
                   খতিয়ান দেখতে যেকোনো পার্টি নির্বাচন করুন
                 </CardDescription>
 
                 {/* Search Bar */}
                 <div className="relative mt-2">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-[#8ca89d]" />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="পার্টি খুঁজুন বা মোবাইল নম্বর..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 text-xs border-[#c9ddd0] focus-visible:ring-[#1b7340]"
+                    className="pl-9 text-xs border-border focus-visible:ring-ring"
                   />
                 </div>
 
@@ -709,8 +709,8 @@ export default function PartyLedger() {
                     onClick={() => setTypeFilter("all")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
                       typeFilter === "all"
-                        ? "bg-[#113a30] text-white"
-                        : "border-[#c9ddd0] text-[#113a30]"
+                        ? "bg-primary text-primary-foreground"
+                        : "border-border text-foreground"
                     }`}
                   >
                     সকল ({parties.length})
@@ -723,8 +723,8 @@ export default function PartyLedger() {
                     onClick={() => setTypeFilter("receivable")}
                     className={`h-7 text-xs px-2.5 rounded-lg ${
                       typeFilter === "receivable"
-                        ? "bg-[#1b7340] text-white"
-                        : "border-[#c9ddd0] text-[#1b7340]"
+                        ? "bg-primary text-primary-foreground"
+                        : "border-border text-positive"
                     }`}
                   >
                     পাওনাদার
@@ -736,7 +736,7 @@ export default function PartyLedger() {
                     className={`h-7 text-xs px-2.5 rounded-lg ${
                       typeFilter === "debt"
                         ? "bg-[#b91c1c] text-white"
-                        : "border-[#c9ddd0] text-[#b91c1c]"
+                        : "border-border text-destructive"
                     }`}
                   >
                     দেনাদার
@@ -748,7 +748,7 @@ export default function PartyLedger() {
                     className={`h-7 text-xs px-2.5 rounded-lg ${
                       typeFilter === "due_only"
                         ? "bg-[#d97706] text-white"
-                        : "border-[#c9ddd0] text-[#d97706]"
+                        : "border-border text-destructive"
                     }`}
                   >
                     বকেয়া বাকি
@@ -759,7 +759,7 @@ export default function PartyLedger() {
               <CardContent className="p-2">
                 <div className="max-h-[580px] overflow-y-auto space-y-1.5 pr-1">
                   {filteredParties.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#8ca89d]">
+                    <div className="p-8 text-center text-xs text-muted-foreground">
                       কোনো পার্টি পাওয়া যায়নি।
                     </div>
                   ) : (
@@ -774,17 +774,17 @@ export default function PartyLedger() {
                           onClick={() => setSelectedPartyName(party.name)}
                           className={`p-3 rounded-xl cursor-pointer transition border ${
                             isSelected
-                              ? "bg-[#ebf5ef] border-[#1b7340] shadow-sm ring-1 ring-[#1b7340]"
-                              : "bg-white border-[#e6eee8] hover:bg-[#f7faf8]"
+                              ? "bg-muted border-primary shadow-sm ring-1 ring-ring"
+                              : "bg-card border-border hover:bg-background"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-semibold text-sm text-[#113a30] truncate">
+                              <h4 className="font-semibold text-sm text-foreground truncate">
                                 {party.name}
                               </h4>
                               {party.phone && (
-                                <p className="text-xs text-[#5a786d] flex items-center gap-1 mt-0.5">
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                   <Phone className="h-3 w-3" />
                                   {party.phone}
                                 </p>
@@ -794,10 +794,10 @@ export default function PartyLedger() {
                               <div
                                 className={`text-sm font-bold ${
                                   net > 0
-                                    ? "text-[#1b7340]"
+                                    ? "text-positive"
                                     : net < 0
-                                      ? "text-[#b91c1c]"
-                                      : "text-[#5a786d]"
+                                      ? "text-destructive"
+                                      : "text-muted-foreground"
                                 }`}
                               >
                                 {bdt(Math.abs(net))}
@@ -805,9 +805,9 @@ export default function PartyLedger() {
                               <span
                                 className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mt-0.5 ${
                                   net > 0
-                                    ? "bg-[#dcfce7] text-[#15803d]"
+                                    ? "bg-background text-positive"
                                     : net < 0
-                                      ? "bg-[#fee2e2] text-[#b91c1c]"
+                                      ? "bg-[#fee2e2] text-destructive"
                                       : "bg-gray-100 text-gray-600"
                                 }`}
                               >
@@ -831,17 +831,17 @@ export default function PartyLedger() {
           {/* Right Column: Detailed Party Ledger & Running Balance */}
           <div className="lg:col-span-8 space-y-4">
             {activeParty ? (
-              <Card className="border-[#dde7df] bg-white shadow-sm">
-                <CardHeader className="border-b border-[#e6eee8] pb-4">
+              <Card className="border-border bg-card shadow-sm">
+                <CardHeader className="border-b border-border pb-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <Building2 className="h-5 w-5 text-[#1b7340]" />
-                        <CardTitle className="text-xl font-bold text-[#113a30]">
+                        <Building2 className="h-5 w-5 text-positive" />
+                        <CardTitle className="text-xl font-bold text-foreground">
                           {activeParty.name} — খতিয়ান বিবরণী
                         </CardTitle>
                       </div>
-                      <p className="text-xs text-[#5a786d] mt-1 flex items-center gap-3">
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-3">
                         {activeParty.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="h-3 w-3" />
@@ -860,15 +860,15 @@ export default function PartyLedger() {
                         size="sm"
                         variant="outline"
                         onClick={handleSendWhatsApp}
-                        className="border-[#25D366] text-[#128C7E] hover:bg-[#DCF8C6] text-xs h-8.5 font-medium"
+                        className="border-[#25D366] text-muted-foreground hover:bg-muted text-xs h-8.5 font-medium"
                       >
-                        <Share2 className="h-3.5 w-3.5 mr-1.5 text-[#25D366]" />
+                        <Share2 className="h-3.5 w-3.5 mr-1.5 text-positive" />
                         হোয়াটসঅ্যাপে পাঠান
                       </Button>
                       <Button
                         size="sm"
                         onClick={handleDownloadPdf}
-                        className="bg-[#113a30] hover:bg-[#1b5042] text-white text-xs h-8.5 font-medium"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8.5 font-medium"
                       >
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                         খতিয়ান PDF
@@ -877,25 +877,25 @@ export default function PartyLedger() {
                   </div>
 
                   {/* Active Party Financial Pill Summary */}
-                  <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-[#edf3ee]">
-                    <div className="p-2.5 rounded-lg bg-[#f4f8f5] border border-[#d8e6db]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                  <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-border">
+                    <div className="p-2.5 rounded-lg bg-background border border-border">
+                      <span className="text-[11px] text-muted-foreground font-medium block">
                         মোট পাওনা সৃষ্টি
                       </span>
-                      <span className="text-sm font-bold text-[#1b7340]">
+                      <span className="text-sm font-bold text-positive">
                         {bdt(activeParty.totalReceivable)}
                       </span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-[#fef5f5] border border-[#f5d8d8]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                      <span className="text-[11px] text-muted-foreground font-medium block">
                         মোট দেনা সৃষ্টি
                       </span>
-                      <span className="text-sm font-bold text-[#b91c1c]">
+                      <span className="text-sm font-bold text-destructive">
                         {bdt(activeParty.totalDebt)}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#ebf5ef] border border-[#c5e2ce]">
-                      <span className="text-[11px] text-[#5a786d] font-medium block">
+                    <div className="p-2.5 rounded-lg bg-muted border border-border">
+                      <span className="text-[11px] text-muted-foreground font-medium block">
                         বর্তমান নিট স্থিতি
                       </span>
                       <span
@@ -903,8 +903,8 @@ export default function PartyLedger() {
                           activeParty.outstandingReceivable -
                             activeParty.outstandingDebt >=
                           0
-                            ? "text-[#1b7340]"
-                            : "text-[#b91c1c]"
+                            ? "text-positive"
+                            : "text-destructive"
                         }`}
                       >
                         {bdt(
@@ -930,13 +930,13 @@ export default function PartyLedger() {
                   <ScrollShadow>
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="bg-[#f2f7f4] text-[#113a30] font-semibold border-b border-[#dde7df]">
+                        <tr className="bg-background text-foreground font-semibold border-b border-border">
                           <th className="py-3 px-4">তারিখ</th>
                           <th className="py-3 px-4">বিবরণ ও রেফারেন্স</th>
-                          <th className="py-3 px-4 text-right text-[#1b7340]">
+                          <th className="py-3 px-4 text-right text-positive">
                             ডেবিট (+)
                           </th>
-                          <th className="py-3 px-4 text-right text-[#b91c1c]">
+                          <th className="py-3 px-4 text-right text-destructive">
                             ক্রেডিট (-)
                           </th>
                           <th className="py-3 px-4 text-right">
@@ -945,12 +945,12 @@ export default function PartyLedger() {
                           <th className="py-3 px-4 text-center">অ্যাকশন</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#eaf0eb]">
+                      <tbody className="divide-y divide-border">
                         {ledgerEntries.length === 0 ? (
                           <tr>
                             <td
                               colSpan={6}
-                              className="py-10 text-center text-[#8ca89d]"
+                              className="py-10 text-center text-muted-foreground"
                             >
                               এই পার্টির জন্য কোনো লেনদেন পাওয়া যায়নি।
                             </td>
@@ -959,9 +959,9 @@ export default function PartyLedger() {
                           ledgerEntries.map(entry => (
                             <tr
                               key={entry.id}
-                              className="hover:bg-[#f9fbf9] transition"
+                              className="hover:bg-background transition"
                             >
-                              <td className="py-3 px-4 whitespace-nowrap text-[#5a786d]">
+                              <td className="py-3 px-4 whitespace-nowrap text-muted-foreground">
                                 {new Intl.DateTimeFormat("bn-BD", {
                                   day: "2-digit",
                                   month: "short",
@@ -969,27 +969,27 @@ export default function PartyLedger() {
                                 }).format(entry.date)}
                               </td>
                               <td className="py-3 px-4">
-                                <div className="font-semibold text-[#113a30]">
+                                <div className="font-semibold text-foreground">
                                   {entry.title}
                                 </div>
                                 {entry.voucherNo && (
-                                  <span className="inline-block text-[10px] text-[#5a786d] bg-[#f0f4f1] px-1.5 py-0.2 rounded mt-0.5 mr-2">
+                                  <span className="inline-block text-[10px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded mt-0.5 mr-2">
                                     ভাউচার: {entry.voucherNo}
                                   </span>
                                 )}
                                 {entry.note && (
-                                  <span className="text-[11px] text-[#7a9489] italic">
+                                  <span className="text-[11px] text-muted-foreground italic">
                                     {entry.note}
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-right font-semibold text-[#1b7340]">
+                              <td className="py-3 px-4 text-right font-semibold text-positive">
                                 {entry.debit > 0 ? bdt(entry.debit) : "-"}
                               </td>
-                              <td className="py-3 px-4 text-right font-semibold text-[#b91c1c]">
+                              <td className="py-3 px-4 text-right font-semibold text-destructive">
                                 {entry.credit > 0 ? bdt(entry.credit) : "-"}
                               </td>
-                              <td className="py-3 px-4 text-right font-bold text-[#113a30]">
+                              <td className="py-3 px-4 text-right font-bold text-foreground">
                                 {bdt(entry.runningBalance)}
                               </td>
                               <td className="py-3 px-4 text-center">
@@ -1003,13 +1003,13 @@ export default function PartyLedger() {
                                         entry.debit || entry.credit
                                       )
                                     }
-                                    className="h-7 text-[11px] text-[#1b7340] hover:bg-[#dcfce7] px-2"
+                                    className="h-7 text-[11px] text-positive hover:bg-background px-2"
                                   >
                                     <HandCoins className="h-3.5 w-3.5 mr-1" />
                                     সমন্বয়
                                   </Button>
                                 ) : (
-                                  <span className="text-[#8ca89d] text-[11px]">
+                                  <span className="text-muted-foreground text-[11px]">
                                     —
                                   </span>
                                 )}
@@ -1023,7 +1023,7 @@ export default function PartyLedger() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-[#dde7df] bg-white shadow-sm p-12 text-center text-[#8ca89d]">
+              <Card className="border-border bg-card shadow-sm p-12 text-center text-muted-foreground">
                 বাম পাশের তালিকা থেকে একটি পার্টি নির্বাচন করুন।
               </Card>
             )}
@@ -1038,10 +1038,10 @@ export default function PartyLedger() {
       >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[#113a30]">
+            <DialogTitle className="text-lg font-bold text-foreground">
               বকেয়া সমন্বয় / পেমেন্ট এন্ট্রি
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#5a786d]">
+            <DialogDescription className="text-xs text-muted-foreground">
               গ্রাহক বা সরবরাহকারীর সাথে লেনদেনের টাকা গ্রহণ বা পরিশোধ রেকর্ড
               করুন
             </DialogDescription>
@@ -1051,7 +1051,7 @@ export default function PartyLedger() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="settle-amount"
-                className="text-xs font-semibold text-[#113a30]"
+                className="text-xs font-semibold text-foreground"
               >
                 পরিশোধিত / প্রাপ্ত টাকার পরিমাণ (৳)
               </Label>
@@ -1063,14 +1063,14 @@ export default function PartyLedger() {
                 value={settlementAmount}
                 onChange={e => setSettlementAmount(e.target.value)}
                 placeholder="0.00"
-                className="border-[#c9ddd0]"
+                className="border-border"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label
                 htmlFor="settle-account"
-                className="text-xs font-semibold text-[#113a30]"
+                className="text-xs font-semibold text-foreground"
               >
                 কোন অ্যাকাউন্টে লেনদেন হলো?
               </Label>
@@ -1078,7 +1078,7 @@ export default function PartyLedger() {
                 value={settlementAccountId}
                 onValueChange={setSettlementAccountId}
               >
-                <SelectTrigger className="border-[#c9ddd0] text-xs">
+                <SelectTrigger className="border-border text-xs">
                   <SelectValue placeholder="অ্যাকাউন্ট নির্বাচন করুন" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1104,7 +1104,7 @@ export default function PartyLedger() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="settle-note"
-                className="text-xs font-semibold text-[#113a30]"
+                className="text-xs font-semibold text-foreground"
               >
                 মন্তব্য / রসিদ বিবরণ (ঐচ্ছিক)
               </Label>
@@ -1113,7 +1113,7 @@ export default function PartyLedger() {
                 value={settlementNote}
                 onChange={e => setSettlementNote(e.target.value)}
                 placeholder="যেমন: চেক নং / বিকাশ ট্রানজেকশন আইডি"
-                className="border-[#c9ddd0]"
+                className="border-border"
               />
             </div>
 
@@ -1122,14 +1122,14 @@ export default function PartyLedger() {
                 type="button"
                 variant="outline"
                 onClick={() => setSettlementDialogOpen(false)}
-                className="border-[#c9ddd0] text-xs"
+                className="border-border text-xs"
               >
                 বাতিল
               </Button>
               <Button
                 type="submit"
                 disabled={settleMutation.isPending}
-                className="bg-[#113a30] hover:bg-[#1b5042] text-white text-xs"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
               >
                 {settleMutation.isPending
                   ? "সংরক্ষণ হচ্ছে..."

@@ -30,7 +30,7 @@ function Router() {
   return (
     <Suspense
       fallback={
-        <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]">
+        <div className="grid min-h-screen place-items-center bg-background text-foreground">
           <div className="animate-pulse font-semibold text-sm">
             লোড হচ্ছে...
           </div>

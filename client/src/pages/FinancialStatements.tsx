@@ -153,16 +153,16 @@ export default function FinancialStatements() {
     <DashboardLayout>
       <div className="space-y-6 pb-12">
         {/* Header */}
-        <div className="bg-white p-5 sm:p-7 rounded-3xl border border-[#dce7df] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-card p-5 sm:p-7 rounded-3xl border border-border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#166534]">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
               <FileSpreadsheet className="h-4 w-4" />
               <span>General Ledger · Chart of Accounts</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f] mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
               আর্থিক বিবরণী ও লেজার
             </h1>
-            <p className="text-xs sm:text-sm text-[#5a7a6c] mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               হিসাবখাতা ও খতিয়ান থেকে স্বয়ংক্রিয়ভাবে তৈরি রেওয়ামিল,
               লাভ-ক্ষতি বিবরণী ও ব্যালেন্স শিট।
             </p>
@@ -171,7 +171,7 @@ export default function FinancialStatements() {
           <Button
             onClick={handlePrint}
             variant="outline"
-            className="h-11 rounded-2xl border-[#cfe0d5] text-[#166534] hover:bg-[#f0f7f2] font-semibold flex items-center gap-2 shadow-sm"
+            className="h-11 rounded-2xl border-border text-positive hover:bg-background font-semibold flex items-center gap-2 shadow-sm"
           >
             <Printer className="h-4 w-4" />
             প্রিন্ট / সেভ করুন
@@ -179,16 +179,16 @@ export default function FinancialStatements() {
         </div>
 
         {/* Period filter */}
-        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#dce7df] shadow-sm flex flex-col sm:flex-row sm:items-end gap-4">
+        <div className="bg-card p-4 sm:p-5 rounded-3xl border border-border shadow-sm flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="space-y-1.5 flex-1 min-w-0">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#166534]">
+            <span className="text-xs font-bold uppercase tracking-wider text-positive">
               সময়কাল
             </span>
             <Select
               value={preset}
               onValueChange={value => setPreset(value as PeriodPreset)}
             >
-              <SelectTrigger className="w-full rounded-2xl border-[#cfe0d5] h-11">
+              <SelectTrigger className="w-full rounded-2xl border-border h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -204,7 +204,7 @@ export default function FinancialStatements() {
           {preset === "custom" && (
             <>
               <div className="space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#166534]">
+                <span className="text-xs font-bold uppercase tracking-wider text-positive">
                   শুরু
                 </span>
                 <Input
@@ -212,11 +212,11 @@ export default function FinancialStatements() {
                   value={customFrom}
                   max={customTo || undefined}
                   onChange={event => setCustomFrom(event.target.value)}
-                  className="rounded-2xl border-[#cfe0d5] h-11"
+                  className="rounded-2xl border-border h-11"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#166534]">
+                <span className="text-xs font-bold uppercase tracking-wider text-positive">
                   শেষ
                 </span>
                 <Input
@@ -224,14 +224,14 @@ export default function FinancialStatements() {
                   value={customTo}
                   min={customFrom || undefined}
                   onChange={event => setCustomTo(event.target.value)}
-                  className="rounded-2xl border-[#cfe0d5] h-11"
+                  className="rounded-2xl border-border h-11"
                 />
               </div>
             </>
           )}
 
           {data && (
-            <p className="text-xs text-[#698a7c] sm:pb-3">
+            <p className="text-xs text-muted-foreground sm:pb-3">
               দেখানো হচ্ছে: {formatPeriodLabel(data.period)}
             </p>
           )}
@@ -276,15 +276,15 @@ export default function FinancialStatements() {
         )}
 
         {statementsQuery.isLoading ? (
-          <div className="p-12 text-center text-sm text-[#5a7d6d] bg-white rounded-3xl border border-[#dce7df]">
+          <div className="p-12 text-center text-sm text-muted-foreground bg-card rounded-3xl border border-border">
             আর্থিক বিবরণী প্রস্তুত হচ্ছে...
           </div>
         ) : statementsQuery.isError ? (
-          <div className="p-12 text-center text-sm text-red-700 bg-white rounded-3xl border border-red-200">
+          <div className="p-12 text-center text-sm text-red-700 bg-card rounded-3xl border border-red-200">
             বিবরণী লোড করা সম্ভব হয়নি।
           </div>
         ) : !data ? (
-          <div className="p-12 text-center text-sm text-[#5a7d6d] bg-white rounded-3xl border border-[#dce7df]">
+          <div className="p-12 text-center text-sm text-muted-foreground bg-card rounded-3xl border border-border">
             বিবরণী লোড করা সম্ভব হয়নি।
           </div>
         ) : (
@@ -294,22 +294,22 @@ export default function FinancialStatements() {
             className="space-y-6"
             data-print-target="financial-statements"
           >
-            <TabsList className="bg-white p-1.5 rounded-2xl border border-[#dce7df] grid grid-cols-3 max-w-md h-auto shadow-sm">
+            <TabsList className="bg-card p-1.5 rounded-2xl border border-border grid grid-cols-3 max-w-md h-auto shadow-sm">
               <TabsTrigger
                 value="trial_balance"
-                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-[#166534] data-[state=active]:text-white transition"
+                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition"
               >
                 রেওয়ামিল
               </TabsTrigger>
               <TabsTrigger
                 value="pnl"
-                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-[#166534] data-[state=active]:text-white transition"
+                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition"
               >
                 লাভ-ক্ষতি
               </TabsTrigger>
               <TabsTrigger
                 value="balance_sheet"
-                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-[#166534] data-[state=active]:text-white transition"
+                className="py-2 text-xs sm:text-sm font-semibold rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition"
               >
                 ব্যালেন্স শিট
               </TabsTrigger>
@@ -317,19 +317,19 @@ export default function FinancialStatements() {
 
             {/* TAB 1: Trial Balance */}
             <TabsContent value="trial_balance" className="space-y-5">
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#dce7df] shadow-sm space-y-4">
-                <div className="border-b border-[#e5eee8] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-card p-6 sm:p-8 rounded-3xl border border-border shadow-sm space-y-4">
+                <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold text-[#14382f]">
+                    <h2 className="text-lg font-bold text-foreground">
                       রেওয়ামিল (Trial Balance)
                     </h2>
-                    <p className="text-xs text-[#698a7c]">
+                    <p className="text-xs text-muted-foreground">
                       সব হিসাবখাতার ডেবিট ও ক্রেডিট খতিয়ানের সমাপনী ব্যালেন্স ·{" "}
                       {formatPeriodLabel(data.period)}
                     </p>
                   </div>
                   {data.trialBalance.isBalanced ? (
-                    <div className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#eef7f1] text-[#166534] self-start sm:self-auto">
+                    <div className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-background text-positive self-start sm:self-auto">
                       <CheckCircle2 className="h-4 w-4" /> ব্যালেন্স
                       সামঞ্জস্যপূর্ণ
                     </div>
@@ -344,7 +344,7 @@ export default function FinancialStatements() {
                 <ScrollShadow>
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead>
-                      <tr className="bg-[#f2f7f4] text-[#14382f] border-b border-[#cfe0d5]">
+                      <tr className="bg-background text-foreground border-b border-border">
                         <th className="py-3 px-4 rounded-l-xl font-bold">
                           কোড
                         </th>
@@ -398,7 +398,7 @@ export default function FinancialStatements() {
                           </tr>
                         ))
                       )}
-                      <tr className="bg-[#eef7f1] font-bold text-[#166534]">
+                      <tr className="bg-background font-bold text-positive">
                         <td colSpan={3} className="py-3 px-4 rounded-l-xl">
                           সর্বমোট ব্যালেন্স (Total):
                         </td>
@@ -417,19 +417,19 @@ export default function FinancialStatements() {
 
             {/* TAB 2: Profit & Loss Statement */}
             <TabsContent value="pnl" className="space-y-5">
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#dce7df] shadow-sm space-y-6">
-                <div className="border-b border-[#e5eee8] pb-4 flex justify-between items-center gap-3">
+              <div className="bg-card p-6 sm:p-8 rounded-3xl border border-border shadow-sm space-y-6">
+                <div className="border-b border-border pb-4 flex justify-between items-center gap-3">
                   <div>
-                    <h2 className="text-lg font-bold text-[#14382f]">
+                    <h2 className="text-lg font-bold text-foreground">
                       লাভ-ক্ষতি বিবরণী (Income Statement)
                     </h2>
-                    <p className="text-xs text-[#698a7c]">
+                    <p className="text-xs text-muted-foreground">
                       নির্বাচিত সময়কালের আয়, ব্যয় ও নিট ফলাফল ·{" "}
                       {formatPeriodLabel(data.period)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-semibold text-[#698a7c]">
+                    <span className="text-xs font-semibold text-muted-foreground">
                       নিট লাভ / (ক্ষতি)
                     </span>
                     <div
@@ -445,7 +445,7 @@ export default function FinancialStatements() {
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#166534] flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-positive flex items-center gap-1.5">
                     <TrendingUp className="h-4 w-4" /> আয় (Revenue)
                   </h3>
                   <div className="space-y-1.5 text-sm">
@@ -457,21 +457,21 @@ export default function FinancialStatements() {
                       revenueLines.map(line => (
                         <div
                           key={line.accountId}
-                          className="flex justify-between py-1.5 px-3 rounded-lg bg-[#f9fcfa]"
+                          className="flex justify-between py-1.5 px-3 rounded-lg bg-background"
                         >
-                          <span className="text-[#20493b]">
+                          <span className="text-foreground">
                             <span className="font-mono text-xs text-gray-400 mr-2">
                               {line.accountCode}
                             </span>
                             {accountLabel(line.accountName, line.accountNameBn)}
                           </span>
-                          <span className="font-semibold text-[#14382f]">
+                          <span className="font-semibold text-foreground">
                             {taka(line.amount)}
                           </span>
                         </div>
                       ))
                     )}
-                    <div className="flex justify-between py-2 px-3 rounded-xl bg-[#eef7f1] font-bold text-[#166534] mt-2">
+                    <div className="flex justify-between py-2 px-3 rounded-xl bg-background font-bold text-positive mt-2">
                       <span>মোট আয় (Total Revenue):</span>
                       <span>{taka(data.incomeStatement.totalRevenue)}</span>
                     </div>
@@ -491,15 +491,15 @@ export default function FinancialStatements() {
                       expenseLines.map(line => (
                         <div
                           key={line.accountId}
-                          className="flex justify-between py-1.5 px-3 rounded-lg bg-[#fdfaf8]"
+                          className="flex justify-between py-1.5 px-3 rounded-lg bg-background"
                         >
-                          <span className="text-[#492720]">
+                          <span className="text-foreground">
                             <span className="font-mono text-xs text-gray-400 mr-2">
                               {line.accountCode}
                             </span>
                             {accountLabel(line.accountName, line.accountNameBn)}
                           </span>
-                          <span className="font-semibold text-[#381a14]">
+                          <span className="font-semibold text-foreground">
                             {taka(line.amount)}
                           </span>
                         </div>
@@ -512,9 +512,9 @@ export default function FinancialStatements() {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#113a30] text-white flex justify-between items-center gap-3 shadow-md">
+                <div className="p-4 rounded-2xl bg-primary text-primary-foreground flex justify-between items-center gap-3 shadow-md">
                   <div>
-                    <span className="text-xs text-[#a9dcbd] block font-medium">
+                    <span className="text-xs text-positive block font-medium">
                       নিট ফলাফল:
                     </span>
                     <span className="text-lg font-bold">নিট লাভ / (ক্ষতি)</span>
@@ -528,19 +528,19 @@ export default function FinancialStatements() {
 
             {/* TAB 3: Balance Sheet */}
             <TabsContent value="balance_sheet" className="space-y-5">
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#dce7df] shadow-sm space-y-6">
-                <div className="border-b border-[#e5eee8] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-card p-6 sm:p-8 rounded-3xl border border-border shadow-sm space-y-6">
+                <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold text-[#14382f]">
+                    <h2 className="text-lg font-bold text-foreground">
                       উদ্বৃত্তপত্র / ব্যালেন্স শিট (Balance Sheet)
                     </h2>
-                    <p className="text-xs text-[#698a7c]">
+                    <p className="text-xs text-muted-foreground">
                       সম্পদ = দায় + মালিকানা স্বত্ব (Assets = Liabilities +
                       Equity) · {formatPeriodLabel(data.period)}
                     </p>
                   </div>
                   {data.balanceSheet.isBalanced ? (
-                    <div className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#eef7f1] text-[#166534] self-start sm:self-auto">
+                    <div className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-background text-positive self-start sm:self-auto">
                       <CheckCircle2 className="h-4 w-4" /> ব্যালেন্স
                       সামঞ্জস্যপূর্ণ
                     </div>
@@ -554,8 +554,8 @@ export default function FinancialStatements() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left: Assets */}
-                  <div className="space-y-4 p-5 rounded-2xl bg-[#f9fcfa] border border-[#e0ede4]">
-                    <h3 className="text-sm font-bold text-[#166534] uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="space-y-4 p-5 rounded-2xl bg-background border border-border">
+                    <h3 className="text-sm font-bold text-positive uppercase tracking-wider flex items-center gap-1.5">
                       <Building className="h-4 w-4" /> সম্পদ (Assets)
                     </h3>
                     <div className="space-y-2 text-xs">
@@ -582,7 +582,7 @@ export default function FinancialStatements() {
                           </div>
                         ))
                       )}
-                      <div className="flex justify-between py-2 pt-3 font-bold text-sm text-[#166534]">
+                      <div className="flex justify-between py-2 pt-3 font-bold text-sm text-positive">
                         <span>মোট সম্পদ (Total Assets):</span>
                         <span>{taka(data.balanceSheet.totalAssets)}</span>
                       </div>
@@ -590,9 +590,9 @@ export default function FinancialStatements() {
                   </div>
 
                   {/* Right: Liabilities & Equity */}
-                  <div className="space-y-4 p-5 rounded-2xl bg-[#fafafa] border border-[#e5e5e5]">
-                    <h3 className="text-sm font-bold text-[#14382f] uppercase tracking-wider flex items-center gap-1.5">
-                      <Scale className="h-4 w-4 text-[#166534]" /> দায় ও ইকুইটি
+                  <div className="space-y-4 p-5 rounded-2xl bg-background border border-border">
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Scale className="h-4 w-4 text-positive" /> দায় ও ইকুইটি
                       (Liabilities &amp; Equity)
                     </h3>
                     <div className="space-y-2 text-xs">
@@ -619,7 +619,7 @@ export default function FinancialStatements() {
                           </div>
                         ))
                       )}
-                      <div className="flex justify-between py-2 pt-2 font-bold text-sm text-[#14382f]">
+                      <div className="flex justify-between py-2 pt-2 font-bold text-sm text-foreground">
                         <span>মোট দায় (Total Liabilities):</span>
                         <span>{taka(data.balanceSheet.totalLiabilities)}</span>
                       </div>
@@ -650,13 +650,13 @@ export default function FinancialStatements() {
                             </div>
                           ))
                         )}
-                        <div className="flex justify-between py-2 pt-2 font-bold text-sm text-[#14382f]">
+                        <div className="flex justify-between py-2 pt-2 font-bold text-sm text-foreground">
                           <span>মোট ইকুইটি (Total Equity):</span>
                           <span>{taka(data.balanceSheet.totalEquity)}</span>
                         </div>
                       </div>
 
-                      <div className="flex justify-between py-2 pt-3 border-t border-[#e5e5e5] font-bold text-sm text-[#14382f]">
+                      <div className="flex justify-between py-2 pt-3 border-t border-border font-bold text-sm text-foreground">
                         <span>মোট দায় ও মালিকানা স্বত্ব:</span>
                         <span>
                           {taka(

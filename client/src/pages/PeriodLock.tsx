@@ -140,13 +140,13 @@ export default function PeriodLock() {
   };
 
   const projectSelector = projects.length ? (
-    <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
+    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
       <span>প্রকল্প</span>
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
         onChange={event => selectProject(Number(event.target.value))}
-        className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+        className="h-10 max-w-[240px] rounded-xl border border-border bg-card px-3 text-foreground outline-none focus:ring-2 focus:ring-ring"
       >
         {projects.map((project: { id: number; name: string }) => (
           <option key={project.id} value={project.id}>
@@ -161,7 +161,7 @@ export default function PeriodLock() {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+          <div className="finance-card p-8 text-center text-sm text-muted-foreground">
             পিরিয়ড লক লোড হচ্ছে…
           </div>
         </main>
@@ -172,21 +172,21 @@ export default function PeriodLock() {
   return (
     <DashboardLayout>
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-        <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
-          <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
+        <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Calendar className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
             পিরিয়ড লক / আনলক
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
             হিসাবের পিরিয়ড লক করুন যাতে পুরনো লেনদেন পরিবর্তন করা যাবে না। শুধু
             অ্যাডমিন আনলক করতে পারবেন।
           </p>
@@ -215,11 +215,11 @@ export default function PeriodLock() {
                     key={monthKey}
                     className={`
                       p-3 rounded-xl border text-center transition-all
-                      ${isLocked ? "border-red-200 bg-red-50" : isCurrent ? "border-blue-200 bg-blue-50" : "border-[#d8f2dd] bg-white"}
+                      ${isLocked ? "border-red-200 bg-red-50" : isCurrent ? "border-blue-200 bg-blue-50" : "border-border bg-card"}
                       ${isFuture ? "opacity-60" : ""}
                     `}
                   >
-                    <div className="font-mono text-sm font-semibold text-[#173f36]">
+                    <div className="font-mono text-sm font-semibold text-foreground">
                       {formatMonth(monthKey)}
                     </div>
                     <Badge
@@ -364,7 +364,7 @@ export default function PeriodLock() {
           </CardHeader>
           <CardContent>
             {locks.length === 0 ? (
-              <div className="text-center py-8 text-[#668076]">
+              <div className="text-center py-8 text-muted-foreground">
                 কোনো পিরিয়ড লক করা নেই
               </div>
             ) : (
@@ -377,15 +377,15 @@ export default function PeriodLock() {
                     <div className="flex items-center gap-3">
                       <Lock className="h-5 w-5 text-red-600" />
                       <div>
-                        <div className="font-mono font-semibold text-[#173f36]">
+                        <div className="font-mono font-semibold text-foreground">
                           {formatMonth(lock.monthKey)}
                         </div>
-                        <div className="text-xs text-[#5f786d]">
+                        <div className="text-xs text-muted-foreground">
                           লক করা:{" "}
                           {format(new Date(lock.lockedAt), "dd/MM/yyyy HH:mm")}
                         </div>
                         {lock.reason && (
-                          <div className="text-xs text-[#5f786d] mt-1">
+                          <div className="text-xs text-muted-foreground mt-1">
                             কারণ: {lock.reason}
                           </div>
                         )}

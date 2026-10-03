@@ -331,8 +331,8 @@ export default function Payroll() {
       <div className="space-y-6 pb-12">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#14382f] flex items-center gap-2.5">
-              <Users className="h-7 w-7 text-[#1b5e20]" />
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+              <Users className="h-7 w-7 text-positive" />
               কর্মচারী ও বেতন ব্যবস্থাপনা (Payroll)
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -347,7 +347,7 @@ export default function Payroll() {
                 resetEmployeeForm();
                 setIsEmployeeModalOpen(true);
               }}
-              className="bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl text-sm font-semibold h-10 gap-2 shadow-sm"
+              className="bg-primary hover:bg-primary text-white rounded-xl text-sm font-semibold h-10 gap-2 shadow-sm"
             >
               <UserPlus className="h-4 w-4" />
               নতুন কর্মচারী যোগ
@@ -356,7 +356,7 @@ export default function Payroll() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-2xl bg-white border border-[#d6e5db] shadow-xs flex items-center gap-3.5">
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
             <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
               <Users className="h-6 w-6" />
             </div>
@@ -364,7 +364,7 @@ export default function Payroll() {
               <p className="text-xs font-semibold text-gray-500">
                 মোট কর্মচারী
               </p>
-              <h3 className="text-lg sm:text-xl font-bold text-[#14382f]">
+              <h3 className="text-lg sm:text-xl font-bold text-foreground">
                 {activeEmployeesCount}{" "}
                 <span className="text-xs font-normal text-gray-400">
                   / {totalEmployeesCount} জন
@@ -373,7 +373,7 @@ export default function Payroll() {
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-[#d6e5db] shadow-xs flex items-center gap-3.5">
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
             <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
               <DollarSign className="h-6 w-6" />
             </div>
@@ -387,7 +387,7 @@ export default function Payroll() {
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-[#d6e5db] shadow-xs flex items-center gap-3.5">
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
             <div className="h-11 w-11 rounded-xl bg-green-50 text-green-700 flex items-center justify-center font-bold">
               <CheckCircle2 className="h-6 w-6" />
             </div>
@@ -395,13 +395,13 @@ export default function Payroll() {
               <p className="text-xs font-semibold text-gray-500">
                 চলতি মাসে পরিশোধিত
               </p>
-              <h3 className="text-lg sm:text-xl font-bold text-[#1b5e20]">
+              <h3 className="text-lg sm:text-xl font-bold text-positive">
                 {formatBdt(totalPaidThisMonth)}
               </h3>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-[#d6e5db] shadow-xs flex items-center gap-3.5">
+          <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
             <div className="h-11 w-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
               <Clock className="h-6 w-6" />
             </div>
@@ -417,7 +417,7 @@ export default function Payroll() {
         </div>
 
         <Tabs defaultValue="employees" className="w-full">
-          <TabsList className="bg-[#eef4f0] p-1 rounded-2xl h-12 grid grid-cols-3 max-w-lg mb-6">
+          <TabsList className="bg-muted p-1 rounded-2xl h-12 grid grid-cols-3 max-w-lg mb-6">
             <TabsTrigger
               value="employees"
               className="rounded-xl text-xs sm:text-sm font-semibold"
@@ -447,7 +447,7 @@ export default function Payroll() {
                   placeholder="নাম, পদবী বা মোবাইল দিয়ে খুঁজুন..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 rounded-xl border-[#c9dcd0] bg-white text-sm"
+                  className="pl-10 h-10 rounded-xl border-border bg-card text-sm"
                 />
               </div>
 
@@ -456,17 +456,17 @@ export default function Payroll() {
                   resetDisburseForm();
                   setIsDisburseModalOpen(true);
                 }}
-                className="w-full sm:w-auto bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl text-sm font-semibold h-10 gap-2"
+                className="w-full sm:w-auto bg-primary hover:bg-primary text-white rounded-xl text-sm font-semibold h-10 gap-2"
               >
                 <DollarSign className="h-4 w-4" />
                 বেতন পরিশোধ করুন
               </Button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
               <ScrollShadow>
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
+                  <thead className="bg-background text-foreground border-b border-border text-xs font-bold uppercase tracking-wider">
                     <tr>
                       <th className="py-3.5 px-4">কর্মচারীর নাম</th>
                       <th className="py-3.5 px-4">পদবী ও বিভাগ</th>
@@ -477,7 +477,7 @@ export default function Payroll() {
                       <th className="py-3.5 px-4 text-right">অ্যাকশন</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#edf5f0]">
+                  <tbody className="divide-y divide-border">
                     {filteredEmployees.length === 0 ? (
                       <tr>
                         <td
@@ -491,9 +491,9 @@ export default function Payroll() {
                       filteredEmployees.map(emp => (
                         <tr
                           key={emp.id}
-                          className="hover:bg-[#fafcfb] transition-colors"
+                          className="hover:bg-background transition-colors"
                         >
-                          <td className="py-3.5 px-4 font-bold text-[#14382f]">
+                          <td className="py-3.5 px-4 font-bold text-foreground">
                             {emp.name}
                           </td>
                           <td className="py-3.5 px-4 text-gray-600">
@@ -508,7 +508,7 @@ export default function Payroll() {
                               {emp.email || ""}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 font-semibold text-[#1b5e20]">
+                          <td className="py-3.5 px-4 font-semibold text-positive">
                             {formatBdt(emp.baseSalary)}
                           </td>
                           <td className="py-3.5 px-4 capitalize text-gray-600 text-xs">
@@ -535,7 +535,7 @@ export default function Payroll() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditEmployee(emp)}
-                              className="h-8 w-8 p-0 text-gray-600 hover:text-[#1b5e20]"
+                              className="h-8 w-8 p-0 text-gray-600 hover:text-positive"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -580,7 +580,7 @@ export default function Payroll() {
                   type="month"
                   value={selectedMonth}
                   onChange={e => setSelectedMonth(e.target.value)}
-                  className="h-10 w-44 rounded-xl border-[#c9dcd0] bg-white text-sm font-semibold"
+                  className="h-10 w-44 rounded-xl border-border bg-card text-sm font-semibold"
                 />
               </div>
 
@@ -589,17 +589,17 @@ export default function Payroll() {
                   resetDisburseForm();
                   setIsDisburseModalOpen(true);
                 }}
-                className="w-full sm:w-auto bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl text-sm font-semibold h-10 gap-2"
+                className="w-full sm:w-auto bg-primary hover:bg-primary text-white rounded-xl text-sm font-semibold h-10 gap-2"
               >
                 <DollarSign className="h-4 w-4" />
                 বেতন পরিশোধ করুন
               </Button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
               <ScrollShadow>
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
+                  <thead className="bg-background text-foreground border-b border-border text-xs font-bold uppercase tracking-wider">
                     <tr>
                       <th className="py-3.5 px-4">ভাউচার</th>
                       <th className="py-3.5 px-4">কর্মচারী</th>
@@ -612,7 +612,7 @@ export default function Payroll() {
                       <th className="py-3.5 px-4 text-right">পে-স্লিপ</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#edf5f0]">
+                  <tbody className="divide-y divide-border">
                     {salaryPayments.length === 0 ? (
                       <tr>
                         <td
@@ -626,12 +626,12 @@ export default function Payroll() {
                       salaryPayments.map(p => (
                         <tr
                           key={p.id}
-                          className="hover:bg-[#fafcfb] transition-colors"
+                          className="hover:bg-background transition-colors"
                         >
                           <td className="py-3.5 px-4 font-mono text-xs font-bold text-gray-700">
                             {p.voucherNo || "-"}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-[#14382f]">
+                          <td className="py-3.5 px-4 font-bold text-foreground">
                             <div>{p.employeeName}</div>
                             <div className="text-xs text-gray-400">
                               {p.employeeDesignation || ""}
@@ -653,10 +653,10 @@ export default function Payroll() {
                                 Number(p.otherDeduction)
                             )}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-[#14382f]">
+                          <td className="py-3.5 px-4 font-bold text-foreground">
                             {formatBdt(p.netPayable)}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-[#1b5e20]">
+                          <td className="py-3.5 px-4 font-bold text-positive">
                             {formatBdt(p.paidAmount)}
                           </td>
                           <td className="py-3.5 px-4">
@@ -698,7 +698,7 @@ export default function Payroll() {
                                   toast.error("পে-স্লিপ তৈরি করা যায়নি");
                                 }
                               }}
-                              className="h-8 rounded-xl border-[#c9dcd0] text-[#1b5e20] hover:bg-[#eaf4ed] text-xs font-semibold gap-1.5"
+                              className="h-8 rounded-xl border-border text-positive hover:bg-muted text-xs font-semibold gap-1.5"
                             >
                               <Download className="h-3.5 w-3.5" />
                               পে-স্লিপ
@@ -723,17 +723,17 @@ export default function Payroll() {
                   resetAdvanceForm();
                   setIsAdvanceModalOpen(true);
                 }}
-                className="bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl text-sm font-semibold h-10 gap-2"
+                className="bg-primary hover:bg-primary text-white rounded-xl text-sm font-semibold h-10 gap-2"
               >
                 <Plus className="h-4 w-4" />
                 অগ্রিম বেতন দিন
               </Button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#d6e5db] shadow-xs overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
               <ScrollShadow>
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f5f9f6] text-[#2c4e42] border-b border-[#e2ede6] text-xs font-bold uppercase tracking-wider">
+                  <thead className="bg-background text-foreground border-b border-border text-xs font-bold uppercase tracking-wider">
                     <tr>
                       <th className="py-3.5 px-4">ভাউচার</th>
                       <th className="py-3.5 px-4">কর্মচারী</th>
@@ -744,7 +744,7 @@ export default function Payroll() {
                       <th className="py-3.5 px-4">অবস্থা</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#edf5f0]">
+                  <tbody className="divide-y divide-border">
                     {advances.length === 0 ? (
                       <tr>
                         <td
@@ -761,12 +761,12 @@ export default function Payroll() {
                         return (
                           <tr
                             key={a.id}
-                            className="hover:bg-[#fafcfb] transition-colors"
+                            className="hover:bg-background transition-colors"
                           >
                             <td className="py-3.5 px-4 font-mono text-xs font-bold text-gray-700">
                               {a.voucherNo || "-"}
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-[#14382f]">
+                            <td className="py-3.5 px-4 font-bold text-foreground">
                               {a.employeeName}
                             </td>
                             <td className="py-3.5 px-4 text-xs text-gray-500">
@@ -812,9 +812,9 @@ export default function Payroll() {
           open={isEmployeeModalOpen}
           onOpenChange={setIsEmployeeModalOpen}
         >
-          <DialogContent className="max-w-md bg-white rounded-3xl p-6 sm:p-7">
+          <DialogContent className="max-w-md bg-card rounded-3xl p-6 sm:p-7">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-[#14382f]">
+              <DialogTitle className="text-xl font-bold text-foreground">
                 {editingEmployeeId
                   ? "কর্মচারীর তথ্য পরিবর্তন"
                   : "নতুন কর্মচারী যোগ করুন"}
@@ -961,7 +961,7 @@ export default function Payroll() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl font-semibold"
+                  className="flex-1 bg-primary hover:bg-primary text-white rounded-xl font-semibold"
                 >
                   সংরক্ষণ করুন
                 </Button>
@@ -974,9 +974,9 @@ export default function Payroll() {
           open={isDisburseModalOpen}
           onOpenChange={setIsDisburseModalOpen}
         >
-          <DialogContent className="max-w-lg bg-white rounded-3xl p-6 sm:p-7">
+          <DialogContent className="max-w-lg bg-card rounded-3xl p-6 sm:p-7">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-[#14382f]">
+              <DialogTitle className="text-xl font-bold text-foreground">
                 মাসিক বেতন পরিশোধ ও পে-স্লিপ জেনারেট
               </DialogTitle>
             </DialogHeader>
@@ -1113,16 +1113,16 @@ export default function Payroll() {
                 </Select>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between">
+              <div className="p-3.5 rounded-2xl bg-background border border-border flex items-center justify-between">
                 <div>
                   <p className="text-xs text-green-800 font-medium">
                     নিট প্রদেয় বেতন (Net Payable):
                   </p>
-                  <p className="text-lg font-bold text-[#14532d]">
+                  <p className="text-lg font-bold text-positive">
                     {formatBdt(netDisbursePreview)}
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-green-700 bg-white px-2.5 py-1 rounded-lg border border-green-200">
+                <span className="text-xs font-semibold text-green-700 bg-card px-2.5 py-1 rounded-lg border border-green-200">
                   অটো খরচ রেকর্ড হবে
                 </span>
               </div>
@@ -1139,7 +1139,7 @@ export default function Payroll() {
                 <Button
                   type="submit"
                   disabled={!disburseEmpId}
-                  className="flex-1 bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl font-semibold"
+                  className="flex-1 bg-primary hover:bg-primary text-white rounded-xl font-semibold"
                 >
                   বেতন প্রদান নিশ্চিত করুন
                 </Button>
@@ -1149,9 +1149,9 @@ export default function Payroll() {
         </Dialog>
 
         <Dialog open={isAdvanceModalOpen} onOpenChange={setIsAdvanceModalOpen}>
-          <DialogContent className="max-w-md bg-white rounded-3xl p-6 sm:p-7">
+          <DialogContent className="max-w-md bg-card rounded-3xl p-6 sm:p-7">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-[#14382f]">
+              <DialogTitle className="text-xl font-bold text-foreground">
                 কর্মচারীকে অগ্রিম বেতন / ঋণ প্রদান
               </DialogTitle>
             </DialogHeader>
@@ -1186,7 +1186,7 @@ export default function Payroll() {
                   placeholder="5000"
                   value={advAmount}
                   onChange={e => setAdvAmount(e.target.value)}
-                  className="rounded-xl font-semibold text-lg text-[#14382f]"
+                  className="rounded-xl font-semibold text-lg text-foreground"
                 />
               </div>
 
@@ -1240,7 +1240,7 @@ export default function Payroll() {
                 <Button
                   type="submit"
                   disabled={!advEmpId || !advAmount}
-                  className="flex-1 bg-[#1b5e20] hover:bg-[#144718] text-white rounded-xl font-semibold"
+                  className="flex-1 bg-primary hover:bg-primary text-white rounded-xl font-semibold"
                 >
                   অগ্রিম প্রদান করুন
                 </Button>

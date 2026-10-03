@@ -263,7 +263,7 @@ export default function ReportsAndPrint() {
           <div>
             <p className="section-kicker">রিপোর্ট ও প্রিন্ট</p>
             <h1 className="section-title">প্রফেশনাল প্রিন্ট ও PDF সিস্টেম</h1>
-            <p className="mt-1 text-sm text-[#5c7a6e]">
+            <p className="mt-1 text-sm text-muted-foreground">
               লেনদেন ভাউচার ও অ্যাকাউন্টিং বিবরণী — ব্রাউজার প্রিন্ট / PDF
               আউটপুটে।
             </p>
@@ -276,7 +276,7 @@ export default function ReportsAndPrint() {
               <h2 className="section-title">বিবরণী ও ফিল্টার</h2>
               <div className="mt-4 space-y-4">
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     প্রজেক্ট
                   </span>
                   {projects.data?.length ? (
@@ -297,14 +297,14 @@ export default function ReportsAndPrint() {
                       ))}
                     </select>
                   ) : (
-                    <p className="mt-1 text-sm text-[#819188]">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       আগে একটি প্রজেক্ট তৈরি করুন (ড্যাশবোর্ড)।
                     </p>
                   )}
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     বিবরণীর ধরন
                   </span>
                   <select
@@ -323,7 +323,7 @@ export default function ReportsAndPrint() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     সময়কাল
                   </span>
                   <select
@@ -344,28 +344,28 @@ export default function ReportsAndPrint() {
                 {preset === "custom" && (
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block">
-                      <span className="text-xs font-semibold text-[#5c7a6e]">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         শুরু
                       </span>
                       <Input
                         type="date"
-                        className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                        className="mt-1 h-10 rounded-xl border-border"
                         value={customFrom}
                         onChange={event => setCustomFrom(event.target.value)}
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs font-semibold text-[#5c7a6e]">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         শেষ
                       </span>
                       <Input
                         type="date"
-                        className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                        className="mt-1 h-10 rounded-xl border-border"
                         value={customTo}
                         onChange={event => setCustomTo(event.target.value)}
                       />
                     </label>
-                    <p className="col-span-2 text-xs text-[#819188]">
+                    <p className="col-span-2 text-xs text-muted-foreground">
                       {customFrom && customTo && customFrom > customTo
                         ? "শুরুর তারিখ শেষের তারিখের পরে হতে পারে না"
                         : customFrom
@@ -377,7 +377,7 @@ export default function ReportsAndPrint() {
 
                 {kind !== "income" && kind !== "expense" && (
                   <label className="block">
-                    <span className="text-xs font-semibold text-[#5c7a6e]">
+                    <span className="text-xs font-semibold text-muted-foreground">
                       লেনদেনের ধরন
                     </span>
                     <select
@@ -395,7 +395,7 @@ export default function ReportsAndPrint() {
                 )}
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ক্যাটাগরি / খাত
                   </span>
                   <select
@@ -418,7 +418,7 @@ export default function ReportsAndPrint() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     অ্যাকাউন্ট
                   </span>
                   <select
@@ -439,11 +439,11 @@ export default function ReportsAndPrint() {
                   </select>
                 </label>
 
-                <div className="rounded-xl bg-[#eef5f0] p-3 text-xs text-[#33584a]">
+                <div className="rounded-xl bg-background p-3 text-xs text-foreground">
                   <p className="font-semibold">{statementTitle}</p>
-                  <p className="mt-1 text-[#5c7a6e]">সময়কাল: {periodLabel}</p>
+                  <p className="mt-1 text-muted-foreground">সময়কাল: {periodLabel}</p>
                   {filteredBy && (
-                    <p className="text-[#5c7a6e]">ফিল্টার: {filteredBy}</p>
+                    <p className="text-muted-foreground">ফিল্টার: {filteredBy}</p>
                   )}
                   {statementData.isFetching && (
                     <p className="mt-1">লোড হচ্ছে...</p>
@@ -464,16 +464,16 @@ export default function ReportsAndPrint() {
 
             <section className="finance-card p-5 sm:p-6">
               <h2 className="section-title">ফার্ম/প্রতিষ্ঠানের হেডার</h2>
-              <p className="mt-1 text-xs text-[#5c7a6e]">
+              <p className="mt-1 text-xs text-muted-foreground">
                 এই তথ্য ভাউচার ও সব বিবরণীর উপরে মুদ্রিত হয়।
               </p>
               <div className="mt-4 space-y-3">
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ফার্মের নাম
                   </span>
                   <Input
-                    className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                    className="mt-1 h-10 rounded-xl border-border"
                     value={firmDraft.name}
                     onChange={event =>
                       setFirmDraft({ ...firmDraft, name: event.target.value })
@@ -481,11 +481,11 @@ export default function ReportsAndPrint() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ট্যাগলাইন
                   </span>
                   <Input
-                    className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                    className="mt-1 h-10 rounded-xl border-border"
                     value={firmDraft.tagline}
                     onChange={event =>
                       setFirmDraft({
@@ -496,11 +496,11 @@ export default function ReportsAndPrint() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ফোন
                   </span>
                   <Input
-                    className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                    className="mt-1 h-10 rounded-xl border-border"
                     value={firmDraft.phone}
                     onChange={event =>
                       setFirmDraft({ ...firmDraft, phone: event.target.value })
@@ -508,11 +508,11 @@ export default function ReportsAndPrint() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ইমেইল
                   </span>
                   <Input
-                    className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                    className="mt-1 h-10 rounded-xl border-border"
                     value={firmDraft.email}
                     onChange={event =>
                       setFirmDraft({ ...firmDraft, email: event.target.value })
@@ -520,11 +520,11 @@ export default function ReportsAndPrint() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-[#5c7a6e]">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     ঠিকানা
                   </span>
                   <Input
-                    className="mt-1 h-10 rounded-xl border-[#dce7e0]"
+                    className="mt-1 h-10 rounded-xl border-border"
                     value={firmDraft.address}
                     onChange={event =>
                       setFirmDraft({
@@ -543,7 +543,7 @@ export default function ReportsAndPrint() {
                     })
                   }
                   disabled={!effectiveProjectId || saveFirm.isPending}
-                  className="h-10 w-full rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+                  className="h-10 w-full rounded-xl bg-primary hover:bg-primary/90"
                 >
                   <Save className="mr-1.5 h-4 w-4" />
                   হেডার সংরক্ষণ করুন
@@ -567,7 +567,7 @@ export default function ReportsAndPrint() {
                   onClick={handlePrint}
                   disabled={!previewHtml}
                   variant="outline"
-                  className="h-10 rounded-xl border-[#dce7e0] text-[#173f36]"
+                  className="h-10 rounded-xl border-border text-foreground"
                 >
                   <Printer className="mr-1.5 h-4 w-4" />
                   প্রিন্ট উইন্ডো
@@ -583,10 +583,10 @@ export default function ReportsAndPrint() {
                   onPdf={handlePdf}
                 />
               ) : (
-                <div className="grid min-h-[360px] place-items-center rounded-2xl border border-dashed border-[#dce7e0] bg-[#fbfcf9] text-center">
+                <div className="grid min-h-[360px] place-items-center rounded-2xl border border-dashed border-border bg-background text-center">
                   <div className="p-6">
-                    <Printer className="mx-auto h-8 w-8 text-[#b6c7bd]" />
-                    <p className="mt-3 text-sm text-[#5c7a6e]">
+                    <Printer className="mx-auto h-8 w-8 text-muted-foreground" />
+                    <p className="mt-3 text-sm text-muted-foreground">
                       {effectiveProjectId == null
                         ? "প্রথমে একটি প্রজেক্ট নির্বাচন করুন।"
                         : statementData.isFetching

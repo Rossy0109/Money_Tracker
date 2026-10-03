@@ -1044,7 +1044,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 onClick={closeVoucherPreview}
-                className="h-9 rounded-xl border-[#dce7e0] text-[#173f36]"
+                className="h-9 rounded-xl border-border text-foreground"
               >
                 X বন্ধ করুন
               </Button>

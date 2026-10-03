@@ -239,16 +239,16 @@ export default function Inventory() {
     <DashboardLayout>
       <div className="space-y-6 pb-12">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-7 rounded-3xl border border-[#dce7df] shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 sm:p-7 rounded-3xl border border-border shadow-sm">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#166534]">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
               <Boxes className="h-4 w-4" />
               <span>Inventory & Stock Management</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f] mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
               পণ্য ও স্টক ইনভেন্টরি
             </h1>
-            <p className="text-xs sm:text-sm text-[#5a7a6c] mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               পণ্য সামগ্রী, ক্রয়-বিক্রয় মূল্য, স্টক সমন্বয় ও স্টক সতর্কবার্তা
               ব্যবস্থাপনা।
             </p>
@@ -258,7 +258,7 @@ export default function Inventory() {
             <Button
               variant="outline"
               onClick={handleExportCsv}
-              className="h-11 rounded-2xl border-[#cfe0d5] text-[#166534] hover:bg-[#f0f7f2] font-semibold flex items-center gap-2 shadow-sm text-xs sm:text-sm"
+              className="h-11 rounded-2xl border-border text-positive hover:bg-background font-semibold flex items-center gap-2 shadow-sm text-xs sm:text-sm"
             >
               <Download className="h-4 w-4" />
               CSV ডাউনলোড
@@ -271,7 +271,7 @@ export default function Inventory() {
                     resetForm();
                     setEditingItem(null);
                   }}
-                  className="h-11 rounded-2xl bg-[#166534] hover:bg-[#114f29] text-white font-semibold flex items-center gap-2 shadow-sm text-xs sm:text-sm"
+                  className="h-11 rounded-2xl bg-primary hover:bg-primary text-white font-semibold flex items-center gap-2 shadow-sm text-xs sm:text-sm"
                 >
                   <Plus className="h-4 w-4" />
                   নতুন পণ্য যোগ করুন
@@ -279,13 +279,13 @@ export default function Inventory() {
               </DialogTrigger>
               <DialogContent className="max-w-md rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-lg font-bold text-[#14382f]">
+                  <DialogTitle className="text-lg font-bold text-foreground">
                     নতুন পণ্য যোগ করুন
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSave} className="space-y-4 pt-2">
                   <div>
-                    <Label className="text-xs font-semibold text-[#14382f]">
+                    <Label className="text-xs font-semibold text-foreground">
                       পণ্যের নাম *
                     </Label>
                     <Input
@@ -299,7 +299,7 @@ export default function Inventory() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         SKU / কোড
                       </Label>
                       <Input
@@ -310,7 +310,7 @@ export default function Inventory() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         ক্যাটাগরি
                       </Label>
                       <Input
@@ -324,7 +324,7 @@ export default function Inventory() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         পরিমাপের একক
                       </Label>
                       <Input
@@ -335,7 +335,7 @@ export default function Inventory() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         বর্তমান স্টক
                       </Label>
                       <Input
@@ -350,7 +350,7 @@ export default function Inventory() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         ক্রয়মূল্য (৳)
                       </Label>
                       <Input
@@ -362,7 +362,7 @@ export default function Inventory() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-semibold text-[#14382f]">
+                      <Label className="text-xs font-semibold text-foreground">
                         বিক্রয়মূল্য (৳)
                       </Label>
                       <Input
@@ -376,7 +376,7 @@ export default function Inventory() {
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#14382f]">
+                    <Label className="text-xs font-semibold text-foreground">
                       কম স্টক সতর্কতা সীমা (Low Stock Alert)
                     </Label>
                     <Input
@@ -389,7 +389,7 @@ export default function Inventory() {
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#14382f]">
+                    <Label className="text-xs font-semibold text-foreground">
                       মন্তব্য / বিবরণ
                     </Label>
                     <Textarea
@@ -403,7 +403,7 @@ export default function Inventory() {
                   <Button
                     type="submit"
                     disabled={createMutation.isPending}
-                    className="w-full h-11 rounded-xl bg-[#166534] hover:bg-[#114f29] text-white font-semibold"
+                    className="w-full h-11 rounded-xl bg-primary hover:bg-primary text-white font-semibold"
                   >
                     {createMutation.isPending
                       ? "সংরক্ষণ হচ্ছে..."
@@ -417,29 +417,29 @@ export default function Inventory() {
 
         {/* Overview Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-[#dce7df] shadow-sm flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-[#e6f4ea] text-[#166534] grid place-items-center">
+          <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-muted text-positive grid place-items-center">
               <Package className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-[#628475] font-medium">
+              <p className="text-xs text-muted-foreground font-medium">
                 মোট পণ্য আইটেম
               </p>
-              <p className="text-xl font-bold text-[#14382f] mt-0.5">
+              <p className="text-xl font-bold text-foreground mt-0.5">
                 {items.length} টি
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-[#dce7df] shadow-sm flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-[#dff3e7] text-[#166534] grid place-items-center">
+          <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-muted text-positive grid place-items-center">
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-[#628475] font-medium">
+              <p className="text-xs text-muted-foreground font-medium">
                 মোট স্টক মূল্যায়ন (ক্রয়মূল্যে)
               </p>
-              <p className="text-xl font-bold text-[#166534] mt-0.5">
+              <p className="text-xl font-bold text-positive mt-0.5">
                 ৳{" "}
                 {totalStockValue.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -449,18 +449,18 @@ export default function Inventory() {
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-[#dce7df] shadow-sm flex items-center gap-4">
+          <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex items-center gap-4">
             <div
-              className={`h-12 w-12 rounded-xl grid place-items-center ${lowStockCount > 0 ? "bg-amber-100 text-amber-700" : "bg-[#e6f4ea] text-[#166534]"}`}
+              className={`h-12 w-12 rounded-xl grid place-items-center ${lowStockCount > 0 ? "bg-amber-100 text-amber-700" : "bg-muted text-positive"}`}
             >
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-[#628475] font-medium">
+              <p className="text-xs text-muted-foreground font-medium">
                 কম স্টক সতর্কতা
               </p>
               <p
-                className={`text-xl font-bold mt-0.5 ${lowStockCount > 0 ? "text-amber-700" : "text-[#14382f]"}`}
+                className={`text-xl font-bold mt-0.5 ${lowStockCount > 0 ? "text-amber-700" : "text-foreground"}`}
               >
                 {lowStockCount} টি আইটেম
               </p>
@@ -469,14 +469,14 @@ export default function Inventory() {
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-[#dce7df] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8aa396]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="পণ্য বা SKU খুঁজুন..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-9 h-10 rounded-xl text-xs bg-[#f8faf8]"
+              className="pl-9 h-10 rounded-xl text-xs bg-background"
             />
           </div>
 
@@ -488,7 +488,7 @@ export default function Inventory() {
               className={`h-9 rounded-xl text-xs font-semibold ${
                 onlyLowStock
                   ? "bg-amber-600 text-white hover:bg-amber-700"
-                  : "border-[#cce0d2] text-[#2c5344]"
+                  : "border-border text-foreground"
               }`}
             >
               <AlertTriangle className="h-3.5 w-3.5 mr-1" />
@@ -498,13 +498,13 @@ export default function Inventory() {
         </div>
 
         {/* Inventory Items List */}
-        <div className="bg-white rounded-2xl border border-[#dce7df] shadow-sm overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           {inventoryQuery.isLoading ? (
-            <div className="p-12 text-center text-sm text-[#668577]">
+            <div className="p-12 text-center text-sm text-muted-foreground">
               লোড হচ্ছে...
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="p-12 text-center text-sm text-[#668577]">
+            <div className="p-12 text-center text-sm text-muted-foreground">
               {searchTerm || onlyLowStock
                 ? "কোনো পণ্য পাওয়া যায়নি।"
                 : "ইনভেন্টরিতে এখনও কোনো পণ্য যুক্ত করা হয়নি।"}
@@ -512,7 +512,7 @@ export default function Inventory() {
           ) : (
             <ScrollShadow>
               <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-[#f5f8f5] text-[#214c3e] font-semibold border-b border-[#dde8e0]">
+                <thead className="bg-background text-foreground font-semibold border-b border-border">
                   <tr>
                     <th className="py-3.5 px-4">পণ্যের নাম ও SKU</th>
                     <th className="py-3.5 px-4">ক্যাটাগরি</th>
@@ -524,7 +524,7 @@ export default function Inventory() {
                     <th className="py-3.5 px-4 text-right">অ্যাকশন</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#edf3ee]">
+                <tbody className="divide-y divide-border">
                   {filteredItems.map(item => {
                     const stock = Number(item.currentStock) || 0;
                     const threshold = Number(item.lowStockThreshold) || 5;
@@ -537,31 +537,31 @@ export default function Inventory() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-[#f9fbf9] transition-colors"
+                        className="hover:bg-background transition-colors"
                       >
                         <td className="py-3.5 px-4">
-                          <div className="font-semibold text-[#14382f]">
+                          <div className="font-semibold text-foreground">
                             {item.name}
                           </div>
                           {item.sku && (
-                            <div className="text-[11px] text-[#6f8c7f]">
+                            <div className="text-[11px] text-muted-foreground">
                               SKU: {item.sku}
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-[#4f7062]">
+                        <td className="py-3.5 px-4 text-muted-foreground">
                           {item.category || "—"}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-bold text-[#14382f]">
+                        <td className="py-3.5 px-4 text-right font-bold text-foreground">
                           {stock.toLocaleString()} {item.unit}
                         </td>
-                        <td className="py-3.5 px-4 text-right text-[#577769]">
+                        <td className="py-3.5 px-4 text-right text-muted-foreground">
                           ৳ {buy.toLocaleString()}
                         </td>
                         <td className="py-3.5 px-4 text-right font-semibold text-green-700">
                           ৳ {sell.toLocaleString()}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-[#14382f]">
+                        <td className="py-3.5 px-4 text-right font-semibold text-foreground">
                           ৳ {totalVal.toLocaleString()}
                         </td>
                         <td className="py-3.5 px-4 text-center">
@@ -590,7 +590,7 @@ export default function Inventory() {
                                 setAdjustType("in");
                                 setAdjustReason("");
                               }}
-                              className="h-8 rounded-lg border-[#cbe2d3] text-[#166534] hover:bg-[#ebf6ee] text-xs font-semibold px-2.5"
+                              className="h-8 rounded-lg border-border text-positive hover:bg-background text-xs font-semibold px-2.5"
                               title="স্টক সমন্বয় করুন"
                             >
                               <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
@@ -601,7 +601,7 @@ export default function Inventory() {
                               size="sm"
                               variant="ghost"
                               onClick={() => openEditModal(item)}
-                              className="h-8 w-8 p-0 rounded-lg text-[#3b6653] hover:bg-[#eef6f1]"
+                              className="h-8 w-8 p-0 rounded-lg text-foreground hover:bg-background"
                               title="সম্পাদনা করুন"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -645,13 +645,13 @@ export default function Inventory() {
         >
           <DialogContent className="max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-[#14382f]">
+              <DialogTitle className="text-lg font-bold text-foreground">
                 পণ্য সম্পাদনা করুন
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-4 pt-2">
               <div>
-                <Label className="text-xs font-semibold text-[#14382f]">
+                <Label className="text-xs font-semibold text-foreground">
                   পণ্যের নাম *
                 </Label>
                 <Input
@@ -664,7 +664,7 @@ export default function Inventory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     SKU / কোড
                   </Label>
                   <Input
@@ -674,7 +674,7 @@ export default function Inventory() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     ক্যাটাগরি
                   </Label>
                   <Input
@@ -687,7 +687,7 @@ export default function Inventory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     পরিমাপের একক
                   </Label>
                   <Input
@@ -697,7 +697,7 @@ export default function Inventory() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     বর্তমান স্টক
                   </Label>
                   <Input
@@ -712,7 +712,7 @@ export default function Inventory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     ক্রয়মূল্য (৳)
                   </Label>
                   <Input
@@ -724,7 +724,7 @@ export default function Inventory() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-[#14382f]">
+                  <Label className="text-xs font-semibold text-foreground">
                     বিক্রয়মূল্য (৳)
                   </Label>
                   <Input
@@ -738,7 +738,7 @@ export default function Inventory() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-[#14382f]">
+                <Label className="text-xs font-semibold text-foreground">
                   কম স্টক সতর্কতা সীমা
                 </Label>
                 <Input
@@ -751,7 +751,7 @@ export default function Inventory() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-[#14382f]">
+                <Label className="text-xs font-semibold text-foreground">
                   মন্তব্য
                 </Label>
                 <Textarea
@@ -764,7 +764,7 @@ export default function Inventory() {
               <Button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="w-full h-11 rounded-xl bg-[#166534] hover:bg-[#114f29] text-white font-semibold"
+                className="w-full h-11 rounded-xl bg-primary hover:bg-primary text-white font-semibold"
               >
                 {updateMutation.isPending
                   ? "সংরক্ষণ হচ্ছে..."
@@ -781,15 +781,15 @@ export default function Inventory() {
         >
           <DialogContent className="max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-[#14382f]">
+              <DialogTitle className="text-lg font-bold text-foreground">
                 স্টক সমন্বয় ({adjustItem?.name})
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAdjustSubmit} className="space-y-4 pt-2">
-              <div className="p-3 rounded-xl bg-[#f4faf5] border border-[#d6ecdc] text-xs space-y-1">
+              <div className="p-3 rounded-xl bg-background border border-border text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-[#59786a]">বর্তমান স্টক:</span>
-                  <span className="font-bold text-[#14382f]">
+                  <span className="text-muted-foreground">বর্তমান স্টক:</span>
+                  <span className="font-bold text-foreground">
                     {adjustItem?.currentStock} {adjustItem?.unit}
                   </span>
                 </div>
@@ -801,7 +801,7 @@ export default function Inventory() {
                   onClick={() => setAdjustType("in")}
                   className={`h-10 rounded-xl text-xs font-semibold ${
                     adjustType === "in"
-                      ? "bg-[#166534] text-white"
+                      ? "bg-primary text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
@@ -823,7 +823,7 @@ export default function Inventory() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-[#14382f]">
+                <Label className="text-xs font-semibold text-foreground">
                   সমন্বয়ের পরিমাণ ({adjustItem?.unit}) *
                 </Label>
                 <Input
@@ -838,7 +838,7 @@ export default function Inventory() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-[#14382f]">
+                <Label className="text-xs font-semibold text-foreground">
                   কারণ / ভাউচার রেফারেন্স
                 </Label>
                 <Input
@@ -852,7 +852,7 @@ export default function Inventory() {
               <Button
                 type="submit"
                 disabled={adjustStockMutation.isPending}
-                className="w-full h-11 rounded-xl bg-[#166534] hover:bg-[#114f29] text-white font-semibold"
+                className="w-full h-11 rounded-xl bg-primary hover:bg-primary text-white font-semibold"
               >
                 {adjustStockMutation.isPending
                   ? "সমন্বয় হচ্ছে..."
