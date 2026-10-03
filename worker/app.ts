@@ -20,6 +20,7 @@ import {
 import { runScheduledBackup } from "../server/scheduledBackup";
 import { runScheduledBackupAudit } from "../server/scheduledBackupAudit";
 import { runScheduledAccountingAudit } from "../server/accountingAudit";
+import { runScheduledRestoreDrill } from "../server/restoreDrill";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { TrpcContext } from "../server/_core/context";
 import type { WorkerEnv } from "./env";
@@ -85,6 +86,7 @@ export function createWorkerApp(env: WorkerEnv) {
     { method: "ALL", path: "/api/scheduled/finance-backup", handler: runScheduledBackup as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/backup-audit", handler: runScheduledBackupAudit as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/accounting-audit", handler: runScheduledAccountingAudit as unknown as RouteHandler },
+    { method: "ALL", path: "/api/scheduled/restore-drill", handler: runScheduledRestoreDrill as unknown as RouteHandler },
     { method: "ALL", path: "/api/scheduled/daily-sweep", handler: runDailySweep as unknown as RouteHandler },
   ];
 

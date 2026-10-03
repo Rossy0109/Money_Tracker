@@ -1466,4 +1466,66 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     60000
   );
+
+  it(
+    "restore drill hook counts rows inside the transaction and rolls back",
+    async () => {
+      const {
+        createProject,
+        exportProjectBackup,
+        restoreProjectBackup,
+        getDb,
+        databaseRequired,
+      } = await import("./db");
+      const { countProjectRecords } = await import("./backupDb");
+      const { eq } = await import("drizzle-orm");
+      const { financeProjects, auditLogs } = await import("../drizzle/schema");
+
+      const source = await createProject(userId, "Drill source");
+      if (!source.id) throw new Error("Drill source project missing");
+      const backup = await exportProjectBackup(userId, source.id);
+
+      let drillCounts: Record<string, number> | null = null;
+      let hookProjectId = 0;
+      await expect(
+        restoreProjectBackup(
+          userId,
+          { projectName: "Drill rehearsal", backup },
+          {
+            insideTransaction: async (tx, id) => {
+              hookProjectId = id;
+              drillCounts = await countProjectRecords(userId, id, {
+                executor: tx,
+                skipOwnershipCheck: true,
+              });
+              throw new Error("DRILL_ROLLBACK");
+            },
+          }
+        )
+      ).rejects.toThrow("DRILL_ROLLBACK");
+
+      // The hook saw every restored row before the rollback.
+      expect(hookProjectId).toBeGreaterThan(0);
+      expect(drillCounts).toEqual(await countProjectRecords(userId, source.id));
+
+      // The rehearsal left nothing behind: no project, no restore audit row.
+      const db = databaseRequired(await getDb());
+      const [leftoverProject] = await db
+        .select({ id: financeProjects.id })
+        .from(financeProjects)
+        .where(eq(financeProjects.name, "Drill rehearsal"))
+        .limit(1);
+      expect(leftoverProject).toBeUndefined();
+
+      const [leftoverAudit] = await db
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          eq(auditLogs.summary, "Project restored safely from backup: Drill rehearsal")
+        )
+        .limit(1);
+      expect(leftoverAudit).toBeUndefined();
+    },
+    120000
+  );
 });

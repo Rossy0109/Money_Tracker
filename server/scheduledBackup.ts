@@ -10,6 +10,7 @@ import { timingSafeCompare } from "./timingSafe";
 import logger from "./_core/logger";
 import { ENV } from "./_core/env";
 import { isAdminRoleUser } from "./_core/rbac";
+import { keyIdForSecret } from "./backupIntegrity";
 import { extractAuditContext } from "./_core/auditContext";
 import {
   sha256Hex,
@@ -22,7 +23,7 @@ import {
 export async function encryptPayload(
   data: string,
   secretKey: string
-): Promise<{ iv: string; encrypted: string; tag: string }> {
+): Promise<{ iv: string; encrypted: string; tag: string; keyId: string }> {
   const keyHex = await sha256Hex(secretKey);
   const ivBytes = hexToBytes(randomBytesHex(12));
   const result = await aesGcmEncrypt(keyHex, ivBytes, data);
@@ -31,6 +32,7 @@ export async function encryptPayload(
     iv: bytesToHex(ivBytes),
     encrypted: result.encrypted,
     tag: result.tag,
+    keyId: await keyIdForSecret(secretKey),
   };
 }
 

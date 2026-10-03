@@ -14,6 +14,7 @@ import { bdt, dateText } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
 import { useRowGestures } from "@/mobile/useRowGestures";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 
@@ -75,7 +76,6 @@ export function TransactionsPanel({
 
   const visibleVirtualRows = useMemo(() => {
     if (!isVirtualMode) return paginatedRows;
-    // eslint-disable-next-line react-hooks/refs -- @tanstack/react-virtual exposes startIndex/endIndex as refs
     return filteredRows.slice(virtualizer.startIndex, virtualizer.endIndex + 1);
   }, [
     isVirtualMode,
@@ -146,10 +146,10 @@ export function TransactionsPanel({
         </div>
       </div>
 
-      <div
-        // eslint-disable-next-line react-hooks/refs
-        ref={virtualizer.containerRef}
-        className={`mt-5 overflow-x-auto ${isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}`}
+      <ScrollShadow
+        scrollerRef={virtualizer.containerRef}
+        className="mt-5"
+        scrollerClassName={isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}
       >
         <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-y border-[#e8eee9] text-xs text-[#71867c] sticky top-0 bg-white z-10">
@@ -188,7 +188,7 @@ export function TransactionsPanel({
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollShadow>
 
       {/* Pagination Footer */}
       {!isVirtualMode && filteredRows.length > pageSize && (
