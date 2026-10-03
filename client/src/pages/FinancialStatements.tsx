@@ -25,6 +25,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { openPrintWindow } from "@/lib/print/printWindow";
+import { ScrollShadow } from "@/components/ui/scroll-shadow";
 
 type PeriodPreset =
   "all" | "this_month" | "last_month" | "this_year" | "custom";
@@ -340,7 +341,7 @@ export default function FinancialStatements() {
                   )}
                 </div>
 
-                <div className="overflow-x-auto">
+                <ScrollShadow>
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead>
                       <tr className="bg-[#f2f7f4] text-[#14382f] border-b border-[#cfe0d5]">
@@ -410,7 +411,7 @@ export default function FinancialStatements() {
                       </tr>
                     </tbody>
                   </table>
-                </div>
+                </ScrollShadow>
               </div>
             </TabsContent>
 

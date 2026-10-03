@@ -13,6 +13,8 @@ import { getAccessToken } from "./drive/driveOAuth";
 import { findDriveFileByName } from "./drive/driveApi";
 import { runIntegrityCheck } from "./integrityCheck";
 import { APP_VERSION, SCHEMA_VERSION } from "./backupManifest";
+import { getPerformanceSummary } from "./_core/requestMetrics";
+import { getQueryTimingStats } from "./_core/queryTiming";
 
 export type ProbeStatus = "ok" | "fail" | "unknown" | "not_configured";
 
@@ -379,6 +381,33 @@ export async function runHealthChecks(
           : null,
     });
   }
+
+  // Informational probes: they never feed summary/overallStatus, they just
+  // put the collected latency numbers in front of whoever reads the report.
+  const perf = getPerformanceSummary();
+  checks.push({
+    id: "performance.requests",
+    label: "রিকোয়েস্ট লেটেন্সি",
+    status: "ok",
+    timestamp: checkedAt,
+    latencyMs: perf.totalRequests > 0 ? perf.p95 : null,
+    details:
+      perf.totalRequests > 0
+        ? `p50 ${perf.p50}ms · p95 ${perf.p95}ms · p99 ${perf.p99}ms · সর্বোচ্চ ${perf.max}ms · ${perf.totalRequests}টি অনুরোধ · ${perf.slowRequests}টি ${perf.slowRequestThresholdMs}ms+ · ${perf.routeCount}টি রুট`
+        : "এই প্রসেসে এখনো কোনো অনুরোধ মাপা হয়নি",
+  });
+
+  const queryTiming = getQueryTimingStats();
+  checks.push({
+    id: "performance.slowQueries",
+    label: "ধীর ডেটাবেস কোয়েরি",
+    status: "ok",
+    timestamp: checkedAt,
+    details:
+      queryTiming.totalQueries > 0
+        ? `${queryTiming.totalQueries}টি কোয়েরি · ${queryTiming.slowQueries}টি ${queryTiming.slowQueryThresholdMs}ms+${queryTiming.recentSlowQueries.length ? ` · সাম্প্রতিক: ${queryTiming.recentSlowQueries[0].durationMs}ms` : ""}`
+        : "এই প্রসেসে এখনো কোনো কোয়েরি মাপা হয়নি",
+  });
 
   const toRate = (id: string) =>
     checks.find(check => check.id === id)?.status ?? "unknown";

@@ -23,6 +23,13 @@ import { runScheduledRestoreDrill } from "../restoreDrill";
 import { runHealthChecks } from "../healthChecks";
 import { ENV } from "./env";
 import logger from "./logger";
+import {
+  getPerformanceSummary,
+  maybeLogSlowRequest,
+  performanceStore,
+} from "./requestMetrics";
+
+export { performanceStore, getPerformanceSummary };
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -44,40 +51,6 @@ const authLimiter = rateLimit({
     process.env.NODE_ENV === "test" ||
     process.env.ISOLATED_E2E_DATABASE === "true",
 });
-
-const performanceStore = {
-  routes: new Map<string, number[]>(),
-  maxSamples: 1000,
-  record(method: string, url: string, ms: number) {
-    const key = `${method} ${url}`;
-    const samples = this.routes.get(key);
-    if (!samples) {
-      this.routes.set(key, [ms]);
-    } else {
-      samples.push(ms);
-      if (samples.length > this.maxSamples) samples.shift();
-    }
-  },
-  getStats(method: string, url: string) {
-    const key = `${method} ${url}`;
-    const samples = this.routes.get(key);
-    if (!samples || samples.length === 0) return null;
-    const sorted = [...samples].sort((a, b) => a - b);
-    const p50 = sorted[Math.floor(sorted.length * 0.5)];
-    const p95 = sorted[Math.floor(sorted.length * 0.95)];
-    const p99 = sorted[Math.floor(sorted.length * 0.99)];
-    const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
-    return {
-      p50,
-      p95,
-      p99,
-      avg: Math.round(avg * 100) / 100,
-      count: sorted.length,
-    };
-  },
-};
-
-export { performanceStore };
 
 /**
  * Creates the HTTP application without binding a port.
@@ -249,13 +222,21 @@ export function createApiApp() {
     });
   });
 
-  // Performance tracking middleware
+  // Performance tracking middleware: per-route percentiles plus a warning
+  // line for anything slower than SLOW_REQUEST_MS (default 1s).
   app.use((req: Request, _res: Response, next: NextFunction) => {
     const start = Date.now();
     const originalEnd = _res.end;
     _res.end = function (this: Response, ...args: unknown[]) {
       const ms = Date.now() - start;
-      performanceStore.record(req.method, req.url.split("?")[0], ms);
+      const path = req.url.split("?")[0];
+      performanceStore.record(req.method, path, ms);
+      maybeLogSlowRequest({
+        method: req.method,
+        path,
+        statusCode: _res.statusCode,
+        durationMs: ms,
+      });
       return originalEnd.apply(this, args as Parameters<typeof originalEnd>);
     } as Response["end"];
     next();
