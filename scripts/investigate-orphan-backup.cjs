@@ -64,14 +64,14 @@ async function investigate() {
   console.log('tag:', envelope.tag ? 'present' : 'missing');
   console.log('encrypted length:', envelope.encrypted?.length);
 
-  // Decrypt to see contents
+  // Decrypt to see contents - tag is stored as hex (32 chars = 16 bytes)
   const encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
   const decipher = require('crypto').createDecipheriv(
     'aes-256-gcm',
-    Buffer.from(encryptionKeyHex, 'hex'),
-    Buffer.from(envelope.iv, 'base64')
+    Buffer.from(envelope.iv, 'base64'),
+    Buffer.from(envelope.tag, 'hex')  // tag is stored as hex, not base64
   );
-  decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
+  decipher.setAuthTag(Buffer.from(envelope.tag, 'hex'));
   const encrypted = Buffer.from(envelope.encrypted, 'base64');
   let plaintext = decipher.update(encrypted, undefined, 'utf8');
   plaintext += decipher.final('utf8');
