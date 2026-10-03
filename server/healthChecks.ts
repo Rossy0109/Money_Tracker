@@ -2,6 +2,10 @@ import { sql } from "drizzle-orm";
 import { ENV } from "./_core/env";
 import { parseSupabaseConfig } from "./_core/supabaseAdapter";
 import {
+  latestAccountingAuditRows,
+  verifyAccountingAuditRow,
+} from "./accountingAudit";
+import {
   backupStatusSummary,
   getDriveConnection,
   lastBackupForKind,
@@ -38,6 +42,7 @@ export interface HealthSummary {
   lastBackup: "ok" | "stale" | "none";
   lastSync: "ok" | "stale" | "none";
   integrity: ProbeStatus;
+  accountingInvariants: ProbeStatus;
   restoreDrill: ProbeStatus;
   overallStatus?: ProbeStatus;
 }
@@ -321,6 +326,29 @@ export async function runHealthChecks(
     });
   }
 
+  // Double-entry proof: the daily accounting audit records whether debits and
+  // credits still balance at every level. A violated invariant fails the
+  // health panel; a run that never happened stays "unknown".
+  const accountingRows = await latestAccountingAuditRows(1).catch(() => []);
+  const accountingVerdict = verifyAccountingAuditRow(accountingRows);
+  const accountingStatus: ProbeStatus = !accountingRows.length
+    ? "unknown"
+    : accountingVerdict.verified
+      ? "ok"
+      : "fail";
+  checks.push({
+    id: "accounting.invariants",
+    label: "হিসাবের ভারসাম্য (ডাবল-এন্ট্রি)",
+    status: accountingStatus,
+    timestamp: checkedAt,
+    error: accountingVerdict.reason ?? null,
+    details: accountingVerdict.row?.summary,
+    retryAction:
+      accountingStatus === "ok"
+        ? undefined
+        : "accounting-audit ট্রিগার করুন (daily workflow)",
+  });
+
   // Weekly rehearsal: can the stored object actually be restored? A drill that
   // has never run or is older than the schedule is as broken as a failed one.
   const drillRows = await latestRestoreDrillRows(1).catch(() => []);
@@ -430,6 +458,7 @@ export async function runHealthChecks(
     lastBackup: lastBackupStatus,
     lastSync: lastSyncStatus,
     integrity: toRate("integrity"),
+    accountingInvariants: toRate("accounting.invariants"),
     restoreDrill: toRate("backup.restoreDrill"),
   };
 
@@ -437,6 +466,7 @@ export async function runHealthChecks(
     summary.database === "ok" &&
     summary.storage !== "fail" &&
     summary.auth !== "fail" &&
+    summary.accountingInvariants !== "fail" &&
     summary.restoreDrill !== "fail"
       ? "ok"
       : "degraded";

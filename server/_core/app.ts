@@ -17,6 +17,7 @@ import {
   runScheduledRecurring,
   runDailySweep,
 } from "../scheduledFinance";
+import { runScheduledAccountingAudit } from "../accountingAudit";
 import { runScheduledBackup } from "../scheduledBackup";
 import { runScheduledBackupAudit } from "../scheduledBackupAudit";
 import { runScheduledRestoreDrill } from "../restoreDrill";
@@ -266,6 +267,8 @@ export function createApiApp() {
   app.all("/api/scheduled/finance-backup", runScheduledBackup);
   // Read-only proof for the daily workflow: the audit row behind the run.
   app.all("/api/scheduled/backup-audit", runScheduledBackupAudit);
+  // Double-entry balance check: debits == credits at every level, per project.
+  app.all("/api/scheduled/accounting-audit", runScheduledAccountingAudit);
   // Weekly rehearsal: download the stored object, restore it, roll back.
   app.all("/api/scheduled/restore-drill", runScheduledRestoreDrill);
   app.all("/api/scheduled/daily-sweep", runDailySweep);
