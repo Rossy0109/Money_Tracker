@@ -5,6 +5,7 @@ import {
   backupStatusSummary,
   getDriveConnection,
   lastBackupForKind,
+  latestRestoreDrillRows,
   saveHealthSnapshot,
 } from "./backupDb";
 import { getDb } from "./db";
@@ -37,6 +38,7 @@ export interface HealthSummary {
   lastBackup: "ok" | "stale" | "none";
   lastSync: "ok" | "stale" | "none";
   integrity: ProbeStatus;
+  restoreDrill: ProbeStatus;
   overallStatus?: ProbeStatus;
 }
 
@@ -53,6 +55,7 @@ export interface HealthReport {
     diffs: number;
     checkedAt: string;
   }>;
+  overallStatus?: ProbeStatus;
 }
 
 function timed<T>(
@@ -318,6 +321,36 @@ export async function runHealthChecks(
     });
   }
 
+  // Weekly rehearsal: can the stored object actually be restored? A drill that
+  // has never run or is older than the schedule is as broken as a failed one.
+  const drillRows = await latestRestoreDrillRows(1).catch(() => []);
+  const latestDrill = drillRows[0] ?? null;
+  const drillAgeHours = latestDrill
+    ? backupAgeHours(latestDrill.createdAt)
+    : Infinity;
+  const drillFailed = latestDrill?.entityType === "restore_drill_failed";
+  const drillStatus: ProbeStatus = !latestDrill
+    ? "unknown"
+    : drillFailed || drillAgeHours > 24 * 8
+      ? "fail"
+      : "ok";
+  checks.push({
+    id: "backup.restoreDrill",
+    label: "রিস্টোর ড্রিল (সংরক্ষিত ব্যাকআপ ফিরিয়ে আনা)",
+    status: drillStatus,
+    timestamp: checkedAt,
+    error: !latestDrill
+      ? "এখনো কোনো রিস্টোর ড্রিল চলেনি"
+      : drillFailed
+        ? latestDrill.summary
+        : drillAgeHours > 24 * 8
+          ? `শেষ ড্রিল ${Math.round(drillAgeHours)} ঘণ্টা আগে`
+          : null,
+    details: latestDrill ? latestDrill.summary : undefined,
+    retryAction:
+      drillStatus === "ok" ? undefined : "সাপ্তাহিক ড্রিল ট্রিগার করুন (restore-drill)",
+  });
+
   let integrity: HealthReport["integrity"] = [];
   if (userId) {
     const projects = await import("./db").then(m => m.listProjects(userId));
@@ -397,10 +430,14 @@ export async function runHealthChecks(
     lastBackup: lastBackupStatus,
     lastSync: lastSyncStatus,
     integrity: toRate("integrity"),
+    restoreDrill: toRate("backup.restoreDrill"),
   };
 
   const overallStatus =
-    summary.database === "ok" && summary.storage !== "fail" && summary.auth !== "fail"
+    summary.database === "ok" &&
+    summary.storage !== "fail" &&
+    summary.auth !== "fail" &&
+    summary.restoreDrill !== "fail"
       ? "ok"
       : "degraded";
   return {

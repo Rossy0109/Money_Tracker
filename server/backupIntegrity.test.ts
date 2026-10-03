@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BackupIntegrityError,
   detectBackupEnvelope,
+  keyIdForSecret,
   normalizeBackupForChecksum,
   verifyRestoreEnvelope,
+  withoutEnvelopeKeys,
 } from "./backupIntegrity";
 import {
   aesGcmEncrypt,
@@ -197,6 +199,86 @@ describe("verifyRestoreEnvelope", () => {
     await expect(verifyRestoreEnvelope(sealed, KEY)).rejects.toBeInstanceOf(
       BackupIntegrityError
     );
+  });
+});
+
+describe("verifyRestoreEnvelope with a keyring", () => {
+  it("seals nothing extra: keyId is detected but never a required field", () => {
+    expect(
+      detectBackupEnvelope({
+        iv: "aa",
+        encrypted: "bb",
+        tag: "cc",
+        checksum: "dd",
+        keyId: "abc",
+      })
+    ).toMatchObject({
+      present: ["iv", "encrypted", "tag", "checksum"],
+      keyId: "abc",
+    });
+    expect(
+      detectBackupEnvelope({ iv: "aa", encrypted: "bb" }).keyId
+    ).toBeUndefined();
+  });
+
+  it("accepts an envelope sealed with a non-active key from the ring", async () => {
+    const sealed = await sealBackup(sampleBackup(), OTHER_KEY);
+    sealed.keyId = await keyIdForSecret(OTHER_KEY);
+    await expect(
+      verifyRestoreEnvelope(sealed, [KEY, OTHER_KEY])
+    ).resolves.toMatchObject({ verified: true });
+  });
+
+  it("accepts the active key for an envelope that names it", async () => {
+    const sealed = await sealBackup(sampleBackup(), KEY);
+    sealed.keyId = await keyIdForSecret(KEY);
+    await expect(verifyRestoreEnvelope(sealed, [KEY, OTHER_KEY])).resolves.toMatchObject(
+      { verified: true }
+    );
+  });
+
+  it("fails with unknown_key when the named key was rotated out", async () => {
+    const sealed = await sealBackup(sampleBackup(), OTHER_KEY);
+    sealed.keyId = await keyIdForSecret(OTHER_KEY);
+    await expect(verifyRestoreEnvelope(sealed, KEY)).rejects.toMatchObject({
+      code: "unknown_key",
+    });
+  });
+
+  it("tries the whole ring for envelopes written before key ids existed", async () => {
+    const sealed = await sealBackup(sampleBackup(), OTHER_KEY);
+    await expect(verifyRestoreEnvelope(sealed, [KEY, OTHER_KEY])).resolves.toMatchObject(
+      { verified: true }
+    );
+  });
+
+  it("still reports decrypt_failed when the named key is present but wrong", async () => {
+    const sealed = await sealBackup(sampleBackup(), OTHER_KEY);
+    sealed.keyId = await keyIdForSecret(OTHER_KEY);
+    sealed.encrypted = (await aesGcmEncrypt(
+      await sha256Hex(OTHER_KEY),
+      hexToBytes(randomBytesHex(12)),
+      JSON.stringify(sampleBackup(), null, 2)
+    )).encrypted;
+    await expect(verifyRestoreEnvelope(sealed, [KEY, OTHER_KEY])).rejects.toMatchObject(
+      { code: "decrypt_failed" }
+    );
+  });
+
+  it("reports missing_key when the keyring is empty", async () => {
+    await expect(
+      verifyRestoreEnvelope(await sealBackup(sampleBackup()), [])
+    ).rejects.toMatchObject({ code: "missing_key" });
+  });
+
+  it("keeps keyId out of the checksum and payload comparison", async () => {
+    const sealed = await sealBackup(sampleBackup(), KEY);
+    sealed.keyId = await keyIdForSecret(KEY);
+    await expect(verifyRestoreEnvelope(sealed, KEY)).resolves.toMatchObject({
+      verified: true,
+    });
+    const stripped = withoutEnvelopeKeys(sealed) as Record<string, unknown>;
+    expect(stripped.keyId).toBeUndefined();
   });
 });
 

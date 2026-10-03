@@ -10,6 +10,7 @@ vi.mock("./backupDb", () => ({
   getDriveConnection: vi.fn(async () => null),
   lastBackupForKind: vi.fn(async () => null),
   backupStatusSummary: vi.fn(async () => ({ pending: 0, failed: 0 })),
+  latestRestoreDrillRows: vi.fn(async () => []),
 }));
 
 vi.mock("./integrityCheck", () => ({
@@ -17,7 +18,7 @@ vi.mock("./integrityCheck", () => ({
 }));
 
 import { getDb, listProjects } from "./db";
-import { lastBackupForKind } from "./backupDb";
+import { lastBackupForKind, latestRestoreDrillRows } from "./backupDb";
 import { runIntegrityCheck } from "./integrityCheck";
 import { ENV } from "./_core/env";
 import { runHealthChecks } from "./healthChecks";
@@ -26,6 +27,7 @@ import { performanceStore } from "./_core/requestMetrics";
 const mockGetDb = vi.mocked(getDb);
 const mockProjects = vi.mocked(listProjects);
 const mockLastBackup = vi.mocked(lastBackupForKind);
+const mockRestoreDrill = vi.mocked(latestRestoreDrillRows);
 const mockIntegrity = vi.mocked(runIntegrityCheck);
 
 const ENV_KEYS = [
@@ -170,6 +172,71 @@ describe("runHealthChecks with a user", () => {
     expect(byId["integrity"].status).toBe("fail");
     expect(byId["integrity"].error).toContain("অমিল");
     expect(report.summary.lastBackup).toBe("stale");
+  });
+
+  it("reports the weekly restore drill and lets a failed one degrade health", async () => {
+    mockProjects.mockResolvedValue([] as never);
+    mockLastBackup.mockResolvedValue(null);
+
+    // Never run: unknown, and unknown must not degrade the app.
+    mockRestoreDrill.mockResolvedValue([]);
+    let report = await runHealthChecks(null);
+    expect(
+      report.checks.find(c => c.id === "backup.restoreDrill")?.status
+    ).toBe("unknown");
+    expect(report.summary.restoreDrill).toBe("unknown");
+    expect(report.overallStatus).toBe("ok");
+
+    // A failed drill is a broken disaster-recovery path — degrade.
+    mockRestoreDrill.mockResolvedValue([
+      {
+        id: 1,
+        entityType: "restore_drill_failed",
+        summary: "Restore drill FAILED: no stored backup object",
+        projectId: 2,
+        createdAt: new Date(),
+      },
+    ]);
+    report = await runHealthChecks(null);
+    expect(
+      report.checks.find(c => c.id === "backup.restoreDrill")?.status
+    ).toBe("fail");
+    expect(report.summary.restoreDrill).toBe("fail");
+    expect(report.overallStatus).toBe("degraded");
+
+    // A drill older than the weekly schedule counts as missing.
+    mockRestoreDrill.mockResolvedValue([
+      {
+        id: 2,
+        entityType: "restore_drill",
+        summary: "Restore drill OK",
+        projectId: 2,
+        createdAt: new Date(Date.now() - 9 * 24 * 3_600_000),
+      },
+    ]);
+    report = await runHealthChecks(null);
+    expect(
+      report.checks.find(c => c.id === "backup.restoreDrill")?.status
+    ).toBe("fail");
+
+    // A fresh, successful drill is healthy.
+    mockRestoreDrill.mockResolvedValue([
+      {
+        id: 3,
+        entityType: "restore_drill",
+        summary: "Restore drill OK",
+        projectId: 2,
+        createdAt: new Date(),
+      },
+    ]);
+    report = await runHealthChecks(null);
+    expect(
+      report.checks.find(c => c.id === "backup.restoreDrill")?.status
+    ).toBe("ok");
+    expect(report.summary.restoreDrill).toBe("ok");
+    expect(report.overallStatus).toBe("ok");
+
+    mockRestoreDrill.mockResolvedValue([]);
   });
 
   it("marks blob storage ok when configured", async () => {

@@ -29,7 +29,9 @@ This document describes the backup and disaster recovery procedures for the Mone
 2. The Express route is registered with `app.all`, so GET and POST both work (GitHub Actions may use either)
 3. The endpoint authenticates using `CRON_SECRET` (dedicated secret) via `Authorization: Bearer …`
 4. For each active user, each project is exported as JSON
-5. The JSON is encrypted using AES-256-GCM with `BACKUP_ENCRYPTION_KEY`
+5. The JSON is encrypted using AES-256-GCM with the active key from
+   `BACKUP_ENCRYPTION_KEYS` (or `BACKUP_ENCRYPTION_KEY`) and the envelope is
+   stamped with that key's `keyId`
 6. The encrypted payload is uploaded to the configured cloud provider
 7. A SHA-256 checksum is computed and stored in the backup envelope
 8. Post-upload integrity verification: checksum is re-verified
@@ -47,10 +49,11 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 ### Required Environment Variables
 
-| Variable                | Purpose                                            |
-| ----------------------- | -------------------------------------------------- |
-| `BACKUP_ENCRYPTION_KEY` | Dedicated encryption key for backups (min 6 chars) |
-| `CRON_SECRET`           | Authentication for Vercel Cron / GitHub Actions    |
+| Variable                 | Purpose                                            |
+| ------------------------ | -------------------------------------------------- |
+| `BACKUP_ENCRYPTION_KEYS` | Keyring: first key encrypts, all keys decrypt      |
+| `BACKUP_ENCRYPTION_KEY`  | Single-key form of the above (min 6 chars)         |
+| `CRON_SECRET`            | Authentication for Vercel Cron / GitHub Actions    |
 
 > **Key rotation 2026-09-30:** `BACKUP_ENCRYPTION_KEY` was missing from the
 > Vercel project (backups failed 2026-09-24 → 2026-09-29) and the previous key
@@ -58,6 +61,26 @@ This document describes the backup and disaster recovery procedures for the Mone
 > encrypted before that rotation is therefore likely **undecryptable**. The
 > current key is stored in Vercel Production and in the operator's password
 > manager — keep both in sync.
+
+#### Key rotation (overlap, never orphan)
+
+`BACKUP_ENCRYPTION_KEYS` is a comma-separated keyring: **the first key
+encrypts new backups, every key in the list may decrypt**. Rotating therefore
+never invalidates what is already in the bucket:
+
+1. Generate a new key (`head -c 64 /dev/urandom | base64 | tr -d '/+=' | head -c 64`).
+2. Set `BACKUP_ENCRYPTION_KEYS=<new-key>,<old-key>` — prepend, never delete.
+   (`BACKUP_ENCRYPTION_KEY` alone keeps working as the active key.)
+3. Redeploy and run one backup. Every envelope now carries a `keyId`, the
+   first 16 hex characters of `sha256(key)` — it names the key that sealed the
+   file without exposing anything usable, and the restore path refuses an
+   envelope whose `keyId` matches no configured key (`unknown_key`).
+4. Keep the old key until every backup made with it has aged past
+   `BACKUP_RETENTION_DAYS`. Only then drop it from the list.
+
+Keeping the retired key in the list is what makes an old object recoverable:
+removing it turns a rotation into an outage. The weekly restore drill fails
+loudly (`unknown_key`) if a retained object's key is missing from the keyring.
 
 Required GitHub Actions secrets for backup verification:
 
@@ -183,6 +206,23 @@ After restore:
 4. Try restoring to a different project name
 5. Contact support with the backup file and error details
 
+### Restore Drill Failure
+
+The `Weekly Restore Drill` job is red, or health shows `backup.restoreDrill`
+failing. Read `jq '{verified, reason}' drill.json` from the job log — the
+reason names the step that could not be proven:
+
+| Reason starts with                    | What it means                                        | Fix                                       |
+| ------------------------------------- | ---------------------------------------------------- | ----------------------------------------- |
+| `no stored backup object`             | The bucket has nothing under the project's name      | Run a backup; check the provider config   |
+| `[unknown_key]`                       | The object's key was dropped from `BACKUP_ENCRYPTION_KEYS` | Re-add the old key (overlap rotation) |
+| `[checksum_mismatch]` / `does not match the recorded backup` | The bucket holds a different/older object than the last run | Re-run the backup; check retention/pruning |
+| `restored rows do not match ...`      | The export did not capture what the counts recorded  | Re-run the backup, then the drill         |
+| `restore failed: ...`                 | The real restore path rejected the backup            | Fix the restore error it quotes           |
+
+A failed drill never leaves data behind — the transaction is always rolled
+back — so re-running it after a fix is always safe.
+
 ### Cloud Provider Outage
 
 1. Backups will automatically fall back to `local_encrypted` storage
@@ -234,6 +274,7 @@ To manually verify a backup:
 
 | Variable                | Required | Default | Description                              |
 | ----------------------- | -------- | ------- | ---------------------------------------- |
+| `BACKUP_ENCRYPTION_KEYS` | No       | (none)  | Keyring: `<new>,<old>` (first key active) |
 | `BACKUP_ENCRYPTION_KEY` | Yes      | (none)  | AES-256-GCM encryption key for backups   |
 | `CRON_SECRET`           | Yes      | (none)  | Authentication for scheduled backup cron |
 | `BACKUP_RETENTION_DAYS` | No       | 30      | Days to retain backup files              |
@@ -249,10 +290,35 @@ To manually verify a backup:
 ### Backup Encryption Key: Rotation & Recoverability
 
 - **Store it safely**: `~/.money-tracker-backup-key` contains the 64-hex `BACKUP_ENCRYPTION_KEY` used to encrypt all cloud backups. Back it up in a password manager and/or offline safe (not in git). Set `chmod 600` on the file and treat it as production-critical.
-- **Key rotation caveat**: backups encrypted before a key rotation are unrecoverable with the new key. Before rotating, decrypt/export any backups you must keep, or ensure the old key is archived.
-- **Verifying recoverability**: the manual restore drill (decrypt the latest `.enc.json` and check `sha256(plaintext) == envelope.checksum`) proves both key correctness and storage integrity.
+- **Key rotation**: put the new key first and keep the old one in `BACKUP_ENCRYPTION_KEYS` for the whole retention window (see *Key rotation (overlap, never orphan)* above). A backup is only unrecoverable once the key that sealed it has been dropped from the keyring — the weekly drill reports that as `unknown_key` instead of letting it surface during a real incident.
+- **Verifying recoverability**: automated weekly (see *Weekly Restore Drill*), plus the manual decrypt below when you want to check a specific object by hand.
 
-### Quarterly Restore Drill (Recommended)
+### Weekly Restore Drill (automated)
+
+The `Weekly Restore Drill` GitHub workflow (`weekly-restore-drill.yml`, Mondays
+05:00 UTC) calls `GET /api/scheduled/restore-drill` with the cron secret and
+turns `verified: false` into a red job. The endpoint, on the server:
+
+1. picks the newest backed-up project (or `?projectId=`),
+2. **downloads the stored object from the bucket** (Supabase Storage or
+   S3-compatible — Google Drive and local snapshots are write-only from here),
+3. decrypts it with the whole keyring (keyId-aware) and verifies
+   `sha256(plaintext) === envelope.checksum`,
+4. matches the object against the `cloud_backup` audit row recorded at backup
+   time (same checksum, same record counts),
+5. runs the **real** `restoreProjectBackup` inside a transaction, counts every
+   table it wrote, then **throws to roll the transaction back** — no project,
+   no rows, no `project_restore` audit entry ever survive the rehearsal,
+6. compares those counts with the recorded backup, and
+7. writes one `restore_drill` (or `restore_drill_failed`) audit row, which the
+   health check `backup.restoreDrill` reads (never run / older than 8 days /
+   failed → unhealthy).
+
+Because the drill holds no production database credential in Actions — only
+`CRON_SECRET`, exactly like the backup trigger — a rotated DB password can
+never silently disable it.
+
+### Manual restore drill (offline)
 
 1. **Pick a recent backup**: from Supabase Storage bucket `amar-hisab-backups`, download the latest `.enc.json` object.
 2. **Decrypt and verify locally**:
