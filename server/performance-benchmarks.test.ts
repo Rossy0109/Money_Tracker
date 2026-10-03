@@ -95,11 +95,13 @@ describe("Performance & Scalability Benchmark Suite", () => {
       expect(fs.existsSync(serverBundle)).toBe(true);
       const serverStats = fs.statSync(serverBundle);
 
-      // Server bundle should be under 575 KB. Raised from 550 KB after the
-      // reviewed Cloudflare Workers runtime work, which moved crypto off the
-      // (unbundled) node:crypto builtin onto the shared dual-implementation
-      // platform module and added private storage backends (~6 KB + ~5 KB).
-      expect(serverStats.size).toBeLessThan(575 * 1024);
+      // Server bundle should be under 700 KB. Raised from 575 KB after the
+      // observability, keyring/restore-drill, accounting-audit and health
+      // panel work landed together — measured 647 KB on main at #208 (the
+      // prior raise was 550 → 575 KB for the Worker runtime, #174). Re-run
+      // `pnpm build` and re-measure before raising it again: this is a drift
+      // alarm, not a target.
+      expect(serverStats.size).toBeLessThan(700 * 1024);
 
       // Check client assets in dist/public/assets
       const assetsDir = path.join(distDir, "public", "assets");
