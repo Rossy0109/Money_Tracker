@@ -126,8 +126,11 @@ describe("verifyRestoreEnvelope", () => {
   it("rejects tampered ciphertext", async () => {
     const sealed = (await sealBackup(sampleBackup())) as Record<string, unknown>;
     const ciphertext = sealed.encrypted as string;
+    // Deterministic tampering: swap the leading hex digit's value (0 <-> 1),
+    // which always yields a different decoded byte. Flipping the case of a
+    // letter (`a` -> `A`) decodes to the *same* byte and is not tampering.
     const flipped =
-      (ciphertext[0] === "A" ? "B" : "A") + ciphertext.slice(1);
+      (ciphertext[0] === "0" ? "1" : "0") + ciphertext.slice(1);
     await expect(
       verifyRestoreEnvelope({ ...sealed, encrypted: flipped }, KEY)
     ).rejects.toMatchObject({ code: "decrypt_failed" });
