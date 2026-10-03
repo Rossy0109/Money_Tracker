@@ -172,7 +172,7 @@ export async function runRestoreDrill(
   }
   if (!manifest.checksum || manifest.checksum !== decrypted.checksum) {
     return fail(
-      `stored object checksum ${decrypted.checksum.slice(0, 10)} does not match the recorded backup ${manifest.checksum?.slice(0, 10) ?? "none"} — the bucket holds a different object than the last successful run`
+      `stored object ${object.fileName} has checksum ${decrypted.checksum.slice(0, 10)} which does not match the recorded backup ${manifest.checksum?.slice(0, 10) ?? "none"} (${manifest.fileName ?? "unknown file"}) — the bucket holds a different object than the last successful run`
     );
   }
   if (!manifest.recordCounts) {
