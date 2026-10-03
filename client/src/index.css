@@ -68,6 +68,36 @@
   --sidebar-ring: #bcecc6;
 }
 
+.dark {
+  --background: #0b1411;
+  --foreground: #e4ede8;
+  --card: #122019;
+  --card-foreground: #e4ede8;
+  --popover: #122019;
+  --popover-foreground: #e4ede8;
+  --primary: #d8f2dd;
+  --primary-foreground: #113a30;
+  --secondary: #1a2b24;
+  --secondary-foreground: #e4ede8;
+  --muted: #1a2b24;
+  --muted-foreground: #9db3a7;
+  --accent: #1e332b;
+  --accent-foreground: #d8f2dd;
+  --destructive: #e07a6e;
+  --destructive-foreground: #ffffff;
+  --border: #24382f;
+  --input: #24382f;
+  --ring: #3d8966;
+  --sidebar: #0a120f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #d8f2dd;
+  --sidebar-primary-foreground: #113a30;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: transparent;
+  --sidebar-ring: #bcecc6;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -114,19 +144,19 @@
 
 @layer components {
   .finance-card {
-    @apply rounded-2xl border border-[#dce7df] bg-white shadow-[0_12px_35px_rgba(16,53,47,.055)] transition-all;
+    @apply rounded-2xl border border-border bg-card shadow-[0_12px_35px_rgba(16,53,47,.055)] transition-all;
   }
   .section-kicker {
-    @apply text-[11px] font-bold uppercase tracking-[.15em] text-[#5b856f];
+    @apply text-[11px] font-bold uppercase tracking-[.15em] text-muted-foreground;
   }
   .section-title {
-    @apply mt-1 text-xl sm:text-2xl font-bold tracking-tight text-[#23483b];
+    @apply mt-1 text-xl sm:text-2xl font-bold tracking-tight text-foreground;
   }
   .finance-input {
     @apply h-10 sm:h-11 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .responsive-table-container {
-    @apply w-full overflow-x-auto rounded-2xl border border-[#dde7df] bg-white shadow-xs;
+    @apply w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs;
     -webkit-overflow-scrolling: touch;
   }
 }
