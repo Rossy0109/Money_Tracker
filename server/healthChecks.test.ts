@@ -21,6 +21,7 @@ import { lastBackupForKind } from "./backupDb";
 import { runIntegrityCheck } from "./integrityCheck";
 import { ENV } from "./_core/env";
 import { runHealthChecks } from "./healthChecks";
+import { performanceStore } from "./_core/requestMetrics";
 
 const mockGetDb = vi.mocked(getDb);
 const mockProjects = vi.mocked(listProjects);
@@ -85,9 +86,27 @@ describe("runHealthChecks without a user", () => {
     expect(byId["vercel.api"].status).toBe("unknown");
     expect(byId["drive.connection"].status).toBe("not_configured");
     expect(byId["backup.last"].status).toBe("fail");
+    expect(byId["performance.requests"].status).toBe("ok");
+    expect(byId["performance.slowQueries"].status).toBe("ok");
     expect(report.summary.database).toBe("ok");
     expect(report.summary.lastBackup).toBe("none");
     expect(report.integrity).toEqual([]);
+  });
+
+  it("surfaces the collected request latency percentiles", async () => {
+    for (const ms of [12, 30, 900]) {
+      performanceStore.record("GET", "/api/healthz", ms);
+    }
+
+    const report = await runHealthChecks(null);
+    const perf = report.checks.find(c => c.id === "performance.requests");
+    expect(perf?.status).toBe("ok");
+    expect(perf?.latencyMs).toBeGreaterThanOrEqual(12);
+    expect(perf?.details).toContain("p95");
+    expect(perf?.details).toContain("3টি অনুরোধ");
+    expect(report.summary).not.toHaveProperty("performance");
+
+    performanceStore.reset();
   });
 
   it("rejects when the database is unreachable", async () => {
