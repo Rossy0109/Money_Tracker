@@ -19,6 +19,7 @@ import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
 import {
+  Activity,
   Banknote,
   BookOpen,
   Boxes,
@@ -177,6 +178,12 @@ const menuItems: MenuItem[] = [
     label: "ব্যাকআপ ও পুনরুদ্ধার",
     href: "/backup",
     permission: "backup.view",
+  },
+  {
+    icon: Activity,
+    label: "সিস্টেম হেলথ",
+    href: "/health",
+    permission: "settings.view",
   },
   {
     icon: Tags,
