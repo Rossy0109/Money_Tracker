@@ -28,12 +28,11 @@ jobs:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
           echo "$BACKUP_ENCRYPTION_KEY" > /tmp/backup-key
-          echo "/tmp/backup-key" > /tmp/key-file-path
 
       - name: Download and inspect orphan backup
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_STORAGE_BUCKET: amar-hisab-backups
           BACKUP_ENCRYPTION_KEY_FILE: /tmp/backup-key
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
