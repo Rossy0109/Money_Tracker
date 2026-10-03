@@ -78,13 +78,16 @@ afterEach(() => {
 });
 
 describe("downloadLatestBackupObject", () => {
-  it("returns null when no readable provider is configured", async () => {
-    await expect(
-      downloadLatestBackupObject({ projectName: "My App", projectId: 7 })
-    ).resolves.toBeNull();
+  it("reports why nothing could be read when no provider is configured", async () => {
+    const result = await downloadLatestBackupObject({
+      projectName: "My App",
+      projectId: 7,
+    });
+    expect(result.object).toBeNull();
+    expect(result.miss).toContain("no readable backup provider");
   });
 
-  it("lists the project's objects and downloads the newest matching one", async () => {
+  it("lists the bucket root and downloads the newest matching object", async () => {
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_ANON_KEY = "anon-key";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
@@ -93,12 +96,16 @@ describe("downloadLatestBackupObject", () => {
       async (url: RequestInfo | URL, init?: RequestInit) => {
         const href = String(url);
         if (href.includes("/storage/v1/object/list/")) {
+          // Supabase treats a file-name prefix as a folder path, so
+          // the listing is always against the bucket root.
           expect(JSON.parse(String(init?.body))).toMatchObject({
-            prefix: "My-App-backup-",
+            prefix: "",
           });
           return new Response(
             JSON.stringify([
+              { name: "unrelated-note.txt" },
               { name: "My-App-backup-2026-09-01-11111111.enc.json" },
+              { name: "project-9-backup-2026-10-01-99999999.enc.json" },
               { name: "My-App-backup-2026-10-01-22222222.enc.json" },
             ]),
             { status: 200 }
@@ -119,12 +126,41 @@ describe("downloadLatestBackupObject", () => {
       projectName: "My App",
       projectId: 7,
     });
-    expect(result).toMatchObject({
+    expect(result.object).toMatchObject({
       provider: "supabase",
       fileName: "My-App-backup-2026-10-01-22222222.enc.json",
     });
-    expect(result?.payload).toContain("finance-encrypted-cloud-backup-v1");
+    expect(result.object?.payload).toContain(
+      "finance-encrypted-cloud-backup-v1"
+    );
+    expect(result.miss).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("says when the bucket holds nothing for the project's prefix", async () => {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_ANON_KEY = "anon-key";
+
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify([
+          { name: "project-9-backup-2026-10-01-99999999.enc.json" },
+        ]),
+        { status: 200 }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadLatestBackupObject({
+      projectName: "My App",
+      projectId: 7,
+    });
+    expect(result.object).toBeNull();
+    expect(result.miss).toContain(
+      'project 7 "My App"'
+    );
+    expect(result.miss).toContain("none start with \"My-App-backup-\"");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("skips objects that belong to another project sharing the name prefix", async () => {
@@ -150,9 +186,13 @@ describe("downloadLatestBackupObject", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      downloadLatestBackupObject({ projectName: "My App", projectId: 7 })
-    ).resolves.toBeNull();
+    const result = await downloadLatestBackupObject({
+      projectName: "My App",
+      projectId: 7,
+    });
+    expect(result.object).toBeNull();
+    expect(result.miss).toContain("My-App-backup-2026-10-01-33333333.enc.json");
+    expect(result.miss).toContain('is for project 9 "My Application"');
   });
 
   it("surfaces a failed Supabase listing instead of pretending the bucket is empty", async () => {
@@ -188,10 +228,11 @@ describe("downloadLatestBackupObject", () => {
       projectName: "My App",
       projectId: 7,
     });
-    expect(result).toMatchObject({
+    expect(result.object).toMatchObject({
       provider: "s3",
       fileName: "My-App-backup-2026-10-01-44444444.enc.json",
     });
+    expect(result.miss).toBeNull();
     expect(s3Send).toHaveBeenCalledTimes(2);
     const listCall = s3Send.mock.calls[0][0] as {
       input: { Bucket: string; Prefix: string };
@@ -202,15 +243,21 @@ describe("downloadLatestBackupObject", () => {
     });
   });
 
-  it("returns null when S3 holds nothing under the project's prefix", async () => {
+  it("reports why S3 holds nothing under the project's prefix", async () => {
     process.env.S3_BUCKET_NAME = "my-bucket";
     process.env.S3_ACCESS_KEY_ID = "access";
     process.env.S3_SECRET_ACCESS_KEY = "secret";
     s3Send.mockResolvedValueOnce({ Contents: [] });
 
-    await expect(
-      downloadLatestBackupObject({ projectName: "My App", projectId: 7 })
-    ).resolves.toBeNull();
+    const result = await downloadLatestBackupObject({
+      projectName: "My App",
+      projectId: 7,
+    });
+    expect(result.object).toBeNull();
+    expect(result.miss).toContain(
+      'project 7 "My App"'
+    );
+    expect(result.miss).toContain('under "My-App-backup-"');
     expect(s3Send).toHaveBeenCalledTimes(1);
   });
 });

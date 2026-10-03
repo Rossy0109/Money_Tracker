@@ -115,12 +115,14 @@ function fail(reason: string): RestoreDrillVerdict {
 export async function runRestoreDrill(
   target: DrillTarget
 ): Promise<RestoreDrillVerdict> {
-  const object = await downloadLatestBackupObject(target);
-  if (!object) {
+  const lookup = await downloadLatestBackupObject(target);
+  if (!lookup.object) {
     return fail(
-      `no stored backup object found for project "${target.projectName}" — the configured bucket holds nothing under its name prefix`
+      lookup.miss ??
+        `no stored backup object found for project "${target.projectName}"`
     );
   }
+  const object = lookup.object;
 
   let envelope: Record<string, unknown>;
   try {

@@ -31,39 +31,63 @@ export interface BackupObjectTarget {
   projectId: number;
 }
 
+export interface BackupLookupResult {
+  /** Newest stored object belonging to the target project, when there is one. */
+  object: DownloadedBackupObject | null;
+  /** Why the lookup came up empty; null whenever `object` is set. */
+  miss: string | null;
+}
+
 const LIST_PAGE_SIZE = 100;
 /** The drill only needs one good object; matching the wrong project's copy
  * (truncated names can collide) is worse than trying a few candidates. */
 const MAX_CANDIDATES = 5;
 
-function envelopeMatchesProject(
-  payload: string,
-  target: BackupObjectTarget
-): boolean {
-  try {
-    const parsed = JSON.parse(payload) as Record<string, unknown>;
-    if (parsed.formatVersion !== "finance-encrypted-cloud-backup-v1") {
-      return false;
-    }
-    if (typeof parsed.projectName === "string") {
-      return parsed.projectName === target.projectName;
-    }
-    if (typeof parsed.projectId === "number") {
-      return parsed.projectId === target.projectId;
-    }
-    return false;
-  } catch {
-    return false;
-  }
+function describeTarget(target: BackupObjectTarget): string {
+  return `project ${target.projectId} "${target.projectName}"`;
 }
 
 /**
- * Newest stored backup object for a project, or null when the configured
- * provider holds nothing for it (including "no readable provider configured").
+ * Null when the envelope belongs to `target`, otherwise what it actually says.
+ * The stored project id is authoritative: a renamed project must still find
+ * its own backup, while a name match alone can collide across projects.
+ */
+function envelopeMismatch(
+  payload: string,
+  target: BackupObjectTarget
+): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return "is not valid JSON";
+  }
+  const envelope = parsed as Record<string, unknown>;
+  if (envelope.formatVersion !== "finance-encrypted-cloud-backup-v1") {
+    return `is not a finance-encrypted-cloud-backup-v1 envelope`;
+  }
+  const name =
+    typeof envelope.projectName === "string" ? envelope.projectName : "?";
+  if (typeof envelope.projectId === "number") {
+    if (envelope.projectId === target.projectId) return null;
+    return `is for project ${envelope.projectId} "${name}"`;
+  }
+  if (typeof envelope.projectName === "string") {
+    if (envelope.projectName === target.projectName) return null;
+    return `is for project "${envelope.projectName}"`;
+  }
+  return "names no project";
+}
+
+/**
+ * Newest stored backup object for a project. A miss is never silent: it
+ * reports how many objects were listed, how many belonged to this prefix and
+ * what the downloaded candidates turned out to be, so a red drill in the
+ * workflow log says exactly which of those three steps came up empty.
  */
 export async function downloadLatestBackupObject(
   target: BackupObjectTarget
-): Promise<DownloadedBackupObject | null> {
+): Promise<BackupLookupResult> {
   const config = getCloudStorageConfig();
   const prefix = `${safeBackupProjectName(
     target.projectName,
@@ -76,14 +100,17 @@ export async function downloadLatestBackupObject(
   if (config.s3?.enabled) {
     return downloadFromS3(prefix, target, config.s3);
   }
-  return null;
+  return {
+    object: null,
+    miss: "no readable backup provider configured — set SUPABASE_URL + SUPABASE_ANON_KEY (Supabase) or the S3 credentials",
+  };
 }
 
 async function downloadFromSupabase(
   prefix: string,
   target: BackupObjectTarget,
   supabase: { url: string; bucket: string }
-): Promise<DownloadedBackupObject | null> {
+): Promise<BackupLookupResult> {
   const storageKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
@@ -94,8 +121,11 @@ async function downloadFromSupabase(
     "Content-Type": "application/json",
   };
 
-  // Page through every object under the prefix, newest name last.
-  const names: string[] = [];
+  // Supabase's list API treats `prefix` as a *folder* path, so a file-name
+  // prefix such as "project-1-backup-" returns nothing at all — the objects
+  // sit at the bucket root. List the root (what the prune script does) and
+  // match names here instead.
+  const listed: string[] = [];
   for (let offset = 0; ; offset += LIST_PAGE_SIZE) {
     const response = await fetch(
       `${supabase.url}/storage/v1/object/list/${supabase.bucket}`,
@@ -103,7 +133,7 @@ async function downloadFromSupabase(
         method: "POST",
         headers,
         body: JSON.stringify({
-          prefix,
+          prefix: "",
           limit: LIST_PAGE_SIZE,
           offset,
         }),
@@ -115,18 +145,27 @@ async function downloadFromSupabase(
       );
     }
     const page: unknown = await response.json();
-    const batch = (Array.isArray(page) ? page : []).map(
-      entry => (entry as { name?: unknown }).name
-    );
-    for (const name of batch) {
-      if (typeof name === "string" && name.endsWith(".enc.json"))
-        names.push(name);
-    }
+    const batch = (Array.isArray(page) ? page : [])
+      .map(entry => (entry as { name?: unknown }).name)
+      .filter((name): name is string => typeof name === "string");
+    listed.push(...batch);
     if (!Array.isArray(page) || batch.length < LIST_PAGE_SIZE) break;
   }
 
-  names.sort().reverse();
-  for (const fileName of names.slice(0, MAX_CANDIDATES)) {
+  const candidates = listed
+    .filter(name => name.startsWith(prefix) && name.endsWith(".enc.json"))
+    .sort()
+    .reverse();
+  if (candidates.length === 0) {
+    return {
+      object: null,
+      miss: `no stored backup object found for ${describeTarget(target)} — ${supabase.bucket} holds ${listed.length} objects, none start with "${prefix}"`,
+    };
+  }
+
+  const tried = candidates.slice(0, MAX_CANDIDATES);
+  let lastMismatch = "";
+  for (const fileName of tried) {
     const response = await fetch(
       `${supabase.url}/storage/v1/object/${supabase.bucket}/${encodeURIComponent(fileName)}`,
       { headers }
@@ -137,32 +176,45 @@ async function downloadFromSupabase(
       );
     }
     const payload = await response.text();
-    if (envelopeMatchesProject(payload, target)) {
+    const mismatch = envelopeMismatch(payload, target);
+    if (!mismatch) {
       return {
-        provider: "supabase",
-        fileName,
-        payload,
-        downloadedAt: new Date().toISOString(),
+        object: {
+          provider: "supabase",
+          fileName,
+          payload,
+          downloadedAt: new Date().toISOString(),
+        },
+        miss: null,
       };
     }
+    lastMismatch = `${fileName} ${mismatch}`;
     logger.warn(
-      { fileName, projectName: target.projectName },
+      { fileName, projectName: target.projectName, mismatch },
       "[RestoreDrill] Supabase object is not this project's backup — skipped"
     );
   }
-  return null;
+  return {
+    object: null,
+    miss: `no stored backup object found for ${describeTarget(target)} — ${candidates.length} candidates start with "${prefix}" (${tried.length} downloaded), but ${lastMismatch}`,
+  };
 }
 
 async function downloadFromS3(
   prefix: string,
   target: BackupObjectTarget,
   s3Config: { bucket: string; region: string; endpoint?: string }
-): Promise<DownloadedBackupObject | null> {
+): Promise<BackupLookupResult> {
   const accessKeyId =
     process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey =
     process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-  if (!accessKeyId || !secretAccessKey) return null;
+  if (!accessKeyId || !secretAccessKey) {
+    return {
+      object: null,
+      miss: "S3 is configured but S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY are missing",
+    };
+  }
 
   const s3 = new S3Client({
     region: s3Config.region || "us-east-1",
@@ -185,25 +237,41 @@ async function downloadFromS3(
     )
     .sort()
     .reverse();
+  if (keys.length === 0) {
+    return {
+      object: null,
+      miss: `no stored backup object found for ${describeTarget(target)} — s3://${s3Config.bucket}/backups holds nothing under "${prefix}"`,
+    };
+  }
 
-  for (const key of keys.slice(0, MAX_CANDIDATES)) {
+  const tried = keys.slice(0, MAX_CANDIDATES);
+  let lastMismatch = "";
+  for (const key of tried) {
     const got = await s3.send(
       new GetObjectCommand({ Bucket: s3Config.bucket, Key: key })
     );
     const payload = await got.Body?.transformToString("utf8");
     if (!payload) continue;
-    if (envelopeMatchesProject(payload, target)) {
+    const mismatch = envelopeMismatch(payload, target);
+    if (!mismatch) {
       return {
-        provider: "s3",
-        fileName: key.replace(/^backups\//, ""),
-        payload,
-        downloadedAt: new Date().toISOString(),
+        object: {
+          provider: "s3",
+          fileName: key.replace(/^backups\//, ""),
+          payload,
+          downloadedAt: new Date().toISOString(),
+        },
+        miss: null,
       };
     }
+    lastMismatch = `${key} ${mismatch}`;
     logger.warn(
-      { key, projectName: target.projectName },
+      { key, projectName: target.projectName, mismatch },
       "[RestoreDrill] S3 object is not this project's backup — skipped"
     );
   }
-  return null;
+  return {
+    object: null,
+    miss: `no stored backup object found for ${describeTarget(target)} — ${keys.length} candidates under "backups/${prefix}" (${tried.length} downloaded), but ${lastMismatch}`,
+  };
 }
