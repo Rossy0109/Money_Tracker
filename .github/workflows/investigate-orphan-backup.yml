@@ -23,15 +23,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download and inspect orphan backup
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_STORAGE_BUCKET: amar-hisab-backups
-          BACKUP_ENCRYPTION_KEY_FILE: ${{ secrets.BACKUP_ENCRYPTION_KEY_FILE }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      - name: Write investigation script
         run: |
-          node - <<'NODE'
+          cat > investigate.mjs << 'EOF'
           import { createClient } from '@supabase/supabase-js';
           import fs from 'node:fs';
           import { createDecipheriv } from 'node:crypto';
@@ -123,4 +117,13 @@ jobs:
           } catch (e) {
             console.log('Could not fetch audit:', e.message);
           }
-          NODE
+          EOF
+
+      - name: Download and inspect orphan backup
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_STORAGE_BUCKET: amar-hisab-backups
+          BACKUP_ENCRYPTION_KEY_FILE: ${{ secrets.BACKUP_ENCRYPTION_KEY_FILE }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node investigate.mjs
