@@ -228,16 +228,16 @@ export default function Vouchers() {
     return (
       <DashboardLayout>
         <div className="grid min-h-[50vh] place-items-center">
-          <Loader2 className="h-7 w-7 animate-spin text-[#2c6c57]" />
+          <Loader2 className="h-7 w-7 animate-spin text-positive" />
         </div>
       </DashboardLayout>
     );
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
-        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#173f36] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-primary p-5 text-primary-foreground shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">
+            <p className="text-xs font-bold tracking-[.18em] text-positive">
               দ্বি-পক্ষ হিসাব
             </p>
             <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">ভাউচার</h1>
@@ -252,7 +252,7 @@ export default function Vouchers() {
               aria-label="হিসাবখাতা নির্বাচন"
               value={activeProjectId ?? ""}
               onChange={event => selectProject(Number(event.target.value))}
-              className="h-11 min-w-0 rounded-xl border border-white/25 bg-white px-3 text-sm font-semibold text-[#123c32] focus:outline-none focus:ring-2 focus:ring-[#bcecc6] sm:min-w-60"
+              className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
             >
               {projects.map(project => (
                 <option key={project.id} value={project.id}>
@@ -283,8 +283,8 @@ export default function Vouchers() {
                   {s.label}
                 </Button>
               ))}
-              <div className="ml-auto flex items-center gap-2 text-xs text-[#5b7468]">
-                <ShieldCheck className="h-4 w-4 text-[#1d7a50]" />
+              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck className="h-4 w-4 text-positive" />
                 <span>নিজের তৈরি ভাউচার নিজে অনুমোদন/পোস্ট করা যায় না</span>
               </div>
             </div>
@@ -292,7 +292,7 @@ export default function Vouchers() {
             {canCreate && !showCreate && (
               <Button
                 onClick={() => setShowCreate(true)}
-                className="h-11 rounded-xl bg-[#1b704d] hover:bg-[#125b3d]"
+                className="h-11 rounded-xl bg-primary hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
                 নতুন ভাউচার
@@ -300,10 +300,10 @@ export default function Vouchers() {
             )}
 
             {showCreate && (
-              <Card className="border-[#dbe7dd]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <ReceiptText className="h-5 w-5 text-[#1d7a50]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <ReceiptText className="h-5 w-5 text-positive" />
                     নতুন ভাউচার (খসড়া)
                   </CardTitle>
                   <CardDescription>
@@ -313,7 +313,7 @@ export default function Vouchers() {
                 <CardContent>
                   <form onSubmit={submitCreate} className="grid gap-4">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                         তারিখ
                         <Input
                           required
@@ -323,7 +323,7 @@ export default function Vouchers() {
                           className="h-11"
                         />
                       </label>
-                      <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                         বিবরণ (ঐচ্ছিক)
                         <Input
                           value={formNarration}
@@ -347,9 +347,9 @@ export default function Vouchers() {
                     ).map(group => (
                       <div
                         key={group.title}
-                        className="rounded-2xl border border-[#e2ece5] p-3"
+                        className="rounded-2xl border border-border p-3"
                       >
-                        <p className="mb-2 text-xs font-bold text-[#2b4c40]">
+                        <p className="mb-2 text-xs font-bold text-foreground">
                           {group.title} — মোট{" "}
                           {bdt(sumOf(group.list as EntryDraft[]))}
                         </p>
@@ -370,7 +370,7 @@ export default function Vouchers() {
                                     { accountId: event.target.value }
                                   )
                                 }
-                                className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                                className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                               >
                                 <option value="">অ্যাকাউন্ট</option>
                                 {accounts.map(account => (
@@ -475,7 +475,7 @@ export default function Vouchers() {
                             !entriesValid(debits) ||
                             !entriesValid(credits)
                           }
-                          className="h-11 rounded-xl bg-[#1b704d]"
+                          className="h-11 rounded-xl bg-primary"
                         >
                           {createVoucher.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -490,27 +490,27 @@ export default function Vouchers() {
               </Card>
             )}
 
-            <Card className="border-[#dbe7dd]">
+            <Card className="border-border">
               <CardContent className="p-0">
                 {vouchers.isLoading ? (
                   <div className="grid min-h-36 place-items-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-[#2c6c57]" />
+                    <Loader2 className="h-6 w-6 animate-spin text-positive" />
                   </div>
                 ) : rows.length ? (
-                  <ul className="divide-y divide-[#edf2ee]">
+                  <ul className="divide-y divide-border">
                     {rows.map(v => (
                       <li
                         key={v.id}
                         className="flex flex-wrap items-center gap-3 p-4"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#1e3b32]">
+                          <p className="font-semibold text-foreground">
                             {v.voucherNo}{" "}
-                            <span className="ml-2 text-xs font-normal text-[#7c998e]">
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
                               {dateLabel(v.date)}
                             </span>
                           </p>
-                          <p className="truncate text-sm text-[#5b7468]">
+                          <p className="truncate text-sm text-muted-foreground">
                             {v.narration || "বিবরণ নেই"} · {bdt(v.totalDebit)}
                           </p>
                         </div>
@@ -552,7 +552,7 @@ export default function Vouchers() {
                                     idempotencyKey: newIdempotencyKey(),
                                   })
                                 }
-                                className="h-9 rounded-xl bg-[#1b704d]"
+                                className="h-9 rounded-xl bg-primary"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 অনুমোদন
@@ -587,7 +587,7 @@ export default function Vouchers() {
                                   idempotencyKey: newIdempotencyKey(),
                                 })
                               }
-                              className="h-9 rounded-xl bg-[#173f36]"
+                              className="h-9 rounded-xl bg-primary"
                             >
                               <ArrowRight className="h-3.5 w-3.5" />
                               পোস্ট
@@ -619,7 +619,7 @@ export default function Vouchers() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="p-6 text-center text-sm text-[#5d786c]">
+                  <p className="p-6 text-center text-sm text-muted-foreground">
                     এই অবস্থায় কোনো ভাউচার নেই।
                   </p>
                 )}
@@ -627,12 +627,12 @@ export default function Vouchers() {
             </Card>
 
             {reverseTarget && (
-              <Card className="border-[#edc975] bg-[#fffaf0]">
+              <Card className="border-[#edc975] bg-background">
                 <CardHeader>
-                  <CardTitle className="text-[#754c00]">
+                  <CardTitle className="text-destructive">
                     ভাউচার বিপরীত করুন ({reverseTarget.voucherNo})
                   </CardTitle>
-                  <CardDescription className="text-[#805f21]">
+                  <CardDescription className="text-foreground">
                     মূল ভাউচার অপরিবর্তিত থাকবে; সমান-বিপরীত এন্ট্রির নতুন
                     ভাউচার তৈরি হবে।
                   </CardDescription>
@@ -642,13 +642,13 @@ export default function Vouchers() {
                     value={reverseReason}
                     onChange={event => setReverseReason(event.target.value)}
                     placeholder="কারণ (আবশ্যক)"
-                    className="h-11 bg-white"
+                    className="h-11 bg-card"
                   />
                   <Input
                     type="date"
                     value={reverseDate}
                     onChange={event => setReverseDate(event.target.value)}
-                    className="h-11 bg-white"
+                    className="h-11 bg-card"
                   />
                   <div className="flex gap-2">
                     <Button

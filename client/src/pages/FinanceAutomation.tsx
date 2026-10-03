@@ -208,16 +208,16 @@ export default function FinanceAutomation() {
     return (
       <DashboardLayout>
         <div className="grid min-h-[50vh] place-items-center">
-          <Loader2 className="h-7 w-7 animate-spin text-[#2c6c57]" />
+          <Loader2 className="h-7 w-7 animate-spin text-positive" />
         </div>
       </DashboardLayout>
     );
   return (
     <DashboardLayout>
       <main className="space-y-5 sm:space-y-7">
-        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-[#173f36] p-5 text-white shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <header className="flex flex-col gap-4 rounded-[1.75rem] bg-primary p-5 text-primary-foreground shadow-[0_20px_50px_rgba(18,60,50,.16)] sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <p className="text-xs font-bold tracking-[.18em] text-[#bcecc6]">
+            <p className="text-xs font-bold tracking-[.18em] text-positive">
               নিয়মিত হিসাব
             </p>
             <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">
@@ -234,7 +234,7 @@ export default function FinanceAutomation() {
               aria-label="হিসাবখাতা নির্বাচন"
               value={activeProjectId ?? ""}
               onChange={event => chooseProject(event.target.value)}
-              className="h-11 min-w-0 rounded-xl border border-white/25 bg-white px-3 text-sm font-semibold text-[#123c32] focus:outline-none focus:ring-2 focus:ring-[#bcecc6] sm:min-w-60"
+              className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
             >
               {projects.map(project => (
                 <option key={project.id} value={project.id}>
@@ -253,9 +253,9 @@ export default function FinanceAutomation() {
         ) : (
           <>
             {/* Quick Subscription & Expense Presets */}
-            <Card className="border-[#dbe7dd] bg-[#f9fbf9]">
+            <Card className="border-border bg-background">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-[#173f36] flex items-center gap-2">
+                <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                   ⚡ দ্রুত সাবস্ক্রিপশন ও বিল প্রিসেট (১-ক্লিকে সিলেক্ট করুন)
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -270,11 +270,11 @@ export default function FinanceAutomation() {
                       key={preset.name}
                       type="button"
                       onClick={() => applyPreset(preset)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#c2ded0] bg-white px-3 py-2 text-xs font-medium text-[#173f36] shadow-sm transition hover:bg-[#eaf4ee] hover:border-[#86c4a5] active:scale-95"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium text-foreground shadow-sm transition hover:bg-muted hover:border-[#86c4a5] active:scale-95"
                     >
                       <span>{preset.type === "expense" ? "💸" : "💰"}</span>
                       <span>{preset.name}</span>
-                      <span className="text-[#1b704d] font-semibold">
+                      <span className="text-positive font-semibold">
                         ({bdt(preset.amount)})
                       </span>
                     </button>
@@ -284,10 +284,10 @@ export default function FinanceAutomation() {
             </Card>
 
             <section className="grid gap-5 xl:grid-cols-[1.05fr_.95fr]">
-              <Card className="border-[#dbe7dd]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <CalendarClock className="h-5 w-5 text-[#1d7a50]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <CalendarClock className="h-5 w-5 text-positive" />
                     পুনরাবৃত্ত লেনদেন
                   </CardTitle>
                   <CardDescription>
@@ -300,7 +300,7 @@ export default function FinanceAutomation() {
                     onSubmit={submitRecurring}
                     className="grid gap-3 sm:grid-cols-2"
                   >
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       ধরন
                       <select
                         value={form.type}
@@ -311,13 +311,13 @@ export default function FinanceAutomation() {
                             categoryId: "",
                           }))
                         }
-                        className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                        className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                       >
                         <option value="expense">ব্যয়</option>
                         <option value="income">আয়</option>
                       </select>
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       ক্যাটাগরি
                       <select
                         required
@@ -328,7 +328,7 @@ export default function FinanceAutomation() {
                             categoryId: event.target.value,
                           }))
                         }
-                        className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                        className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                       >
                         <option value="">নির্বাচন করুন</option>
                         {relevantCategories.map(category => (
@@ -338,7 +338,7 @@ export default function FinanceAutomation() {
                         ))}
                       </select>
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       পরিমাণ
                       <Input
                         required
@@ -356,7 +356,7 @@ export default function FinanceAutomation() {
                         className="h-11"
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       অ্যাকাউন্ট
                       <select
                         value={form.accountId}
@@ -366,7 +366,7 @@ export default function FinanceAutomation() {
                             accountId: event.target.value,
                           }))
                         }
-                        className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                        className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                       >
                         <option value="">অ্যাকাউন্ট ছাড়া</option>
                         {overview?.accounts.map(account => (
@@ -376,7 +376,7 @@ export default function FinanceAutomation() {
                         ))}
                       </select>
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       পুনরাবৃত্তি
                       <select
                         value={form.frequency}
@@ -387,13 +387,13 @@ export default function FinanceAutomation() {
                               .value as RecurringForm["frequency"],
                           }))
                         }
-                        className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+                        className="h-11 rounded-xl border border-input bg-card px-3 text-sm"
                       >
                         <option value="monthly">প্রতি মাসে</option>
                         <option value="weekly">প্রতি সপ্তাহে</option>
                       </select>
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       দিন (১–৩১)
                       <Input
                         required
@@ -410,7 +410,7 @@ export default function FinanceAutomation() {
                         className="h-11"
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       শুরুর তারিখ
                       <Input
                         required
@@ -425,7 +425,7 @@ export default function FinanceAutomation() {
                         className="h-11"
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60]">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                       পরিশোধ পদ্ধতি
                       <Input
                         required
@@ -439,7 +439,7 @@ export default function FinanceAutomation() {
                         className="h-11"
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-semibold text-[#4b6c60] sm:col-span-2">
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground sm:col-span-2">
                       বিবরণ (ঐচ্ছিক)
                       <Input
                         value={form.note}
@@ -455,7 +455,7 @@ export default function FinanceAutomation() {
                     <Button
                       type="submit"
                       disabled={addRecurring.isPending}
-                      className="h-11 rounded-xl bg-[#1b704d] sm:col-span-2"
+                      className="h-11 rounded-xl bg-primary sm:col-span-2"
                     >
                       {addRecurring.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -467,10 +467,10 @@ export default function FinanceAutomation() {
                   </form>
                 </CardContent>
               </Card>
-              <Card className="border-[#dbe7dd]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <AlarmClock className="h-5 w-5 text-[#ba6a18]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <AlarmClock className="h-5 w-5 text-destructive" />
                     বিল স্মরণ
                   </CardTitle>
                   <CardDescription>
@@ -481,7 +481,7 @@ export default function FinanceAutomation() {
                 <CardContent className="space-y-3">
                   {isLoading ? (
                     <div className="grid min-h-36 place-items-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-[#2c6c57]" />
+                      <Loader2 className="h-6 w-6 animate-spin text-positive" />
                     </div>
                   ) : automation?.bills.filter(bill => !bill.isPaid).length ? (
                     automation.bills
@@ -489,18 +489,18 @@ export default function FinanceAutomation() {
                       .map(bill => (
                         <article
                           key={bill.id}
-                          className="rounded-2xl border border-[#eee2cc] bg-[#fffaf1] p-4"
+                          className="rounded-2xl border border-[#eee2cc] bg-background p-4"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                              <p className="font-semibold text-[#5f461f]">
+                              <p className="font-semibold text-foreground">
                                 {bill.title}
                               </p>
-                              <p className="mt-1 text-sm text-[#886a3b]">
+                              <p className="mt-1 text-sm text-muted-foreground">
                                 {bdt(bill.amount)} · পরিশোধের তারিখ{" "}
                                 {dateLabel(bill.dueAt)}
                               </p>
-                              <p className="mt-1 text-xs text-[#9a7b4a]">
+                              <p className="mt-1 text-xs text-muted-foreground">
                                 {bill.reminderDaysBefore} দিন আগে থেকে স্মরণ{" "}
                                 {bill.lastReminderAt
                                   ? `· সর্বশেষ পরীক্ষা ${dateLabel(bill.lastReminderAt)}`
@@ -526,7 +526,7 @@ export default function FinanceAutomation() {
                         </article>
                       ))
                   ) : (
-                    <p className="rounded-2xl bg-[#f5faf6] p-4 text-sm text-[#5d786c]">
+                    <p className="rounded-2xl bg-background p-4 text-sm text-muted-foreground">
                       এখন কোনো অপরিশোধিত বিল নেই। ড্যাশবোর্ড থেকে বিল যোগ করুন।
                     </p>
                   )}
@@ -534,10 +534,10 @@ export default function FinanceAutomation() {
               </Card>
             </section>
             <section className="grid gap-5 xl:grid-cols-[1.08fr_.92fr]">
-              <Card className="border-[#dbe7dd]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <ReceiptText className="h-5 w-5 text-[#2c6c57]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <ReceiptText className="h-5 w-5 text-positive" />
                     চালু পুনরাবৃত্ত তালিকা
                   </CardTitle>
                   <CardDescription>
@@ -549,12 +549,12 @@ export default function FinanceAutomation() {
                     automation.recurring.map(item => (
                       <article
                         key={item.id}
-                        className="rounded-2xl border border-[#e2ece5] p-4"
+                        className="rounded-2xl border border-border p-4"
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-[#23463a]">
+                              <p className="font-semibold text-foreground">
                                 {item.categoryName}
                               </p>
                               <Badge
@@ -565,7 +565,7 @@ export default function FinanceAutomation() {
                                 {item.isActive ? "চালু" : "বিরতিতে"}
                               </Badge>
                             </div>
-                            <p className="mt-1 text-sm text-[#637c71]">
+                            <p className="mt-1 text-sm text-muted-foreground">
                               {item.type === "expense" ? "ব্যয়" : "আয়"}{" "}
                               {bdt(item.amount)} ·{" "}
                               {item.frequency === "monthly"
@@ -573,7 +573,7 @@ export default function FinanceAutomation() {
                                 : "সাপ্তাহিক"}{" "}
                               · পরবর্তী {dateLabel(item.nextRunAt)}
                             </p>
-                            <p className="mt-1 text-xs text-[#789084]">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {item.note || "বিবরণ নেই"}
                               {item.accountName ? ` · ${item.accountName}` : ""}
                             </p>
@@ -611,16 +611,16 @@ export default function FinanceAutomation() {
                       </article>
                     ))
                   ) : (
-                    <p className="rounded-2xl bg-[#f5faf6] p-4 text-sm text-[#5d786c]">
+                    <p className="rounded-2xl bg-background p-4 text-sm text-muted-foreground">
                       কোনো পুনরাবৃত্ত লেনদেন নেই। উপরের ফর্ম থেকে তৈরি করুন।
                     </p>
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-[#dbe7dd]">
+              <Card className="border-border">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[#173f36]">
-                    <CircleDollarSign className="h-5 w-5 text-[#7153a0]" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <CircleDollarSign className="h-5 w-5 text-foreground" />
                     দেনা ও পাওনার বয়সভিত্তিক অবস্থা
                   </CardTitle>
                   <CardDescription>
@@ -636,14 +636,14 @@ export default function FinanceAutomation() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-[#3f3159]">
+                            <p className="font-semibold text-foreground">
                               {item.counterparty}
                             </p>
-                            <p className="mt-1 text-sm text-[#6e6380]">
+                            <p className="mt-1 text-sm text-muted-foreground">
                               {item.type === "debt" ? "দেনা" : "পাওনা"} · বাকি{" "}
                               {bdt(item.outstandingAmount)}
                             </p>
-                            <p className="mt-1 text-xs text-[#82768f]">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {item.dueAt
                                 ? `পরিশোধের তারিখ ${dateLabel(item.dueAt)}`
                                 : "পরিশোধের তারিখ নির্ধারিত নয়"}
@@ -652,10 +652,10 @@ export default function FinanceAutomation() {
                           <Badge
                             className={
                               item.status.includes("overdue")
-                                ? "bg-[#fbe5e1] text-[#a33a2a]"
+                                ? "bg-[#fbe5e1] text-destructive"
                                 : item.status === "due_today"
-                                  ? "bg-[#fff0d4] text-[#9a5a09]"
-                                  : "bg-[#edf5ee] text-[#26704a]"
+                                  ? "bg-[#fff0d4] text-destructive"
+                                  : "bg-muted text-positive"
                             }
                           >
                             {item.status === "overdue_31_plus"
@@ -672,7 +672,7 @@ export default function FinanceAutomation() {
                       </article>
                     ))
                   ) : (
-                    <p className="rounded-2xl bg-[#f7f4fb] p-4 text-sm text-[#6f6680]">
+                    <p className="rounded-2xl bg-background p-4 text-sm text-muted-foreground">
                       এখন কোনো বকেয়া দেনা বা পাওনা নেই।
                     </p>
                   )}

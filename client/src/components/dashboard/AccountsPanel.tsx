@@ -51,11 +51,11 @@ export function AccountsPanel({
       <div className="mt-4 space-y-3">
         {accounts.length ? (
           accounts.map(account => (
-            <div key={account.id} className="rounded-xl bg-[#f5f8f5] p-3">
+            <div key={account.id} className="rounded-xl bg-background p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-[#183d34]">{account.name}</p>
-                  <p className="mt-1 text-sm text-[#668076]">
+                  <p className="font-semibold text-foreground">{account.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {account.type === "cash"
                       ? "নগদ"
                       : account.type === "bank"
@@ -75,7 +75,7 @@ export function AccountsPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-[#b64040] hover:text-[#8d2b2b]"
+                    className="text-destructive hover:text-destructive"
                     onClick={() => setDeleteTarget(account.id)}
                   >
                     মুছুন

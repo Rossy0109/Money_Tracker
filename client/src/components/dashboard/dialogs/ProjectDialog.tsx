@@ -43,7 +43,7 @@ export function ProjectDialog({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             তৈরি করুন
           </Button>

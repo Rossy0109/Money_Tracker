@@ -27,7 +27,7 @@ describe("dedicated category pages", () => {
       'main className="mx-auto w-full max-w-6xl space-y-7 pb-12"'
     );
     expect(categoriesSource).toContain(
-      "focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+      "focus-visible:ring-2 focus-visible:ring-ring"
     );
   });
 });

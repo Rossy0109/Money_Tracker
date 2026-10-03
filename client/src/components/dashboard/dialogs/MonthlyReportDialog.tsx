@@ -47,7 +47,7 @@ export function MonthlyReportDialog({
           <DialogTitle>মাসিক আর্থিক রিপোর্ট</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
-          <p className="text-sm text-[#5d776b]">
+          <p className="text-sm text-muted-foreground">
             আলাদা লাভ-ক্ষতি, আয়, ব্যয়, দেনা, পাওনা ও আর্থিক অবস্থানের রিপোর্ট
             PDF হিসেবে ডাউনলোড বা ডিভাইসের শেয়ার স্ক্রিন থেকে ইমেইল বা
             WhatsApp-এ পাঠানো যাবে।
@@ -79,7 +79,7 @@ export function MonthlyReportDialog({
             <Button
               onClick={onDownload}
               disabled={isDownloading || isSharing || !activeProjectId}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+              className="rounded-xl bg-primary hover:bg-primary/90"
             >
               {isDownloading ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -92,7 +92,7 @@ export function MonthlyReportDialog({
               onClick={onShare}
               disabled={isDownloading || isSharing || !activeProjectId}
               variant="outline"
-              className="rounded-xl border-[#b9d1be] bg-white text-[#173f36]"
+              className="rounded-xl border-[#b9d1be] bg-card text-foreground"
             >
               {isSharing ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

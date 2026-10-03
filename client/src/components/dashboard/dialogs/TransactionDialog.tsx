@@ -79,10 +79,10 @@ export function TransactionDialog({
           </Tabs>
 
           {!editingTransactionId && (
-            <div className="rounded-xl border border-[#cbe4d3] bg-[#f4faf5] p-3 text-xs">
+            <div className="rounded-xl border border-border bg-background p-3 text-xs">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-semibold text-[#144434]">
-                  <Sparkles className="h-4 w-4 text-[#166534]" />
+                <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Sparkles className="h-4 w-4 text-positive" />
                   <span>ব্যাংক বা বিকাশ/নগদ SMS দিয়ে অটো-পূরণ</span>
                 </span>
                 <Button
@@ -90,25 +90,25 @@ export function TransactionDialog({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowSmsHelper(!showSmsHelper)}
-                  className="h-7 text-xs text-[#166534] hover:bg-[#e2f2e5]"
+                  className="h-7 text-xs text-positive hover:bg-muted"
                 >
                   {showSmsHelper ? "লুকান" : "SMS পেস্ট করুন"}
                 </Button>
               </div>
               {showSmsHelper && (
-                <div className="mt-2 space-y-2 pt-2 border-t border-[#d8ece0]">
+                <div className="mt-2 space-y-2 pt-2 border-t border-border">
                   <Textarea
                     placeholder="এখানে বিকাশ, নগদ, রকেট বা ব্যাংকের ট্রানজ্যাকশন SMS পেস্ট করুন..."
                     value={smsInput}
                     onChange={e => setSmsInput(e.target.value)}
-                    className="h-16 text-xs bg-white resize-none"
+                    className="h-16 text-xs bg-card resize-none"
                   />
                   <div className="flex justify-end">
                     <Button
                       type="button"
                       size="sm"
                       onClick={onApplySMS}
-                      className="h-7 rounded-lg bg-[#166534] hover:bg-[#114f29] text-white text-xs px-3"
+                      className="h-7 rounded-lg bg-primary hover:bg-primary text-white text-xs px-3"
                     >
                       অটো-বসিয়ে দিন
                     </Button>
@@ -153,7 +153,7 @@ export function TransactionDialog({
               ))}
             </select>
           </Field>
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+          <p className="rounded-xl bg-background p-3 text-sm text-positive">
             ভাউচার নং সেটিংসের নির্ধারিত রেঞ্জ থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে।
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -222,7 +222,7 @@ export function TransactionDialog({
           </Field>
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             {editingTransactionId ? "আপডেট করুন" : "সংরক্ষণ করুন"}
           </Button>

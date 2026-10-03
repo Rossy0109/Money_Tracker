@@ -92,14 +92,14 @@ export function TransactionsPanel({
           <p className="section-kicker">লেনদেন</p>
           <div className="flex items-center gap-2">
             <h2 className="section-title">সাম্প্রতিক হিসাব</h2>
-            <span className="rounded-full bg-[#e8f3ec] px-2 py-0.5 text-xs font-semibold text-[#18533e]">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-positive">
               মোট {filteredRows.length}টি
             </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[140px] flex-1 sm:w-48 sm:flex-initial">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#819188]" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
               placeholder="খুঁজুন..."
@@ -108,7 +108,7 @@ export function TransactionsPanel({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-10 pl-8 text-xs rounded-xl bg-white border-[#dce7e0]"
+              className="h-10 pl-8 text-xs rounded-xl bg-card border-border"
             />
           </div>
           <select
@@ -129,7 +129,7 @@ export function TransactionsPanel({
               variant={isVirtualMode ? "default" : "outline"}
               size="sm"
               onClick={() => setIsVirtualMode(!isVirtualMode)}
-              className={`h-10 text-xs rounded-xl ${isVirtualMode ? "bg-[#173f36] text-white" : "border-[#dce7e0] text-[#173f36]"}`}
+              className={`h-10 text-xs rounded-xl ${isVirtualMode ? "bg-primary text-primary-foreground" : "border-border text-foreground"}`}
               title="ভার্চুয়ালাইজড দ্রুত স্ক্রোল মোড"
             >
               <ListFilter className="h-3.5 w-3.5 mr-1" />
@@ -138,7 +138,7 @@ export function TransactionsPanel({
           )}
           <Button
             onClick={onAdd}
-            className="h-10 rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="h-10 rounded-xl bg-primary hover:bg-primary/90"
           >
             <Plus className="mr-1.5 h-4 w-4" />
             লেনদেন
@@ -152,7 +152,7 @@ export function TransactionsPanel({
         scrollerClassName={isVirtualMode ? "max-h-[500px] overflow-y-auto" : ""}
       >
         <table className="w-full min-w-[560px] text-left text-sm">
-          <thead className="border-y border-[#e8eee9] text-xs text-[#71867c] sticky top-0 bg-white z-10">
+          <thead className="border-y border-border text-xs text-muted-foreground sticky top-0 bg-card z-10">
             <tr>
               <th className="px-2 py-3 font-semibold">তারিখ</th>
               <th className="px-2 py-3 font-semibold">বিবরণ</th>
@@ -178,7 +178,7 @@ export function TransactionsPanel({
             ) : (
               <tr>
                 <td colSpan={6}>
-                  <p className="py-6 text-center text-sm text-[#7b8d84]">
+                  <p className="py-6 text-center text-sm text-muted-foreground">
                     {searchQuery
                       ? "অনুসন্ধানের সাথে কোনো লেনদেন মেলেনি"
                       : "এই ফিল্টারে কোনো লেনদেন নেই"}
@@ -192,7 +192,7 @@ export function TransactionsPanel({
 
       {/* Pagination Footer */}
       {!isVirtualMode && filteredRows.length > pageSize && (
-        <div className="mt-4 pt-3 border-t border-[#edf1ee] flex flex-wrap items-center justify-between gap-3 text-xs text-[#688277]">
+        <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <span>পৃষ্ঠা প্রতি প্রদর্শন:</span>
             <select
@@ -201,7 +201,7 @@ export function TransactionsPanel({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="h-7 rounded-lg border border-[#dce7e0] bg-white px-2 py-0.5 text-xs text-[#20493c]"
+              className="h-7 rounded-lg border border-border bg-card px-2 py-0.5 text-xs text-foreground"
             >
               {PAGE_SIZE_OPTIONS.map(opt => (
                 <option key={opt} value={opt}>
@@ -263,27 +263,27 @@ function TransactionRow({
   return (
     <tr
       {...gestures}
-      className="border-b border-[#edf1ee] hover:bg-[#fbfdfb] transition-colors"
+      className="border-b border-border hover:bg-card transition-colors"
       style={{ height: `${ROW_HEIGHT}px`, touchAction: "pan-y" }}
     >
-      <td className="px-2 py-3 text-[#647d72] whitespace-nowrap">
+      <td className="px-2 py-3 text-muted-foreground whitespace-nowrap">
         {dateText(row.occurredAt)}
       </td>
       <td className="px-2 py-3">
         <p
-          className="max-w-48 truncate font-medium text-[#264a3f]"
+          className="max-w-48 truncate font-medium text-foreground"
           title={row.note ?? ""}
         >
           {row.note ?? "—"}
         </p>
       </td>
       <td className="px-2 py-3">
-        <p className="font-medium text-[#264a3f]">{row.categoryName}</p>
-        <p className="text-xs text-[#819188]">{row.paymentMethod}</p>
+        <p className="font-medium text-foreground">{row.categoryName}</p>
+        <p className="text-xs text-muted-foreground">{row.paymentMethod}</p>
       </td>
-      <td className="px-2 py-3 text-[#647d72]">{row.accountName ?? "—"}</td>
+      <td className="px-2 py-3 text-muted-foreground">{row.accountName ?? "—"}</td>
       <td
-        className={`px-2 py-3 text-right font-semibold whitespace-nowrap ${row.type === "income" ? "text-[#278050]" : "text-[#c4675d]"}`}
+        className={`px-2 py-3 text-right font-semibold whitespace-nowrap ${row.type === "income" ? "text-positive" : "text-destructive"}`}
       >
         {row.type === "income" ? "+" : "−"}
         {bdt(row.amount)}
@@ -295,7 +295,7 @@ function TransactionRow({
               onClick={() => onVoucher(row)}
               aria-label="ভাউচার প্রিন্ট"
               title="ভাউচার দেখুন ও প্রিন্ট করুন"
-              className="text-[#577d6e] hover:text-[#184438] p-1"
+              className="text-muted-foreground hover:text-foreground p-1"
             >
               <Printer className="h-4 w-4" />
             </button>
@@ -303,14 +303,14 @@ function TransactionRow({
           <button
             onClick={() => onEdit(row)}
             aria-label="সম্পাদনা"
-            className="text-[#577d6e] hover:text-[#184438] p-1"
+            className="text-muted-foreground hover:text-foreground p-1"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
             onClick={() => onDelete(row.id)}
             aria-label="মুছুন"
-            className="text-[#bd6a63] hover:text-[#8e3933] p-1"
+            className="text-destructive hover:text-destructive p-1"
           >
             <Trash2 className="h-4 w-4" />
           </button>

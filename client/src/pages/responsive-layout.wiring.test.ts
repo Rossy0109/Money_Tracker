@@ -29,9 +29,9 @@ const classNameOf = (source: string): string[] =>
  * stay usable at 320px) so a new unprefixed grid fails this test.
  */
 const ALLOWED_COMPACT_GRIDS = [
-  "grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-[#edf3ee]",
-  "bg-white p-1.5 rounded-2xl border border-[#dce7df] grid grid-cols-3 max-w-md h-auto shadow-sm",
-  "bg-[#eef4f0] p-1 rounded-2xl h-12 grid grid-cols-3 max-w-lg mb-6",
+  "grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-border",
+  "bg-card p-1.5 rounded-2xl border border-border grid grid-cols-3 max-w-md h-auto shadow-sm",
+  "bg-muted p-1 rounded-2xl h-12 grid grid-cols-3 max-w-lg mb-6",
 ];
 
 describe("responsive layout wiring", () => {
@@ -39,7 +39,7 @@ describe("responsive layout wiring", () => {
     const source = readFileSync(join(PAGES_DIR, "Invoices.tsx"), "utf8");
 
     expect(source).toContain(
-      "grid grid-cols-2 gap-2 items-center bg-[#fafdfb] p-2.5 rounded-xl border border-[#e4ede7] sm:grid-cols-12"
+      "grid grid-cols-2 gap-2 items-center bg-card p-2.5 rounded-xl border border-border sm:grid-cols-12"
     );
     expect(source).toContain('className="col-span-2 sm:col-span-5"');
     expect(source).toContain('className="sm:col-span-2"');

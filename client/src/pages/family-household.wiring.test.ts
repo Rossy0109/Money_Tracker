@@ -35,7 +35,7 @@ describe("family household workspace wiring", () => {
       "flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
     );
     expect(householdSource).toContain(
-      "flex flex-col gap-2 rounded-xl bg-[#f8fbf8] p-2.5 sm:flex-row"
+      "flex flex-col gap-2 rounded-xl bg-background p-2.5 sm:flex-row"
     );
   });
 

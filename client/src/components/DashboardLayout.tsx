@@ -304,7 +304,7 @@ function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
   return (
     <nav
       aria-label="দ্রুত নেভিগেশন"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#0c2b22] bg-[#113a30] pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_18px_rgba(17,58,48,0.18)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#0c2b22] bg-primary pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_18px_rgba(17,58,48,0.18)] md:hidden"
     >
       <ul className="flex items-stretch">
         {tabs.map(tab => {
@@ -314,9 +314,9 @@ function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
               <a
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#bcecc6] ${
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border ${
                   active
-                    ? "rounded-t-xl bg-[#d8f2dd] font-semibold text-[#113a30]"
+                    ? "rounded-t-xl bg-muted font-semibold text-foreground"
                     : "text-[#b9d2c2] hover:bg-white/10 hover:text-white"
                 }`}
               >
@@ -333,7 +333,7 @@ function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
             type="button"
             onClick={() => setOpenMobile(true)}
             aria-label="সব মেনু খুলুন"
-            className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center text-[#b9d2c2] hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#bcecc6]"
+            className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center text-[#b9d2c2] hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
             <span className="w-full truncate text-[10px] leading-tight">
@@ -380,7 +380,7 @@ function DashboardSidebarContent({
         <a
           href="/"
           onClick={() => handleNavClick("/")}
-          className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6]"
+          className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
         >
           <img
             src={logoUrl || "/logo.png"}
@@ -406,7 +406,7 @@ function DashboardSidebarContent({
             <SidebarMenuButton
               asChild
               tooltip="নতুন লেনদেন যোগ করুন"
-              className="mb-2 h-11 rounded-xl bg-[#d8f2dd] font-semibold text-[#113a30] hover:bg-[#effcf1] hover:text-[#113a30]"
+              className="mb-2 h-11 rounded-xl bg-muted font-semibold text-foreground hover:bg-background hover:text-foreground"
             >
               <a
                 href="/#transactions"
@@ -422,7 +422,7 @@ function DashboardSidebarContent({
               <SidebarMenuButton
                 asChild
                 tooltip={item.label}
-                className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-[#d8f2dd] data-[active=true]:text-[#113a30]"
+                className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-muted data-[active=true]:text-foreground"
               >
                 <a href={item.href} onClick={() => handleNavClick(item.href)}>
                   <item.icon className="h-4.5 w-4.5" />
@@ -465,7 +465,7 @@ function DashboardSidebarContent({
             <button
               onClick={toggleTheme}
               aria-label="থিম পরিবর্তন"
-              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"
+              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border group-data-[collapsible=icon]:hidden"
             >
               {theme === "dark" ? (
                 <Sun className="h-4 w-4" />
@@ -476,7 +476,7 @@ function DashboardSidebarContent({
             <button
               onClick={logout}
               aria-label="সাইন আউট"
-              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"
+              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border group-data-[collapsible=icon]:hidden"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -517,13 +517,13 @@ export default function DashboardLayout({
           <h2 className="text-xl font-bold text-rose-700">
             অ্যাকাউন্ট স্থগিত (Suspended)
           </h2>
-          <p className="text-sm text-[#5c7a6e]">
+          <p className="text-sm text-muted-foreground">
             আপনার অ্যাকাউন্টটি বর্তমানে অ্যাডমিন কর্তৃক স্থগিত করা হয়েছে।
             বিস্তারিত জানতে বা পুনরায় সচল করতে অ্যাডমিনের সাথে যোগাযোগ করুন।
           </p>
           <Button
             onClick={logout}
-            className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-semibold"
+            className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90/90 h-11 font-semibold"
           >
             সাইন আউট করুন
           </Button>

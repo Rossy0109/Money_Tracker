@@ -94,7 +94,7 @@ export function DueDialog({
               />
             </Field>
           </div>
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+          <p className="rounded-xl bg-background p-3 text-sm text-positive">
             ভাউচার নং স্বয়ংক্রিয়ভাবে তৈরি হবে।
           </p>
           <Field label="বিবরণ">
@@ -107,7 +107,7 @@ export function DueDialog({
           </Field>
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             সংরক্ষণ করুন
           </Button>

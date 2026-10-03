@@ -179,23 +179,23 @@ function AccountTreeNode({
             onClick(account);
           }}
           className={`
-            w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#173f36]
-            hover:bg-[#eef7f1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8bd5a0]
+            w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground
+            hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring
             transition-colors cursor-pointer select-none
             ${level > 0 ? "pl-8" : ""} ${level > 1 ? "pl-16" : ""} ${level > 2 ? "pl-24" : ""}
           `}
         >
           {hasChildren ? (
-            <ChevronDown className="h-4 w-4 text-[#8da69c] transition-transform duration-200 data-[state=open]:rotate-90" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-90" />
           ) : (
             <span className="h-4 w-4" />
           )}
-          <span className="flex-1 min-w-0 truncate font-mono text-[#3d5a4f]">
+          <span className="flex-1 min-w-0 truncate font-mono text-foreground">
             {account.code}
           </span>
           <span className="flex-1 min-w-0 truncate">{account.name}</span>
           {account.nameBn && (
-            <span className="text-xs text-[#8da69c] hidden sm:inline">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
               ({account.nameBn})
             </span>
           )}
@@ -205,7 +205,7 @@ function AccountTreeNode({
             </Badge>
           )}
           <span
-            className={`font-mono tabular-nums ${Number(account.currentBalance) < 0 ? "text-red-600" : "text-[#173f36]"}`}
+            className={`font-mono tabular-nums ${Number(account.currentBalance) < 0 ? "text-red-600" : "text-foreground"}`}
           >
             {Number(account.currentBalance).toLocaleString("bn-BD", {
               minimumFractionDigits: 2,
@@ -216,7 +216,7 @@ function AccountTreeNode({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-[#5f786d] hover:text-[#173f36] hover:bg-[#eef7f1]"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background"
               onClick={e => {
                 e.stopPropagation();
                 onAddChild(account);
@@ -228,7 +228,7 @@ function AccountTreeNode({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-[#5f786d] hover:text-[#173f36] hover:bg-[#eef7f1]"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background"
               onClick={e => {
                 e.stopPropagation();
                 onEdit(account);
@@ -240,7 +240,7 @@ function AccountTreeNode({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-[#5f786d] hover:text-red-600 hover:bg-red-50"
+              className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50"
               onClick={e => {
                 e.stopPropagation();
                 onDelete(account.id);
@@ -253,7 +253,7 @@ function AccountTreeNode({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent className="w-full">
-          <div className="pl-4 border-l border-[#d8f2dd] mt-1 space-y-1">
+          <div className="pl-4 border-l border-border mt-1 space-y-1">
             {account.children.map(child => (
               <AccountTreeNode
                 key={child.id}
@@ -414,7 +414,7 @@ function AccountFormDialog({
                 type="checkbox"
                 id="isDetail"
                 checked={defaultValues?.isDetail ?? true}
-                className="h-4 w-4 rounded border-[#c9dcd0] text-[#166534] focus:ring-[#8bd5a0]"
+                className="h-4 w-4 rounded border-border text-positive focus:ring-ring"
               />
               <Label
                 htmlFor="isDetail"
@@ -546,13 +546,13 @@ export default function ChartOfAccounts() {
   );
 
   const projectSelector = projects.length ? (
-    <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
+    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
       <span>প্রকল্প</span>
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
         onChange={event => selectProject(Number(event.target.value))}
-        className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+        className="h-10 max-w-[240px] rounded-xl border border-border bg-card px-3 text-foreground outline-none focus:ring-2 focus:ring-ring"
       >
         {projects.map((project: { id: number; name: string }) => (
           <option key={project.id} value={project.id}>
@@ -572,7 +572,7 @@ export default function ChartOfAccounts() {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+          <div className="finance-card p-8 text-center text-sm text-muted-foreground">
             চার্ট অফ অ্যাকাউন্টস লোড হচ্ছে…
           </div>
         </main>
@@ -583,21 +583,21 @@ export default function ChartOfAccounts() {
   return (
     <DashboardLayout>
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-        <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
-          <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
+        <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <RefreshCw className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
             চার্ট অফ অ্যাকাউন্টস
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
             আপনার হিসাবের কোড, নাম ও ব্যালেন্সসহ ক্যাটাগরি-ভিত্তিক
             হিয়ারার্কিক্যাল অ্যাকাউন্ট স্ট্রাকচার।
           </p>
@@ -691,7 +691,7 @@ export default function ChartOfAccounts() {
           </CardHeader>
           <CardContent className="p-0">
             {coaTree.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[#668076]">
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 কোনো অ্যাকাউন্ট নেই।{" "}
                 <Button
                   variant="link"
@@ -704,7 +704,7 @@ export default function ChartOfAccounts() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y divide-[#eef7f1]">
+              <div className="divide-y divide-border">
                 {coaTree.map(root => (
                   <AccountTreeNode
                     key={root.id}

@@ -31,25 +31,25 @@ export function DashboardHeader({
   onOpenAdmin,
 }: DashboardHeaderProps) {
   return (
-    <section className="flex flex-col justify-between gap-5 rounded-3xl bg-[#edf5ee] p-4 sm:p-7 lg:flex-row lg:items-end">
+    <section className="flex flex-col justify-between gap-5 rounded-3xl bg-muted p-4 sm:p-7 lg:flex-row lg:items-end">
       <div>
-        <p className="text-xs font-bold tracking-[.16em] text-[#4f7b67]">
+        <p className="text-xs font-bold tracking-[.16em] text-muted-foreground">
           Ahmed's Financial Accounting
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#163c32] sm:text-4xl">
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
           প্রোফাইল
         </h1>
-        <p className="mt-2 max-w-xl text-sm text-[#5d776b]">
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
           {userName ?? "আপনার"} প্রোফাইল থেকে প্রকল্প ও ব্যক্তিগত হিসাব পরিচালনা
           করুন।
         </p>
       </div>
-      <div className="grid w-full gap-2 rounded-2xl border border-[#d9e7da] bg-white/80 p-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-end">
-        <label className="grid w-full gap-1 text-xs font-semibold text-[#4f6f61] sm:col-span-2 lg:w-auto">
+      <div className="grid w-full gap-2 rounded-2xl border border-border bg-white/80 p-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-end">
+        <label className="grid w-full gap-1 text-xs font-semibold text-muted-foreground sm:col-span-2 lg:w-auto">
           <span>প্রোফাইলের প্রজেক্ট</span>
           <select
             aria-label="প্রোফাইলের প্রজেক্ট নির্বাচন"
-            className="finance-input h-11 w-full min-w-0 bg-white lg:min-w-44"
+            className="finance-input h-11 w-full min-w-0 bg-card lg:min-w-44"
             value={activeProjectId ?? ""}
             onChange={event => selectProject(Number(event.target.value))}
           >
@@ -62,7 +62,7 @@ export function DashboardHeader({
         </label>
         <Button
           onClick={openNewTransaction}
-          className="h-11 w-full rounded-xl bg-[#173f36] font-semibold hover:bg-[#0f3028] lg:w-auto"
+          className="h-11 w-full rounded-xl bg-primary font-semibold hover:bg-primary/90 lg:w-auto"
         >
           <Plus className="mr-1.5 h-4 w-4" />
           লেনদেন যোগ করুন
@@ -70,7 +70,7 @@ export function DashboardHeader({
         <Button
           onClick={openVoucherSettings}
           variant="outline"
-          className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
+          className="h-11 w-full rounded-xl border-[#b9d1be] bg-card text-foreground lg:w-auto"
         >
           <ReceiptText className="mr-1.5 h-4 w-4" />
           ভাউচার সেটিংস
@@ -78,7 +78,7 @@ export function DashboardHeader({
         <Button
           onClick={onOpenProjectDialog}
           variant="outline"
-          className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
+          className="h-11 w-full rounded-xl border-[#b9d1be] bg-card text-foreground lg:w-auto"
         >
           <Plus className="mr-1.5 h-4 w-4" />
           প্রজেক্ট যোগ করুন
@@ -87,7 +87,7 @@ export function DashboardHeader({
           onClick={downloadExport}
           disabled={isExportFetching}
           variant="outline"
-          className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
+          className="h-11 w-full rounded-xl border-[#b9d1be] bg-card text-foreground lg:w-auto"
         >
           <Download className="mr-1.5 h-4 w-4" />
           নিজের ডেটা
@@ -95,7 +95,7 @@ export function DashboardHeader({
         <Button
           onClick={onOpenMonthlyReport}
           variant="outline"
-          className="h-11 w-full rounded-xl border-[#b9d1be] bg-white text-[#173f36] lg:w-auto"
+          className="h-11 w-full rounded-xl border-[#b9d1be] bg-card text-foreground lg:w-auto"
         >
           <Download className="mr-1.5 h-4 w-4" />
           মাসিক রিপোর্ট PDF
@@ -104,7 +104,7 @@ export function DashboardHeader({
           <Button
             onClick={onOpenAdmin}
             variant="outline"
-            className="h-11 w-full rounded-xl border-[#d7c48d] bg-[#fffdf3] text-[#765a14] lg:w-auto"
+            className="h-11 w-full rounded-xl border-[#d7c48d] bg-card text-foreground lg:w-auto"
           >
             <ShieldCheck className="mr-1.5 h-4 w-4" />
             Admin

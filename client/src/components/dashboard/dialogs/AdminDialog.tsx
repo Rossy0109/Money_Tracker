@@ -145,13 +145,13 @@ export function AdminDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LockKeyhole className="h-5 w-5 text-[#76601d]" />
+            <LockKeyhole className="h-5 w-5 text-foreground" />
             অ্যাডমিন নিয়ন্ত্রণ
           </DialogTitle>
         </DialogHeader>
         {!adminVerified ? (
           <form onSubmit={onVerify} className="grid gap-4">
-            <p className="text-sm text-[#667f75]">
+            <p className="text-sm text-muted-foreground">
               Google/OAuth identity ও server-only password—দুই ধাপে Admin
               নিয়ন্ত্রণ সুরক্ষিত।
             </p>
@@ -166,21 +166,21 @@ export function AdminDialog({
             </Field>
             <Button
               disabled={isVerifying}
-              className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+              className="rounded-xl bg-primary hover:bg-primary/90"
             >
               যাচাই করুন
             </Button>
           </form>
         ) : (
           <div className="space-y-6">
-            <div className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+            <div className="rounded-xl bg-background p-3 text-sm text-positive">
               <Check className="mr-1 inline h-4 w-4" />
               Admin access সক্রিয়। Audit log কেবল এই সেশনের browser memory-তে
               থাকা password দিয়ে দেখা যাচ্ছে।
             </div>
             <section>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <h3 className="font-semibold text-[#173f36]">
+                <h3 className="font-semibold text-foreground">
                   সাম্প্রতিক Audit log
                 </h3>
                 <Button
@@ -193,7 +193,7 @@ export function AdminDialog({
                   ফিল্টার পরিষ্কার করুন
                 </Button>
               </div>
-              <div className="mt-3 grid gap-3 rounded-xl bg-[#f6faf7] p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-3 grid gap-3 rounded-xl bg-background p-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="কাজ বা কিওয়ার্ড খুঁজুন">
                   <Input
                     value={auditSearch}
@@ -208,7 +208,7 @@ export function AdminDialog({
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-full justify-start bg-white text-left font-normal"
+                        className="w-full justify-start bg-card text-left font-normal"
                       >
                         {auditDateRange?.from
                           ? auditDateRange.to
@@ -266,17 +266,17 @@ export function AdminDialog({
                   <div className="hidden lg:block" />
                 )}
               </div>
-              <div className="mt-3 rounded-xl border border-[#e1ebe3] bg-[#fbfdfb] p-3">
+              <div className="mt-3 rounded-xl border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold tracking-wide text-[#597567]">
+                    <p className="text-xs font-semibold tracking-wide text-muted-foreground">
                       নির্বাচিত সময়ের কার্যক্রম
                     </p>
-                    <h4 className="text-sm font-semibold text-[#173f36]">
+                    <h4 className="text-sm font-semibold text-foreground">
                       কোন কাজ বেশি হয়েছে
                     </h4>
                   </div>
-                  <span className="rounded-full bg-[#edf6ed] px-2 py-1 text-xs text-[#477263]">
+                  <span className="rounded-full bg-background px-2 py-1 text-xs text-muted-foreground">
                     {auditActivity.data?.reduce(
                       (sum, item) => sum + Number(item.count),
                       0
@@ -286,7 +286,7 @@ export function AdminDialog({
                 </div>
                 <div className="mt-2 h-40">
                   {auditActivity.isLoading ? (
-                    <p className="pt-12 text-center text-sm text-[#70867c]">
+                    <p className="pt-12 text-center text-sm text-muted-foreground">
                       সারাংশ লোড হচ্ছে…
                     </p>
                   ) : auditActivity.data?.length ? (
@@ -330,31 +330,31 @@ export function AdminDialog({
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="pt-12 text-center text-sm text-[#70867c]">
+                    <p className="pt-12 text-center text-sm text-muted-foreground">
                       এই ফিল্টারে কোনো কার্যক্রম নেই
                     </p>
                   )}
                 </div>
               </div>
-              <div className="mt-3 max-h-64 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
+              <div className="mt-3 max-h-64 divide-y divide-border overflow-auto rounded-xl border border-border">
                 {adminLogs.isLoading ? (
                   <p className="p-4 text-sm">লোড হচ্ছে…</p>
                 ) : adminLogs.isError ? (
-                  <p className="p-4 text-sm text-[#a24d4d]">
+                  <p className="p-4 text-sm text-destructive">
                     Audit log লোড করা যায়নি। আবার চেষ্টা করুন।
                   </p>
                 ) : adminLogs.data?.logs.length ? (
                   adminLogs.data.logs.map(log => (
                     <div key={log.id} className="p-3 text-sm">
                       <div className="flex flex-wrap justify-between gap-2">
-                        <span className="font-semibold text-[#25483e]">
+                        <span className="font-semibold text-foreground">
                           {log.summary}
                         </span>
-                        <span className="text-[#778a80]">
+                        <span className="text-muted-foreground">
                           {dateText(log.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-[#73857c]">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {log.actorName ?? `User #${log.actorUserId}`} ·{" "}
                         {log.projectName ?? "সিস্টেম"} · {log.action}
                       </p>
@@ -364,8 +364,8 @@ export function AdminDialog({
                   <Empty text="এই ফিল্টারে কোনো audit record নেই" />
                 )}
               </div>
-              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#f6faf7] p-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-[#60796e]">
+              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
                   {adminLogs.data
                     ? `মোট ${adminLogs.data.total}টি record · পৃষ্ঠা ${adminLogs.data.page}/${adminLogs.data.totalPages}`
                     : ""}
@@ -414,8 +414,8 @@ export function AdminDialog({
               </div>
             </section>
             <section>
-              <h3 className="font-semibold text-[#173f36]">সব প্রজেক্ট</h3>
-              <div className="mt-3 max-h-40 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
+              <h3 className="font-semibold text-foreground">সব প্রজেক্ট</h3>
+              <div className="mt-3 max-h-40 divide-y divide-border overflow-auto rounded-xl border border-border">
                 {adminProjects.isLoading ? (
                   <p className="p-4 text-sm">লোড হচ্ছে…</p>
                 ) : adminProjects.data?.length ? (
@@ -424,10 +424,10 @@ export function AdminDialog({
                       key={project.id}
                       className="flex justify-between gap-3 p-3 text-sm"
                     >
-                      <span className="font-medium text-[#25483e]">
+                      <span className="font-medium text-foreground">
                         {project.name}
                       </span>
-                      <span className="text-xs text-[#73857c]">
+                      <span className="text-xs text-muted-foreground">
                         {project.ownerName ??
                           project.ownerEmail ??
                           `User #${project.userId}`}
@@ -441,26 +441,26 @@ export function AdminDialog({
             </section>
             <section>
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-[#173f36]">
+                <h3 className="font-semibold text-foreground">
                   ব্যবহারকারী অনুমোদন ও পরিচালনা
                 </h3>
-                <span className="text-xs text-[#527768]">
+                <span className="text-xs text-muted-foreground">
                   মোট: {adminUsers.data?.length ?? 0} জন
                 </span>
               </div>
-              <div className="mt-3 max-h-56 divide-y divide-[#e5eee7] overflow-auto rounded-xl border border-[#e1ebe3]">
+              <div className="mt-3 max-h-56 divide-y divide-border overflow-auto rounded-xl border border-border">
                 {adminUsers.data?.length ? (
                   adminUsers.data.map(member => (
                     <div
                       key={member.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm hover:bg-[#fafdfb]"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm hover:bg-card"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-[#25483e] truncate">
+                          <span className="font-medium text-foreground truncate">
                             {member.name || `User #${member.id}`}
                           </span>
-                          <span className="rounded-full bg-[#eff5ef] px-2 py-0.5 text-[11px] text-[#477263]">
+                          <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
                             {member.role}
                           </span>
                           {member.status === "pending" && (
@@ -479,11 +479,11 @@ export function AdminDialog({
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#73857c] truncate mt-0.5">
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {member.email}
                         </p>
                         {member.rbacRoles?.length ? (
-                          <p className="text-[11px] text-[#477263] mt-0.5">
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
                             RBAC: {member.rbacRoles.join(", ")}
                           </p>
                         ) : null}
@@ -492,7 +492,7 @@ export function AdminDialog({
                         {member.status === "active" && (
                           <select
                             aria-label={`Assign role to ${member.name || member.email || member.id}`}
-                            className="h-8 rounded-lg border border-[#c9dcd0] bg-white px-2 text-xs text-[#25483e]"
+                            className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground"
                             value={member.rbacRoles?.[0] ?? "VIEWER"}
                             disabled={isAssigningRole}
                             onChange={event =>
@@ -524,7 +524,7 @@ export function AdminDialog({
                             onClick={() =>
                               onUpdateUserStatus(member.id, "active")
                             }
-                            className="h-8 rounded-lg bg-[#173f36] hover:bg-[#12312a] text-white text-xs px-2.5 flex items-center gap-1"
+                            className="h-8 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs px-2.5 flex items-center gap-1"
                           >
                             <UserCheck className="h-3.5 w-3.5" />
                             <span>অনুমোদন দিন</span>
@@ -558,12 +558,12 @@ export function AdminDialog({
             </section>
 
             {/* Logo Management Section */}
-            <section className="pt-2 border-t border-[#e1ebe3]">
-              <h3 className="font-semibold text-[#173f36] mb-2">
+            <section className="pt-2 border-t border-border">
+              <h3 className="font-semibold text-foreground mb-2">
                 লোগো আপলোড ও পরিবর্তন
               </h3>
-              <div className="flex items-center gap-4 p-3 rounded-xl border border-[#e1ebe3] bg-[#fbfdfb]">
-                <div className="h-14 w-14 rounded-xl border border-[#c9dcd0] bg-white p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card">
+                <div className="h-14 w-14 rounded-xl border border-border bg-card p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
                   <img
                     src={logoUrl || "/logo.png"}
                     alt="App Logo"
@@ -574,12 +574,12 @@ export function AdminDialog({
                   />
                 </div>
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <p className="text-xs text-[#527768]">
+                  <p className="text-xs text-muted-foreground">
                     আপনার পছন্দের নতুন লোগো (PNG, SVG, JPG, সর্বোচ্চ 2MB) আপলোড
                     করতে পারেন।
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-[#173f36] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#12312a] transition">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition">
                       <Upload className="h-3.5 w-3.5" />
                       <span>নতুন লোগো আপলোড</span>
                       <input

@@ -36,7 +36,7 @@ export function VoucherSettingsDialog({
           <DialogTitle>ভাউচার সেটিংস</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
-          <p className="rounded-xl bg-[#edf6ed] p-3 text-sm text-[#28603c]">
+          <p className="rounded-xl bg-background p-3 text-sm text-positive">
             প্রতিটি নতুন লেনদেন, দেনা/পাওনা ও সমন্বয়ের জন্য নির্ধারিত রেঞ্জ থেকে
             পরবর্তী ভাউচার নম্বর স্বয়ংক্রিয়ভাবে দেওয়া হবে।
           </p>
@@ -101,7 +101,7 @@ export function VoucherSettingsDialog({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             {isPending ? "সংরক্ষণ হচ্ছে…" : "সেটিংস সংরক্ষণ করুন"}
           </Button>

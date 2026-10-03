@@ -29,7 +29,7 @@ describe("dashboard shell component wiring", () => {
   it("keeps a visible keyboard focus state on the sign-out control", () => {
     expect(source).toContain('aria-label="সাইন আউট"');
     expect(source).toContain(
-      "focus-visible:ring-2 focus-visible:ring-[#bcecc6]"
+      "focus-visible:ring-2 focus-visible:ring-border"
     );
   });
 

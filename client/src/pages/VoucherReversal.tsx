@@ -102,13 +102,13 @@ export default function VoucherReversal() {
   const [, setPreviewOpen] = useState(false);
 
   const projectSelector = projects.length ? (
-    <label className="flex items-center gap-2 text-sm font-medium text-[#456257]">
+    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
       <span>প্রকল্প</span>
       <select
         aria-label="প্রকল্প নির্বাচন"
         value={activeProjectId ?? ""}
         onChange={event => selectProject(Number(event.target.value))}
-        className="h-10 max-w-[240px] rounded-xl border border-[#d7e5da] bg-white px-3 text-[#173f36] outline-none focus:ring-2 focus:ring-[#8bd5a0]"
+        className="h-10 max-w-[240px] rounded-xl border border-border bg-card px-3 text-foreground outline-none focus:ring-2 focus:ring-ring"
       >
         {projects.map((project: { id: number; name: string }) => (
           <option key={project.id} value={project.id}>
@@ -142,7 +142,7 @@ export default function VoucherReversal() {
     return (
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-          <div className="finance-card p-8 text-center text-sm text-[#668076]">
+          <div className="finance-card p-8 text-center text-sm text-muted-foreground">
             ভাউচার রিভার্সাল লোড হচ্ছে…
           </div>
         </main>
@@ -171,21 +171,21 @@ export default function VoucherReversal() {
   return (
     <DashboardLayout>
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
-        <header className="rounded-[1.75rem] bg-[#eaf3ed] p-6 sm:p-8">
-          <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#28603c]">
+        <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg hover:text-[#173f36] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#54b86a]"
+              className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <RotateCcw className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
             </a>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173f36]">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
             ভাউচার রিভার্সাল
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f786d]">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
             পোস্ট করা ভাউচারটি রিভার্স (উল্টো) করুন। এটি ডেবিট/ক্রেডিট বিনিময়
             করে একটি নতুন ভাউচার তৈরি করবে এবং মূল ভাউচার ক্যান্সেল হবে।
           </p>
@@ -202,14 +202,14 @@ export default function VoucherReversal() {
           </CardHeader>
           <CardContent>
             {reversibleVouchers.length === 0 ? (
-              <div className="text-center py-8 text-[#668076]">
+              <div className="text-center py-8 text-muted-foreground">
                 রিভার্স করার জন্য উপযুক্ত কোনো ভাউচার নেই
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#f6faf7]">
+                    <TableRow className="bg-background">
                       <TableHead className="w-40">ভাউচার নম্বর</TableHead>
                       <TableHead className="w-32">তারিখ</TableHead>
                       <TableHead>বিবরণ</TableHead>
@@ -225,7 +225,7 @@ export default function VoucherReversal() {
                   </TableHeader>
                   <TableBody>
                     {reversibleVouchers.map(voucher => (
-                      <TableRow key={voucher.id} className="hover:bg-[#f6faf7]">
+                      <TableRow key={voucher.id} className="hover:bg-background">
                         <TableCell className="font-mono font-medium">
                           {voucher.voucherNo}
                         </TableCell>
@@ -287,14 +287,14 @@ export default function VoucherReversal() {
           </CardHeader>
           <CardContent>
             {reversals.length === 0 ? (
-              <div className="text-center py-8 text-[#668076]">
+              <div className="text-center py-8 text-muted-foreground">
                 কোনো রিভার্সাল হিস্ট্রি নেই
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#f6faf7]">
+                    <TableRow className="bg-background">
                       <TableHead className="w-40">মূল ভাউচার</TableHead>
                       <TableHead className="w-40">রিভার্সাল ভাউচার</TableHead>
                       <TableHead className="w-32">রিভার্সাল তারিখ</TableHead>
@@ -357,7 +357,7 @@ export default function VoucherReversal() {
                   </div>
                 </div>
                 <div className="flex items-center justify-center my-2">
-                  <ArrowLeftRight className="h-6 w-6 text-[#8da69c]" />
+                  <ArrowLeftRight className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="p-3 rounded-lg border border-red-200 bg-red-50">
                   <div className="font-semibold text-red-800">

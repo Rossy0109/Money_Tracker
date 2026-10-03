@@ -235,16 +235,16 @@ export default function Invoices() {
     <DashboardLayout>
       <div className="space-y-6 pb-12">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-7 rounded-3xl border border-[#dce7df] shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 sm:p-7 rounded-3xl border border-border shadow-sm">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#166534]">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
               <Receipt className="h-4 w-4" />
               <span>SME Business Invoicing</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14382f] mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
               ইনভয়েস ও ক্লায়েন্ট বিলিং
             </h1>
-            <p className="text-xs sm:text-sm text-[#5a7a6c] mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               পেশাদার ব্র্যান্ডেড ইনভয়েস, চালান এবং মানি রিসিট তৈরি ও পরিচালনা
               করুন।
             </p>
@@ -252,23 +252,23 @@ export default function Invoices() {
 
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="h-11 rounded-2xl bg-[#166534] hover:bg-[#14532d] text-white font-semibold flex items-center gap-2 shadow-md">
+              <Button className="h-11 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center gap-2 shadow-md">
                 <Plus className="h-4.5 w-4.5" />
                 নতুন ইনভয়েস তৈরি করুন
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6">
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-[#14382f]">
+                <DialogTitle className="text-xl font-bold text-foreground">
                   নতুন ইনভয়েস / বিল তৈরি
                 </DialogTitle>
               </DialogHeader>
 
               <form onSubmit={handleSubmit} className="space-y-4 mt-2">
                 {/* Client Info Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#f8faf8] rounded-2xl border border-[#e2ece5]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-background rounded-2xl border border-border">
                   <div className="sm:col-span-2">
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       গ্রাহকের নাম (Client Name) *
                     </Label>
                     <Input
@@ -276,24 +276,24 @@ export default function Invoices() {
                       placeholder="যেমন: রহিম এন্টারপ্রাইজ / জনাব কামরুল"
                       value={clientName}
                       onChange={e => setClientName(e.target.value)}
-                      className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl bg-card border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       ফোন নম্বর
                     </Label>
                     <Input
                       placeholder="01700-000000"
                       value={clientPhone}
                       onChange={e => setClientPhone(e.target.value)}
-                      className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl bg-card border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       ইমেইল এড্রেস
                     </Label>
                     <Input
@@ -301,31 +301,31 @@ export default function Invoices() {
                       placeholder="client@example.com"
                       value={clientEmail}
                       onChange={e => setClientEmail(e.target.value)}
-                      className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl bg-card border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       BIN / TIN নম্বর
                     </Label>
                     <Input
                       placeholder="ঐচ্ছিক (যদি থাকে)"
                       value={clientBinTin}
                       onChange={e => setClientBinTin(e.target.value)}
-                      className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl bg-card border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       ঠিকানা
                     </Label>
                     <Input
                       placeholder="গ্রাহকের ঠিকানা"
                       value={clientAddress}
                       onChange={e => setClientAddress(e.target.value)}
-                      className="mt-1 h-10 rounded-xl bg-white border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl bg-card border-border"
                     />
                   </div>
                 </div>
@@ -333,7 +333,7 @@ export default function Invoices() {
                 {/* Dates */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       ইস্যু তারিখ
                     </Label>
                     <Input
@@ -341,11 +341,11 @@ export default function Invoices() {
                       required
                       value={issueDate}
                       onChange={e => setIssueDate(e.target.value)}
-                      className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl border-border"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-[#244b3c]">
+                    <Label className="text-xs font-semibold text-foreground">
                       পরিশোধের শেষ তারিখ (Due Date)
                     </Label>
                     <Input
@@ -353,7 +353,7 @@ export default function Invoices() {
                       required
                       value={dueDate}
                       onChange={e => setDueDate(e.target.value)}
-                      className="mt-1 h-10 rounded-xl border-[#cfe0d5]"
+                      className="mt-1 h-10 rounded-xl border-border"
                     />
                   </div>
                 </div>
@@ -361,7 +361,7 @@ export default function Invoices() {
                 {/* Itemized Table */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-[#14382f]">
+                    <Label className="text-xs font-bold text-foreground">
                       পণ্য বা সেবার বিবরণ
                     </Label>
                     <Button
@@ -369,7 +369,7 @@ export default function Invoices() {
                       variant="outline"
                       size="sm"
                       onClick={handleAddItem}
-                      className="h-7 text-xs rounded-lg border-[#c8ded1] text-[#166534]"
+                      className="h-7 text-xs rounded-lg border-border text-positive"
                     >
                       <Plus className="h-3 w-3 mr-1" /> আইটেম যোগ করুন
                     </Button>
@@ -379,7 +379,7 @@ export default function Invoices() {
                     {items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="grid grid-cols-2 gap-2 items-center bg-[#fafdfb] p-2.5 rounded-xl border border-[#e4ede7] sm:grid-cols-12"
+                        className="grid grid-cols-2 gap-2 items-center bg-card p-2.5 rounded-xl border border-border sm:grid-cols-12"
                       >
                         <div className="col-span-2 sm:col-span-5">
                           <Input
@@ -394,7 +394,7 @@ export default function Invoices() {
                                 e.target.value
                               )
                             }
-                            className="h-8.5 text-xs rounded-lg bg-white"
+                            className="h-8.5 text-xs rounded-lg bg-card"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -407,7 +407,7 @@ export default function Invoices() {
                             onChange={e =>
                               handleItemChange(idx, "quantity", e.target.value)
                             }
-                            className="h-8.5 text-xs rounded-lg bg-white"
+                            className="h-8.5 text-xs rounded-lg bg-card"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -420,7 +420,7 @@ export default function Invoices() {
                             onChange={e =>
                               handleItemChange(idx, "unitPrice", e.target.value)
                             }
-                            className="h-8.5 text-xs rounded-lg bg-white"
+                            className="h-8.5 text-xs rounded-lg bg-card"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -432,7 +432,7 @@ export default function Invoices() {
                             onChange={e =>
                               handleItemChange(idx, "vatRate", e.target.value)
                             }
-                            className="h-8.5 text-xs rounded-lg bg-white"
+                            className="h-8.5 text-xs rounded-lg bg-card"
                           />
                         </div>
                         <div className="col-span-1 text-center sm:col-span-1">
@@ -461,7 +461,7 @@ export default function Invoices() {
                 </div>
 
                 {/* Totals Summary */}
-                <div className="p-3.5 bg-[#f0f7f2] rounded-2xl border border-[#cbe4d3] space-y-1.5 text-xs text-[#204738]">
+                <div className="p-3.5 bg-background rounded-2xl border border-border space-y-1.5 text-xs text-foreground">
                   <div className="flex justify-between">
                     <span>সাবটোটাল:</span>
                     <span className="font-semibold">
@@ -481,10 +481,10 @@ export default function Invoices() {
                       min="0"
                       value={discountAmount}
                       onChange={e => setDiscountAmount(e.target.value)}
-                      className="w-28 h-7 text-xs bg-white rounded-lg text-right"
+                      className="w-28 h-7 text-xs bg-card rounded-lg text-right"
                     />
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-[#c0dec9] text-sm font-bold text-[#14382f]">
+                  <div className="flex justify-between pt-2 border-t border-border text-sm font-bold text-foreground">
                     <span>সর্বমোট বিল (Grand Total):</span>
                     <span>৳ {calculatedGrandTotal.toLocaleString()}</span>
                   </div>
@@ -492,7 +492,7 @@ export default function Invoices() {
 
                 {/* Notes */}
                 <div>
-                  <Label className="text-xs font-semibold text-[#244b3c]">
+                  <Label className="text-xs font-semibold text-foreground">
                     পেমেন্ট নির্দেশনাবলী / শর্তাবলী
                   </Label>
                   <Textarea
@@ -500,14 +500,14 @@ export default function Invoices() {
                     rows={2}
                     value={notesTerms}
                     onChange={e => setNotesTerms(e.target.value)}
-                    className="mt-1 rounded-xl text-xs border-[#cfe0d5]"
+                    className="mt-1 rounded-xl text-xs border-border"
                   />
                 </div>
 
                 <Button
                   type="submit"
                   disabled={createInvoiceMutation.isPending}
-                  className="w-full h-11 rounded-xl bg-[#166534] hover:bg-[#14532d] text-white font-semibold text-sm shadow-md"
+                  className="w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-md"
                 >
                   {createInvoiceMutation.isPending
                     ? "তৈরি হচ্ছে..."
@@ -519,18 +519,18 @@ export default function Invoices() {
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 bg-white p-3.5 rounded-2xl border border-[#dde8e0]">
+        <div className="flex flex-col sm:flex-row gap-3 bg-card p-3.5 rounded-2xl border border-border">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8ba699]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="ইনভয়েস নম্বর বা ক্লায়েন্টের নাম দিয়ে খুঁজুন..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-9 h-10 rounded-xl border-[#d4e4da] text-xs bg-[#f9fcfa]"
+              className="pl-9 h-10 rounded-xl border-border text-xs bg-background"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-44 h-10 rounded-xl border-[#d4e4da] text-xs">
+            <SelectTrigger className="w-full sm:w-44 h-10 rounded-xl border-border text-xs">
               <SelectValue placeholder="স্ট্যাটাস ফিল্টার" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
@@ -546,16 +546,16 @@ export default function Invoices() {
         {/* Invoice List */}
         <div className="space-y-3">
           {invoicesQuery.isLoading ? (
-            <div className="p-8 text-center text-sm text-[#5d7d70] bg-white rounded-3xl border border-[#dce7df]">
+            <div className="p-8 text-center text-sm text-muted-foreground bg-card rounded-3xl border border-border">
               ইনভয়েস লোড হচ্ছে...
             </div>
           ) : filteredInvoices.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-[#dce7df] space-y-3">
-              <FileText className="h-12 w-12 text-[#9abfb0] mx-auto" />
-              <p className="text-base font-semibold text-[#1f473b]">
+            <div className="p-12 text-center bg-card rounded-3xl border border-border space-y-3">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+              <p className="text-base font-semibold text-foreground">
                 কোনো ইনভয়েস পাওয়া যায়নি
               </p>
-              <p className="text-xs text-[#6e8a7d]">
+              <p className="text-xs text-muted-foreground">
                 আপনার প্রথম ক্লায়েন্ট বিল তৈরি করতে উপরের বাটনে ক্লিক করুন।
               </p>
             </div>
@@ -569,11 +569,11 @@ export default function Invoices() {
               return (
                 <div
                   key={invoice.id}
-                  className="bg-white p-4 sm:p-5 rounded-2xl border border-[#dde7e0] shadow-sm hover:border-[#b8dec5] transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-card p-4 sm:p-5 rounded-2xl border border-border shadow-sm hover:border-border transition flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2.5">
-                      <span className="font-mono text-sm font-bold text-[#14382f] bg-[#eef7f1] px-2.5 py-0.5 rounded-lg border border-[#cce7d5]">
+                      <span className="font-mono text-sm font-bold text-foreground bg-background px-2.5 py-0.5 rounded-lg border border-border">
                         {invoice.invoiceNumber}
                       </span>
                       <span
@@ -589,17 +589,17 @@ export default function Invoices() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[#204b3d]">
-                      <Building2 className="h-4 w-4 text-[#166534]" />
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Building2 className="h-4 w-4 text-positive" />
                       <span>{invoice.clientName}</span>
                       {invoice.clientPhone && (
-                        <span className="text-xs text-[#698a7c] font-normal">
+                        <span className="text-xs text-muted-foreground font-normal">
                           ({invoice.clientPhone})
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs text-[#668779]">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>
                         ইস্যু:{" "}
                         {new Date(invoice.issueDate).toLocaleDateString(
@@ -615,7 +615,7 @@ export default function Invoices() {
 
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="text-right">
-                      <div className="text-base font-bold text-[#14382f]">
+                      <div className="text-base font-bold text-foreground">
                         ৳ {grandTotal.toLocaleString()}
                       </div>
                       {dueAmount > 0 ? (
@@ -648,10 +648,10 @@ export default function Invoices() {
                             );
                             window.open(url, "_blank");
                           }}
-                          className="h-9 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-[#0d7335] font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                          className="h-9 rounded-xl border-[#25d366]/40 hover:bg-[#25d366]/10 text-positive font-semibold text-xs flex items-center gap-1.5 shadow-sm"
                           title="WhatsApp এ বকেয়া পরিশোধের তাগাদা মেসেজ পাঠান"
                         >
-                          <MessageCircle className="h-3.5 w-3.5 text-[#25d366]" />
+                          <MessageCircle className="h-3.5 w-3.5 text-positive" />
                           তাগাদা পাঠান
                         </Button>
                       )}
@@ -660,7 +660,7 @@ export default function Invoices() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadPdf(invoice.id)}
-                        className="h-9 rounded-xl border-[#c6dfce] hover:bg-[#eef8f2] text-[#166534] font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                        className="h-9 rounded-xl border-border hover:bg-background text-positive font-semibold text-xs flex items-center gap-1.5 shadow-sm"
                       >
                         <Download className="h-3.5 w-3.5" />
                         PDF চালান
@@ -677,7 +677,7 @@ export default function Invoices() {
                               paidAmount: grandTotal,
                             })
                           }
-                          className="h-9 rounded-xl bg-[#166534] hover:bg-[#14532d] text-white text-xs font-semibold"
+                          className="h-9 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold"
                         >
                           পরিশোধিত করুন
                         </Button>

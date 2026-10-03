@@ -61,11 +61,11 @@ export function BudgetsPanel({
       {budgetAlerts.length > 0 && (
         <Alert
           aria-label="বাজেট সীমা অতিক্রমের সতর্কতা"
-          className="mt-4 rounded-2xl border border-[#f2c768] bg-[#fff6dc] p-3 text-[#7a4b00]"
+          className="mt-4 rounded-2xl border border-[#f2c768] bg-[#fff6dc] p-3 text-destructive"
         >
           <BellRing aria-hidden="true" />
           <AlertTitle>বাজেট সীমা অতিক্রম হয়েছে</AlertTitle>
-          <AlertDescription className="text-[#7a4b00]">
+          <AlertDescription className="text-destructive">
             <ul className="mt-1 space-y-1 text-sm leading-5">
               {budgetAlerts.map(alert => (
                 <li key={alert.categoryId}>
@@ -81,11 +81,11 @@ export function BudgetsPanel({
       {budgetEarlyWarnings.length > 0 && (
         <Alert
           aria-label="বাজেটের ৮০ ও ৯০ শতাংশ খরচের আগাম সতর্কতা"
-          className="mt-4 rounded-2xl border border-[#e9bb69] bg-[#fff8e7] p-3 text-[#80530d]"
+          className="mt-4 rounded-2xl border border-[#e9bb69] bg-background p-3 text-destructive"
         >
           <CircleAlert aria-hidden="true" />
           <AlertTitle>বাজেটের কাছাকাছি পৌঁছেছে</AlertTitle>
-          <AlertDescription className="text-[#80530d]">
+          <AlertDescription className="text-destructive">
             <ul className="mt-1 space-y-1 text-sm leading-5">
               {budgetEarlyWarnings.map(warning => (
                 <li key={warning.categoryId}>
@@ -116,20 +116,20 @@ export function BudgetsPanel({
             return (
               <div key={budget.id}>
                 <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                  <span className="font-medium text-[#294c42]">
+                  <span className="font-medium text-foreground">
                     {budget.categoryName}
                   </span>
-                  <span className="text-[#71867c]">
+                  <span className="text-muted-foreground">
                     {bdt(budget.spent)} / {bdt(budget.amount)}
                   </span>
                 </div>
                 {exceededAlert ? (
-                  <p className="mt-1 text-xs font-medium text-[#b46d00]">
+                  <p className="mt-1 text-xs font-medium text-destructive">
                     সতর্কতা: সীমার চেয়ে {bdt(exceededAlert.exceededAmount)}{" "}
                     বেশি খরচ হয়েছে
                   </p>
                 ) : earlyWarning ? (
-                  <p className="mt-1 text-xs font-medium text-[#a36400]">
+                  <p className="mt-1 text-xs font-medium text-destructive">
                     আগাম সতর্কতা: বাজেটের {earlyWarning.threshold}% খরচ হয়েছে
                   </p>
                 ) : null}

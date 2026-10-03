@@ -79,7 +79,7 @@ export function AccountDialog({
           </Field>
           <Button
             disabled={isPending}
-            className="rounded-xl bg-[#173f36] hover:bg-[#0f3028]"
+            className="rounded-xl bg-primary hover:bg-primary/90"
           >
             {editingAccountId ? "আপডেট করুন" : "অ্যাকাউন্ট যোগ করুন"}
           </Button>
