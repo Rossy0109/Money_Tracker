@@ -77,10 +77,10 @@ jobs:
             console.log('encrypted length:', envelope.encrypted?.length);
 
             // Decrypt to see contents
-            const encryptionKey = Buffer.from(process.env.BACKUP_ENCRYPTION_KEY_FILE_CONTENT || '', 'hex');
+            const encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
             const decipher = createDecipheriv(
               'aes-256-gcm',
-              Buffer.from(encryptionKeyHex, 'hex'),
+              encryptionKey,
               Buffer.from(envelope.iv, 'base64')
             );
             decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
