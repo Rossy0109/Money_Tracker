@@ -1014,11 +1014,18 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   // SECTION 10: System settings (must be blocked)
   // ───────────────────────────────────────────────────────────────────────
   describe("System settings", () => {
-    it("exposes only the health procedure", async () => {
+    it("exposes only the health and permission-gated health report procedures", async () => {
       const procedures = Object.keys(appRouter._def.procedures).filter(key =>
         key.startsWith("system.")
       );
-      expect(procedures).toEqual(["system.health"]);
+      expect(procedures).toEqual(["system.health", "system.healthReport"]);
+    });
+
+    it("blocks INPUT_OPERATOR from the health report (settings.view required)", async () => {
+      const caller = appRouter.createCaller(inputOperatorContext);
+      await expect(caller.system.healthReport()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     });
   });
 
@@ -1045,6 +1052,13 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       // adminProcedure rejects unauthenticated users with UNAUTHORIZED before
       // any role or elevation check (never FORBIDDEN, never treated as admin).
       await expect(caller.admin.users()).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+      });
+    });
+
+    it("cannot read the system health report without auth", async () => {
+      const caller = appRouter.createCaller(unauthenticatedContext);
+      await expect(caller.system.healthReport()).rejects.toMatchObject({
         code: "UNAUTHORIZED",
       });
     });

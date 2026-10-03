@@ -12,6 +12,7 @@ const Account = lazy(() => import("./pages/Account"));
 const FinanceInsights = lazy(() => import("./pages/FinanceInsights"));
 const FinanceAutomation = lazy(() => import("./pages/FinanceAutomation"));
 const FinanceBackup = lazy(() => import("./pages/FinanceBackup"));
+const SystemHealth = lazy(() => import("./pages/SystemHealth"));
 const FamilyHousehold = lazy(() => import("./pages/FamilyHousehold"));
 const Categories = lazy(() => import("./pages/Categories"));
 const Invoices = lazy(() => import("./pages/Invoices"));
@@ -53,6 +54,7 @@ function Router() {
         <Route path={"/insights"} component={FinanceInsights} />
         <Route path={"/automation"} component={FinanceAutomation} />
         <Route path={"/backup"} component={FinanceBackup} />
+        <Route path={"/health"} component={SystemHealth} />
         <Route path={"/family"} component={FamilyHousehold} />
         <Route path={"/categories"} component={Categories} />
         <Route path={"/categories/:type"} component={Categories} />
