@@ -13,6 +13,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useSidebar } from "@/components/ui/sidebar-context";
+import { useTheme } from "@/contexts/theme-context";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
@@ -35,12 +36,14 @@ import {
   Lock,
   LogOut,
   Menu,
+  Moon,
   Plus,
   Printer,
   Receipt,
   ReceiptText,
   RefreshCw,
   RotateCcw,
+  Sun,
   Tags,
   UserCheck,
   Users,
@@ -355,6 +358,7 @@ function DashboardSidebarContent({
   logout: () => void;
 }) {
   const { setOpenMobile, isMobile } = useSidebar();
+  const { theme, toggleTheme } = useTheme();
 
   const handleNavClick = (href: string) => {
     if (isMobile) {
@@ -371,7 +375,7 @@ function DashboardSidebarContent({
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 bg-[#113a30] text-white">
+    <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-white">
       <SidebarHeader className="h-20 justify-center px-3">
         <a
           href="/"
@@ -459,6 +463,17 @@ function DashboardSidebarContent({
               </p>
             </div>
             <button
+              onClick={toggleTheme}
+              aria-label="থিম পরিবর্তন"
+              className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+            <button
               onClick={logout}
               aria-label="সাইন আউট"
               className="rounded-lg p-1.5 text-[#c9ddd0] transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bcecc6] group-data-[collapsible=icon]:hidden"
@@ -483,7 +498,7 @@ export default function DashboardLayout({
 
   if (loading)
     return (
-      <div className="grid min-h-screen place-items-center bg-[#f7f8f4] text-[#173f36]">
+      <div className="grid min-h-screen place-items-center bg-background text-foreground">
         <Banknote className="h-8 w-8 animate-pulse" />
       </div>
     );
@@ -494,8 +509,8 @@ export default function DashboardLayout({
 
   if (user.status === "suspended") {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#f7f8f4] p-4 text-center">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-red-100 space-y-4">
+      <div className="grid min-h-screen place-items-center bg-background p-4 text-center">
+        <div className="max-w-md w-full bg-card rounded-3xl p-8 shadow-xl border border-red-100 space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
             <LogOut className="w-7 h-7" />
           </div>
@@ -508,7 +523,7 @@ export default function DashboardLayout({
           </p>
           <Button
             onClick={logout}
-            className="w-full rounded-xl bg-[#173f36] text-white hover:bg-[#102d26] h-11 font-semibold"
+            className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-semibold"
           >
             সাইন আউট করুন
           </Button>
@@ -535,11 +550,11 @@ export default function DashboardLayout({
         user={user}
         logout={logout}
       />
-      <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-[#f7f8f4] pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-0">
-        <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-[#dde7df] bg-[#f7f8f4]/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 md:hidden">
+      <SidebarInset className="flex min-h-svh min-w-0 flex-col bg-background pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-0">
+        <div className="sticky top-0 z-30 flex min-h-16 items-center border-b border-border bg-background/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4 md:hidden">
           <SidebarTrigger
             aria-label="নেভিগেশন মেনু খুলুন"
-            className="h-11 w-11 rounded-xl text-[#173f36]"
+            className="h-11 w-11 rounded-xl text-foreground"
           />
           <img
             src={logoUrl || "/logo.png"}
@@ -550,10 +565,10 @@ export default function DashboardLayout({
             }}
           />
           <div className="ml-2 min-w-0">
-            <span className="block truncate text-sm font-bold text-[#173f36]">
+            <span className="block truncate text-sm font-bold text-foreground">
               Ahmed's Financial
             </span>
-            <span className="block text-[11px] text-[#668076]">
+            <span className="block text-[11px] text-muted-foreground">
               দ্রুত ও নিরাপদ হিসাব
             </span>
           </div>
@@ -589,7 +604,7 @@ export default function DashboardLayout({
         <div className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9">
           {children}
         </div>
-        <footer className="border-t border-[#dde7df] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-[#667f75] sm:px-6">
+        <footer className="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground sm:px-6">
           © {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।
         </footer>
         <BottomTabBar tabs={visibleBottomTabs} />
