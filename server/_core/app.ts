@@ -19,6 +19,7 @@ import {
 } from "../scheduledFinance";
 import { runScheduledBackup } from "../scheduledBackup";
 import { runScheduledBackupAudit } from "../scheduledBackupAudit";
+import { runScheduledRestoreDrill } from "../restoreDrill";
 import { runHealthChecks } from "../healthChecks";
 import { ENV } from "./env";
 import logger from "./logger";
@@ -284,6 +285,8 @@ export function createApiApp() {
   app.all("/api/scheduled/finance-backup", runScheduledBackup);
   // Read-only proof for the daily workflow: the audit row behind the run.
   app.all("/api/scheduled/backup-audit", runScheduledBackupAudit);
+  // Weekly rehearsal: download the stored object, restore it, roll back.
+  app.all("/api/scheduled/restore-drill", runScheduledRestoreDrill);
   app.all("/api/scheduled/daily-sweep", runDailySweep);
   app.use(
     "/api/trpc",

@@ -1,0 +1,71 @@
+name: Weekly Restore Drill
+
+on:
+  schedule:
+    # Monday 05:00 UTC — after the weekend's daily backups, before the week
+    # starts, so a red drill is seen while there is still time to fix it.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: weekly-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore-drill:
+    name: Download, Restore, Roll Back
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The drill runs on the server: it downloads the stored object from the
+      # bucket, decrypts it with the live keyring, compares the restored rows
+      # with the counts recorded at backup time, and rolls the restore back.
+      # Actions only carries the cron secret — no production database
+      # credential ever leaves Vercel for this (same trust boundary as the
+      # backup trigger, and a stale DB password can never rot this check).
+      - name: Run the restore drill
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
+          # Preferred secret: CRON_SECRET (matches server hasValidCronSecret).
+          # BACKUP_CRON_SECRET is accepted as a legacy alias by the server.
+          # ADMIN_ACCESS_PASSWORD must never authorize the drill.
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.BACKUP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_SECRET" ]; then
+            echo "Failing loudly: CRON_SECRET (or BACKUP_CRON_SECRET) secret not set on GitHub."
+            echo "A silently-skipped drill is worse than a red job — set the secret to re-enable."
+            exit 1
+          fi
+
+          TARGET_URL="${APP_URL%/}/api/scheduled/restore-drill"
+          echo "Running the restore drill at: $TARGET_URL (GET — same method as Vercel Cron)"
+
+          HTTP_CODE=$(curl -s -o drill.json -w "%{http_code}" --max-time 600 -X GET "$TARGET_URL" \
+            -H "Authorization: Bearer $BACKUP_SECRET")
+
+          cat drill.json
+          echo ""
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Restore drill failed with status code $HTTP_CODE"
+            exit 1
+          fi
+
+      # HTTP 200 alone never proves recovery: the endpoint answers 200 with
+      # verified:false for every step it could not prove (no object, wrong key,
+      # checksum drift, count mismatch). Assert the verdict so a hollow 200
+      # cannot pass as "disaster recovery works".
+      - name: Assert the drill verdict
+        run: |
+          if ! jq -e '.verified == true' drill.json > /dev/null; then
+            echo "Restore drill did not prove recovery:"
+            jq '{verified, reason, projectId, projectName}' drill.json
+            exit 1
+          fi
+          echo "OK: $(jq -r '.projectName' drill.json) restored from $(jq -r '.fileName' drill.json)"
+          echo "    $(jq -r '.checkedTables' drill.json) tables matched the recorded backup, then the transaction was rolled back."
