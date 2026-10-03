@@ -23,15 +23,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download and inspect orphan backup
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_STORAGE_BUCKET: amar-hisab-backups
-          BACKUP_ENCRYPTION_KEY_FILE: ${{ secrets.BACKUP_ENCRYPTION_KEY_FILE }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      - name: Write investigation script
         run: |
-          node -e "
+          cat > investigate.js << 'ENDOFSCRIPT'
           const { createClient } = require('@supabase/supabase-js');
           const fs = require('fs');
           const { createDecipheriv } = require('crypto');
@@ -80,10 +74,10 @@ jobs:
             console.log('tag:', envelope.tag ? 'present' : 'missing');
             console.log('encrypted length:', envelope.encrypted?.length);
 
-            const encryptionKey = Buffer.from(process.env.BACKUP_ENCRYPTION_KEY_FILE, 'hex');
+            const encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
             const decipher = require('crypto').createDecipheriv(
               'aes-256-gcm',
-              Buffer.from(process.env.BACKUP_ENCRYPTION_KEY_FILE, 'hex'),
+              Buffer.from(encryptionKeyHex, 'hex'),
               Buffer.from(envelope.iv, 'base64')
             );
             decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
@@ -120,4 +114,13 @@ jobs:
           }
 
           investigate().catch(console.error);
-          "
+          ENDOFSCRIPT
+
+      - name: Download and inspect orphan backup
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_STORAGE_BUCKET: amar-hisab-backups
+          BACKUP_ENCRYPTION_KEY_FILE: ${{ secrets.BACKUP_ENCRYPTION_KEY_FILE }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node investigate.js
