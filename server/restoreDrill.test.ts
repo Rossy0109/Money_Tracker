@@ -318,6 +318,8 @@ describe("runRestoreDrill", () => {
     const verdict = await runRestoreDrill(target);
     expect(verdict.verified).toBe(false);
     expect(verdict.reason).toContain("does not match the recorded backup");
+    expect(verdict.reason).toContain("enc.json");
+    expect(verdict.reason).toContain("older.enc.json");
   });
 
   it("fails when the restored rows differ from the recorded counts", async () => {
