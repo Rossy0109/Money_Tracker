@@ -7,6 +7,12 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'amar-hisab-backups';
 const encryptionKeyHex = fs.readFileSync(process.env.BACKUP_ENCRYPTION_KEY_FILE, 'utf8').trim();
 
+console.log('Key hex length:', encryptionKeyHex.length);
+console.log('Key hex:', encryptionKeyHex);
+
+const encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
+console.log('Key buffer length:', encryptionKey.length);
+
 async function investigate() {
   // List all project-1 objects
   const listUrl = `${url}/storage/v1/object/list/${bucket}`;
@@ -64,12 +70,13 @@ async function investigate() {
   console.log('tag:', envelope.tag ? 'present' : 'missing');
   console.log('encrypted length:', envelope.encrypted?.length);
 
-  // Decrypt to see contents - tag is stored as hex (32 chars = 16 bytes)
+  // Decrypt to see contents
   const encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
+  console.log('Key buffer length for decipher:', Buffer.from(encryptionKeyHex, 'hex').length);
   const decipher = require('crypto').createDecipheriv(
     'aes-256-gcm',
-    Buffer.from(envelope.iv, 'base64'),
-    Buffer.from(envelope.tag, 'hex')  // tag is stored as hex, not base64
+    Buffer.from(encryptionKeyHex, 'hex'),
+    Buffer.from(envelope.iv, 'base64')
   );
   decipher.setAuthTag(Buffer.from(envelope.tag, 'hex'));
   const encrypted = Buffer.from(envelope.encrypted, 'base64');
