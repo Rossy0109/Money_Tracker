@@ -208,10 +208,13 @@ describe("runRestoreDrill", () => {
   it("proves download → decrypt → manifest → rolled-back restore", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -240,7 +243,11 @@ describe("runRestoreDrill", () => {
   });
 
   it("fails when the bucket holds nothing for the project", async () => {
-    downloadMocks.downloadLatestBackupObject.mockResolvedValue(null);
+    downloadMocks.downloadLatestBackupObject.mockResolvedValue({
+      object: null,
+      miss:
+        'no stored backup object found for project 11 "My App" — bucket holds 2 objects, none start with "My-App-backup-"',
+    });
     const verdict = await runRestoreDrill(target);
     expect(verdict.verified).toBe(false);
     expect(verdict.reason).toContain("no stored backup object");
@@ -249,10 +256,13 @@ describe("runRestoreDrill", () => {
 
   it("fails when the object is not the cloud backup envelope", async () => {
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify({ formatVersion: "something-else" }),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify({ formatVersion: "something-else" }),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     const verdict = await runRestoreDrill(target);
     expect(verdict.verified).toBe(false);
@@ -263,10 +273,13 @@ describe("runRestoreDrill", () => {
     process.env.BACKUP_ENCRYPTION_KEY = "a-rotated-away-key";
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -285,10 +298,13 @@ describe("runRestoreDrill", () => {
   it("fails when the stored object is not the recorded backup", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -307,10 +323,13 @@ describe("runRestoreDrill", () => {
   it("fails when the restored rows differ from the recorded counts", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -330,10 +349,13 @@ describe("runRestoreDrill", () => {
   it("fails when the drill hook never rolled the restore back", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -353,10 +375,13 @@ describe("runRestoreDrill", () => {
   it("reports a real restore failure without claiming success", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -432,10 +457,13 @@ describe("runScheduledRestoreDrill response contract", () => {
   it("returns 200 with the verdict and writes a restore_drill audit row", async () => {
     const envelope = await sealCloudEnvelope(projectBackup());
     downloadMocks.downloadLatestBackupObject.mockResolvedValue({
-      provider: "supabase",
-      fileName: "enc.json",
-      payload: JSON.stringify(envelope),
-      downloadedAt: new Date().toISOString(),
+      object: {
+        provider: "supabase",
+        fileName: "enc.json",
+        payload: JSON.stringify(envelope),
+        downloadedAt: new Date().toISOString(),
+      },
+      miss: null,
     });
     backupDbMocks.lastCloudBackupManifest.mockResolvedValue({
       auditId: 42,
@@ -477,7 +505,10 @@ describe("runScheduledRestoreDrill response contract", () => {
   });
 
   it("answers 200 with verified:false and a failure audit row", async () => {
-    downloadMocks.downloadLatestBackupObject.mockResolvedValue(null);
+    downloadMocks.downloadLatestBackupObject.mockResolvedValue({
+      object: null,
+      miss: "no readable backup provider configured",
+    });
     dbMocks.databaseRequired.mockReturnValue({
       select: vi
         .fn()

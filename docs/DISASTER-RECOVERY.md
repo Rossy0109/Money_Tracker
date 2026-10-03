@@ -301,7 +301,12 @@ turns `verified: false` into a red job. The endpoint, on the server:
 
 1. picks the newest backed-up project (or `?projectId=`),
 2. **downloads the stored object from the bucket** (Supabase Storage or
-   S3-compatible — Google Drive and local snapshots are write-only from here),
+   S3-compatible — Google Drive and local snapshots are write-only from
+   here). The listing walks the bucket root and matches the project's
+   backup-name prefix, then identifies the object by the project id
+   stored inside its envelope. A miss is never silent: the reason
+   reports how many objects were listed, how many matched the prefix
+   and what the newest downloaded candidate actually was.
 3. decrypts it with the whole keyring (keyId-aware) and verifies
    `sha256(plaintext) === envelope.checksum`,
 4. matches the object against the `cloud_backup` audit row recorded at backup
