@@ -1349,4 +1349,121 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
     },
     120000
   );
+
+  it(
+    "accounting audit proves a healthy project and catches a corrupted voucher",
+    async () => {
+      const {
+        createProject,
+        createVoucherWithEntries,
+        getChartOfAccounts,
+        getDb,
+        databaseRequired,
+      } = await import("./db");
+      const {
+        evaluateInvariants,
+        latestAccountingAuditRows,
+        loadInvariantDataset,
+        runAccountingAudit,
+        runScheduledAccountingAudit,
+      } = await import("./accountingAudit");
+      const { eq } = await import("drizzle-orm");
+      const { financeVoucherCredits } = await import("../drizzle/schema");
+
+      const auditProject = await createProject(
+        userId,
+        `Audit-${Date.now().toString(36)}`
+      );
+      const chart = await getChartOfAccounts(userId, auditProject.id);
+      const debitCoa = chart.find(account => account.code === "1110");
+      const creditCoa = chart.find(account => account.code === "4100");
+      if (!debitCoa || !creditCoa)
+        throw new Error("Canonical chart accounts missing");
+
+      const { voucherId } = await createVoucherWithEntries(userId, {
+        projectId: auditProject.id,
+        date: new Date("2026-03-01T00:00:00.000Z"),
+        narration: "audit baseline",
+        debits: [{ accountId: debitCoa.id, amount: 250 }],
+        credits: [{ accountId: creditCoa.id, amount: 250 }],
+      });
+
+      const dataset = await loadInvariantDataset(
+        auditProject.id,
+        auditProject.name
+      );
+      expect(evaluateInvariants(dataset)).toEqual([]);
+
+      const previousCronSecret = process.env.CRON_SECRET;
+      process.env.CRON_SECRET = "hermetic-cron-secret";
+      const invokeAudit = async (targetProjectId: number) => {
+        const req = {
+          headers: { authorization: "Bearer hermetic-cron-secret" },
+          query: { projectId: String(targetProjectId) },
+        };
+        const res = {
+          statusCode: 0,
+          body: undefined as Record<string, unknown> | undefined,
+          status(code: number) {
+            this.statusCode = code;
+            return this;
+          },
+          json(payload: Record<string, unknown>) {
+            this.body = payload;
+            return this;
+          },
+        };
+        await runScheduledAccountingAudit(req as never, res as never);
+        return res;
+      };
+
+      try {
+        const clean = await invokeAudit(auditProject.id);
+        expect(clean.statusCode).toBe(200);
+        expect(clean.body).toMatchObject({
+          verified: true,
+          projects: 1,
+          violations: 0,
+        });
+        expect((await latestAccountingAuditRows(1))[0]?.entityType).toBe(
+          "accounting_invariants"
+        );
+
+        // Break the invariant exactly the way a damaged restored row would:
+        // the voucher's cached totals still say 250/250, the lines do not.
+        const db = databaseRequired(await getDb());
+        await db
+          .update(financeVoucherCredits)
+          .set({ amount: "10.00" })
+          .where(eq(financeVoucherCredits.voucherId, voucherId))
+          .execute();
+
+        const datasetAfter = await loadInvariantDataset(
+          auditProject.id,
+          auditProject.name
+        );
+        expect(evaluateInvariants(datasetAfter).map(v => v.kind)).toContain(
+          "voucher_unbalanced"
+        );
+
+        const broken = await runAccountingAudit({
+          projectId: auditProject.id,
+        });
+        expect(broken.verified).toBe(false);
+        expect(broken.violations).toBeGreaterThanOrEqual(2);
+        expect(broken.samples[0]?.projectId).toBe(auditProject.id);
+
+        const failed = await invokeAudit(auditProject.id);
+        expect(failed.statusCode).toBe(200);
+        expect(failed.body).toMatchObject({ verified: false });
+        const rows = await latestAccountingAuditRows(1);
+        expect(rows[0]?.entityType).toBe("accounting_invariants_failed");
+        expect(rows[0]?.summary).toContain("অসামঞ্জস্য");
+      } finally {
+        if (previousCronSecret === undefined) delete process.env.CRON_SECRET;
+        else process.env.CRON_SECRET = previousCronSecret;
+      }
+    },
+    60000
+  );
 });
