@@ -20,7 +20,7 @@ import {
 } from "./backupIntegrity";
 import { getBackupKeySecrets } from "./backupKeys";
 import { downloadLatestBackupObject } from "./backupDownload";
-import { lastCloudBackupManifest, type CloudBackupManifest } from "./backupDb";
+import { lastCloudBackupManifest } from "./backupDb";
 import { logAudit, systemActorUserId } from "./audit";
 import logger from "./_core/logger";
 import { verifyBackupAuthorization } from "./scheduledBackup";
@@ -115,7 +115,16 @@ function fail(reason: string): RestoreDrillVerdict {
 export async function runRestoreDrill(
   target: DrillTarget
 ): Promise<RestoreDrillVerdict> {
-  const lookup = await downloadLatestBackupObject(target);
+  // The newest stored *filename* is not necessarily the newest successful
+  // backup: the name's trailing hash sorts lexically, not chronologically.
+  // Ask for the exact object the latest successful audit row recorded first,
+  // and only fall back to name-order when that row names no file.
+  const manifest = await lastCloudBackupManifest(target.userId, target.projectId);
+  const lookup = await downloadLatestBackupObject({
+    projectName: target.projectName,
+    projectId: target.projectId,
+    preferFileName: manifest?.fileName ?? null,
+  });
   if (!lookup.object) {
     return fail(
       lookup.miss ??
@@ -163,10 +172,6 @@ export async function runRestoreDrill(
     return fail("decrypted content is not a project backup");
   }
 
-  const manifest: CloudBackupManifest | null = await lastCloudBackupManifest(
-    target.userId,
-    target.projectId
-  );
   if (!manifest) {
     return fail("no cloud_backup audit row recorded for this project");
   }

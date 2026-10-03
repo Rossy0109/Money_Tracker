@@ -240,6 +240,11 @@ describe("runRestoreDrill", () => {
       (dbMocks.restoreProjectBackup.mock.calls[0][1] as { projectName: string })
         .projectName
     ).not.toBe(target.projectName);
+    // Files sort lexically on a hash suffix, so the manifest's recorded file
+    // must be requested by name, not picked from name-order.
+    expect(downloadMocks.downloadLatestBackupObject).toHaveBeenCalledWith(
+      expect.objectContaining({ preferFileName: "enc.json" })
+    );
   });
 
   it("fails when the bucket holds nothing for the project", async () => {

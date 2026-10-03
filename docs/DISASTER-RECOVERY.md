@@ -304,9 +304,13 @@ turns `verified: false` into a red job. The endpoint, on the server:
    S3-compatible — Google Drive and local snapshots are write-only from
    here). The listing walks the bucket root and matches the project's
    backup-name prefix, then identifies the object by the project id
-   stored inside its envelope. A miss is never silent: the reason
-   reports how many objects were listed, how many matched the prefix
-   and what the newest downloaded candidate actually was.
+   stored inside its envelope. The candidate list is led by the exact
+   object the latest successful `cloud_backup` audit row recorded —
+   filename order alone would be lexical on a hash suffix, i.e. it can
+   rank an older or failed run above the good one. A miss is never
+   silent: the reason reports how many objects were listed, how many
+   matched the prefix and what the newest downloaded candidate actually
+   was, and a checksum mismatch names both filenames.
 3. decrypts it with the whole keyring (keyId-aware) and verifies
    `sha256(plaintext) === envelope.checksum`,
 4. matches the object against the `cloud_backup` audit row recorded at backup

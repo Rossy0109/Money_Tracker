@@ -137,6 +137,41 @@ describe("downloadLatestBackupObject", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("tries the audit-recorded object before the name-newest one", async () => {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_ANON_KEY = "anon-key";
+
+    const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+      const href = String(url);
+      if (href.includes("/storage/v1/object/list/")) {
+        return new Response(
+          JSON.stringify([
+            // Same project, but the trailing hashes sort "dd1c…" above "7cb2…"
+            // — lexical order only. The recorded one is what we want first.
+            { name: "My-App-backup-2026-10-02-dd1c91a3.enc.json" },
+            { name: "My-App-backup-2026-10-02-7cb222f2.enc.json" },
+          ]),
+          { status: 200 }
+        );
+      }
+      return new Response(envelope(), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadLatestBackupObject({
+      projectName: "My App",
+      projectId: 7,
+      preferFileName: "My-App-backup-2026-10-02-7cb222f2.enc.json",
+    });
+    expect(result.object?.fileName).toBe(
+      "My-App-backup-2026-10-02-7cb222f2.enc.json"
+    );
+    const downloadCalls = fetchMock.mock.calls.filter(
+      ([url]) => !String(url).includes("/object/list/")
+    );
+    expect(String(downloadCalls[0][0])).toContain("7cb222f2");
+  });
+
   it("says when the bucket holds nothing for the project's prefix", async () => {
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_ANON_KEY = "anon-key";

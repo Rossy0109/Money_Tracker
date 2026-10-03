@@ -29,6 +29,13 @@ export interface DownloadedBackupObject {
 export interface BackupObjectTarget {
   projectName: string;
   projectId: number;
+  /**
+   * The exact object the latest successful audit row recorded. Tried before
+   * the name-sorted candidates because filename order is lexical on a hash
+   * suffix, not chronological — a fresher-looking name may be an older or
+   * failed run.
+   */
+  preferFileName?: string | null;
 }
 
 export interface BackupLookupResult {
@@ -163,7 +170,14 @@ async function downloadFromSupabase(
     };
   }
 
-  const tried = candidates.slice(0, MAX_CANDIDATES);
+  const ordered =
+    target.preferFileName && candidates.includes(target.preferFileName)
+      ? [
+          target.preferFileName,
+          ...candidates.filter(name => name !== target.preferFileName),
+        ]
+      : candidates;
+  const tried = ordered.slice(0, MAX_CANDIDATES);
   let lastMismatch = "";
   for (const fileName of tried) {
     const response = await fetch(
@@ -244,7 +258,14 @@ async function downloadFromS3(
     };
   }
 
-  const tried = keys.slice(0, MAX_CANDIDATES);
+  const preferredKey = target.preferFileName
+    ? `backups/${target.preferFileName}`
+    : null;
+  const orderedKeys =
+    preferredKey && keys.includes(preferredKey)
+      ? [preferredKey, ...keys.filter(key => key !== preferredKey)]
+      : keys;
+  const tried = orderedKeys.slice(0, MAX_CANDIDATES);
   let lastMismatch = "";
   for (const key of tried) {
     const got = await s3.send(
