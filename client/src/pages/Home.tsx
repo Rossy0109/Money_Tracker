@@ -292,6 +292,7 @@ export default function Home() {
   const refresh = async () => {
     await Promise.all([
       utils.finance.overview.invalidate(),
+      utils.finance.monthlyReport.invalidate(),
       utils.projects.list.invalidate(),
     ]);
   };

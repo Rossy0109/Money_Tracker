@@ -324,7 +324,7 @@ export function createApiApp() {
  * Debug endpoint to test database connectivity and surface raw MySQL errors.
  * Only available in non-production or when explicitly enabled.
  */
-export function registerDebugRoutes(app: Express) {
+export function registerDebugRoutes(_app: Express) {
   // Disabled - was for debugging production db connection
   // app.get("/api/debug/db", async (_req: Request, res: Response) => { ... });
 }

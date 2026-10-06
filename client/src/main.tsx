@@ -62,7 +62,9 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     console.error("[API Query Error]", error);
-    notifyNetworkError(error, dispatchToast);
+    notifyNetworkError(error, dispatchToast, undefined, {
+      toastClientErrors: true,
+    });
   }
 });
 
