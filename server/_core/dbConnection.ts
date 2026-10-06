@@ -102,9 +102,13 @@ export async function closeDatabaseConnection() {
   if (_pool) {
     try {
       await _pool.end();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Pool may already be closed by test teardown; ignore "closed state" errors
-      if (!/closed state/i.test(err?.message ?? "")) throw err;
+      if (err instanceof Error && /closed state/i.test(err.message)) {
+        // ignore
+      } else {
+        throw err;
+      }
     }
     _pool = null;
   }

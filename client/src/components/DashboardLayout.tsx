@@ -51,7 +51,7 @@ import {
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   isAdminUser,
   isInputOnlyUser,
@@ -132,13 +132,13 @@ const menuItems: MenuItem[] = [
     icon: FileSpreadsheet,
     label: "আর্থিক বিবরণী",
     href: "/statements",
-    permission: "reports.view",
+    permission: "accounting.read",
   },
   {
     icon: Printer,
     label: "রিপোর্ট ও প্রিন্ট",
     href: "/reports",
-    permission: "reports.view",
+    permission: "accounting.read",
   },
   {
     icon: Calculator,
@@ -198,7 +198,6 @@ const menuItems: MenuItem[] = [
     icon: KeyRound,
     label: "আমার অ্যাকাউন্ট",
     href: "/account",
-    permission: "user.read",
   },
 ];
 
@@ -225,7 +224,6 @@ const inputOnlyMenuItems: MenuItem[] = [
     icon: KeyRound,
     label: "আমার অ্যাকাউন্ট",
     href: "/account",
-    permission: "user.read",
   },
 ];
 
@@ -258,7 +256,7 @@ const bottomTabs: MenuItem[] = [
     icon: Printer,
     label: "রিপোর্ট",
     href: "/reports",
-    permission: "reports.view",
+    permission: "accounting.read",
   },
 ];
 
@@ -285,7 +283,6 @@ const inputOnlyBottomTabs: MenuItem[] = [
     icon: KeyRound,
     label: "প্রোফাইল",
     href: "/account",
-    permission: "user.read",
   },
 ];
 
@@ -311,7 +308,7 @@ function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
           const active = isActive(tab.href);
           return (
             <li key={tab.href} className="min-w-0 flex-1">
-              <a
+              <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 pt-1.5 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border ${
@@ -324,7 +321,7 @@ function BottomTabBar({ tabs }: { tabs: MenuItem[] }) {
                 <span className="w-full truncate text-[10px] leading-tight">
                   {tab.label}
                 </span>
-              </a>
+              </Link>
             </li>
           );
         })}
@@ -377,7 +374,7 @@ function DashboardSidebarContent({
   return (
     <Sidebar collapsible="icon" className="border-r-0 bg-sidebar text-white">
       <SidebarHeader className="h-20 justify-center px-3">
-        <a
+        <Link
           href="/"
           onClick={() => handleNavClick("/")}
           className="flex items-center gap-3 rounded-xl px-2 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
@@ -398,7 +395,7 @@ function DashboardSidebarContent({
               ব্যক্তিগত হিসাব
             </span>
           </span>
-        </a>
+        </Link>
       </SidebarHeader>
       <SidebarContent className="px-2 py-3">
         <SidebarMenu>
@@ -408,13 +405,13 @@ function DashboardSidebarContent({
               tooltip="নতুন লেনদেন যোগ করুন"
               className="mb-2 h-11 rounded-xl bg-muted font-semibold text-foreground hover:bg-background hover:text-foreground"
             >
-              <a
+              <Link
                 href="/#transactions"
                 onClick={() => handleNavClick("/#transactions")}
               >
                 <Plus className="h-4.5 w-4.5" />
                 <span>লেনদেন যোগ করুন</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {visibleMenuItems.map(item => (
@@ -424,10 +421,10 @@ function DashboardSidebarContent({
                 tooltip={item.label}
                 className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-muted data-[active=true]:text-foreground"
               >
-                <a href={item.href} onClick={() => handleNavClick(item.href)}>
+                <Link href={item.href} onClick={() => handleNavClick(item.href)}>
                   <item.icon className="h-4.5 w-4.5" />
                   <span>{item.label}</span>
-                </a>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

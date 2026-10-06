@@ -139,5 +139,44 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
         "warning"
       );
     });
+
+    it("toasts 4xx only for query failures, not for mutations", () => {
+      const mockToast = vi.fn();
+
+      // Mutation path (no options): silent, because onError shows its own message.
+      notifyNetworkError(
+        { data: { httpStatus: 403 }, message: "denied" },
+        mockToast,
+        true
+      );
+      expect(mockToast).not.toHaveBeenCalled();
+
+      resetNotificationThrottleForTest();
+      // Query path (toastClientErrors): 403 is surfaced instead of an empty page.
+      notifyNetworkError(
+        { data: { httpStatus: 403 }, message: "অনুমতি নেই" },
+        mockToast,
+        true,
+        { toastClientErrors: true }
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.stringContaining("অনুমতি নেই"),
+        "error"
+      );
+    });
+
+    it("surfaces 401 query failures so expired sessions are not silent", () => {
+      const mockToast = vi.fn();
+      notifyNetworkError(
+        { data: { httpStatus: 401 }, message: "Please login (10001)" },
+        mockToast,
+        true,
+        { toastClientErrors: true }
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.stringContaining("10001"),
+        "error"
+      );
+    });
   });
 });

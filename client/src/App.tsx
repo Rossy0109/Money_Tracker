@@ -1,8 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
@@ -25,6 +25,33 @@ const Payroll = lazy(() => import("./pages/Payroll"));
 const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
 const PeriodLock = lazy(() => import("./pages/PeriodLock"));
 const VoucherReversal = lazy(() => import("./pages/VoucherReversal"));
+
+/**
+ * Scroll to the URL `#hash` target after SPA navigation. Lazy pages mount
+ * after the URL changes, so retry briefly until the element exists. This also
+ * covers deep links on first load (the browser's native anchor jump fires
+ * before React has rendered the target element).
+ */
+function HashScroll() {
+  const [path] = useLocation();
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tryScroll = () => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+      if (attempts++ < 30) timer = setTimeout(tryScroll, 100);
+    };
+    timer = setTimeout(tryScroll, 150);
+    return () => clearTimeout(timer);
+  }, [path]);
+  return null;
+}
 
 function Router() {
   return (
@@ -80,6 +107,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <HashScroll />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

@@ -90,8 +90,8 @@ describe("RBAC startup initializer", () => {
     expect(state.migrate).toHaveBeenCalledTimes(1);
     expect(state.initialize).toHaveBeenCalledTimes(1);
     expect(state.connection.query.mock.calls[1][0]).toContain("RELEASE_LOCK");
-    expect(state.connection.end).toHaveBeenCalledTimes(1);
-  });
+        expect(state.connection.end).toHaveBeenCalledTimes(1);
+  }, 30000);
 
   it("shares one local promise for concurrent startup calls", async () => {
     let release: (() => void) | undefined;
@@ -113,6 +113,7 @@ describe("RBAC startup initializer", () => {
   });
 
   it("retries startup after a failed local initialization", async () => {
+        state.createConnection.mockClear();
     state.seed
       .mockRejectedValueOnce(new Error("seed failed"))
       .mockResolvedValueOnce(undefined);

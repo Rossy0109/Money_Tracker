@@ -220,6 +220,19 @@ describe("Invariant 9: Failed multi-step posting rolls back completely", () => {
       "postVoucherInternals(tx,userId,projectId,voucherId,debitInput,creditInput)"
     );
   });
+  it("postVoucher enforces the period lock inside the posting transaction", () => {
+    const s = readFile("./db.ts");
+    const start = s.indexOf("export async function postVoucher(");
+    const end = s.indexOf("\nexport async function ", start + 1);
+    const fn = s.slice(start, end === -1 ? undefined : end);
+    const flat = fn.replace(/\s+/g, "");
+    const txIdx = flat.indexOf("db.transaction");
+    const lockIdx = flat.indexOf("awaitassertPeriodNotLockedTx(tx,projectId,");
+    const statusIdx = flat.indexOf('set({status:"posted"');
+    expect(txIdx).toBeGreaterThan(-1);
+    expect(lockIdx).toBeGreaterThan(txIdx);
+    expect(lockIdx).toBeLessThan(statusIdx === -1 ? Infinity : statusIdx);
+  });
 });
 
 describe("Invariant 10: Audit record is generated for state-changing operations", () => {

@@ -11,7 +11,6 @@ import logger from "./_core/logger";
 import { ENV } from "./_core/env";
 import { isAdminRoleUser } from "./_core/rbac";
 import { keyIdForSecret } from "./backupIntegrity";
-import { extractAuditContext } from "./_core/auditContext";
 import {
   sha256Hex,
   randomBytesHex,

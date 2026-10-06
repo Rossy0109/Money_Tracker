@@ -13,7 +13,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { sha256Hex, randomBytesBase64Url } from "../shared/platform/crypto";
+import { sha256Hex } from "../shared/platform/crypto";
 import {
   decimalFromCents,
   fromCents,
@@ -1570,6 +1570,13 @@ export async function postVoucher(
     assertVoucherTransition(voucher.status, "posted");
     if (voucher.userId === userId)
       throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
+    await assertPeriodNotLockedTx(
+      tx,
+      projectId,
+      voucher.date instanceof Date
+        ? voucher.date
+        : new Date(voucher.date as string | number)
+    );
     const debits = await tx
       .select()
       .from(financeVoucherDebits)

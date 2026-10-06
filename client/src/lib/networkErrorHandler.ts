@@ -229,7 +229,8 @@ export function resetNotificationThrottleForTest() {
 export function notifyNetworkError(
   error: unknown,
   toastFn?: (msg: string, type: "error" | "warning" | "info") => void,
-  isOnline?: boolean
+  isOnline?: boolean,
+  options?: { toastClientErrors?: boolean }
 ) {
   const classified = classifyNetworkError(error, isOnline);
   const now = Date.now();
@@ -257,6 +258,14 @@ export function notifyNetworkError(
     case "CORS_OR_SECURITY":
     case "MALFORMED_RESPONSE":
       toastFn(classified.userFacingMessage, "error");
+      break;
+    case "CLIENT_4XX":
+      // Query failures (401/403/404) would otherwise render as silent empty
+      // pages — surface them. Mutation errors are excluded by default because
+      // their `onError` handlers already show a specific message.
+      if (options?.toastClientErrors) {
+        toastFn(classified.userFacingMessage, "error");
+      }
       break;
     default:
       break;
