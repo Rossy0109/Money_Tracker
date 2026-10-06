@@ -465,7 +465,7 @@ export function AuthCard({
                     <span className="flex items-center justify-center gap-2">
                       {roleMode === "admin"
                         ? "অ্যাডমিন হিসেবে প্রবেশ করুন"
-                        : "লগইন করুন"}{" "}
+                        : "সাইন ইন করুন"}{" "}
                       <ArrowRight className="h-4 w-4" />
                     </span>
                   ) : (
