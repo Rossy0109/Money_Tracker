@@ -89,5 +89,27 @@ All post-release PRs verified per DEPENDENCY-POLICY (changelog/compat/tests/buil
 
 **Note (breaking change):** #235 makes `idempotencyKey` a required input on 8 mutations. No external callers exist in-repo; ops to confirm no third-party tRPC consumers before rollout.
 
+### Secondary reviewer pass (Phase 6, 2026-10-07)
+
+Independent defect hunt on integrated `main` (post-#239). Method: full-tree scans
+(secret patterns, TODO/FIXME/HACK/XXX markers, raw SPA anchors), config audit
+(`vercel.json`, `wrangler.toml`, scheduled-job coverage), history scan.
+
+| Check | Result |
+|---|---|
+| Secret leakage in history since 2026-09 | ✅ all matches are test fixtures (`test-jwt-secret-…`, `unit-test-cron-secret`) |
+| Dead code / committed artifacts | ✅ `pages-redirect/` is intentional — deployed to GitHub Pages by `deploy-pages-redirect.yml` (redirects legacy Pages URL to Vercel) |
+| TODO/FIXME/HACK markers | ✅ none; `XXX` matches are a journal-number pattern (`JE-XXXXXXXX`) and ISO currency-code test case |
+| `vercel.json` | ✅ API routing → `api/[...path]`, SPA fallback rewrite, `no-store` on `/api/*`, crons: finance-backup 18:00 + daily-sweep 01:00 UTC |
+| Scheduled-job coverage (7 endpoints) | ✅ finance-backup + daily-sweep (Vercel cron + worker cron); backup-audit, accounting-audit, restore-drill (scheduled GH Actions); finance-recurring + finance-bill-reminder (processed by daily-sweep sweeps; standalone endpoints for on-demand) |
+| `wrangler.toml` | ✅ no plaintext secrets; `AUTH_MODE`/`VITE_AUTH_MODE` consistent (`google`); `check-auth-mode.mjs` passes |
+
+**Finding (informational, not a defect):** recurring transactions and bill reminders
+are swept once daily (01:00 UTC). Standalone `finance-recurring` /
+`finance-bill-reminder` endpoints exist for more frequent on-demand runs if ops
+requires intraday cadence. No action required.
+
+**Verdict: no defects found.** Candidate remains 🟢 GREEN.
+
 ---
 *Never GREEN with P0/P1 open — final scan confirms none remain.*
