@@ -102,6 +102,9 @@
 | CI (verify / test / e2e / browser-e2e / worker / deploy preview) | ✅ all green on #235, #236, #237 |
 | Dependabot group PR #233 (26 updates) | ❌→✅ **closed per DEPENDENCY-POLICY** — included `typescript ^5.6 → ^7.0.2` MAJOR (AGENTS.md: majors need explicit approval), upstream-breaking `googleapis ^183`, and newer-only bumps with `pnpm audit` already clean. hono CVE GHSA-5r4p-p66f-jhc7 reviewed: **not applicable** (repo's `serveStatic` is a local Express vite middleware; no `hono/serve-static` or hono adapter imports). Full triage in PR comment |
 | Stray artifacts (`fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `*.orig`, `*.bak`) | ✅ all deleted; `git status` clean; AGENTS.md hygiene note updated |
+| Dependency policy enforced in CI | ❌→✅ **F-04 found**: `pnpm audit` ran **nowhere** in CI and the dep-bump workflow enforced no policy — the audit + DEPENDENCY-POLICY judgment behind #236/#233 was manual only. Fixed: `dependency-bump-check.yml` now runs `pnpm audit --audit-level=high` + `scripts/check-dependency-policy.mjs` (fails any semver-major bump without an allowlist entry = the explicit-approval record), with 13 unit tests |
+| Workflow least-privilege | ❌→✅ **F-05 found**: `ci.yml` was the only live workflow with no `permissions:` block (default token scopes instead of least privilege). Fixed: `permissions: contents: read`; `test-dispatch.yml` (dead, `echo "test"`) deleted |
+| GitHub Action pinning | ⚠️→✅ **F-06**: `ci.yml` (17 refs) + `deploy-cloudflare.yml` (13 refs) used bare tags while 4 other workflows pinned SHAs. Fixed: all pinned to the vetted in-repo SHAs with `# action@version` comments |
 
 ### Findings resolved by this re-audit
 

@@ -35,6 +35,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+      - name: Check dependency policy (no majors without approval)
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref || 'main' }}"
+          node scripts/check-dependency-policy.mjs \
+            --base "origin/${{ github.base_ref || 'main' }}" \
+            --head HEAD
       - run: pnpm check
       - run: pnpm build
       - run: pnpm test
