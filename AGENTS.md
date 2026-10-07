@@ -45,7 +45,7 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 - All finance queries are scoped by the **server-derived** `userId`; never accept a user ID from the client. AuthZ lives on the server — do not move authorization authority into the frontend.
 - Expense/income categories are a **fixed contract** (see README table; Bengali names are intentional). Tests verify them — don't make categories dynamic.
 - Never weaken security or tests to make a suite green.
-- Dependency changes follow `DEPENDENCY-POLICY.md`: no upgrade "because it's newer"; `jose` is pinned exactly; React 19 / Express 5 / Tailwind 4 / Vite 8 / Vitest 5 majors are already absorbed and need explicit approval to move.
+- Dependency changes follow `DEPENDENCY-POLICY.md`: no upgrade "because it's newer"; `jose` is pinned exactly; React 19 / Express 5 / Tailwind 4 / Vite 8 / Vitest 5 majors are already absorbed and need explicit approval to move. CI enforces this: the dependency-bump workflow fails on `pnpm audit --audit-level=high` and on any semver-major bump (`scripts/check-dependency-policy.mjs`; local check via `pnpm check:dep-policy`).
 - `.env*` files are never committed. Secrets go through the hosting provider.
 
 ## Architecture map
