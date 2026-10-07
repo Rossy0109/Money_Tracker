@@ -57,5 +57,5 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 
 ## Repo hygiene notes
 
-- Stray untracked files pending triage (do not commit blindly): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak`.
+- Stray-file cleanup complete (2026-10-07): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak` all deleted; tree clean. Flag any new untracked strays in agent reports before committing.
 - `main` is protected: PRs with ≥1 approval and green CI (`verify` → `test`, then `worker` / `e2e` / `browser-e2e`) required; CD deploys to Vercel after CI passes.

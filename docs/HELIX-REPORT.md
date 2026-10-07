@@ -18,7 +18,7 @@
 | Per-process rate limiter (SENTINEL S-06) | SENTINEL P2 | **ACCEPTED as backlog** — `setRateLimitStore` KV hook exists; wire if multi-instance scaling is required. |
 | Restore path skips balance validation (ATLAS) | ATLAS P2 | **ACCEPTED** — compensated by daily `/api/scheduled/accounting-audit` + `accountingAudit.ts` health flags (documented design). |
 | PRISM silent-4xx / raw `<a>` nav / auth-mode UI mismatch | PRISM P2 | **ACCEPTED as documented backlog** — UX-only; no financial/security impact (backend authoritative). |
-| Dirty tree triage (`fix_*.py`, `*.orig`) | FLEDGE ALPHA | **ACCEPTED** — confirmed stray/debug artifacts with no runtime effect; recommend deletion at next cleanup PR. Source modifications in tree are verified-safe cleanups (unused imports, typed catch, debug-route disable, `supabase` devDep for worker path). |
+| Dirty tree triage (`fix_*.py`, `*.orig`, `*.bak`) | FLEDGE ALPHA | **RESOLVED ✅** — all stray artifacts deleted, tree clean (verified 2026-10-07); AGENTS.md hygiene note updated. Source modifications in tree are verified-safe cleanups (unused imports, typed catch, debug-route disable, `supabase` devDep for worker path). |
 | Rejected rewrites / destructive migrations / secret exposure | — | **None found.** Diff is surgical: 3 functional files + 5 cleanup files + 8 new `docs/AGENT-*.md` reports. |
 
 ## 2. Verification After Fixes (this session)
@@ -84,6 +84,10 @@
 | #235 | `idempotencyKey` **required** on all 8 idempotent mutations (resolves S-01 residual); client callers generate keys; unique e2e keys | CI all green |
 | #236 | 15 Dependabot advisories (4 high) → 0 via PATCH-class `pnpm.overrides` (sharp, source-map-js, undici, dompurify, postcss-selector-parser) | CI all green; `pnpm audit` clean |
 | #237 | Orphaned `purgeExpiredIdempotencyKeys()` wired into daily sweep (Guardian F-03); +3 tests | CI all green |
+| #238 | Report refresh — GUARDIAN re-audit + HELIX integration status | CI all green |
+| #239 | SPA nav: raw `<a>` → wouter `Link` in 4 pages + `spa-navigation.wiring.test.ts` | CI all green |
+| #240 | Phase 6 secondary reviewer pass — no defects found | CI all green |
+| #233 | Dependabot 26-update group bump **CLOSED per DEPENDENCY-POLICY** — `typescript ^7` MAJOR blocked (explicit approval required), `googleapis ^183` upstream breaking, newer-only bumps with audit clean; hono serveStatic CVE not applicable (unused feature) | Review comment: full triage; no CI run needed |
 
 All post-release PRs verified per DEPENDENCY-POLICY (changelog/compat/tests/build) and the Guardian re-audit (`docs/GUARDIAN-REPORT.md`, Re-audit 2026-10-07). **Status remains 🟢 GREEN** — no P0/P1 open.
 
