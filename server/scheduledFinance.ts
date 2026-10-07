@@ -10,6 +10,7 @@ import {
   processScheduledRecurring,
 } from "./db";
 import logger from "./_core/logger";
+import { purgeExpiredIdempotencyKeys } from "./_core/idempotency";
 
 async function hasValidCronSecret(candidate: string) {
   const expected =
@@ -99,6 +100,7 @@ export async function runScheduledBillReminder(req: Request, res: Response) {
 export async function executeDailySweep(): Promise<{
   recurring: { templates: number; created: number; failed: number };
   billReminders: { checked: number; reminded: number };
+  idempotencyPurge: { purged: number };
 }> {
   const [recurring, bills] = await Promise.all([
     processRecurringSweep().catch(error => ({
@@ -118,7 +120,14 @@ export async function executeDailySweep(): Promise<{
   } catch {
     // Non-blocking: lockout cleanup is best-effort
   }
-  return { recurring, billReminders: bills };
+  let purged = 0;
+  try {
+    purged = await purgeExpiredIdempotencyKeys();
+  } catch {
+    // Non-blocking: idempotency purge is best-effort; expired keys are
+    // also lazily deleted on replay collision.
+  }
+  return { recurring, billReminders: bills, idempotencyPurge: { purged } };
 }
 
 export async function runDailySweep(req: Request, res: Response) {
