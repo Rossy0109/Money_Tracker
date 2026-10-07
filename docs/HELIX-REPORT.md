@@ -73,9 +73,21 @@
 
 **REMAINING_BLOCKERS:** None (P0/P1 closed).
 
-**ROLLBACK PLAN:** Revert the 3 functional commits/edits (`server/db.ts` period-lock block, `accounting-invariants.test.ts` test, `client/src/pages/Home.tsx` invalidation line) — all additive, no schema change, no data migration; prior behavior restored without side effects. Docs-only files need no rollback.
+**ROLLBACK PLAN:** Revert the 3 functional commits/edits (`server/db.ts` period-lock block, `accounting-invariants.test.ts` test, `client/src/pages/Home.tsx` invalidation line) — all additive, no schema change, no data migration; prior behavior restored without side effects. Docs-only files need no rollback. Subsequent merged PRs (#235 idempotency hardening, #236 dependency overrides, #237 daily-sweep purge) are independently revertible via `git revert`.
 
-**RECOMMENDATION:** Merge to `main` via PR. Follow-ups (P2 backlog, non-blocking): require `idempotencyKey` on money-moving mutations; SPA `Link` navigation; global 4xx feedback; auth-mode-aware auth UI; wire KV rate-limit store if multi-instance; run `pnpm test:migrations` + `pnpm test:browser:e2e` in CI; cleanup PR for `fix_*.py`/`*.orig` strays.
+**RECOMMENDATION:** Merge to `main` via PR. Follow-ups (P2 backlog, non-blocking): SPA `Link` navigation; global 4xx feedback; auth-mode-aware auth UI; wire KV rate-limit store if multi-instance; run `pnpm test:migrations` + `pnpm test:browser:e2e` in CI.
+
+### Post-release integration (2026-10-07, merged to main)
+
+| PR | Change | Gate |
+|---|---|---|
+| #235 | `idempotencyKey` **required** on all 8 idempotent mutations (resolves S-01 residual); client callers generate keys; unique e2e keys | CI all green |
+| #236 | 15 Dependabot advisories (4 high) → 0 via PATCH-class `pnpm.overrides` (sharp, source-map-js, undici, dompurify, postcss-selector-parser) | CI all green; `pnpm audit` clean |
+| #237 | Orphaned `purgeExpiredIdempotencyKeys()` wired into daily sweep (Guardian F-03); +3 tests | CI all green |
+
+All post-release PRs verified per DEPENDENCY-POLICY (changelog/compat/tests/build) and the Guardian re-audit (`docs/GUARDIAN-REPORT.md`, Re-audit 2026-10-07). **Status remains 🟢 GREEN** — no P0/P1 open.
+
+**Note (breaking change):** #235 makes `idempotencyKey` a required input on 8 mutations. No external callers exist in-repo; ops to confirm no third-party tRPC consumers before rollout.
 
 ---
 *Never GREEN with P0/P1 open — final scan confirms none remain.*

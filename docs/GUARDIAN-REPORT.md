@@ -78,6 +78,44 @@
 
 **OVERALL: YELLOW** — No P0 issues. P1 risks documented (idempotency gap + period-lock gap) but no test failures. All check commands green. Ready for HELIX review if P1 items are explicitly accepted as known limitations or fixed.
 
+> **Update 2026-10-07 (re-audit):** both P1 items above were subsequently fixed
+> — see "Re-audit (2026-10-07)" section below, which supersedes this verdict.
+
+---
+
+## Re-audit (2026-10-07)
+
+**Agent:** GUARDIAN (adversarial re-audit on integrated `main` after PRs #234–#236)
+**Scope:** idempotency middleware semantics, caller coverage, scheduled-job hygiene, dependency posture.
+
+### Verification performed
+
+| Check | Result |
+|---|---|
+| Idempotency replay semantics (`server/_core/idempotency.ts`) | ✅ INSERT-first claim; payload-hash mismatch → CONFLICT; PENDING → in_progress; completed → cached replay; expiry → delete + re-claim |
+| Concurrent duplicate mutation (race) | ✅ unique `(userId, idempotencyKey, route)` constraint is the race lock; loser gets CONFLICT, no double-posting |
+| Caller coverage after `idempotencyKey` became required | ✅ typecheck proves all TS callers supply a key; worker/ and scripts/ contain no callers of the 8 idempotent mutations |
+| Expired idempotency row lifecycle | ❌→✅ **F-03 found**: `purgeExpiredIdempotencyKeys()` existed + was unit-tested but had **no caller** (unbounded table growth). Fixed: wired into `executeDailySweep()` best-effort + new `scheduledFinance.test.ts` (PR #237) |
+| E2E key hygiene | ❌→✅ **F-02 found**: `page-procedures.e2e.ts` reused static key `test-key-create-invoice` on two different `createInvoice` payloads — middleware correctly rejected it (CI caught; local suite self-skips without disposable DB). Fixed with unique per-call keys (PR #235) |
+| Dependency posture | ✅ 15 advisories (4 high) → 0 via PATCH-class `pnpm.overrides` (PR #236) |
+| Gates (check / lint / unit / build) | ✅ all pass; 1281 unit tests (3 new) |
+| CI (verify / test / e2e / browser-e2e / worker / deploy preview) | ✅ all green on #235, #236, #237 |
+
+### Findings resolved by this re-audit
+
+| ID | Severity | Finding | Resolution |
+|---|---|---|---|
+| F-01 | P1 (original) | `settleDue` idempotency optional; period-lock gap | Fixed in #234 (period lock inside posting tx) and #235 (`idempotencyKey` required on all 8 idempotent mutations) |
+| F-02 | P2 | Static e2e idempotency key reused across different payloads | Fixed in #235 — unique keys per call site |
+| F-03 | P3 | Orphaned `purgeExpiredIdempotencyKeys()` — unbounded table growth | Fixed in #237 — wired into daily sweep, best-effort/non-blocking |
+
+### Residual / environmental
+
+- **Migration rehearsal** still requires a disposable MySQL (`ISOLATED_E2E_DATABASE_URL`); not available in this Termux environment — CI e2e job exercises migrations against an isolated DB. Documented environmental limitation.
+- **Breaking API change note**: `idempotencyKey` is now required on 8 mutations. Any external client (mobile app, script) calling without a key gets a Zod validation error. No external callers exist inside this repo; confirm with ops before rollout if third-party consumers exist.
+
+**OVERALL (re-audit): GREEN** — no P0/P1 open. All release gates pass except migration rehearsal, which is an environmental limitation verified through the CI isolated-DB e2e job instead.
+
 ---
 
 ## 6. Recommendations for HELIX
