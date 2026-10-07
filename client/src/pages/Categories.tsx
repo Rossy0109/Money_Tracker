@@ -5,7 +5,7 @@ import { useActiveProject } from "@/lib/activeProject";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Plus, Tags, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { Link, useRoute } from "wouter";
 
 type CategoryType = "income" | "expense";
 
@@ -110,13 +110,13 @@ export default function Categories() {
       <DashboardLayout>
         <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
           <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-positive hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
-            </a>
+            </Link>
             <p className="section-kicker">ক্যাটাগরি</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
               আয় ও ব্যয়ের ক্যাটাগরি
@@ -152,20 +152,20 @@ export default function Categories() {
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
         <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
-            </a>
-            <a
+            </Link>
+            <Link
               href="/categories"
               className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Tags className="h-4 w-4" />
               সব ক্যাটাগরি
-            </a>
+            </Link>
           </div>
           <div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
@@ -288,9 +288,9 @@ export default function Categories() {
             variant="outline"
             className="rounded-xl border-border text-positive"
           >
-            <a href={`/categories/${otherType}`}>
-              {otherType === "income" ? "আয়ের ক্যাটাগরি" : "ব্যয়ের ক্যাটাগরি"}
-            </a>
+            <Link href={`/categories/${otherType}`}>
+              {otherType === "income" ? "আয়ের ক্যাটাগরি" : "ব্যয়ের ক্যাটাগরি"}
+            </Link>
           </Button>
         </div>
       </main>
@@ -302,7 +302,7 @@ function CategoryLink({ type, count }: { type: CategoryType; count: number }) {
   const details = copy[type];
   const Icon = details.icon;
   return (
-    <a
+    <Link
       href={`/categories/${type}`}
       className="finance-card group block p-6 transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(21,64,51,.10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -317,8 +317,8 @@ function CategoryLink({ type, count }: { type: CategoryType; count: number }) {
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">{count}টি ক্যাটাগরি দেখুন</p>
       <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-positive">
-        আলাদা পৃষ্ঠায় যান <ArrowLeft className="h-4 w-4 rotate-180" />
+        আলাদা পৃষ্ঠায় যান <ArrowLeft className="h-4 w-4 rotate-180" />
       </span>
-    </a>
+    </Link>
   );
 }

@@ -32,6 +32,7 @@ import { trpc } from "@/lib/trpc";
 import { useActiveProject } from "@/lib/activeProject";
 import { RotateCcw, Loader2, ArrowLeftRight } from "lucide-react";
 import { useState, useMemo } from "react";
+import { Link } from "wouter";
 import { format } from "date-fns";
 
 interface Voucher {
@@ -175,13 +176,13 @@ export default function VoucherReversal() {
       <main className="mx-auto w-full max-w-6xl space-y-7 pb-12">
         <header className="rounded-[1.75rem] bg-muted p-6 sm:p-8">
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-positive">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-2 rounded-lg hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <RotateCcw className="h-4 w-4" />
               ড্যাশবোর্ডে ফিরুন
-            </a>
+            </Link>
           </div>
           <p className="section-kicker">অ্যাকাউন্টিং</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
