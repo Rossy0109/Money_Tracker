@@ -83,7 +83,7 @@ const voucherEntry = z.object({
 const voucherInput = z
   .object({
     projectId,
-    idempotencyKey: z.string().min(8).max(255).optional(),
+    idempotencyKey: z.string().min(8).max(255),
     date: transactionDate,
     narration: z.string().max(500).optional(),
     debits: z.array(voucherEntry).min(1, "কমপক্ষে একটি ডেবিট এন্ট্রি দরকার"),
@@ -148,7 +148,7 @@ const reversalInput = z.object({
   originalVoucherId: z.number().int().positive(),
   reason: z.string().trim().min(1).max(500),
   date: transactionDate,
-  idempotencyKey: z.string().min(8).max(255).optional(),
+  idempotencyKey: z.string().min(8).max(255),
 });
 
 const bankReconciliationInput = z.object({
@@ -738,7 +738,7 @@ export const appRouter = router({
         z.object({
           projectId,
           voucherId: z.number().int().positive(),
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
         })
       )
       .mutation(({ ctx, input }) =>
@@ -751,7 +751,7 @@ export const appRouter = router({
           projectId,
           voucherId: z.number().int().positive(),
           action: z.enum(["approve", "return"]).default("approve"),
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
         })
       )
       .mutation(({ ctx, input }) =>
@@ -768,7 +768,7 @@ export const appRouter = router({
         z.object({
           projectId,
           voucherId: z.number().int().positive(),
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -1383,7 +1383,7 @@ export const appRouter = router({
           amount,
           note: z.string().trim().max(500).optional(),
           occurredAt: z.coerce.date(),
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
         })
       )
       .mutation(({ ctx, input }) => financeDb.settleDue(ctx.user!.id, input)),
@@ -1574,7 +1574,7 @@ export const appRouter = router({
       .input(
         z.object({
           projectId,
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
           invoiceNumber: z.string().trim().max(64).optional(),
           clientName: z.string().trim().min(1).max(160),
           clientPhone: z.string().trim().max(40).optional(),
@@ -1876,7 +1876,7 @@ export const appRouter = router({
           disbursedDate: z.coerce.date().optional(),
           accountId: z.number().int().positive().nullable().optional(),
           notes: z.string().max(500).optional(),
-          idempotencyKey: z.string().min(8).max(255).optional(),
+          idempotencyKey: z.string().min(8).max(255),
         })
       )
       .mutation(({ ctx, input }) =>

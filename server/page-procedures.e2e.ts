@@ -467,6 +467,7 @@ beforeAll(async () => {
   categoryId = overview.categories.find(c => c.type === "expense")!.id;
 
   const voucher = await caller.finance.createVoucher({
+    idempotencyKey: "test-key-create-voucher",
     projectId,
     date: MID_YEAR,
     narration: "সেল বিক্রয়",
@@ -475,6 +476,7 @@ beforeAll(async () => {
   });
   seeded.voucherId = voucher.voucherId;
   await caller.finance.submitVoucher({
+    idempotencyKey: "test-key-submit-voucher",
     projectId,
     voucherId: voucher.voucherId,
   });
@@ -510,6 +512,7 @@ beforeAll(async () => {
   });
 
   const invoice = await caller.finance.createInvoice({
+    idempotencyKey: "test-key-create-invoice",
     projectId,
     clientName: "Page Harness Client",
     issueDate: MID_YEAR,
@@ -575,6 +578,7 @@ beforeAll(async () => {
   ).id;
   spareInvoiceId = (
     await caller.finance.createInvoice({
+      idempotencyKey: "test-key-create-invoice-2",
       projectId,
       clientName: "Spare Client",
       issueDate: MID_YEAR,
@@ -695,6 +699,7 @@ describe("page read paths return real data", () => {
     // would surface as unhandled rejections.
     await expect(
       caller.finance.approveVoucher({
+        idempotencyKey: "test-key-approve-voucher",
         projectId,
         voucherId: seeded.voucherId,
         action: "approve",
@@ -705,12 +710,14 @@ describe("page read paths return real data", () => {
     // never reach `approved`, so both guards hold.
     await expect(
       caller.finance.postVoucher({
+        idempotencyKey: "test-key-post-voucher",
         projectId,
         voucherId: seeded.voucherId,
       })
     ).rejects.toThrow(/নিজে পোস্ট|থেকে posted এ পরিবর্তন করা যায় না/);
     await expect(
       caller.finance.reverseVoucher({
+        idempotencyKey: "test-key-reverse-voucher",
         projectId,
         originalVoucherId: seeded.voucherId,
         reason: "নিজের ভাউচার",

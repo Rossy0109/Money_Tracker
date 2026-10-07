@@ -44,6 +44,7 @@ const formatBdt = (val: number | string | null | undefined) =>
 
 export default function Payroll() {
   const { activeProjectId } = useActiveProject();
+  const newIdempotencyKey = () => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [searchTerm, setSearchTerm] = useState("");
@@ -281,6 +282,7 @@ export default function Payroll() {
     e.preventDefault();
     if (!activeProjectId || !advEmpId || !advAmount) return;
     createAdvanceMutation.mutate({
+      idempotencyKey: newIdempotencyKey(),
       projectId: activeProjectId,
       employeeId: Number(advEmpId),
       amount: Number(advAmount),

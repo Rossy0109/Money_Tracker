@@ -61,7 +61,15 @@ const { financeDb } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("./db", () => financeDb);
+const mockGetDb = vi.hoisted(() => vi.fn());
+const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
+
+vi.mock("./db", () => ({
+  ...financeDb,
+  getDb: mockGetDb,
+  databaseRequired: mockDatabaseRequired,
+  closeDatabaseConnection: vi.fn(),
+}));
 
 vi.mock("./accounting-core", () => ({
   assertPeriodNotLocked: vi.fn().mockResolvedValue(undefined),
@@ -133,7 +141,18 @@ const expenseInput = {
 };
 
 describe("finance router", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const mockDb = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+      values: vi.fn().mockResolvedValue(undefined),
+    };
+    mockGetDb.mockResolvedValue(mockDb);
+  });
 
   it("defines the user-approved Bengali default expense categories", () => {
     expect(DEFAULT_CATEGORIES).toEqual({
@@ -849,6 +868,7 @@ describe("finance router", () => {
       openedAt: new Date("2026-08-19T00:00:00.000Z"),
     };
     const settlementInput = {
+      idempotencyKey: "test-key-settle-due",
       projectId: 88,
       dueId: 31,
       accountId: 3,

@@ -70,6 +70,7 @@ async function addBengaliFont(doc: jsPDF) {
 
 export default function PartyLedger() {
   const { activeProjectId: projectId } = useActiveProject();
+  const newIdempotencyKey = () => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<
     "all" | "receivable" | "debt" | "due_only"
@@ -563,6 +564,7 @@ export default function PartyLedger() {
     }
 
     settleMutation.mutate({
+      idempotencyKey: newIdempotencyKey(),
       projectId,
       dueId: settlementDueId,
       amount: amt,

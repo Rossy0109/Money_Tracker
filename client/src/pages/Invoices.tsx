@@ -46,6 +46,7 @@ interface InvoiceItemState {
 
 export default function Invoices() {
   const { activeProjectId } = useActiveProject();
+  const newIdempotencyKey = () => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -187,6 +188,7 @@ export default function Invoices() {
     }
 
     createInvoiceMutation.mutate({
+      idempotencyKey: newIdempotencyKey(),
       projectId: activeProjectId,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || undefined,

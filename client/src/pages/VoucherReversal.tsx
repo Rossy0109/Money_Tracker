@@ -54,6 +54,7 @@ interface ReverseVoucherResult {
 
 export default function VoucherReversal() {
   const { isAuthenticated } = useAuth();
+  const newIdempotencyKey = () => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const {
     activeProjectId,
     projects,
@@ -159,6 +160,7 @@ export default function VoucherReversal() {
   const confirmReverse = () => {
     if (!selectedVoucher || !reversalReason.trim()) return;
     reverseVoucherMutation.mutate({
+      idempotencyKey: newIdempotencyKey(),
       projectId: activeProjectId!,
       originalVoucherId: selectedVoucher.id,
       reason: reversalReason.trim(),
