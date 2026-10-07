@@ -43,7 +43,7 @@
 | **P1** | ⚠️ **RISK** | Period-lock not enforced at `postVoucher` time — voucher approved in open month can be posted after month locks (ATLAS). No test asserts this guard. |
 | **P2** | ⚠️ **RISK** | Dev CORS allows any origin with credentials (`app.ts:156-158`) — safe for localhost only; prod requires `CORS_ALLOWED_ORIGINS`. |
 | **P2** | ⚠️ **RISK** | `MemoryRateLimitStore` is per-process — on multi-instance Vercel/Cloudflare deploys, rate limits are not shared unless KV store is plugged in (`rateLimiter.ts:39-48`). |
-| **P3** | ℹ️ **INFO** | Dirty working tree contains 4 safe cleanups (unused import removals + 1 dependency add) + 5 new `docs/AGENT-*` report files + 3 stray `fix_*.py`/`.orig` artifacts. No runtime impact. |
+| **P3** | ✅ RESOLVED | Dirty working tree + stray artifacts (`fix_rbac.py`, `fix_test.py`, `*.orig`, `*.bak`) — all triaged and deleted; `git status` clean as of 2026-10-07 (verified). |
 | **P3** | ⚠️ **RISK** | Migration rehearsal (`pnpm test:migrations`) requires disposable DB (`ISOLATED_E2E_DATABASE_URL`) — not provisioned in this environment. Must run in CI/Linux/macOS/Windows. |
 | **P4** | ✅ RESOLVED | All lint/typecheck/build pass. No unrecovered test failures. |
 
@@ -100,6 +100,8 @@
 | Dependency posture | ✅ 15 advisories (4 high) → 0 via PATCH-class `pnpm.overrides` (PR #236) |
 | Gates (check / lint / unit / build) | ✅ all pass; 1281 unit tests (3 new) |
 | CI (verify / test / e2e / browser-e2e / worker / deploy preview) | ✅ all green on #235, #236, #237 |
+| Dependabot group PR #233 (26 updates) | ❌→✅ **closed per DEPENDENCY-POLICY** — included `typescript ^5.6 → ^7.0.2` MAJOR (AGENTS.md: majors need explicit approval), upstream-breaking `googleapis ^183`, and newer-only bumps with `pnpm audit` already clean. hono CVE GHSA-5r4p-p66f-jhc7 reviewed: **not applicable** (repo's `serveStatic` is a local Express vite middleware; no `hono/serve-static` or hono adapter imports). Full triage in PR comment |
+| Stray artifacts (`fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `*.orig`, `*.bak`) | ✅ all deleted; `git status` clean; AGENTS.md hygiene note updated |
 
 ### Findings resolved by this re-audit
 
