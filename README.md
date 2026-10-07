@@ -53,7 +53,7 @@ This source tree deploys to Vercel (`pnpm run build:vercel`), which serves the V
 
 ## Continuous deployment
 
-Pushes to `main` trigger GitHub Actions (`Verify money tracker`), and when those checks pass the `Deploy to Vercel (CD)` workflow deploys the production build to Vercel. The `main` branch is protected: direct pushes are rejected, so changes land through pull requests with at least one approval and green CI checks.
+Pushes to `main` trigger the `CI` workflow, and when its five required checks pass (`verify`, `test`, `worker`, `e2e`, `browser-e2e`) the `Deploy to Vercel (CD)` workflow deploys the production build to Vercel. The `main` branch is protected: direct pushes and force-pushes are rejected, so changes land through pull requests with green CI and resolved review conversations. No approving-review or code-owner review is required today — the only active committer is the repository owner, so requiring one would make every PR unmergeable (see `AGENTS.md`).
 
 ## Test coverage
 
