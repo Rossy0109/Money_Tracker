@@ -1,0 +1,41 @@
+# Normalize line endings in the repository so every checkout (Linux CI, macOS,
+# Windows contributors) agrees on LF. Prettier already sets endOfLine: lf for
+# files it formats; this extends that guarantee to files Prettier does not own
+# (YAML workflows, .mjs scripts, SQL) and stops git from showing whole-file
+# diffs when a Windows editor rewrites CRLF.
+* text=auto eol=lf
+
+# Files GitHub renders as text in diffs
+*.md    text diff=markdown
+*.yml   text diff=yaml
+*.yaml  text diff=yaml
+
+# Source
+*.ts    text
+*.tsx   text
+*.js    text
+*.mjs   text
+*.cjs   text
+*.json  text
+*.css   text
+*.html  text
+*.sh    text eol=lf
+*.sql   text
+
+# Keep SQL migrations and generated schema line-stable
+/drizzle/*.sql text eol=lf
+
+# Binary assets — never line-ending normalized or diffed
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.enc   binary
+
+# Lockfiles stay LF even on Windows tooling that rewrites them
+pnpm-lock.yaml text eol=lf
