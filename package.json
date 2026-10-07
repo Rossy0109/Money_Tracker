@@ -144,7 +144,12 @@
   "packageManager": "pnpm@9.15.4",
   "pnpm": {
     "overrides": {
-      "esbuild": "0.28.2"
+      "esbuild": "0.28.2",
+      "sharp": "0.35.5",
+      "source-map-js": "1.2.2",
+      "dompurify": "3.4.16",
+      "miniflare>undici": "7.29.1",
+      "postcss-selector-parser": "7.1.6"
     }
   }
 }
