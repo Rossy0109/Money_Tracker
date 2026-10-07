@@ -25,10 +25,15 @@ jobs:
   verify-dependencies:
     name: Install, type check, test, and build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       ADMIN_ACCESS_PASSWORD: ci-dependency-bump-admin-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+        # persist-credentials stays at its default (true) for this one job: the
+        # policy gate runs `git fetch origin <base>` below, which needs the
+        # checkout token. Every other workflow here only reads the tree, so they
+        # set persist-credentials: false.
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # actions/setup-node@v7.0.0
         with:

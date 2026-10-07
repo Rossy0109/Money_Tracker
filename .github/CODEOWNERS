@@ -1,0 +1,52 @@
+# Code owners
+#
+# One human owner per pipeline domain (see AGENTS.md for the full multi-agent
+# ownership matrix). GitHub requires a *user or team* login here, so each block
+# names the human accountable for the domain the agent pipeline assigns it to —
+# the agent is the implementer, the listed owner is the reviewer.
+#
+# Add teammates here as they join; a path with no owner falls back to the
+# repository default and gets no code-owner review requirement.
+
+# ── Default ──────────────────────────────────────────────────────────────────
+# Anything not claimed below. The owner must at least be aware of changes to
+# docs, scripts and config, which are cross-cutting by nature.
+*                                       @Rossy0109
+
+# ── ATLAS — Accounting: schema, invariants, idempotency ─────────────────────
+# God-files are ATLAS-led; proposals go through an owner review, not a direct
+# edit by a frontend or backend agent.
+/drizzle/                              @Rossy0109
+/drizzle/schema.ts                    @Rossy0109
+/server/db.ts                         @Rossy0109
+/server/accounting-core.ts             @Rossy0109
+
+# ── SENTINEL — Security: auth, sessions, RBAC, rate limits, secrets ─────────
+/server/_core/env.ts                  @Rossy0109
+/server/rbac*.ts                      @Rossy0109
+/server/_core/idempotency.ts          @Rossy0109
+/worker/                              @Rossy0109
+
+# ── FORGE — Backend: Express, tRPC routers, middleware, jobs ────────────────
+/server/routers.ts                    @Rossy0109
+/server/routers/                      @Rossy0109
+/server/_core/app.ts                  @Rossy0109
+/server/_core/index.ts                @Rossy0109
+/api/                                 @Rossy0109
+
+# ── PRISM — Frontend ────────────────────────────────────────────────────────
+/client/                              @Rossy0109
+
+# ── GUARDIAN — Gates, tests, migrations, CI ─────────────────────────────────
+# Test files and CI configuration: changes here can weaken a release gate, so
+# they always get an explicit review.
+/.github/                             @Rossy0109
+/scripts/                             @Rossy0109
+**/*.test.ts                          @Rossy0109
+
+# ── Dependency policy is ATLAS/Guardian joint ───────────────────────────────
+# package.json and the lockfile can move a pinned major without an owner
+# noticing in the diff, and DEPENDENCY-POLICY.md requires explicit approval.
+/package.json                         @Rossy0109
+/pnpm-lock.yaml                       @Rossy0109
+/DEPENDENCY-POLICY.md                 @Rossy0109

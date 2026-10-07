@@ -58,4 +58,4 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 ## Repo hygiene notes
 
 - Stray-file cleanup complete (2026-10-07): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak` all deleted; tree clean. Flag any new untracked strays in agent reports before committing.
-- `main` is protected: PRs with ≥1 approval and green CI (`verify` → `test`, then `worker` / `e2e` / `browser-e2e`) required; CD deploys to Vercel after CI passes.
+- `main` is protected: green CI required — `verify` → `test`, then `worker` / `e2e` / `browser-e2e` (all five are required status checks); force-push and branch deletion are blocked; `enforce_admins` is on, so no one bypasses it. CD deploys to Vercel after CI passes. **No approving-review requirement is configured** — the sole active committer is `@Rossy0109`, so requiring one would make every PR unmergeable. `.github/CODEOWNERS` routes review requests by pipeline domain but is advisory: `require_code_owner_reviews` is deliberately **off** for the same reason. Raise both only after a second owner with write access is active.

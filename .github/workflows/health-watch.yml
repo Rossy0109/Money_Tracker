@@ -25,6 +25,7 @@ jobs:
   probe:
     name: Probe production
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write

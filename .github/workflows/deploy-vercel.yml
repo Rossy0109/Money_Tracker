@@ -21,6 +21,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to production
+    timeout-minutes: 20
     # Manual dispatch always runs. A CI completion only deploys when every gate
     # passed and the validated commit is on the production branch.
     if: >-
@@ -32,6 +33,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
         with:
           fetch-depth: 1
+          persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # pnpm/action-setup@v6
@@ -53,7 +55,11 @@ jobs:
             exit 0
           fi
 
-          npm i -g vercel@latest
+          # Pinned, not @latest: the production deploy must be reproducible, and
+          # a floating CLI is an unpinned supply-chain dependency in the one
+          # workflow that ships to users. Dependabot does not track `npm i -g`,
+          # so bump this deliberately alongside package.json changes.
+          npm i -g vercel@62.7.0
 
           # Project-scoped (vcp_) tokens cannot read project settings, so the
           # deploy flow needs a regular account access token here.

@@ -16,8 +16,11 @@ jobs:
   backup:
     name: Trigger Scheduled Encrypted Backup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       # Root cause of the silent 2026-09 failures: the Supabase storage bucket
       # did not exist, so every upload got "Bucket not found" and the server
