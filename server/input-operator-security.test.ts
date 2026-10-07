@@ -115,7 +115,15 @@ const { financeDb } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("./db", () => financeDb);
+const mockGetDb = vi.hoisted(() => vi.fn());
+const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
+
+vi.mock("./db", () => ({
+  ...financeDb,
+  getDb: mockGetDb,
+  databaseRequired: mockDatabaseRequired,
+  closeDatabaseConnection: vi.fn(),
+}));
 
 // ─── Import after mocks ─────────────────────────────────────────────────────
 import { appRouter } from "./routers";
@@ -195,6 +203,16 @@ function mockInputOperatorPermissions() {
 describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock db for idempotency middleware
+    const mockDb = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+      values: vi.fn().mockResolvedValue(undefined),
+    };
+    mockGetDb.mockResolvedValue(mockDb);
     mockInputOperatorPermissions();
   });
 
@@ -280,6 +298,7 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.createVoucher({
+        idempotencyKey: "test-key-create-voucher",
         projectId: 88,
         date: new Date("2026-08-20"),
         debits: [{ accountId: 1, amount: 1000 }],
@@ -311,6 +330,7 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       financeDb.createEmployeeAdvance.mockResolvedValue({ id: 80 });
       const caller = appRouter.createCaller(inputOperatorContext);
       const result = await caller.finance.createEmployeeAdvance({
+        idempotencyKey: "test-key-create-advance",
         projectId: 88,
         employeeId: 1,
         amount: 5000,
@@ -682,6 +702,7 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.settleDue({
+          idempotencyKey: "test-key-settle-due",
           projectId: 88,
           dueId: 1,
           amount: 1000,
@@ -957,6 +978,7 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(
         caller.finance.reverseVoucher({
+          idempotencyKey: "test-key-reverse-voucher",
           projectId: 88,
           originalVoucherId: 1,
           reason: "Error",

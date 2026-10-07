@@ -77,6 +77,7 @@ import type { DateRange } from "react-day-picker";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
+  const newIdempotencyKey = () => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const utils = trpc.useUtils();
   const projects = trpc.projects.list.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -782,6 +783,7 @@ export default function Home() {
     if (!requireProject() || Number(settlementForm.amount) <= 0)
       return toast.error("সঠিক পরিমাণ দিন");
     settleDue.mutate({
+      idempotencyKey: newIdempotencyKey(),
       projectId: activeProjectId!,
       dueId: settlementForm.dueId,
       accountId:

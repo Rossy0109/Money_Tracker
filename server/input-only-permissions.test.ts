@@ -161,7 +161,15 @@ const rbacMock = vi.hoisted(() => ({
 
 vi.mock("./_core/rbac", () => rbacMock);
 
-vi.mock("./db", () => financeDb);
+const mockGetDb = vi.hoisted(() => vi.fn());
+const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
+
+vi.mock("./db", () => ({
+  ...financeDb,
+  getDb: mockGetDb,
+  databaseRequired: mockDatabaseRequired,
+  closeDatabaseConnection: vi.fn(),
+}));
 
 import { appRouter } from "./routers";
 
@@ -254,6 +262,16 @@ describe("Input-Only User Permission Model", () => {
     rbacMock.hasPermission.mockImplementation(
       async (userId: number, perm: string) => {
         if (userId === 42) return INPUT_ONLY_PERMISSIONS.includes(perm);
+    // Mock db for idempotency middleware
+    const mockDb = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+      values: vi.fn().mockResolvedValue(undefined),
+    };
+    mockGetDb.mockResolvedValue(mockDb);
         return ALL_PERMISSIONS.includes(perm);
       }
     );
@@ -471,6 +489,7 @@ describe("Input-Only User Permission Model", () => {
       });
       const caller = appRouter.createCaller(inputOnlyContext);
       const result = await caller.finance.createEmployeeAdvance({
+        idempotencyKey: "test-key-create-advance",
         projectId: 88,
         employeeId: 1,
         amount: 5000,
@@ -733,6 +752,7 @@ describe("Input-Only User Permission Model", () => {
       const caller = appRouter.createCaller(inputOnlyContext);
       await expect(
         caller.finance.settleDue({
+        idempotencyKey: "test-key-settle-due",
           projectId: 88,
           dueId: 1,
           amount: 100,
