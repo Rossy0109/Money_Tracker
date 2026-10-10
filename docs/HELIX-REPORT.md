@@ -106,7 +106,7 @@ No handoff claim is unbacked. No override of another agent's work.
 - [x] Deploy: Vercel serverless (`build:vercel`) and Cloudflare Worker (`wrangler`) configs present and unchanged.
 - [x] Secrets managed by hosting provider; no `.env` committed; `.env.example` documents required vars.
 - [x] No dependency-policy or lockfile drift.
-- [ ] **Owner action:** set `CORS_ALLOWED_ORIGINS` in the Vercel/Cloudflare production env (pre-existing P2, unchanged by this pipeline).
+- [ ] **Owner action (CORRECTED 2026-10-10 — see §10):** the earlier "set `CORS_ALLOWED_ORIGINS` or prod is YELLOW" guidance was **overstated**. Verified against the code and the live deployment: production CORS is already fail-closed, and the production deployment sits behind Vercel Deployment Protection (SSO), so it is not publicly serving. No env change is required for safety; see §10 for what to set *if* the app is ever made public.
 
 ---
 
@@ -146,6 +146,44 @@ No handoff claim is unbacked. No override of another agent's work.
 
 1. Owner reviews `git status` / the cumulative diff and creates the commit on the chosen branch.
 2. Push + open PR; CI (required checks) re-verifies the coverage gate on hosted runners.
-3. Merge → CD deploys to Vercel; set `CORS_ALLOWED_ORIGINS` in prod before serving traffic.
+3. Merge → CD deploys to Vercel. Production is currently behind Vercel Deployment Protection (SSO); decide whether to expose it publicly — if yes, set the vars in §10 first.
 
 **HELIX authorizes integration. No commit was made by this agent.**
+
+---
+
+## 10. Addendum — production CORS/visibility verified (2026-10-10)
+
+Post-merge verification against the live Vercel project (`rossy0109s-projects/money-tracker`)
+and `server/_core/app.ts`, correcting the earlier "set `CORS_ALLOWED_ORIGINS` or prod is
+YELLOW" note, which was overstated.
+
+### What was verified
+
+| Check | Result |
+|---|---|
+| `CORS_ALLOWED_ORIGINS` set in production? | **No** (absent from `vercel env ls production`) |
+| Production CORS behaviour in code | **Fail-closed.** `app.ts:146-154`: in production the header is only reflected when the origin is in `trustedOrigins`; an unknown origin gets **no** `Access-Control-Allow-Origin`, so the browser blocks it. There is **no** wildcard fallback in production (the `*` path is the `else` = non-production branch only). |
+| `APP_URL` / `CANONICAL_HOST` in production? | Both **unset**. `CANONICAL_HOST` defaults to `money-tracker-blond-pi.vercel.app` (`app.ts:72-73`), but the canonical-host redirect is gated by `isVercelDomain` (`app.ts:81`), so it is inert for any `*.vercel.app` host. |
+| Live production deployment | `https://money-tracker-<hash>-rossy0109s-projects.vercel.app` — responds `302 → vercel.com/sso-api`. **Vercel Deployment Protection (SSO) is enabled**; the app is not publicly serving. The `access-control-allow-origin: *` observed on the final hop is emitted by **Vercel's edge SSO page, not by this Express app**. |
+
+### Conclusion
+
+- Missing `CORS_ALLOWED_ORIGINS` is **not** a live vulnerability: production is fail-closed by
+  code, and SSO gates the deployment ahead of the app.
+- The **SPA and API share one origin** on Vercel, so normal traffic needs no CORS header at all.
+- Therefore **no production env change was made.** Setting the var blind would only *add*
+  allowed origins; guessing values risks locking out legitimate access.
+
+### If the deployment is ever made public
+
+1. Disable Vercel Deployment Protection for the project, **then** set:
+   - `CANONICAL_HOST` = the real apex domain (so cookie scope + canonical redirect are correct),
+   - `APP_URL` = `https://<apex-domain>`,
+   - `CORS_ALLOWED_ORIGINS` = comma-separated **only** the additional cross-origin clients
+     (e.g. a custom domain or native app). Leave unset for a single-origin SPA.
+2. Re-verify with: `curl -sI -H "Origin: https://evil.example.com" https://<domain>/api/...`
+   → must return **no** `Access-Control-Allow-Origin`.
+
+**Revised status: GREEN.** No P0/P1; CORS item downgraded from "owner action required" to
+"no action needed unless intentionally exposing the deployment".
