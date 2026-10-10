@@ -17,6 +17,7 @@
 import { eq, and, gte, inArray, lte, sql } from "drizzle-orm";
 import { assertOwnedProject, databaseRequired, getDb } from "./db";
 import { fromCents, toCents } from "./money";
+import { logAudit } from "./audit";
 import {
   financeChartOfAccounts,
   financeAccountTypes,
@@ -500,6 +501,8 @@ export async function createFiscalPeriod(
   if (input.startDate >= input.endDate) {
     throw new Error("শুরুর তারিখ শেষের তারিখের আগে হতে হবে");
   }
+  // Ownership first — never trust a client-supplied projectId.
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   const result = await db.insert(financeFiscalPeriods).values({
     userId,
@@ -509,7 +512,16 @@ export async function createFiscalPeriod(
     endDate: input.endDate,
     status: "open",
   });
-  return { id: Number(result[0].insertId) };
+  const periodId = Number(result[0].insertId);
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "create",
+    entityType: "fiscal_period",
+    entityId: periodId,
+    summary: `Fiscal period created: ${input.name.trim()}`,
+  });
+  return { id: periodId };
 }
 
 export async function listFiscalPeriods(userId: number, projectId: number) {
@@ -531,6 +543,7 @@ export async function closeFiscalPeriod(
   projectId: number,
   periodId: number
 ) {
+  await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
   const [period] = await db
     .select()
@@ -567,6 +580,15 @@ export async function closeFiscalPeriod(
       closedBy: userId,
     })
     .where(eq(financeFiscalPeriods.id, periodId));
+
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "fiscal_period",
+    entityId: periodId,
+    summary: `Fiscal period closed: ${period.name}`,
+  });
 
   return { closed: true, lockedMonthsFound: lockedMonths.length };
 }

@@ -4,7 +4,7 @@ Living record of hermetic/unit coverage for every exported logical function
 in `server/db.ts`, grouped by section. Updated each batch.
 
 - **H** = covered by `server/db.hermetic.test.ts` (real disposable MariaDB;
-  runs in CI's `e2e` job where MariaDB is provisioned — it only self-skips
+  runs in CI's `test` job, which provisions MariaDB — it only self-skips
   when no DB is reachable)
 - **M** = covered by a mock-DB unit test (imports `./db` with mocked drizzle)
 - **–** = not yet covered by a direct test (may still be exercised by e2e)

@@ -14,8 +14,38 @@ import {
   getClientIp,
 } from "../_core/rateLimiter";
 import { inputOnlyProcedure, publicProcedure, router } from "../_core/trpc";
+import type { TrpcContext } from "../_core/context";
 import { getUserPermissions, getUserRoles } from "../_core/rbac";
 import { extractAuditContext } from "../_core/auditContext";
+import {
+  isPasswordAuthMode,
+  loginInputSchema,
+  registerInputSchema,
+} from "../_core/authSchemas";
+
+/**
+ * Pull the raw session JWT out of the request (cookie first, then Bearer
+ * header) so mutations can target the caller's live session.
+ */
+function extractSessionToken(
+  req: TrpcContext["req"]
+): string | undefined {
+  if (!req) return undefined;
+  const cookies = req.headers?.cookie;
+  if (typeof cookies === "string" && cookies.includes(COOKIE_NAME)) {
+    const raw = cookies
+      .split(";")
+      .map(part => part.trim())
+      .find(part => part.startsWith(`${COOKIE_NAME}=`));
+    const token = raw?.slice(COOKIE_NAME.length + 1);
+    if (token) return decodeURIComponent(token);
+  }
+  const authHeader = req.headers?.authorization;
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+  return undefined;
+}
 
 export const authRouter = router({
   me: publicProcedure.query(async opts => {
@@ -38,21 +68,9 @@ export const authRouter = router({
     }
   }),
   register: publicProcedure
-    .input(
-      z.object({
-        name: z.string().trim().min(1, "নাম প্রদান করুন").max(120),
-        email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
-        password: z
-          .string()
-          .min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে")
-          .max(100),
-      })
-    )
+    .input(registerInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const authMode =
-        (process.env.AUTH_MODE as "google" | "password" | undefined) ??
-        "password";
-      if (authMode !== "password") {
+      if (!isPasswordAuthMode()) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message:
@@ -125,12 +143,7 @@ export const authRouter = router({
       }
     }),
   login: publicProcedure
-    .input(
-      z.object({
-        email: z.string().trim().email("সঠিক ইমেইল ঠিকানা দিন").max(320),
-        password: z.string().min(1, "পাসওয়ার্ড দিন").max(100),
-      })
-    )
+    .input(loginInputSchema)
     .mutation(async ({ ctx, input }) => {
       const clientIp = getClientIp(ctx.req);
       await checkRateLimit(String(clientIp), {
@@ -293,16 +306,9 @@ export const authRouter = router({
     }),
   logout: publicProcedure.mutation(async ({ ctx }) => {
     try {
-      const cookies = ctx.req?.headers?.cookie;
-      if (typeof cookies === "string" && cookies.includes(COOKIE_NAME)) {
-        const raw = cookies
-          .split(";")
-          .map(part => part.trim())
-          .find(part => part.startsWith(`${COOKIE_NAME}=`));
-        const token = raw?.slice(COOKIE_NAME.length + 1);
-        if (token) {
-          await financeDb.revokeSessionByToken(decodeURIComponent(token));
-        }
+      const token = extractSessionToken(ctx.req);
+      if (token) {
+        await financeDb.revokeSessionByToken(token);
       }
     } catch {
       void 0;
@@ -347,6 +353,26 @@ export const authRouter = router({
 
       const passwordHash = await hashPassword(input.password);
       await financeDb.setUserPassword(ctx.user!.openId, passwordHash);
+
+      // Revoke every recorded session except the caller's live token so other
+      // devices are logged out when this account's password changes.
+      const currentToken = extractSessionToken(ctx.req);
+      try {
+        await financeDb.revokeAllSessionsExcept(ctx.user!.id, currentToken ?? "");
+      } catch {
+        // Non-blocking: the password is already updated; revocation is best-effort.
+      }
+      try {
+        await financeDb.logAudit({
+          actorUserId: ctx.user!.id,
+          action: "update",
+          entityType: "credential",
+          summary: "Password changed by user (other sessions revoked)",
+          auditContext: extractAuditContext(ctx.req),
+        });
+      } catch {
+        // Non-blocking audit write
+      }
       await resetRateLimit(String(clientIp), "auth-set-password");
       return {
         success: true,
@@ -438,7 +464,16 @@ export const authRouter = router({
           .max(100),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const clientIp = getClientIp(ctx.req);
+      await checkRateLimit(String(clientIp), {
+        windowMs: 60 * 60 * 1000,
+        max: 5,
+        keyPrefix: "auth-reset-password",
+        message:
+          "খুব বেশি চেষ্টার কারণে সাময়িকভাবে পাসওয়ার্ড রিসেট বন্ধ রাখা হয়েছে। ১ ঘণ্টা পর আবার চেষ্টা করুন।",
+      });
+
       const { valid, user } = await financeDb.validatePasswordResetToken(
         input.token
       );
@@ -452,6 +487,18 @@ export const authRouter = router({
 
       const passwordHash = await hashPassword(input.password);
       await financeDb.consumePasswordResetToken(user.openId, passwordHash);
+
+      try {
+        await financeDb.logAudit({
+          actorUserId: user.id,
+          action: "update",
+          entityType: "credential",
+          summary: "Password reset via emailed reset token",
+          auditContext: extractAuditContext(ctx.req),
+        });
+      } catch {
+        // Non-blocking audit write
+      }
 
       return {
         success: true,

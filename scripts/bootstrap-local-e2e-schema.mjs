@@ -638,6 +638,22 @@ const statements = [
     matchedAt timestamp NULL,
     notes varchar(300)
   ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_firm_profiles (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    userId int NOT NULL,
+    projectId int NOT NULL,
+    name varchar(180) NOT NULL DEFAULT '',
+    tagline varchar(240) NOT NULL DEFAULT '',
+    phone varchar(40) NOT NULL DEFAULT '',
+    email varchar(320) NOT NULL DEFAULT '',
+    address varchar(500) NOT NULL DEFAULT '',
+    createdAt timestamp NOT NULL DEFAULT current_timestamp(),
+    updatedAt timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    UNIQUE KEY finance_firm_profiles_user_project_unique (userId, projectId),
+    KEY finance_firm_profiles_project_idx (projectId),
+    CONSTRAINT finance_firm_profiles_userId_users_id_fk FOREIGN KEY (userId) REFERENCES users(id),
+    CONSTRAINT finance_firm_profiles_projectId_finance_projects_id_fk FOREIGN KEY (projectId) REFERENCES finance_projects(id)
+  ) ENGINE=InnoDB`,
 ];
 
 export async function bootstrapLocalE2eSchema(databaseUrl) {

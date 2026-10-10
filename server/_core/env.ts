@@ -77,6 +77,16 @@ export function validateCriticalEnv(): string[] {
     }
   }
 
+  // Admin elevation is functionally required by admin.verifyAccess and
+  // elevatedAdminProcedure. Fail fast in production so a misconfigured deploy
+  // cannot silently make elevated admin writes unreachable.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.ADMIN_ACCESS_PASSWORD
+  ) {
+    missing.push("ADMIN_ACCESS_PASSWORD");
+  }
+
   return missing;
 }
 

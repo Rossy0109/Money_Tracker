@@ -1,5 +1,6 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
+import { TRPCError } from "@trpc/server";
 import * as db from "../db";
 import { timingSafeCompare } from "../timingSafe";
 import {
@@ -39,6 +40,12 @@ import {
 } from "./githubOAuth";
 import logger from "./logger";
 import { getUserPermissions, getUserRoles } from "./rbac";
+import {
+  isPasswordAuthMode,
+  loginInputSchema,
+  registerInputSchema,
+} from "./authSchemas";
+import { checkRateLimit, getClientIp } from "./rateLimiter";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -49,19 +56,35 @@ export function registerOAuthRoutes(app: Express) {
   // Direct email & password registration endpoint
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const { name, email, password } = req.body || {};
-      if (!email || typeof email !== "string" || !email.includes("@")) {
-        res.status(400).json({ error: "সঠিক ইমেইল ঠিকানা দিন" });
-        return;
-      }
-      if (!password || typeof password !== "string" || password.length < 6) {
-        res.status(400).json({ error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে" });
+      // Mirror tRPC auth.register: no sign-up outside password mode.
+      if (!isPasswordAuthMode()) {
+        res.status(404).json({
+          error: "নতুন সাইন-আপ বর্তমানে বন্ধ আছে। অ্যাডমিন অ্যাকাউন্ট প্রয়োজন হলে যোগাযোগ করুন।",
+        });
         return;
       }
 
+      const clientIp = getClientIp(req);
+      await checkRateLimit(String(clientIp), {
+        windowMs: 15 * 60 * 1000,
+        max: 20,
+        keyPrefix: "auth-register",
+        message:
+          "খুব বেশি চেষ্টার কারণে সাময়িকভাবে রেজিস্ট্রেশন বন্ধ রাখা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।",
+      });
+
+      const parsed = registerInputSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        res.status(400).json({
+          error: parsed.error.issues[0]?.message ?? "সঠিক তথ্য দিন",
+        });
+        return;
+      }
+      const { name, email, password } = parsed.data;
+
       const passwordHash = await hashPassword(password);
       const user = await db.createPasswordUser({
-        name: typeof name === "string" ? name : "",
+        name,
         email,
         passwordHash,
       });
@@ -102,6 +125,12 @@ export function registerOAuthRoutes(app: Express) {
         },
       });
     } catch (error) {
+      if (error instanceof TRPCError) {
+        res
+          .status(error.code === "TOO_MANY_REQUESTS" ? 429 : 400)
+          .json({ error: error.message });
+        return;
+      }
       logger.error(
         { err: error instanceof Error ? error : new Error(String(error)) },
         "[Auth Register] Failed"
@@ -113,16 +142,14 @@ export function registerOAuthRoutes(app: Express) {
   // Direct email & password login endpoint
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body || {};
-      if (
-        !email ||
-        typeof email !== "string" ||
-        !password ||
-        typeof password !== "string"
-      ) {
-        res.status(400).json({ error: "ইমেইল এবং পাসওয়ার্ড দিন" });
+      const parsedLogin = loginInputSchema.safeParse(req.body || {});
+      if (!parsedLogin.success) {
+        res.status(400).json({
+          error: parsedLogin.error.issues[0]?.message ?? "ইমেইল এবং পাসওয়ার্ড দিন",
+        });
         return;
       }
+      const { email, password } = parsedLogin.data;
 
       // DB-backed account lockout (multi-instance safe).
       try {

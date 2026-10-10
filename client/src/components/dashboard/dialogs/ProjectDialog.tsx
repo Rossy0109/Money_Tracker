@@ -16,6 +16,8 @@ interface ProjectDialogProps {
   setProjectName: (name: string) => void;
   onSubmit: (event: FormEvent) => void;
   isPending: boolean;
+  /** Inline failure message (e.g. duplicate name) — keeps the dialog open. */
+  error?: string | null;
 }
 
 export function ProjectDialog({
@@ -25,6 +27,7 @@ export function ProjectDialog({
   setProjectName,
   onSubmit,
   isPending,
+  error,
 }: ProjectDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -36,10 +39,17 @@ export function ProjectDialog({
           <Field label="প্রজেক্টের নাম">
             <Input
               value={projectName}
-              onChange={event => setProjectName(event.target.value)}
+              onChange={event => {
+                setProjectName(event.target.value);
+              }}
               placeholder="যেমন: নতুন ব্যবসা"
             />
           </Field>
+          {error ? (
+            <p className="text-sm font-medium text-destructive">
+              {error}
+            </p>
+          ) : null}
           <Button
             type="submit"
             disabled={isPending}

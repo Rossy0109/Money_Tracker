@@ -12,6 +12,10 @@ import { DuesPanel } from "@/components/dashboard/DuesPanel";
 import { TransactionsPanel } from "@/components/dashboard/TransactionsPanel";
 import { AccountsPanel } from "@/components/dashboard/AccountsPanel";
 import { BudgetsPanel } from "@/components/dashboard/BudgetsPanel";
+import {
+  transactionDeleteKey,
+  transactionUpdateKey,
+} from "@/lib/idempotency";
 const MonthlyTrendChart = lazy(
   () => import("@/components/dashboard/MonthlyTrendChart")
 );
@@ -191,6 +195,7 @@ export default function Home() {
   // Projects
   const [projectOpen, setProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectError, setProjectError] = useState<string | null>(null);
 
   // Admin
   const [adminOpen, setAdminOpen] = useState(false);
@@ -350,9 +355,21 @@ export default function Home() {
       setActiveProjectId(project.id);
       setProjectOpen(false);
       setProjectName("");
+      setProjectError(null);
       toast.success("নতুন প্রজেক্ট তৈরি হয়েছে");
     },
-    onError: error => toast.error(error.message),
+    onError: error => {
+      // 409 (duplicate name): keep the dialog open with an inline
+      // message so the user can rename instead of losing their input.
+      const httpStatus =
+        (error as { data?: { httpStatus?: number } })?.data
+          ?.httpStatus ?? undefined;
+      if (httpStatus === 409) {
+        setProjectError(error.message);
+        return;
+      }
+      toast.error(error.message);
+    },
   });
 
   const addTransaction = trpc.finance.addTransaction.useMutation({
@@ -665,7 +682,13 @@ export default function Home() {
     };
 
     if (editingTransactionId) {
-      updateTransaction.mutate({ id: editingTransactionId, ...payload });
+      updateTransaction.mutate({
+        id: editingTransactionId,
+        ...payload,
+        // Stable per (id, payload): an accidental retry replays instead
+        // of double-applying; a different edit gets a different key.
+        idempotencyKey: transactionUpdateKey(editingTransactionId, payload),
+      });
       return;
     }
 
@@ -1145,6 +1168,11 @@ export default function Home() {
                     deleteTransaction.mutate({
                       projectId: activeProjectId!,
                       id,
+                      // Deterministic payload: a retried delete replays.
+                      idempotencyKey: transactionDeleteKey(
+                        activeProjectId!,
+                        id
+                      ),
                     });
                 }}
               />
@@ -1281,15 +1309,20 @@ export default function Home() {
 
       <ProjectDialog
         open={projectOpen}
-        onOpenChange={setProjectOpen}
+        onOpenChange={open => {
+          setProjectOpen(open);
+          if (!open) setProjectError(null);
+        }}
         projectName={projectName}
         setProjectName={setProjectName}
         onSubmit={event => {
           event.preventDefault();
           if (!projectName.trim()) return toast.error("প্রজেক্টের নাম দিন");
+          setProjectError(null);
           createProject.mutate({ name: projectName });
         }}
         isPending={createProject.isPending}
+        error={projectError}
       />
 
       <MonthlyReportDialog

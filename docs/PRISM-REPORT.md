@@ -1,78 +1,145 @@
-# PRISM REPORT — Phase 4 (Frontend + UX)
+# PRISM REPORT — Phase 4 (Frontend)
 
-**Agent:** PRISM (Ling 3.1 Flash Free role)
-**Date:** 2026-10-06
-**Scope:** React, Vite, wouter, TanStack Query, Tailwind, navigation, forms, dashboard, voucher UI, reports, settings, admin, mobile UI, permission-aware UI, a11y. Read-only.
+**Agent:** PRISM (Ling 3.1 role)
+**Model:** Ling 3.1 Flash (currently available OpenCode model)
+**Date:** 2026-10-09
+**Branch:** `agent/prism/frontend`
+**Scope:** Client (`client/`) — React 19, wouter routing, TanStack Query (tRPC), Tailwind. Implements the four Forge→Prism handoff items.
 
 ---
 
-## 1. Routing & Navigation
+## 0. HANDOFF ACCEPTANCE (FORGE → PRISM)
 
-| Check | Status | Evidence |
-|---|---|---|
-| All wouter routes resolve to existing pages | ✅ | 21 routes in `App.tsx:41-63`, all lazy pages exist; 22 sidebar/tab hrefs all map (`DashboardLayout.tsx:70-290`) |
-| Hash anchors (`/#transactions` etc.) | ✅ | Targets exist (`Home.tsx:1130`, `AccountsPanel.tsx:36`, `BudgetsPanel.tsx:45`) |
-| **SPA navigation** | ⚠️ **P2** | No wouter `Link` anywhere — nav items are raw `<a href>` (`DashboardLayout.tsx:314,381,412,427`) → **full document reload on every menu click**, wiping React state + query cache. wouter effectively decorative (only 3 programmatic jumps) |
-| Cross-page anchor nav | ⚠️ P3 | `/#...` clicks from subpages do full load; deep-link/refresh scroll unverified |
+```
+PREVIOUS_AGENT: FORGE
+COMMIT_VERIFIED: NOT_APPLICABLE (no commit — uncommitted in shared workspace)
+FILES_VERIFIED: YES (docs/FORGE-REPORT.md; handoff items enumerated §4)
+TEST_RESULTS_VERIFIED: YES (Forge gates green: coverage 70.38/61.52/70.88/71.73 with DB)
+KNOWN_RISKS_REVIEWED: YES (F-12 migration 0020 deploy note; stable-key semantics)
+HANDOFF_STATUS: ACCEPTED
+REASON: Forge backend complete with no blocking defects; the four client items
+        are independent, well-scoped, and testable in the node test env.
+```
 
-## 2. Query / Loading States
+---
 
-| Check | Status |
-|---|---|
-| Loading loops | ✅ None — all gating uses `enabled:` + v5 `isLoading`; disabled queries never spin |
-| Query keys | ✅ Consistent tRPC procedure+input keys, per-page `refresh()` helpers |
-| **Stale data** | ⚠️ **P2** — `Home.tsx:292-297 refresh()` never invalidates `finance.monthlyReport` (rendered `:1091-1095`) → Accounting Summary stale after every mutation until reload. Also `VoucherReversal.tsx:86-93` and `FinanceBackup.tsx:114` partial invalidations (P3) |
+## 1. COMPLETION REPORT (REQUIRED FORMAT)
 
-## 3. Forms & Errors
+```
+AGENT: PRISM (Ling 3.1)
+MODEL: Ling 3.1 Flash
+ROLE: FRONTEND
+TASK_SCOPE: Forge handoff — sync chunking, stable idempotency keys,
+            duplicate-project 409 UX, registration gating verification.
+STATUS: COMPLETE
 
-| Check | Status |
-|---|---|
-| react-hook-form/zod in production | ❌ Unused — 0 `<FormField>` outside dead `ui/form.tsx`; all forms are `useState` + manual checks (deps present but idle) |
-| Validation tests | ⚠️ `forms/validation.test.ts` tests schemas **nothing imports** (dead test) |
-| Mutation error surfacing | ✅ 69 `useMutation` sites, 64 with `onError` toast; rest covered by try/catch or intentional (offline sync) |
-| **Query error surfacing** | ⚠️ **P2** — only 2 pages render `isError`; global subscriber toasts only 5xx/429/offline; **400/401/403 fall through silently → empty pages with zero feedback** (`networkErrorHandler.ts:250-263`) |
-| `Payroll.tsx:88-110` | P3 — 4 queries, no loading/error state → empty-table flash |
+TASKS:
+- P1 Offline sync chunking: server now rejects >500 items per
+  syncOfflineTransactions call. useOfflineSync sends sequential
+  chunks of ≤500 (SYNC_CHUNK_SIZE) via exported pure buildSyncChunks;
+  each chunk is cleared from the queue only after it is durably synced,
+  so a mid-batch failure leaves exactly the unsynced remainder queued.
+  Toast reports the true synced total.
+- P2 Stable idempotency keys: new client/src/lib/idempotency.ts.
+  transactionUpdateKey(id, payload) = "update:<id>:<FNV-1a fingerprint
+  of sorted payload>" — an accidental retry replays identically, while
+  a genuinely different edit gets a different key (no false 409).
+  transactionDeleteKey(projectId, id) = "delete:<projectId>:<id>"
+  (deterministic payload). Wired into Home.tsx updateTransaction and
+  deleteTransaction mutations.
+- P3 Duplicate project 409 UX: classifyNetworkError gains an explicit
+  CONFLICT_409 kind (non-retryable, surfaces the server's Bengali
+  message) instead of lumping into generic CLIENT_4XX. Home.tsx
+  createProject.onError keeps the dialog open with an inline
+  destructive error on 409; ProjectDialog gains an optional
+  `error` prop. Other callers unaffected (optional prop).
+- P4 Registration gating verification: AuthCard already hides the
+  sign-up UI when VITE_AUTH_MODE === "google" (defence-in-depth with
+  Forge's API-level 404/FORBIDDEN). Locked with a source-assertion
+  wiring test (AuthCard.authmode.wiring.test.ts), the repo's
+  established pattern for component contracts in the node env.
 
-## 4. Permission-Aware UI (UX only; backend authoritative) ✅
+FILES:
+- client/src/hooks/useOfflineSync.ts: SYNC_CHUNK_SIZE + buildSyncChunks
+  export; chunked sync loop with per-chunk queue removal.
+- client/src/hooks/useOfflineSync.test.ts (NEW): 7 unit tests for the
+  pure chunker (empty, small, oversized, exact multiple, order,
+  custom max, nonsensical max).
+- client/src/lib/idempotency.ts (NEW): transactionUpdateKey /
+  transactionDeleteKey + FNV-1a fingerprint.
+- client/src/lib/idempotency.test.ts (NEW): 9 tests (stability,
+  id sensitivity, payload sensitivity, date-instant equality,
+  undefined-normalisation, prefix, delete-key determinism).
+- client/src/pages/Home.tsx: keys wired into update/delete mutations;
+  projectError state; createProject 409 inline-error path.
+- client/src/lib/networkErrorHandler.ts: CONFLICT_409 kind +
+  classification before generic 4xx.
+- client/src/lib/networkErrorHandler.test.ts: +3 CONFLICT_409 tests.
+- client/src/components/dashboard/dialogs/ProjectDialog.tsx: optional
+  error prop rendered as destructive text.
+- client/src/components/AuthCard.authmode.wiring.test.ts (NEW): 4
+  source-assertion tests locking the google-mode register contract.
 
-Client `lib/rbac.ts` reads **server-returned** roles/permissions — no client-side model drift possible. Two mismatches:
+TESTS:
+- New/extended targeted: 39 passed across 5 files
+  (useOfflineSync 7, idempotency 9, networkErrorHandler 15+3,
+  AuthCard wiring 4, offline-sync existing).
+- Full suite without DB: 1518 passed | 28 skipped (DB-gated suites
+  self-skip by design).
+- Forge-phase DB-backed coverage gate unchanged and unaffected
+  (client-only additions; thresholds 70/60/70/70 held at Forge handoff).
 
-| ID | Severity | Finding |
-|---|---|---|
-| P-01 | P3 | **Under-grant**: sidebar `/account` requires `user.read` (`DashboardLayout.tsx:201`) but page hosts self-service `setPassword` (any `*.create` holder) → MANAGER/ACCOUNTING_ADMIN can't reach password change in UI though API allows |
-| P-02 | P3 | **Over-grant**: sidebar `/statements`, `/reports` gate on `reports.view` but server needs `accounting.read` (`routers.ts:1639,688,635`) → SYSTEM_ADMIN/HR_ADMIN see entries, get silent-403 empty pages |
-| P-03 | P3 | Missing page-level gates on most pages (statements, payroll, period-lock, etc.) — direct URL renders 403-empty shell. Health + backup pages gate correctly |
+TYPECHECK: PASS (pnpm check — clean)
+LINT: PASS (pnpm lint — clean)
+BUILD: PASS (pnpm build — vite production build, dist/ produced)
 
-## 5. Auth-Mode Handling
+SECURITY: No new client trust boundaries; keys are derived locally and
+validated server-side (server remains authoritative for idempotency).
 
-- ✅ Client reads `VITE_AUTH_MODE` in exactly 2 places (`const.ts:9`, `AuthCard.tsx:91`); enforced by `check-auth-mode.mjs` predev/prebuild/build:vercel + `env-auth-mode.test.ts`.
-- ⚠️ **P2** mismatched UI surfaces: password mode renders dead "Google sign-in" button (`AuthCard.tsx:300-327`); google mode renders password form that only works for pre-existing password accounts.
+REGRESSION: None. DashboardHeader references ProjectDialog only via an
+onOpenProjectDialog callback (no prop change). All existing Home/auth
+tests pass.
 
-## 6. Other bugs
+RISKS:
+- Stable update key embeds a payload fingerprint: two edits with
+  byte-identical payloads in quick succession replay (correct — the
+  second is a duplicate of the first by definition).
+- Chunked sync makes N tRPC calls for N/500 chunks; a failure at chunk
+  k leaves chunks k..N queued (strictly better than the previous
+  all-or-nothing rejection for >500 items).
+- CONFLICT_409 classification keys on httpStatus 409 or "conflict" in
+  the message; a server message that mentions "conflict" incidentally
+  would be classified as 409 — cosmetic only (non-retryable either way).
+```
 
-| ID | Severity | Finding |
-|---|---|---|
-| P-04 | P3 | `Home.tsx:1004-1011` — `window.location.replace("#transactions")` during **render** (side effect in render path) |
-| P-05 | P4 | `useAuth.ts:57-64` — `localStorage.setItem` inside `useMemo` (render side effect) |
-| P-06 | P4 | `DashboardLayoutSkeleton.tsx` zero importers (dead code); `useOfflineSync.ts:68` swallows sync failures silently |
+---
 
-## 7. A11y / Responsive — mostly good
+## 2. HANDOFF TO GUARDIAN (BREAKER/QA)
 
-✅ `lang="bn"`, 50 `aria-label`, 47 `focus-visible` rings, `aria-current` on tabs, safe-area bottom bar, `useMobile` 768px, keyboard-reachable gesture siblings, horizontal-scroll tables.
-⚠️ P3: 89 `<Label>` vs 17 `htmlFor` (label association relies on proximity); P4: no skip-to-content; `Categories.tsx:121,173` dual `<h1>` in exclusive branches.
+```
+NEXT_AGENT: GUARDIAN (Big Pickle)
+HANDOFF_STATUS: READY
+ITEMS_FOR_NEXT_AGENT:
+- Adversarial review of stable-key semantics: confirm the tRPC
+  idempotent middleware's request-hash check prevents a forged
+  "update:<id>:<same-hash>" replay with a tampered payload.
+- Migration 0020 (finance_firm_profiles) must be exercised in the
+  full DB-backed gate (Forge ran it green; re-verify on Guardian's
+  disposable DB).
+- Offline queue integration: simulate >500 queued items end-to-end
+  (chunking is unit-tested; an e2e-ish path test would strengthen it).
+- Verify no client code path still reads firm profile from an
+  in-memory-only source after Forge's persistence change.
+RECOMMENDATION: PROCEED (all gates green; no blocking defects)
+```
 
-## 8. Test coverage reality
+---
 
-- **26 client `.wiring.test.ts`** are `readFileSync` source-string assertions (e.g. exact CSS class literal) — brittle, never render UI.
-- 57 client `*.test.ts` run under vitest **node environment**: **0 `.test.tsx`, no jsdom, no @testing-library** → no component/interaction tests; `.tsx` outside coverage.
+## 3. RECOMMENDATION
 
-## 9. Recommendations
-
-1. **P2 (highest value):** add `finance.monthlyReport` to `refresh()` invalidations; render global 4xx error feedback (403 especially).
-2. **P2:** replace raw `<a href>` nav with wouter `Link` (SPA navigation without state/cache wipe).
-3. **P2:** gate auth-mode-specific UI (hide Google button in password mode, hide password form in google mode).
-4. **P3:** fix sidebar permission mismatches (P-01/P-02); add page-level gates.
-5. **P3:** fix render-phase side effects (P-04/P-05).
-6. **P4:** delete dead `DashboardLayoutSkeleton`, dead validation schemas or wire them into forms.
-
-**Frontend permission checks remain UX-only; backend authorization unchanged and authoritative.**
+```
+RECOMMENDATION: PROCEED TO GUARDIAN
+RATIONALE: All four handoff items implemented and tested; check/lint/build
+clean; full suite 1518 passed (28 DB-gated self-skips). No commit made
+(per pipeline rules — awaiting user instruction).
+```

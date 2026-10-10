@@ -7,6 +7,28 @@ import {
 } from "@/lib/offlineQueue";
 import { toast } from "sonner";
 
+/**
+ * Server-side cap for finance.syncOfflineTransactions items
+ * (z.array(...).max(500)). Offline batches larger than this are
+ * synced in sequential chunks so one oversized batch is never
+ * rejected wholesale.
+ */
+export const SYNC_CHUNK_SIZE = 500;
+
+/**
+ * Split queued items into chunks of at most `max` items, preserving
+ * order. Pure function — unit-tested directly (node environment).
+ */
+export function buildSyncChunks<T>(items: T[], max = SYNC_CHUNK_SIZE): T[][] {
+  if (items.length === 0) return [];
+  if (max <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let start = 0; start < items.length; start += max) {
+    chunks.push(items.slice(start, start + max));
+  }
+  return chunks;
+}
+
 export function useOfflineSync() {
   const { activeProjectId } = useActiveProject();
   const [isOnline, setIsOnline] = useState(
@@ -39,30 +61,37 @@ export function useOfflineSync() {
         `অফলাইন সংরক্ষিত ${projectItems.length}টি লেনদেন সিঙ্ক হচ্ছে...`
       );
 
-      const payload = projectItems.map(item => ({
-        projectId: item.projectId,
-        accountId: item.accountId,
-        categoryId: item.categoryId,
-        type: item.type,
-        amount: item.amount,
-        paymentMethod: item.paymentMethod,
-        note: item.note,
-        occurredAt: new Date(item.occurredAt),
-        idempotencyKey: item.id,
-      }));
+      let syncedTotal = 0;
+      // Server caps one sync call at SYNC_CHUNK_SIZE items; chunk and
+      // clear each chunk only after it is durably synced, so a failure
+      // partway through leaves exactly the unsynced remainder queued.
+      for (const chunk of buildSyncChunks(projectItems)) {
+        const payload = chunk.map(item => ({
+          projectId: item.projectId,
+          accountId: item.accountId,
+          categoryId: item.categoryId,
+          type: item.type,
+          amount: item.amount,
+          paymentMethod: item.paymentMethod,
+          note: item.note,
+          occurredAt: new Date(item.occurredAt),
+          idempotencyKey: item.id,
+        }));
 
-      await syncMutateAsync({
-        projectId: activeProjectId,
-        items: payload,
-      });
+        await syncMutateAsync({
+          projectId: activeProjectId,
+          items: payload,
+        });
 
-      for (const item of projectItems) {
-        await removeQueuedOfflineTransaction(item.id);
+        for (const item of chunk) {
+          await removeQueuedOfflineTransaction(item.id);
+        }
+        syncedTotal += chunk.length;
       }
 
       setPendingCount(0);
       toast.success(
-        `${projectItems.length}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক সম্পন্ন হয়েছে!`
+        `${syncedTotal}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক সম্পন্ন হয়েছে!`
       );
       utils.finance.overview.invalidate();
     } catch {

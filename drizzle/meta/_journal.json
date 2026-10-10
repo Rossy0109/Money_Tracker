@@ -141,6 +141,13 @@
       "when": 1790313600000,
       "tag": "0019_wallet_opening_balance_voucher",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1791580835679,
+      "tag": "0020_firm_profile_persistence",
+      "breakpoints": true
     }
   ]
 }

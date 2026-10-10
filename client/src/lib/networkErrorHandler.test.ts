@@ -75,10 +75,46 @@ describe("Network Error Handling - 6 Error Scenarios", () => {
 
     it("classifies rate limit message in tRPC error string", () => {
       const err = new Error(
-        "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে"
+        "খুব বেশি চেষ্টার কারণে সাময়িকভাবে বন্ধ রাখা হয়েছে"
       );
       const result = classifyNetworkError(err, true);
       expect(result.kind).toBe("RATE_LIMIT_429");
+    });
+  });
+
+  // Scenario 3b: Conflict 409 (e.g. duplicate project name)
+  describe("Scenario 3b: Conflict 409", () => {
+    it("classifies httpStatus 409 as CONFLICT_409 and disables retry", () => {
+      const err = {
+        data: { httpStatus: 409 },
+        message: "এই নামে প্রজেক্ট ইতিমধ্যে রয়েছে",
+      };
+      const result = classifyNetworkError(err, true);
+      expect(result.kind).toBe("CONFLICT_409");
+      expect(result.statusCode).toBe(409);
+      expect(result.shouldRetry).toBe(false);
+      expect(result.userFacingMessage).toBe(
+        "এই নামে প্রজেক্ট ইতিমধ্যে রয়েছে"
+      );
+    });
+
+    it("classifies a tRPC conflict message as CONFLICT_409", () => {
+      const err = new Error("Duplicate entry conflicts with existing row");
+      const result = classifyNetworkError(err, true);
+      expect(result.kind).toBe("CONFLICT_409");
+    });
+
+    it("does not confuse 409 with generic 4xx", () => {
+      const conflict = classifyNetworkError(
+        { data: { httpStatus: 409 }, message: "dup" },
+        true
+      );
+      const badRequest = classifyNetworkError(
+        { data: { httpStatus: 400 }, message: "bad" },
+        true
+      );
+      expect(conflict.kind).toBe("CONFLICT_409");
+      expect(badRequest.kind).toBe("CLIENT_4XX");
     });
   });
 

@@ -286,3 +286,63 @@ describe("Transaction Idempotency Verification", () => {
     expect(state.inserts.length).toBe(countAfterFirst);
   });
 });
+
+describe("Update/delete transaction idempotency (Forge F-05 + Prism P2 stable keys)", () => {
+  const read = (rel: string) =>
+    readFileSync(new URL(rel, import.meta.url), "utf8");
+
+  it("guards updateTransaction with the idempotent middleware", () => {
+    const s = read("./routers.ts");
+    const start = s.indexOf("updateTransaction: protectedWithPermission");
+    const end = s.indexOf("\n    deleteTransaction:", start);
+    const route = s.slice(start, end === -1 ? undefined : end);
+    expect(route).toContain(".use(idempotent)");
+  });
+
+  it("guards deleteTransaction with the idempotent middleware", () => {
+    const s = read("./routers.ts");
+    const start = s.indexOf("deleteTransaction: protectedWithPermission");
+    const end = s.indexOf("\n    addDue:", start);
+    const route = s.slice(start, end === -1 ? undefined : end);
+    expect(route).toContain(".use(idempotent)");
+  });
+
+  it("deleteTransaction accepts an optional idempotencyKey", () => {
+    const s = read("./routers.ts");
+    const start = s.indexOf("deleteTransaction: protectedWithPermission");
+    const end = s.indexOf("\n    addDue:", start);
+    const route = s.slice(start, end === -1 ? undefined : end);
+    expect(route).toContain("idempotencyKey: z.string().trim().max(120).optional()");
+  });
+
+  it("does not persist idempotencyKey into the finance_transactions row on update", () => {
+    // The unique index (userId, idempotencyKey) on finance_transactions
+    // must never be mutated by an edit: writing the client's stable key
+    // into the row would let two sequential edits of the same row carry
+    // different idempotencyKeys and toast a false 409 on re-save. The
+    // key lives only in the idempotency_keys table (middleware scope).
+    const s = read("./db.ts");
+    const start = s.indexOf("export async function updateTransaction(");
+    const end = s.indexOf("\nexport async function deleteTransaction(", start);
+    const fn = s.slice(start, end === -1 ? undefined : end);
+    const updateIdx = fn.indexOf(".update(financeTransactions)");
+    const setIdx = fn.indexOf(".set({", updateIdx);
+    const setEnd = fn.indexOf("})", setIdx);
+    const setPayload = fn.slice(setIdx, setEnd === -1 ? undefined : setEnd);
+    expect(updateIdx).toBeGreaterThan(-1);
+    expect(setIdx).toBeGreaterThan(-1);
+    expect(setPayload).not.toContain("idempotencyKey");
+  });
+
+  it("docs the stable-key contract on the client side", () => {
+    const s = read("../client/src/lib/idempotency.ts");
+    expect(s).toContain("transactionUpdateKey");
+    expect(s).toContain("transactionDeleteKey");
+  });
+
+  it("wires the stable keys into Home.tsx update/delete mutations", () => {
+    const s = read("../client/src/pages/Home.tsx");
+    expect(s).toContain("transactionUpdateKey(");
+    expect(s).toContain("transactionDeleteKey(");
+  });
+});

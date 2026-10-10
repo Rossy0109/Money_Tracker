@@ -30,8 +30,9 @@ async function localDbReachable(): Promise<boolean> {
   }
 }
 
-// Top-level probe: the suite runs only with a reachable disposable MariaDB
-// (local runs). CI's unit job has no database service and skips cleanly.
+// Top-level probe: the suite runs only with a reachable disposable MariaDB.
+// CI's `test` job provisions one (ISOLATED_E2E_DATABASE_URL); local runs
+// without a database self-skip cleanly.
 const enabled = await localDbReachable();
 
 const scratchDatabase = `money_tracker_dbunit_${Date.now().toString(36)}_${process.pid}`;
@@ -78,6 +79,51 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
       expect(id).toBeGreaterThan(0);
       if (!id) throw new Error("User id missing after upsert");
       userId = id;
+    },
+    30000
+  );
+
+  it(
+    "revokeAllSessionsExcept revokes other sessions but keeps the live one",
+    async () => {
+      const {
+        createUserSession,
+        findRevokedSessionByToken,
+        getUserIdByOpenId,
+        revokeAllSessionsExcept,
+        revokeAllUserSessions,
+        upsertUser,
+      } = await import("./db");
+      await upsertUser({ openId: "dbunit:sess-owner" });
+      const ownerId = await getUserIdByOpenId("dbunit:sess-owner");
+      if (!ownerId) throw new Error("owner id missing");
+      const expiresAt = new Date(Date.now() + 60_000);
+      await createUserSession(
+        ownerId,
+        "live-session-token",
+        "live-refresh-token",
+        null,
+        "203.0.113.1",
+        expiresAt,
+        expiresAt
+      );
+      await createUserSession(
+        ownerId,
+        "stale-session-token",
+        "stale-refresh-token",
+        null,
+        "203.0.113.1",
+        expiresAt,
+        expiresAt
+      );
+      await revokeAllSessionsExcept(ownerId, "live-session-token");
+      const liveRevoked = await findRevokedSessionByToken("live-session-token");
+      const staleRevoked = await findRevokedSessionByToken(
+        "stale-session-token"
+      );
+      expect(liveRevoked).toEqual([]);
+      expect(staleRevoked).toHaveLength(1);
+      await revokeAllUserSessions(ownerId);
     },
     30000
   );

@@ -30,8 +30,8 @@ pnpm build               # vite build + esbuild server bundle -> dist/
 Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test && pnpm build`.
 
 - Single test: `pnpm exec vitest run server/<file>.test.ts`
-- Coverage thresholds enforced: 70% stmts/funcs/lines, 60% branches.
-- DB-backed suites need a **disposable** DB: `ISOLATED_E2E_DATABASE_URL='mysql://root:password@127.0.0.1:3306/money_tracker'` then `pnpm test:migrations`, `pnpm test:e2e:isolated`, or the hermetic suite. Some unit tests self-skip without a reachable DB.
+- **Coverage thresholds enforced: 70% stmts/funcs/lines, 60% branches. Gate passes WITH a disposable MariaDB only** — without DB the suite self-skips and measures ~51% stmts/50% branches/56% funcs/58% lines, all failing. With DB (recipe below): 70.46% stmts / 61.58% branches / 70.93% funcs / 71.82% lines — all four thresholds pass, exit 0.
+- DB-backed suites need a **disposable** DB: `ISOLATED_E2E_DATABASE_URL='mysql://root:password@127.0.0.1:3307/money_tracker'` then `pnpm test:migrations`, `pnpm test:e2e:isolated`, or `pnpm test:coverage`. The `test` CI job now provisions MariaDB and runs `pnpm test:coverage` (F-08 fix).
 - `pnpm test:worker` needs schema applied first: `node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"`.
 - `pnpm test:browser:e2e` (Playwright) is unsupported on Android/Termux — CI only.
 - `pnpm db:push` = `drizzle-kit generate && migrate` (requires `DATABASE_URL`). Never rewrite or delete existing migration files in `drizzle/`.
@@ -41,12 +41,24 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 ## Hard rules (test-enforced or ops-critical)
 
 - `AUTH_MODE` (server) and `VITE_AUTH_MODE` (client) must match; `predev`/`prebuild` enforce it via `scripts/check-auth-mode.mjs`.
-- Production DB is **read-only** for agents. Migration/schema rehearsals only on disposable DBs. No DROP/TRUNCATE, no prod data edits.
-- All finance queries are scoped by the **server-derived** `userId`; never accept a user ID from the client. AuthZ lives on the server — do not move authorization authority into the frontend.
-- Expense/income categories are a **fixed contract** (see README table; Bengali names are intentional). Tests verify them — don't make categories dynamic.
-- Never weaken security or tests to make a suite green.
+- **Production DB is read-only for agents.** Migration/schema rehearsals only on disposable DBs. No DROP/TRUNCATE, no prod data edits.
+- **All finance queries are scoped by the server-derived `userId`; never accept a user ID from the client.** AuthZ lives on the server — do not move authorization authority into the frontend.
+- **Expense/income categories are a fixed contract** (see README table; Bengali names are intentional). Tests verify them — don't make categories dynamic.
+- **Never weaken security or tests to make a suite green.**
 - Dependency changes follow `DEPENDENCY-POLICY.md`: no upgrade "because it's newer"; `jose` is pinned exactly; React 19 / Express 5 / Tailwind 4 / Vite 8 / Vitest 5 majors are already absorbed and need explicit approval to move. CI enforces this: the dependency-bump workflow fails on `pnpm audit --audit-level=high` and on any semver-major bump (`scripts/check-dependency-policy.mjs`; local check via `pnpm check:dep-policy`).
 - `.env*` files are never committed. Secrets go through the hosting provider.
+
+### F-08 (P1) — CI coverage gate (new in this session)
+
+The `test` CI job was updated to provision a MariaDB service and run `pnpm test:coverage` instead of `pnpm test`. This enforces the 70/60/70/70 thresholds on every PR via the already-required `test` check. Without this change, a naive `--coverage` gate in the `test` job would fail at ~57% and an agent might be pressured to lower thresholds — exactly the failure mode AGENTS.md forbids. The fix adds `services: mariadb`, `ISOLATED_E2E_DATABASE_URL`, and switches `pnpm test` → `pnpm test:coverage` in the `test` job (timeout 30→40 min). Stale comments in `ci.yml`, `server/db.hermetic.test.ts`, and `docs/db-test-coverage.md` were corrected.
+
+### F-10 (P3) — Stray test writes (new in this session)
+
+`server/cloudBackupService.test.ts` now pins `LOCAL_BACKUP_DIR` to a temp directory in a `beforeEach` for the first `describe`, so a DB-enabled run writes its `*.enc.json` snapshot outside the repo. 23/23 tests pass; no untracked `backups/` is produced.
+
+### F-09 (P1) — Authorization defect, fixed and locked
+
+`server/_core/rbac.ts` — `isFinanceAdmin` and `isAdminRoleUser` used `||` between two **Promises**. A Promise object is always truthy, so `||` short-circuited and returned the first promise. Both functions silently degraded to `isSuperAdmin`, denying `ACCOUNTING_ADMIN` finance-admin rights and `SYSTEM_ADMIN` the admin role set — the inverse of their documented contract. Fixed by awaiting each operand; locked by tests that also confirm the client mirror agrees.
 
 ## Architecture map
 

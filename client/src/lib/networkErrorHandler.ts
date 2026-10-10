@@ -2,6 +2,7 @@ export type NetworkErrorKind =
   | "TIMEOUT"
   | "SERVER_5XX"
   | "RATE_LIMIT_429"
+  | "CONFLICT_409"
   | "MALFORMED_RESPONSE"
   | "CORS_OR_SECURITY"
   | "OFFLINE"
@@ -126,6 +127,20 @@ export function classifyNetworkError(
         "খুব বেশি অনুরোধ পাঠানো হয়েছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।",
       shouldRetry: true,
       retryDelayMs: 5000,
+    };
+  }
+
+  // 3b. Conflict 409 (e.g. duplicate project name, idempotency
+  // replay mismatch) — user must change the input; never retry.
+  if (status === 409 || errMsg.includes("conflict")) {
+    return {
+      kind: "CONFLICT_409",
+      statusCode: status,
+      message: `Conflict ${status ?? ""}`,
+      userFacingMessage:
+        errorLike?.message || "এই অনুরোধটি বর্তমান অবস্থায় সম্পন্ন করা যায়নি।",
+      shouldRetry: false,
+      retryDelayMs: 0,
     };
   }
 

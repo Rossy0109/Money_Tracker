@@ -75,6 +75,7 @@ const { financeDb } = vi.hoisted(() => ({
     deleteInventoryItem: vi.fn(),
     getBills: vi.fn(),
     setUserPassword: vi.fn(),
+    revokeAllSessionsExcept: vi.fn(),
     listInvoices: vi.fn(),
     getFinancialStatements: vi.fn(),
     getVoucherList: vi.fn(),

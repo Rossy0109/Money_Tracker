@@ -17,6 +17,7 @@ import {
   requireResourcePermission,
   requireAnyResourcePermission,
   requireAllResourcePermissions,
+  auditPermissionDenied,
 } from "./authz";
 import { hasAnyPermission } from "./rbac";
 import {
@@ -98,6 +99,7 @@ const requireCreatePermission = t.middleware(async opts => {
   ]);
 
   if (!hasCreatePerm) {
+    await auditPermissionDenied(ctx, "input-only:create");
     throw new TRPCError({ code: "FORBIDDEN", message: INPUT_ONLY_ERR_MSG });
   }
 

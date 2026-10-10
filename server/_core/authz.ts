@@ -8,7 +8,7 @@ type AuthzMiddleware = (opts: {
   next: (opts: { ctx: TrpcContext }) => Promise<MiddlewareResult<object>>;
 }) => Promise<MiddlewareResult<object>>;
 
-async function auditPermissionDenied(
+export async function auditPermissionDenied(
   ctx: TrpcContext,
   permissionOrReason: string
 ) {
