@@ -63,6 +63,7 @@ import {
   financeBankReconciliationItems,
   financeAccountGroups,
   financeFiscalPeriods,
+  financeFirmProfiles,
   financeJournalEntries,
   financeJournalLines,
   userSessions,
@@ -338,6 +339,27 @@ export async function revokeAllUserSessions(userId: number) {
     .update(userSessions)
     .set({ revokedAt: new Date() })
     .where(eq(userSessions.userId, userId));
+}
+
+/**
+ * Revoke every recorded session for a user except the one identified by
+ * `exceptToken`. Used after password changes so other logged-in devices are
+ * invalidated while the caller's current session stays live.
+ */
+export async function revokeAllSessionsExcept(
+  userId: number,
+  exceptToken: string
+) {
+  const db = databaseRequired(await getDb());
+  await db
+    .update(userSessions)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(userSessions.userId, userId),
+        ne(userSessions.sessionToken, exceptToken)
+      )
+    );
 }
 
 /**
@@ -817,8 +839,12 @@ async function ensureDefaultProject(userId: number) {
   return project;
 }
 
-async function ensureDefaultCategories(userId: number, projectId: number) {
-  const db = databaseRequired(await getDb());
+async function ensureDefaultCategories(
+  userId: number,
+  projectId: number,
+  dbOrTx?: DbOrTx
+) {
+  const db = dbOrTx ?? databaseRequired(await getDb());
   const existing = await db
     .select()
     .from(financeCategories)
@@ -1274,7 +1300,18 @@ export async function createVoucherWithEntries(
 ) {
   validateVoucherInput(input);
   const db = databaseRequired(await getDb());
-  return db.transaction(tx => createVoucherWithEntriesInTx(tx, userId, input));
+  const result = await db.transaction(tx =>
+    createVoucherWithEntriesInTx(tx, userId, input)
+  );
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "voucher",
+    entityId: result.voucherId,
+    summary: `Voucher created: ${result.voucherNo}`,
+  });
+  return result;
 }
 
 // ─── Voucher Lifecycle ────────────────────────────────────────────────────────
@@ -1310,7 +1347,7 @@ export async function submitVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     const [voucher] = await tx
       .select()
       .from(financeVouchers)
@@ -1351,6 +1388,15 @@ export async function submitVoucher(
 
     return { voucherId, status: "submitted" };
   });
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "voucher",
+    entityId: voucherId,
+    summary: "Voucher submitted for approval",
+  });
+  return result;
 }
 
 /** Approve a submitted voucher (or return to draft). */
@@ -1363,7 +1409,7 @@ export async function approveVoucher(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     const [voucher] = await tx
       .select()
       .from(financeVouchers)
@@ -1421,6 +1467,18 @@ export async function approveVoucher(
 
     return { voucherId, status: targetStatus };
   });
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: action === "approve" ? "approve" : "update",
+    entityType: "voucher",
+    entityId: voucherId,
+    summary:
+      action === "approve"
+        ? "Voucher approved"
+        : "Voucher returned to draft",
+  });
+  return result;
 }
 
 async function postVoucherInternals(
@@ -1553,7 +1611,7 @@ export async function postVoucher(
   assertVoucherTransition(preflight.status, "posted");
   if (preflight.userId === userId)
     throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     const [voucher] = await selectForUpdate<DbRow[]>(
       tx
         .select()
@@ -1632,6 +1690,15 @@ export async function postVoucher(
     });
     return { voucherId, status: "posted" as const };
   });
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "post",
+    entityType: "voucher",
+    entityId: voucherId,
+    summary: "Voucher posted to ledger",
+  });
+  return result;
 }
 
 /** ==================== Chart of Accounts ==================== */
@@ -3084,8 +3151,16 @@ export async function addBankReconciliationItem(
     matched: !!input.ledgerEntryId,
     matchedAt: input.ledgerEntryId ? new Date() : null,
   });
-
-  return Number(result[0].insertId);
+  const itemId = Number(result[0].insertId);
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "create",
+    entityType: "bank_reconciliation_item",
+    entityId: itemId,
+    summary: `Bank reconciliation item added: ${input.statementRef.trim()}`,
+  });
+  return itemId;
 }
 
 export async function matchBankReconciliationItem(
@@ -3104,16 +3179,26 @@ export async function matchBankReconciliationItem(
     .limit(1);
   if (!item) throw new Error("রিকোনসিলিয়েশন আইটেম পাওয়া যায়নি");
 
-  await db
-    .update(financeBankReconciliationItems)
-    .set({
-      ledgerEntryId,
-      matched: true,
-      matchedAt: new Date(),
-    })
-    .where(eq(financeBankReconciliationItems.id, itemId));
+  await db.transaction(async tx => {
+    await tx
+      .update(financeBankReconciliationItems)
+      .set({
+        ledgerEntryId,
+        matched: true,
+        matchedAt: new Date(),
+      })
+      .where(eq(financeBankReconciliationItems.id, itemId));
 
-  await recalculateReconciliation(db, userId, projectId, item.reconciliationId);
+    await recalculateReconciliation(tx, userId, projectId, item.reconciliationId);
+  });
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "bank_reconciliation_item",
+    entityId: itemId,
+    summary: "Bank reconciliation item matched to ledger entry",
+  });
 }
 
 export async function unmatchBankReconciliationItem(
@@ -3124,32 +3209,42 @@ export async function unmatchBankReconciliationItem(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  await db
-    .update(financeBankReconciliationItems)
-    .set({
-      ledgerEntryId: null,
-      matched: false,
-      matchedAt: null,
-    })
-    .where(eq(financeBankReconciliationItems.id, itemId));
+  await db.transaction(async tx => {
+    await tx
+      .update(financeBankReconciliationItems)
+      .set({
+        ledgerEntryId: null,
+        matched: false,
+        matchedAt: null,
+      })
+      .where(eq(financeBankReconciliationItems.id, itemId));
 
-  const [item] = await db
-    .select()
-    .from(financeBankReconciliationItems)
-    .where(eq(financeBankReconciliationItems.id, itemId))
-    .limit(1);
-  if (item) {
-    await recalculateReconciliation(
-      db,
-      userId,
-      projectId,
-      item.reconciliationId
-    );
-  }
+    const [item] = await tx
+      .select()
+      .from(financeBankReconciliationItems)
+      .where(eq(financeBankReconciliationItems.id, itemId))
+      .limit(1);
+    if (item) {
+      await recalculateReconciliation(
+        tx,
+        userId,
+        projectId,
+        item.reconciliationId
+      );
+    }
+  });
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "bank_reconciliation_item",
+    entityId: itemId,
+    summary: "Bank reconciliation item unmatched from ledger entry",
+  });
 }
 
 async function recalculateReconciliation(
-  db: DbHandle,
+  db: DbOrTx,
   userId: number,
   projectId: number,
   reconciliationId: number
@@ -3507,11 +3602,16 @@ export async function getPrivateStorageObjectForDownload(
 export async function createProject(userId: number, name: string) {
   const db = databaseRequired(await getDb());
   const cleanName = name.trim();
-  const result = await db
-    .insert(financeProjects)
-    .values({ userId, name: cleanName });
-  const projectId = Number(result[0].insertId);
-  await ensureDefaultCategories(userId, projectId);
+  // Atomic: the project row and its default categories commit together, so a
+  // mid-seed failure can never leave an empty project behind.
+  const projectId = await db.transaction(async tx => {
+    const result = await tx
+      .insert(financeProjects)
+      .values({ userId, name: cleanName });
+    const id = Number(result[0].insertId);
+    await ensureDefaultCategories(userId, id, tx);
+    return id;
+  });
   await ensureCanonicalMappings(userId, projectId);
   await logAudit({
     actorUserId: userId,
@@ -5315,7 +5415,20 @@ export async function backfillWalletOpeningBalances(
 ) {
   await assertOwnedProject(userId, projectId);
   const mappings = await ensureCanonicalMappings(userId, projectId);
-  return runOpeningBalanceBackfill(userId, projectId, mappings, options);
+  const result = await runOpeningBalanceBackfill(
+    userId,
+    projectId,
+    mappings,
+    options
+  );
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "wallet_opening_backfill",
+    summary: "Wallet opening balances backfilled (opening vouchers restated)",
+  });
+  return result;
 }
 
 export async function createAccount(
@@ -5863,7 +5976,12 @@ export async function updateTransaction(
     action: "update",
     entityType: "transaction",
     entityId: id,
-    summary: "Transaction updated with reversal and replacement voucher",
+    // Approved segregation-of-duties exception: quick-entry holders may edit
+    // their own posted entries, which internally reverses the voucher they
+    // posted. Distinct summary so forensics can separate this from voucher
+    // lifecycle reversals (voucher.reverse permission).
+    summary:
+      "Quick-entry edit: reversal of own posted voucher + replacement (approved SoD exception)",
   });
 }
 
@@ -5921,7 +6039,8 @@ export async function deleteTransaction(
     action: "delete",
     entityType: "transaction",
     entityId: id,
-    summary: "Transaction deleted with reversal voucher",
+    summary:
+      "Quick-entry delete: reversal of own posted voucher (approved SoD exception)",
   });
 }
 
@@ -6312,6 +6431,14 @@ export async function setBillReminderSettings(
       )
     );
   if (!result[0].affectedRows) throw new Error("বিলটি পাওয়া যায়নি");
+  await logAudit({
+    actorUserId: userId,
+    projectId,
+    action: "update",
+    entityType: "bill_reminder",
+    entityId: id,
+    summary: `Bill reminder set: ${reminderDaysBefore} day(s) before due`,
+  });
 }
 
 export async function setBillScheduleTask(
@@ -9325,6 +9452,7 @@ export async function getVoucherPrintData(
   };
 }
 
+/** Hot layer in front of the finance_firm_profiles table. */
 const firmProfileCache = new Map<
   string,
   {
@@ -9340,17 +9468,39 @@ function firmProfileKey(userId: number, projectId: number) {
   return `${userId}:${projectId}`;
 }
 
+const EMPTY_FIRM_PROFILE = {
+  name: "",
+  tagline: "",
+  phone: "",
+  email: "",
+  address: "",
+};
+
 export async function getFirmProfile(userId: number, projectId: number) {
   await assertOwnedProject(userId, projectId);
-  return (
-    firmProfileCache.get(firmProfileKey(userId, projectId)) ?? {
-      name: "",
-      tagline: "",
-      phone: "",
-      email: "",
-      address: "",
-    }
-  );
+  const cached = firmProfileCache.get(firmProfileKey(userId, projectId));
+  if (cached) return cached;
+  const db = databaseRequired(await getDb());
+  const [row] = await db
+    .select()
+    .from(financeFirmProfiles)
+    .where(
+      and(
+        eq(financeFirmProfiles.userId, userId),
+        eq(financeFirmProfiles.projectId, projectId)
+      )
+    )
+    .limit(1);
+  if (!row) return { ...EMPTY_FIRM_PROFILE };
+  const profile = {
+    name: row.name,
+    tagline: row.tagline,
+    phone: row.phone,
+    email: row.email,
+    address: row.address,
+  };
+  firmProfileCache.set(firmProfileKey(userId, projectId), profile);
+  return profile;
 }
 
 export async function saveFirmProfile(
@@ -9365,13 +9515,7 @@ export async function saveFirmProfile(
   }
 ) {
   await assertOwnedProject(userId, projectId);
-  const existing = firmProfileCache.get(firmProfileKey(userId, projectId)) ?? {
-    name: "",
-    tagline: "",
-    phone: "",
-    email: "",
-    address: "",
-  };
+  const existing = await getFirmProfile(userId, projectId);
   const updated = {
     name: input.name ?? existing.name,
     tagline: input.tagline ?? existing.tagline,
@@ -9379,6 +9523,27 @@ export async function saveFirmProfile(
     email: input.email ?? existing.email,
     address: input.address ?? existing.address,
   };
+  const db = databaseRequired(await getDb());
+  await db
+    .insert(financeFirmProfiles)
+    .values({
+      userId,
+      projectId,
+      name: updated.name,
+      tagline: updated.tagline,
+      phone: updated.phone,
+      email: updated.email,
+      address: updated.address,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        name: updated.name,
+        tagline: updated.tagline,
+        phone: updated.phone,
+        email: updated.email,
+        address: updated.address,
+      },
+    });
   firmProfileCache.set(firmProfileKey(userId, projectId), updated);
   return updated;
 }

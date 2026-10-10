@@ -13,11 +13,16 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockGetDb = vi.hoisted(() => vi.fn());
 const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: any) => db));
 const mockAssertOwnedProject = vi.hoisted(() => vi.fn());
+const mockLogAudit = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("./db", () => ({
   getDb: mockGetDb,
   databaseRequired: mockDatabaseRequired,
   assertOwnedProject: mockAssertOwnedProject,
+}));
+
+vi.mock("./audit", () => ({
+  logAudit: mockLogAudit,
 }));
 
 beforeEach(() => {
@@ -807,6 +812,30 @@ describe("Fiscal Periods", () => {
       endDate: new Date("2026-12-31"),
     });
     expect(result.id).toBe(1);
+    expect(mockAssertOwnedProject).toHaveBeenCalledWith(1, 1);
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "create",
+        entityType: "fiscal_period",
+        entityId: 1,
+        projectId: 1,
+      })
+    );
+  });
+
+  it("createFiscalPeriod rejects cross-project inserts (ownership enforced)", async () => {
+    mockAssertOwnedProject.mockRejectedValue(new Error("Access denied"));
+    const insert = vi.fn();
+    mockGetDb.mockResolvedValue({ insert });
+    await expect(
+      createFiscalPeriod(1, 999, {
+        name: "FY 2026",
+        startDate: new Date("2026-01-01"),
+        endDate: new Date("2026-12-31"),
+      })
+    ).rejects.toThrow("Access denied");
+    expect(insert).not.toHaveBeenCalled();
+    expect(mockLogAudit).not.toHaveBeenCalled();
   });
 
   it("listFiscalPeriods returns empty for new project", async () => {

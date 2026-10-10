@@ -69,17 +69,10 @@ export async function verifyBackupAuthorization(req: Request): Promise<boolean> 
     return true;
   }
 
-  // 3. Check if cron secret provided in JSON body
-  if (req.body) {
-    if (
-      typeof req.body.cronSecret === "string" &&
-      (await hasValidCronSecret(req.body.cronSecret))
-    ) {
-      return true;
-    }
-  }
+  // Secrets are never accepted from request bodies — headers and the
+  // authenticated-session path below are the only routes in.
 
-  // 4. Check authenticated session / cron
+  // 3. Check authenticated session / cron
   try {
     const user = await sdk.authenticateRequest(req);
     if (user.isCron) {

@@ -12,6 +12,8 @@ import {
 import { registerOAuthRoutes } from "../server/_core/oauth";
 import { registerStorageProxy } from "../server/_core/storageProxy";
 import { setR2Bucket } from "../server/_core/storageBackend";
+import { runHealthChecks } from "../server/healthChecks";
+import { timingSafeCompare } from "../server/timingSafe";
 import {
   runScheduledRecurring,
   runScheduledBillReminder,
@@ -66,6 +68,26 @@ export function createWorkerApp(env: WorkerEnv) {
 
   app.get("/api/healthz", c => {
     return c.json({ ok: true, service: "money-tracker" });
+  });
+
+  // Cron-protected structured health checks — mirrors Express /api/health-checks.
+  app.all("/api/health-checks", async c => {
+    const authHeader = c.req.header("authorization");
+    let ok = false;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7).trim();
+      if (env.CRON_SECRET && token) {
+        ok = await timingSafeCompare(token, env.CRON_SECRET);
+      }
+    }
+    if (!ok) {
+      return c.json({ ok: false, error: "অননুমোদিত অনুরোধ" }, 403);
+    }
+    const result = await runHealthChecks(null);
+    return c.json(
+      result,
+      result.summary.database === "ok" ? 200 : 503
+    );
   });
 
   app.use("/api/auth/*", rateLimitMiddleware(env, 50, 15 * 60 * 1000));

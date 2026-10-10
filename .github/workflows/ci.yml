@@ -58,12 +58,29 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # ── Gate 2: Unit tests (accounting, security, RBAC, idempotency, audit …) ──
+  # ── Gate 2: Unit tests + coverage (accounting, security, RBAC, audit …) ──
+  # MariaDB is required: server/db.hermetic.test.ts self-skips without a
+  # reachable database, and the enforced coverage thresholds (70/60/70/70 in
+  # vitest.config.ts) are only satisfiable once that hermetic suite runs.
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: money_tracker
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     env:
       NODE_ENV: test
+      ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
         with:
@@ -78,8 +95,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Unit tests
-        run: pnpm test
+      # --coverage evaluates the thresholds in vitest.config.ts and exits
+      # non-zero when any is missed. Keep pnpm test:coverage (not pnpm test).
+      - name: Unit tests with coverage gate
+        run: pnpm test:coverage
 
       - name: Upload coverage
         if: always()
@@ -175,9 +194,9 @@ jobs:
           ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
         run: pnpm test:migrations
 
-      # Hermetic db.ts suite (disposable scratch DBs) — self-skips in the
-      # `test` job because no database is reachable there, so run it here
-      # where MariaDB is already provisioned.
+      # Hermetic db.ts suite (disposable scratch DBs). The `test` job now also
+      # provisions MariaDB and runs it under coverage; this focused re-run keeps
+      # the e2e gate independently diagnosable.
       - name: Hermetic DB unit suite
         env:
           ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QueuedOfflineTransaction } from "./lib/offlineQueue";
+import {
+  buildSyncChunks,
+  SYNC_CHUNK_SIZE,
+} from "./hooks/useOfflineSync";
 
 // Memory storage to simulate IndexedDB store for unit testing offline-sync
 class MockOfflineStorage {
@@ -208,6 +212,101 @@ describe("client/src/offline-sync.test.ts - Offline Detection, Queue Management,
         expect.objectContaining({ id: tx2.id }),
       ]);
       expect(storage.size()).toBe(0);
+    });
+  });
+
+  describe("Chunked Sync (server cap SYNC_CHUNK_SIZE per call)", () => {
+    async function queueMany(projectId: number, n: number) {
+      for (let i = 0; i < n; i++) {
+        await storage.queue({
+          projectId,
+          type: (i % 2 === 0 ? "expense" : "income") as "expense" | "income",
+          amount: 100 + i,
+          categoryId: (i % 5) + 1,
+          paymentMethod: "Cash",
+          occurredAt: "2026-09-12",
+        });
+      }
+    }
+
+    it("splits >500 queued items into sequential ≤500-item chunks and clears each after durable sync", async () => {
+      await queueMany(1, 1250);
+
+      const apiSpy = vi.fn().mockResolvedValue({ syncedCount: 1 });
+      const removeSpy = vi.spyOn(storage, "remove");
+
+      // Mirror of useOfflineSync.syncQueue chunk loop.
+      const projectItems = (await storage.getAll()).filter(
+        item => item.projectId === 1
+      );
+      let syncedTotal = 0;
+      for (const chunk of buildSyncChunks(projectItems)) {
+        expect(chunk.length).toBeLessThanOrEqual(SYNC_CHUNK_SIZE);
+        await apiSpy(chunk);
+        for (const item of chunk) {
+          await storage.remove(item.id);
+        }
+        syncedTotal += chunk.length;
+      }
+
+      expect(syncedTotal).toBe(1250);
+      expect(apiSpy).toHaveBeenCalledTimes(3);
+      expect(apiSpy.mock.calls[0]?.[0]).toHaveLength(SYNC_CHUNK_SIZE);
+      expect(apiSpy.mock.calls[2]?.[0]).toHaveLength(250);
+      expect(storage.size()).toBe(0);
+      expect(removeSpy).toHaveBeenCalledTimes(1250);
+    });
+
+    it("leaves exactly the unsynced remainder queued when a middle chunk fails", async () => {
+      await queueMany(1, 1250);
+
+      const failingAtChunk2 = vi
+        .fn()
+        .mockResolvedValueOnce({ syncedCount: 500 })
+        .mockRejectedValueOnce(new Error("Server 500"));
+
+      const projectItems = (await storage.getAll()).filter(
+        item => item.projectId === 1
+      );
+      let syncedTotal = 0;
+      let failed = false;
+      const chunks = buildSyncChunks(projectItems);
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]!;
+        try {
+          await failingAtChunk2(chunk);
+          for (const item of chunk) {
+            await storage.remove(item.id);
+          }
+          syncedTotal += chunk.length;
+        } catch {
+          failed = true;
+          break; // Keep the failing chunk AND all later chunks queued.
+        }
+      }
+
+      expect(failed).toBe(true);
+      expect(syncedTotal).toBe(SYNC_CHUNK_SIZE); // Only chunk 1 cleared.
+      expect(storage.size()).toBe(750); // Chunks 2 (500) + 3 (250) remain.
+      const remaining = await storage.getAll();
+      expect(remaining).toHaveLength(750);
+      expect(remaining.every(item => item.projectId === 1)).toBe(true);
+    });
+
+    it("keeps a small queue in a single chunk (no redundant splitting)", async () => {
+      await queueMany(1, 3);
+      const projectItems = (await storage.getAll()).filter(
+        item => item.projectId === 1
+      );
+      const apiSpy = vi.fn().mockResolvedValue({ syncedCount: 1 });
+
+      for (const chunk of buildSyncChunks(projectItems)) {
+        await apiSpy(chunk);
+      }
+
+      expect(apiSpy).toHaveBeenCalledTimes(1);
+      expect(apiSpy.mock.calls[0]?.[0]).toHaveLength(3);
     });
   });
 

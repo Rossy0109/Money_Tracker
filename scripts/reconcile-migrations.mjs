@@ -440,6 +440,7 @@ async function run() {
       "0018_canonical_accounts_and_transaction_idempotency.sql"
     );
     await reconcileFile(conn, "0019_wallet_opening_balance_voucher.sql");
+    await reconcileFile(conn, "0020_firm_profile_persistence.sql");
     await report(conn);
     console.log(
       dryRun

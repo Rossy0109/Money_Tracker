@@ -1,119 +1,151 @@
-# HELIX REPORT — Final Integration Authority (FINAL)
+# HELIX REPORT — Final Integration Authority
 
-**Agent:** HELIX (Space Bunny Free role)
-**Date:** 2026-10-06
-**Reconciles:** AGENT-ARCHITECTURE-REPORT, AGENT-TASK-MATRIX, ATLAS, SENTINEL, FORGE, PRISM, GUARDIAN reports + git diff + test results.
-**Corrections:** supersedes the interim HELIX report — S-01 corrected (false positive), F-01 fixed and tested.
+**Agent:** HELIX (Space Bunny Free role) — integration & release
+**Date:** 2026-10-10
+**Scope:** Integrated candidate covering FLEDGE → ATLAS → SENTINEL → FORGE → PRISM → GUARDIAN.
+**Reconciles:** AGENT-TASK-MATRIX, ATLAS, SENTINEL, FORGE, PRISM, GUARDIAN reports + cumulative git diff + independently re-run gates.
+**Supersedes:** the interim 2026-10-06 HELIX report. Commit intentionally **not** created (owner-controlled).
 
 ---
 
-## 1. Integration Decisions
+## 1. VERDICT
 
-| Finding | Source | HELIX Decision |
+```
+VERDICT: INTEGRATE
+P0_OPEN: 0
+P1_OPEN: 0
+BLOCKERS: none
+COMMIT: NOT CREATED — awaiting owner instruction (pipeline rule)
+```
+
+All gates were **independently re-run by HELIX** on the frozen tree (not inherited from GUARDIAN). Every gate reproduced.
+
+---
+
+## 2. Independent Gate Results (re-run by HELIX)
+
+| Gate | Command | Result |
 |---|---|---|
-| **S-01 "settleDue has no idempotency"** | ATLAS/SENTINEL/GUARDIAN P1 | **CORRECTED → P2.** FORGE verified `.use(idempotent)` + `idempotencyKey` present at `routers.ts:1377`. Prior reports misread the code. Residual risk: `idempotencyKey` is `.optional()` so protection depends on client sending it (structural DB guard `outstandingAmount >= amount` still applies). |
-| **F-01 "period-lock not enforced at post"** | ATLAS P1 | **FIXED ✅** — `server/db.ts:1573-1579` now calls `assertPeriodNotLockedTx(tx, projectId, voucher.date)` inside the posting transaction, after `FOR UPDATE` row lock, before the status update. Test added: `accounting-invariants.test.ts` "postVoucher enforces the period lock inside the posting transaction" (asserts call sits inside tx and before `set({status:"posted"})`). |
-| **PRISM P2 stale accounting summary** | PRISM | **FIXED ✅** — `client/src/pages/Home.tsx:295` `refresh()` now invalidates `finance.monthlyReport` alongside overview/projects. |
-| Dev CORS permissive (SENTINEL S-02) | SENTINEL P2 | **ACCEPTED** — documented: dev-only; prod uses allow-list (`app.ts:137-162`). Ops must set `CORS_ALLOWED_ORIGINS`. |
-| Per-process rate limiter (SENTINEL S-06) | SENTINEL P2 | **ACCEPTED as backlog** — `setRateLimitStore` KV hook exists; wire if multi-instance scaling is required. |
-| Restore path skips balance validation (ATLAS) | ATLAS P2 | **ACCEPTED** — compensated by daily `/api/scheduled/accounting-audit` + `accountingAudit.ts` health flags (documented design). |
-| PRISM silent-4xx / raw `<a>` nav / auth-mode UI mismatch | PRISM P2 | **ACCEPTED as documented backlog** — UX-only; no financial/security impact (backend authoritative). |
-| Dirty tree triage (`fix_*.py`, `*.orig`, `*.bak`) | FLEDGE ALPHA | **RESOLVED ✅** — all stray artifacts deleted, tree clean (verified 2026-10-07); AGENTS.md hygiene note updated. Source modifications in tree are verified-safe cleanups (unused imports, typed catch, debug-route disable, `supabase` devDep for worker path). |
-| Rejected rewrites / destructive migrations / secret exposure | — | **None found.** Diff is surgical: 3 functional files + 5 cleanup files + 8 new `docs/AGENT-*.md` reports. |
+| Typecheck | `pnpm check` | ✅ PASS |
+| Lint | `pnpm lint` | ✅ PASS |
+| Build | `pnpm build` | ✅ PASS (`dist/index.js` 660.1kb) |
+| Unit/Integration (no DB) | `pnpm test` | ✅ **1531 passed / 28 skipped** (DB suites self-skip) — exit 0 |
+| Schema reconcile | `node scripts/reconcile-migrations.mjs --url ...:3307/money_tracker` | ✅ **foreign keys: 121**, migration **0020** applied, "Financial data was not modified" |
+| Migration rehearsal | `ISOLATED_E2E_DATABASE_URL=… pnpm test:migrations` | ✅ PASS — scratch `money_tracker_migration_*` created, 0020 applied, then **dropped** |
+| Coverage gate | `ISOLATED_E2E_DATABASE_URL=… pnpm test:coverage` | ✅ **exit 0** — 170 files / **1559 passed** |
+| Worker | `pnpm test:worker` | ✅ **22 passed** |
 
-## 2. Verification After Fixes (this session)
+### Coverage vs. enforced thresholds (`vitest.config.ts`)
 
-| Gate | Result |
-|---|---|
-| `pnpm check` (typecheck) | ✅ PASS |
-| `pnpm lint` (full `eslint .`) | ✅ PASS |
-| `pnpm build` (vite + esbuild) | ✅ PASS (`dist/index.js` 649.4kb) |
-| `accounting-invariants.test.ts` + `accounting-core.test.ts` + `finance.router.test.ts` + `accountingAudit.test.ts` | ✅ 152/152 PASS (includes new period-lock test) |
-| Prior GUARDIAN sweep (accounting 40, authorization 9, RBAC/permissions 226, auth 8) | ✅ 283/283 PASS (unchanged) |
-| Migration rehearsal | ⚠️ **ENV LIMITATION** — requires disposable DB (`ISOLATED_E2E_DATABASE_URL`); not provisionable in Termux. Command: `pnpm test:migrations` — must run in CI before any schema change. |
-| Browser E2E | ⚠️ **ENV LIMITATION** — README: Playwright browser E2E unsupported on Android/Termux; run `pnpm test:browser:e2e` in CI. Termux limitation ≠ app defect. |
-| No secret leak | ✅ static scan: no hardcoded secrets; tracked env files = `.env.example`, `.env.test` only |
-| No destructive DB operation | ✅ zero DROP/TRUNCATE/migration-history rewrites |
+| Metric | HELIX measured | Threshold | Margin |
+|---|---|---|---|
+| Statements | **70.48%** | 70 | +0.48 |
+| Branches | **61.60%** | 60 | +1.60 |
+| Functions | **71.02%** | 70 | +1.02 |
+| Lines | **71.82%** | 70 | +1.82 |
 
-## 3. Final Release Gate
+Thresholds **not lowered**; gate exits 0. Disposable MariaDB 13.0.2 provisioned on loopback-only :3307 and fully torn down (process killed, datadir deleted, port refuses connections).
 
-| Gate | Status |
-|---|---|
-| TYPECHECK | ✅ PASS |
-| LINT | ✅ PASS |
-| UNIT TESTS | ✅ PASS (435 tests passing in targeted suites) |
-| INTEGRATION | ✅ PASS (finance.router + accountingAudit) |
-| ACCOUNTING | ✅ PASS (invariants verified; new post-lock test green) |
-| SECURITY | ✅ PASS (no regressions; S-01 corrected) |
-| RBAC | ✅ PASS (226 tests) |
-| BUILD | ✅ PASS |
-| MIGRATION REHEARSAL | ⚠️ **ENV LIMITATION DOCUMENTED** (CI command provided) |
-| NO SECRET LEAK | ✅ PASS |
-| NO DESTRUCTIVE DB OPERATION | ✅ PASS |
-| VOUCHER INVARIANTS | ✅ PASS |
-| LEDGER INTEGRITY | ✅ PASS |
-| DEPLOYMENT CONFIGURATION | ✅ PASS (Vercel handler built + `check:vercel-entry`; Cloudflare worker dry-run available) |
-| E2E | ⚠️ **ENV LIMITATION DOCUMENTED** (CI command provided) |
+---
 
-## 4. Final Status
+## 3. Cumulative Diff Safety Audit
 
-# PROJECT: Money_Tracker
-# STATUS: 🟢 GREEN
-
-**ARCHITECTURE:** Single-package monorepo (client/server/shared/worker); tRPC v11 over Express 5; dual deploy (Vercel primary, Cloudflare worker secondary); docs vs code drift audited (Phase 0), AGENT reports now authoritative.
-**DATABASE:** TiDB/MySQL via Drizzle; 20 migrations intact, none rewritten; FK `restrict` on financial history; migration rehearsal command ready for CI.
-**ACCOUNTING:** Double-entry vouchers; Σdr==Σcr enforced at create+router; POSTED immutable; reversal preserves history; atomic posting with sorted FOR UPDATE locks; cents-safe decimals; **period-lock now enforced at post (fixed this session)**.
-**SECURITY:** OAuth PKCE + constant-time password auth + DB lockout + timing-safe compares; helmet CSP/HSTS; no secret leaks.
-**AUTH:** JWT + server-side revocation; `__Host-` HttpOnly Secure SameSite cookies; 15-min admin elevation with re-password; logout revokes server-side.
-**RBAC:** Single-source `shared/rbac.ts`; enforced at tRPC middleware; maker≠checker; INPUT_OPERATOR 6-permission contract (226 tests); frontend gating UX-only.
-**BACKEND:** 71/71 mutations procedure-guarded; 8 with idempotency middleware; audit at 55 db sites; cron endpoints timing-safe secret; error handler leaks nothing.
-**FRONTEND:** All 21 routes resolve; wiring tests green; **stale monthlyReport invalidation fixed**; backlog documented (SPA links, 4xx UX, auth-mode UI) — UX-only, backend authoritative.
-**QA:** typecheck/lint/build green; 435 targeted tests green; adversarial classification complete; no P0/P1 open.
-**DEPLOYMENT:** Vercel + GitHub Actions CD + Cloudflare worker configs verified; auth-mode consistency enforced at predev/prebuild.
-
-**REMAINING_BLOCKERS:** None (P0/P1 closed).
-
-**ROLLBACK PLAN:** Revert the 3 functional commits/edits (`server/db.ts` period-lock block, `accounting-invariants.test.ts` test, `client/src/pages/Home.tsx` invalidation line) — all additive, no schema change, no data migration; prior behavior restored without side effects. Docs-only files need no rollback. Subsequent merged PRs (#235 idempotency hardening, #236 dependency overrides, #237 daily-sweep purge) are independently revertible via `git revert`.
-
-**RECOMMENDATION:** Merge to `main` via PR. Follow-ups (P2 backlog, non-blocking): SPA `Link` navigation; global 4xx feedback; auth-mode-aware auth UI; wire KV rate-limit store if multi-instance; run `pnpm test:migrations` + `pnpm test:browser:e2e` in CI.
-
-### Post-release integration (2026-10-07, merged to main)
-
-| PR | Change | Gate |
-|---|---|---|
-| #235 | `idempotencyKey` **required** on all 8 idempotent mutations (resolves S-01 residual); client callers generate keys; unique e2e keys | CI all green |
-| #236 | 15 Dependabot advisories (4 high) → 0 via PATCH-class `pnpm.overrides` (sharp, source-map-js, undici, dompurify, postcss-selector-parser) | CI all green; `pnpm audit` clean |
-| #237 | Orphaned `purgeExpiredIdempotencyKeys()` wired into daily sweep (Guardian F-03); +3 tests | CI all green |
-| #238 | Report refresh — GUARDIAN re-audit + HELIX integration status | CI all green |
-| #239 | SPA nav: raw `<a>` → wouter `Link` in 4 pages + `spa-navigation.wiring.test.ts` | CI all green |
-| #240 | Phase 6 secondary reviewer pass — no defects found | CI all green |
-| #233 | Dependabot 26-update group bump **CLOSED per DEPENDENCY-POLICY** — `typescript ^7` MAJOR blocked (explicit approval required), `googleapis ^183` upstream breaking, newer-only bumps with audit clean; hono serveStatic CVE not applicable (unused feature) | Review comment: full triage; no CI run needed |
-
-All post-release PRs verified per DEPENDENCY-POLICY (changelog/compat/tests/build) and the Guardian re-audit (`docs/GUARDIAN-REPORT.md`, Re-audit 2026-10-07). **Status remains 🟢 GREEN** — no P0/P1 open.
-
-**Note (breaking change):** #235 makes `idempotencyKey` a required input on 8 mutations. No external callers exist in-repo; ops to confirm no third-party tRPC consumers before rollout.
-
-### Secondary reviewer pass (Phase 6, 2026-10-07)
-
-Independent defect hunt on integrated `main` (post-#239). Method: full-tree scans
-(secret patterns, TODO/FIXME/HACK/XXX markers, raw SPA anchors), config audit
-(`vercel.json`, `wrangler.toml`, scheduled-job coverage), history scan.
+Cumulative change: **41 tracked files, +3617/−557**, plus **16 new** files.
 
 | Check | Result |
 |---|---|
-| Secret leakage in history since 2026-09 | ✅ all matches are test fixtures (`test-jwt-secret-…`, `unit-test-cron-secret`) |
-| Dead code / committed artifacts | ✅ `pages-redirect/` is intentional — deployed to GitHub Pages by `deploy-pages-redirect.yml` (redirects legacy Pages URL to Vercel) |
-| TODO/FIXME/HACK markers | ✅ none; `XXX` matches are a journal-number pattern (`JE-XXXXXXXX`) and ISO currency-code test case |
-| `vercel.json` | ✅ API routing → `api/[...path]`, SPA fallback rewrite, `no-store` on `/api/*`, crons: finance-backup 18:00 + daily-sweep 01:00 UTC |
-| Scheduled-job coverage (7 endpoints) | ✅ finance-backup + daily-sweep (Vercel cron + worker cron); backup-audit, accounting-audit, restore-drill (scheduled GH Actions); finance-recurring + finance-bill-reminder (processed by daily-sweep sweeps; standalone endpoints for on-demand) |
-| `wrangler.toml` | ✅ no plaintext secrets; `AUTH_MODE`/`VITE_AUTH_MODE` consistent (`google`); `check-auth-mode.mjs` passes |
-
-**Finding (informational, not a defect):** recurring transactions and bill reminders
-are swept once daily (01:00 UTC). Standalone `finance-recurring` /
-`finance-bill-reminder` endpoints exist for more frequent on-demand runs if ops
-requires intraday cadence. No action required.
-
-**Verdict: no defects found.** Candidate remains 🟢 GREEN.
+| God-file minimality — `drizzle/schema.ts` | ✅ **+28 / −0** (pure additive; new `financeFirmProfiles` table) |
+| God-file minimality — `server/db.ts` | ✅ +228 / −63; no destructive SQL, no removed assertions |
+| `package.json` / lockfile / `.env` in diff | ✅ **absent** — no dependency or secret-file changes |
+| Weakened / deleted tests | ✅ **zero** `expect(` removals across all test files; **zero** `.skip`/`.only` introduced |
+| Destructive SQL (DROP/TRUNCATE/DELETE FROM) | ✅ none introduced |
+| Secret scan of full diff | ✅ clean — only hit is `gho_test_token`, a **fake fixture** in `githubOAuth.test.ts` |
+| Tracked env files | ✅ only `.env.example` + `.env.test` (no real secrets) |
+| Dependency policy | ✅ `pnpm check:dep-policy` → no major bumps |
+| Workflow hardening | ✅ `check-workflow-hardening.mjs` → "All workflows pass" |
+| AUTH_MODE/VITE_AUTH_MODE parity guard | ✅ verified functionally — deliberate mismatch exits **1** with a clear message |
 
 ---
-*Never GREEN with P0/P1 open — final scan confirms none remain.*
+
+## 4. Handoff Reconciliation (spot-checked against code, not just reports)
+
+| Item | Verified in code |
+|---|---|
+| **F-1** raw register gated | ✅ `isPasswordAuthMode` shared across `oauth.ts`, `authSchemas.ts`, `routers/auth.ts` |
+| **F-2** SoD exception audit | ✅ 2 "(approved SoD exception)" audit summaries |
+| **F-3** fiscal-period authz+audit | ✅ `assertOwnedProject` at `accounting-core.ts:107,164` |
+| **F-4** audit coverage | ✅ +9 `logAudit(` calls in `db.ts` |
+| **F-5** idempotency on update/delete | ✅ `.use(idempotent)` present |
+| **F-6** `createProject` atomic | ✅ `db.transaction` wraps project + default categories |
+| **F-7** duplicate-project conflict | ✅ errno 1062 → CONFLICT (`routers.ts:641-643`) |
+| **F-12** firm-profile persistence | ✅ `financeFirmProfiles` in schema + migration 0020 + bootstrap DDL (5 refs) |
+| **F-13** worker cron auth | ✅ `/api/health-checks` cron-protected (`worker/app.ts:74`) |
+| **F-14** cron-secret body removal | ✅ body `cronSecret` acceptance deleted from `scheduledBackup.ts` |
+| **P1** offline chunking | ✅ `buildSyncChunks` in `useOfflineSync.ts` |
+| **P2** stable idempotency keys | ✅ `client/src/lib/idempotency.ts` + Home.tsx wiring |
+| **P3** duplicate-project UX | ✅ `CONFLICT_409` in `networkErrorHandler.ts` |
+| **P4** auth-mode UI lock | ✅ `AuthCard.authmode.wiring.test.ts` |
+| **F-08** CI coverage gate | ✅ `test` job now provisions MariaDB + runs `pnpm test:coverage`, timeout 40 |
+
+No handoff claim is unbacked. No override of another agent's work.
+
+---
+
+## 5. Migration 0020 — Safety & Rollback
+
+- **Additive only:** one `CREATE TABLE finance_firm_profiles` + 2 `FOREIGN KEY ... ON DELETE restrict` + 1 index. **No** DROP/TRUNCATE/data mutation.
+- **Reversible:** drop the table and remove migration `0020` from the journal; earlier migrations untouched.
+- **Pre-deploy:** back up the production DB; the reconciler never mutates financial data (confirmed by its own output).
+- **Migration triple consistent:** 21 SQL files = 21 journal tags = 21 `reconcileFile` calls; bootstrap DDL includes 0020.
+
+---
+
+## 6. Deployment / Ops Checklist
+
+- [x] CI enforces typecheck, lint, build, unit, coverage (with DB), worker.
+- [x] Deploy: Vercel serverless (`build:vercel`) and Cloudflare Worker (`wrangler`) configs present and unchanged.
+- [x] Secrets managed by hosting provider; no `.env` committed; `.env.example` documents required vars.
+- [x] No dependency-policy or lockfile drift.
+- [ ] **Owner action:** set `CORS_ALLOWED_ORIGINS` in the Vercel/Cloudflare production env (pre-existing P2, unchanged by this pipeline).
+
+---
+
+## 7. Release Gate Matrix
+
+| Gate | Status |
+|---|---|
+| TYPECHECK | ✅ |
+| LINT | ✅ |
+| BUILD | ✅ |
+| UNIT / INTEGRATION | ✅ 1531 (no DB) / 1559 (DB) |
+| ACCOUNTING INVARIANTS | ✅ (period lock, cents-safe arithmetic, 121 FKs) |
+| IDEMPOTENCY | ✅ (create/update/delete; server-authoritative) |
+| RBAC / AUTHZ | ✅ (F-09 `||`-on-Promise defect fixed & locked) |
+| SECURITY | ✅ (register gate, cron auth, SoD audit) |
+| MIGRATION REHEARSAL | ✅ 0020 applied + rolled back on scratch DB |
+| COVERAGE GATE | ✅ 70.48/61.60/71.02/71.82 |
+| NO SECRET LEAK | ✅ |
+| NO DESTRUCTIVE DB OP | ✅ |
+| DEPLOYMENT CONFIG | ✅ |
+
+---
+
+## 8. Notes & Accepted Backlog (non-blocking)
+
+- **P2** Client stable-key fingerprint uses insertion-order JSON (deterministic today; server re-verifies with sorted SHA-256). Optional polish.
+- **P3** `deleteTransaction` key is `delete:<projectId>:<id>`; correct because auto-increment never reuses ids.
+- **P3** Dev CORS permissive / per-process rate limiter — documented pre-existing limitations (prod allow-list; KV hook available).
+- **Env** Node v26.4.0 vs pinned `>=22 <25` → warnings only.
+- **Env** Browser E2E (Playwright) is CI-only (unsupported on Termux).
+
+---
+
+## 9. Final Status
+
+**Money Tracker** — integrated candidate passes every gate with **no P0/P1 open**. The pipeline (Atlas→Sentinel→Forge→Prism→Guardian→Helix) is complete. Recommended next steps, in order:
+
+1. Owner reviews `git status` / the cumulative diff and creates the commit on the chosen branch.
+2. Push + open PR; CI (required checks) re-verifies the coverage gate on hosted runners.
+3. Merge → CD deploys to Vercel; set `CORS_ALLOWED_ORIGINS` in prod before serving traffic.
+
+**HELIX authorizes integration. No commit was made by this agent.**

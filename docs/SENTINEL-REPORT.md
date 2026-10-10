@@ -1,135 +1,189 @@
 # SENTINEL REPORT — Phase 2 (Security + Auth + RBAC)
 
-**Agent:** SENTINEL (Nemotron 3.5 Lightning Free role)
-**Date:** 2026-10-06
-**Scope:** Google OAuth, password auth, sessions, JWT, cookies, CORS, CSRF, RBAC, permissions, admin elevation, ownership, rate limiting, secrets, idempotency. Read-only.
+**Agent:** SENTINEL (Big Pickle role)
+**Model:** Big Pickle (currently available OpenCode model)
+**Date:** 2026-10-09
+**Branch:** `agent/sentinel/security`
+**Scope:** Google/GitHub OAuth, password auth, sessions/JWTs/cookies, RBAC, admin elevation, ownership, rate limiting, input-only restrictions, secrets, self-approval prevention.
 
 ---
 
-## 1. Authentication
+## 0. HANDOFF ACCEPTANCE (ATLAS → SENTINEL)
 
-| Mechanism | Status | Notes |
-|---|---|---|
-| **Google OAuth** (OIDC) | ✅ Strong | PKCE (S256), state+nonce+verifier in HttpOnly cookie (`__Host-google_oauth`), discovery endpoint validation, issuer/audience/nonce verification, timing-safe email compare for admin bootstrap (`oauth.ts:360-365`), email_verified required (`googleOAuth.ts:241`) |
-| **GitHub OAuth** | ✅ Strong | PKCE not used (GitHub doesn't support it), state in `__Host-github_oauth` cookie, user email fallback to primary verified email or noreply, admin bootstrap same pattern (`githubOAuth.ts:80-87, 183-185`) |
-| **Password auth** | ✅ Strong | scrypt (N=16384, r=8, p=1), 64-byte key, 16-byte salt, constant-time verification via dummy hash (`passwordAuth.ts:127-147`), strength policy (≥8, upper/lower/digit/special, no repeats, common patterns), per-email+IP lockout after 5 failures (15 min) in DB (`oauth.ts:128-139`), login history + audit on success/fail |
-| **Session** | ✅ Strong | JWT (HS256) in `__Host-` prefixed cookie, `HttpOnly`, `Secure`, `SameSite=Lax` (`cookies.ts:52-53`), 1-year TTL, dual verification: JWT signature + server-side `user_sessions` revocation table (`sdk.ts:262-271`), Bearer header fallback for Safari ITP (`sdk.ts:247-252`) |
-| **Admin elevation** | ✅ Strong | Separate HMAC-SHA256 token (`ADMINBearer <token>` header or `__Host-admin_session` cookie, `SameSite=Strict`, 15 min TTL, constant-time verify, bound to RBAC admin role check (`adminSession.ts:40-113, 147-173`), re-verification password prompt for elevated mutations (`trpc.ts:215-236`) |
-| **Password reset** | ✅ Adequate | Token with expiry (1h), generic response (no enumeration), email delivery via webhook/Resend, dev mode shows token, rate limited (5/hr) (`auth.ts:357-461`) |
-
----
-
-## 2. Authorization (RBAC)
-
-| Aspect | Status | Notes |
-|---|---|---|
-| **Model** | ✅ Sound | Single source of truth in `shared/rbac.ts` (server + client), 8 roles, 14 categories, 46 permissions, least-privilege matrix, `INPUT_OPERATOR` is input-only (6 permissions: `auth.login`, `auth.logout`, `accounting.create`, `budget.create`, `payroll.create`, `voucher.create`) |
-| **Enforcement** | ✅ Comprehensive | tRPC middleware: `protectedProcedure` (auth + status), `inputOnlyProcedure` (any create perm), `adminProcedure`/`elevatedAdminProcedure` (RBAC admin roles only), `requirePermission` / `requireResourcePermission` family (`authz.ts`), audits denials (`authz.ts:11-30`) |
-| **Maker≠checker** | ✅ Enforced | `voucher.submit` → `voucher.approve` → `voucher.post` → `voucher.reverse` blocked for same user (`db.ts:1380-1387, 1554-1555, 2764-2766`); self-approval/self-posting/self-reversal blocked at API and DB |
-| **Ownership scoping** | ✅ Verified | Every finance mutation calls `assertOwnedProject(userId, projectId)`; router context passes only `ctx.user!.id`; all queries filter `userId`+`projectId` (`db.ts:1310,1540,2847` etc.) |
-| **Legacy `users.role`** | ✅ Ignored | `adminProcedure` explicitly relies on RBAC only; legacy `user.role` is display/migration only (`trpc.ts:122-130`) |
+```
+PREVIOUS_AGENT: ATLAS
+COMMIT_VERIFIED: NOT_APPLICABLE (no commit — uncommitted in shared workspace)
+FILES_VERIFIED: YES (docs/ATLAS-REPORT.md, 304 lines; read-only inspection)
+TEST_RESULTS_VERIFIED: YES (174 DB-backed accounting tests; 27 migrations; FK restrict; cents-safe arithmetic; 8 idempotent mutations)
+KNOWN_RISKS_REVIEWED: YES (A-01/A-02 optional idempotencyKeys documented)
+HANDOFF_STATUS: ACCEPTED
+REASON: Atlas verified schema/migration/accounting invariants with no new P0/P1; Sentinel scope independent.
+```
 
 ---
 
-## 3. Transport / Cookie Security
+## 1. COMPLETION REPORT (REQUIRED FORMAT)
 
-| Setting | Value | Assessment |
-|---|---|---|
-| Session cookie (`COOKIE_NAME`) | `__Host-` prefix, `HttpOnly`, `Secure`, `SameSite=Lax`, path `/` | ✅ Strong |
-| OAuth transaction cookies | `__Host-google_oauth`, `__Host-github_oauth`, `SameSite=Lax`, `Secure`, 10 min TTL | ✅ Strong |
-| Admin elevation cookie | `__Host-admin_session`, `SameSite=Strict`, `Secure`, 15 min TTL | ✅ Strong |
-| Secure detection | `isSecureRequest` checks `req.protocol`, `x-forwarded-proto`, localhost exception for dev (`cookies.ts:5-29`) | ✅ Correct for Vercel/Cloudflare |
-| CORS | Prod: allow-list (`APP_URL`, canonical host, `CORS_ALLOWED_ORIGINS`), `Vary: Origin`, credentials allowed. Dev: allow all (`app.ts:138-162`) | ⚠️ **Dev allows all origins with credentials** — acceptable for local dev only; ensure `CORS_ALLOWED_ORIGINS` set in prod |
+```
+AGENT: SENTINEL (Big Pickle)
+MODEL: Big Pickle
+ROLE: SECURITY AND AUTHENTICATION
+TASK_SCOPE: OAuth, sessions, RBAC, rate limiting, admin elevation, input-only, secrets, self-approval
+STATUS: COMPLETE
+
+TASKS_ASSIGNED:
+- Fix S-01: rate-limit auth.resetPassword (public tRPC proc had no per-endpoint throttle)
+- Fix S-03: audit input-only deny path (requireCreatePermission emitted no permission_denied event)
+- Fix S-04: fail-fast ADMIN_ACCESS_PASSWORD validation in production
+- Fix S-05: setPassword must revoke other active sessions
+- Document S-02 (internal self-reversal bypass) + S-06 (Express auth relies on app-level limiter)
+- Verify Atlas handoff and preserve no-weakening-of-security rule
+
+TASKS_COMPLETED:
+- S-01 FIXED: auth.resetPassword now calls checkRateLimit (60m/5, IP-keyed, "auth-reset-password")
+- S-03 FIXED: requireCreatePermission emits permission_denied audit before throwing FORBIDDEN
+- S-04 FIXED: validateCriticalEnv requires ADMIN_ACCESS_PASSWORD when NODE_ENV=production
+- S-05 FIXED: setPassword revokes all recorded sessions except the caller's live token
+- S-02 DOCUMENTED: internal enforceSelfCheck:false / _internalPostedBy paths handed to FORGE/GUARDIAN
+- S-06 DOCUMENTED: app-level authLimiter (50/15m) already covers raw Express auth routes
+- New additive db helper revokeAllSessionsExcept (reviewed god-file patch)
+
+FILES_CHANGED:
+- server/_core/authz.ts           (export auditPermissionDenied for reuse)
+- server/_core/trpc.ts            (audit input-only denials)
+- server/_core/env.ts             (prod ADMIN_ACCESS_PASSWORD validation)
+- server/routers/auth.ts          (resetPassword rate limit; setPassword revocation; extractSessionToken helper)
+- server/db.ts                    (revokeAllSessionsExcept — additive, Atlas-owned god-file, diff reviewed)
+- server/routers/auth.test.ts     (S-01/S-03/S-05 router tests)
+- server/_core/env-auth-mode.test.ts (S-04 validateCriticalEnv tests)
+- server/input-only-permissions.test.ts (added revokeAllSessionsExcept mock)
+- server/db.hermetic.test.ts      (DB-backed revocation test)
+
+TYPECHECK: PASS
+LINT: PASS
+BUILD: PASS
+SECURITY_CHECK: PASS
+ACCOUNTING_CHECK: NOT_APPLICABLE (no accounting logic changed)
+REGRESSION_CHECK: PASS (full suite + coverage, see §4)
+
+RISKS_FOUND:
+- S-01 (P3): resetPassword public proc lacked per-endpoint rate limit
+- S-02 (P3): db.ts internal self-reversal/self-posting bypasses on transaction update/delete + wallet-opening reconciliation
+- S-03 (P3): input-only denials not audit-logged
+- S-04 (P3): ADMIN_ACCESS_PASSWORD not fail-fast validated
+- S-05 (P4): setPassword did not revoke other sessions
+- S-06 (P4): raw Express auth routes rely only on app-level limiter
+
+RISKS_FIXED:
+- S-01, S-03, S-04, S-05
+
+RISKS_REMAINING:
+- S-02 (handed to FORGE/GUARDIAN — db.ts god-file, accounting domain)
+- S-06 (acceptable: app-level limiter + DB lockout cover it; add per-route limiter as hardening)
+
+ENVIRONMENTAL_LIMITATIONS:
+- Termux: browser E2E unsupported (CI only); coverage verified with disposable MariaDB
+- Node v26 vs pinned engine >=22 <25 (warnings only)
+
+DEPENDENCIES:
+- FORGE: inspect S-02 reachability (transaction update/delete reverse own voucher); wire KV rate-limit store for multi-instance if needed
+- GUARDIAN: regression tests for S-01/S-03/S-04/S-05; adversarial review of admin inline-password fallback
+
+BLOCKERS: none
+
+NEXT_AGENT: FORGE (Backend and API)
+
+RECOMMENDATION: PROCEED to Forge. No unresolved P0/P1. Two P3/P4 items documented for follow-up.
+```
 
 ---
 
-## 4. Rate Limiting
+## 2. AUDIT FINDINGS (this phase, read-only audit → fixed)
 
-| Layer | Status | Notes |
-|---|---|---|
-| **Express** (`express-rate-limit`) | Configured globally in `app.ts` (not read here) | |
-| **tRPC / Auth endpoints** | ✅ Applied | IP-based (`rateLimiter.getClientIp` uses `x-forwarded-for`), per-endpoint windows: register 20/15m, login 15/15m, set-password 5/15m, forgot 5/1h (`auth.ts:64-70, 136-142, 340-346, 365-370`), disabled in tests/isolated E2E (`rateLimiter.ts:83-88`) |
-| **Password lockout** | ✅ DB-backed | Per email+IP, 5 failures → 15 min lockout, cleared on success (`oauth.ts:128-139, 198-199`) |
+| ID | Sev | Finding | File → Fix |
+|---|---|---|---|
+| S-01 | P3 | `auth.resetPassword` (public) had no tRPC `checkRateLimit`; only the app-level `authLimiter` (50/15m) throttled it | `server/routers/auth.ts` → added 60m/5 IP-keyed limit (mirrors `forgotPassword`) |
+| S-03 | P3 | `requireCreatePermission` denied silently — no `permission_denied` audit event, unlike `authz.ts` helpers | `server/_core/trpc.ts` → calls `auditPermissionDenied(ctx, "input-only:create")` before FORBIDDEN |
+| S-04 | P3 | `ADMIN_ACCESS_PASSWORD` is functionally required by `admin.verifyAccess`/`elevatedAdminProcedure` but not in `validateCriticalEnv` — a misconfigured prod deploy silently disabled elevated admin writes | `server/_core/env.ts` → `NODE_ENV=production` fail-fast |
+| S-05 | P4 | `setPassword` changed the hash but left other devices' sessions live | `server/routers/auth.ts` + `server/db.ts` → revoke all sessions except caller's token |
+| S-02 | P3 | Internal `reverseVoucherInTx(enforceSelfCheck:false)` (`db.ts:2754,5163,5805,5896`) lets a user reverse/rebuild their own voucher via transaction update/delete + wallet-opening reconciliation — bypasses the documented no-self-reversal contract; `self-approval-prevention.test.ts` does not cover these paths | **DOCUMENTED → FORGE/GUARDIAN.** Not changed: `db.ts` is Atlas-owned; disposal requires a reviewed, approved 4-eyes policy decision |
+| S-06 | P4 | Raw Express `/api/auth/*` (`oauth.ts:50,114,279,...`) rely only on the app-level `authLimiter` | **DOCUMENTED (acceptable)** — login additionally has DB-backed lockout; `resetRateLimit` clears on success |
 
----
-
-## 5. Idempotency
-
-| Scope | Status | Notes |
-|---|---|---|
-| **Framework** | ✅ Robust | INSERT-first claim on `(userId, idempotencyKey, route)` unique index, request body hash (stable deep stringify + SHA-256), outcomes: `claimed`/`replay`/`in_progress`/`conflict`, TTL 24h, release on handler error, finalize on success (`idempotency.ts:76-163`) |
-| **Applied mutations** | ⚠️ Gap | `createVoucher` ✅, `postVoucher` ✅ (with rate limit), `createTransaction` (DB-level unique key `finance_transactions_idempotency_unique`), **`settleDue` missing** (ATLAS flagged P1) |
-| **Worker/Cloudflare** | Unknown | KV-backed store pluggable via `setRateLimitStore` (`rateLimiter.ts:42`) — not verified |
+Stale prior-report findings re-checked:
+- Old S-01 (settleDue no idempotency, P1): **RESOLVED** — Atlas confirmed `.use(idempotent)` on `settleDue` (`routers.ts:1573`).
+- Old S-02 (CORS dev any origin): unchanged; dev-only permissive, prod allow-lists via `CORS_ALLOWED_ORIGINS`. HELIX should confirm prod var set.
+- Old S-05 (mock OAuth provider): residual — mock activates only when zero providers configured; `AUTH_MODE=google` validation covers Google creds. Low risk.
 
 ---
 
-## 6. Secrets / Configuration
-
-| Secret | Enforcement | Notes |
-|---|---|---|
-| `SESSION_SECRET` / `JWT_SECRET` | Required at startup (`validateCriticalEnv`, `env.ts:78-86`), at least one must exist | ✅ |
-| Google OAuth secrets | Required when `AUTH_MODE=google` (`env.ts:88-96`) | ✅ |
-| Admin bootstrap email | Timing-safe compare against OAuth identity email (`oauth.ts:360-365, 480-487`) | ✅ |
-| Admin access password (`ADMIN_ACCESS_PASSWORD`) | Checked at elevation time (`trpc.ts:222-228`) | ✅ |
-| Backup encryption key | Required for backups (`env.ts`) | ✅ |
-| Supabase keys | Worker path only (`SUPABASE_SERVICE_ROLE_KEY` or `ANON_KEY`) | ✅ |
-
----
-
-## 7. Test Coverage (security-specific)
-
-| Test | Status |
-|---|---|
-| `auth-rate-limit.test.ts` | ✅ |
-| `auth.logout.test.ts` | ✅ |
-| `authorization.test.ts` | ✅ |
-| `oauth-login.timing-safe.test.ts` | ✅ |
-| `oauth.google-route.test.ts` | ✅ |
-| `passwordAuth.test.ts` | ✅ |
-| `permissions.test.ts` | ✅ |
-| `rbac-initializer.test.ts` | ✅ |
-| `input-only-permissions.test.ts` | ✅ |
-| `input-operator-security.test.ts` | ✅ |
-
----
-
-## 8. Red Flags / Risks
-
-| ID | Severity | Finding |
-|---|---|---|
-| S-01 | **P1** | `settleDue` mutation has **no idempotency middleware** and no DB-level idempotency key — client retry can double-settle a due while `outstandingAmount >= amount` (`routers.ts:1376-1389`). ATLAS also flagged. |
-| S-02 | **P2** | CORS in development allows **any origin with credentials** (`app.ts:156-158`). Safe for localhost only; ensure prod `CORS_ALLOWED_ORIGINS` is set and no wildcard. |
-| S-03 | **P2** | `googleOAuth` / `githubOAuth` callbacks return JSON errors (401/403) but also redirect on success; if client mishandles, OAuth state could leak in URL history. State is in HttpOnly cookie (good), but ensure no `state` in redirect URL (it isn't). |
-| S-04 | **P3** | `adminSession.ts:27` falls back `SESSION_SECRET` → `JWT_SECRET`; if both rotate independently, elevation tokens signed with one may not verify with the other. Document that both must rotate together or use a dedicated `ADMIN_TOKEN_SECRET`. |
-| S-05 | **P3** | `sdk.ts:82-88` creates a **mock OAuth provider** when no providers configured (test/dev). Ensure this path is never reachable in production (checked by `validateCriticalEnv` requiring `DATABASE_URL` + auth secrets, but `AUTH_MODE=google` without Google creds falls to mock — `env.ts` validates Google creds only when `AUTH_MODE=google`, so if misconfigured it could hit mock). |
-| S-06 | **P3** | Rate limiter `MemoryRateLimitStore` is **per-process** — on multi-instance Vercel/Cloudflare, limits are not shared unless KV store is plugged in. `setRateLimitStore` hook exists but not verified wired in production. |
-| S-07 | **P4** | `cookies.ts` localhost exception for `Secure` cookie is correct for dev but ensure `APP_URL` in prod is HTTPS so `isSecureRequest` returns true. |
-
----
-
-## 9. Summary
+## 3. CONFIRMED-STRONG CONTROLS (re-verified, no changes needed)
 
 | Area | Verdict |
 |---|---|
-| **Auth (OAuth + password)** | Strong — PKCE, constant-time, lockout, audit, revocation |
-| **RBAC / Authorization** | Sound — single source of truth, enforced at tRPC middleware + DB, maker≠checker, ownership scoping |
-| **Session / Cookies** | Strong — `__Host-`, HttpOnly, Secure, SameSite, short-lived elevation, revocation |
-| **Rate limiting** | Adequate — per-endpoint auth limits, DB lockout, but per-process store needs KV for prod scale |
-| **Idempotency** | Strong framework, **one P1 gap (`settleDue`)** |
-| **Secrets / Config** | Enforced at startup, admin bootstrap timing-safe |
-| **CORS** | Prod allow-list, dev permissive (acceptable) |
+| Google OAuth | PKCE S256 + state + nonce, HttpOnly `__Host-` transaction cookie, discovery/issuer/audience/nonce validation, timing-safe bootstrap-email compare (`googleOAuth.ts`) |
+| Password auth | scrypt (64-byte key, 16-byte salt), constant-time verify incl. dummy-hash timing uniformity, strength policy, DB lockout (5/15m) |
+| Sessions | JWT HS256 HS256 + server-side `user_sessions` revocation table; liquidations on logout/password-reset; HttpOnly/Secure/SameSite=Lax cf. `cookies.ts` |
+| Admin elevation | HMAC-SHA256 token, SameSite=Strict, 15m TTL, RBAC role bound, re-verify inline password constant-time (`adminSession.ts`, `elevatedAdminProcedure`) |
+| RBAC | Single source `shared/rbac.ts`; INPUT_OPERATOR = exactly 6 create-only perms; enforcement on server (`protectedWithPermission`/`inputOnlyWithPermission`); UI hiding is not a control |
+| Ownership | All finance queries scoped by server-derived `ctx.user!.id`; `assertOwnedProject` everywhere |
+| Public surface | Only `health` + `auth.{me,register,login,logout,forgotPassword,resetPassword}` are `publicProcedure`; no finance data exposed publicly |
+| Secrets | All from env; no hardcoded secrets; logger redacts (asserted in `security-hardening.test.ts`) |
 
 ---
 
-## 10. Recommendations for FORGE / GUARDIAN / HELIX
+## 4. TEST EVIDENCE
 
-- **FORGE:** add `.use(idempotent)` + `idempotencyKey` input to `settleDue`; wire KV store for rate limiter if multi-instance; consider dedicated `ADMIN_TOKEN_SECRET`.
-- **GUARDIAN:** add security regression tests for S-01 (double settle), S-02 (CORS origin reflection in dev), S-04 (token secret rotation), S-06 (multi-instance rate limit); verify `mock` provider never activates in prod.
-- **HELIX:** confirm `CORS_ALLOWED_ORIGINS` set in Vercel/Cloudflare env; verify session secret rotation procedure.
+### Targeted (non-DB)
+```
+pnpm exec vitest run server/routers/auth.test.ts server/_core/env-auth-mode.test.ts \
+  server/_core/authz.test.ts server/input-only-permissions.test.ts
+→ 4 files, 130 tests passed
+
+pnpm exec vitest run server/auth-rate-limit.test.ts server/input-operator-security.test.ts \
+  server/security-hardening.test.ts server/self-approval-prevention.test.ts \
+  server/auth.logout.test.ts server/session-jwt.test.ts
+→ 6 files, 157 tests passed
+```
+
+### DB-backed (disposable MariaDB → torn down)
+```
+ISOLATED_E2E_DATABASE_URL=... pnpm exec vitest run server/db.hermetic.test.ts
+→ 28 tests passed  (includes new revokeAllSessionsExcept test)
+```
+
+### Full gate (matches CI `test` job)
+```
+ISOLATED_E2E_DATABASE_URL=... pnpm test:coverage
+→ Statements 70.57%  (≥70 ✅)    Branches 61.73%  (≥60 ✅)
+  Functions   71.06%  (≥70 ✅)    Lines     71.93%  (≥70 ✅)   exit 0
+```
+Thresholds pass (improved from pre-phase 70.46/61.58/70.93/71.82 baseline).
+
+### Static gates
+```
+pnpm check → PASS      pnpm lint → PASS      pnpm build → PASS   pnpm check:dep-policy → n/a (no deps changed)
+```
 
 ---
 
-## Unchanged-by-me constraint honored
+## 5. HANDOFF TO FORGE
 
-- No source edits. No secret exposure. No weakening of security controls.
-- Working tree dirty (`server/_core/app.ts`, `dbConnection.ts`, `db.ts`, `scheduledBackup.ts`, `package.json`, `pnpm-lock.yaml`, `rbac-initializer.test.ts`) — triage before any auth/RBAC edits.
+```
+PREVIOUS_AGENT: SENTINEL
+NEXT_AGENT: FORGE (Backend and API)
+COMMITS: none (uncommitted in shared workspace on agent/sentinel/security)
+HANDOFF_VERIFIED: YES
+KNOWN_RISKS_REVIEWED: YES (S-02 needs explicit 4-eyes policy decision; S-06 hardening optional)
+HANDOFF_STATUS: ACCEPTED
+ACTION_FOR_FORGE:
+- Inspect S-02 reachability: transaction update/delete + wallet-opening reconciliation reverse own voucher (db.ts:2754, 5163, 5805, 5896) and decide/document the approved exception under segregated duties
+- Idempotency: verify claim/release/finalize wiring on all 8 idempotent mutations + settleDue already guarded
+- Wire distributed rate-limit store (KV) if multi-instance scaling is expected
+- Confirm ADMIN_ACCESS_PASSWORD present in Vercel/Cloudflare prod env (new fail-fast)
+```
+
+---
+
+## 6. SECURITY POSTURE SUMMARY
+
+No P0/P1. Four findings fixed (S-01, S-03, S-04, S-05), two documented for follow-up (S-02 → Forge/Guardian; S-06 → optional hardening). Security controls were only strengthened; no test was weakened or deleted to reach green coverage.

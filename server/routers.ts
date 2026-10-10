@@ -471,6 +471,17 @@ export const appRouter = router({
         if (ctx.req && ctx.res) {
           setAdminElevationCookie(ctx.req, ctx.res, token);
         }
+        try {
+          await financeDb.logAudit({
+            actorUserId: ctx.user!.id,
+            action: "approve",
+            entityType: "admin_elevation",
+            summary: "Admin elevation verified (password challenge passed)",
+            auditContext: extractAuditContext(ctx.req),
+          });
+        } catch {
+          // Non-blocking audit write
+        }
         return {
           verified: true,
           token,
@@ -485,9 +496,20 @@ export const appRouter = router({
         expiresAt: ctx.adminElevation?.expiresAt ?? null,
       };
     }),
-    revokeAccess: adminProcedure.mutation(({ ctx }) => {
+    revokeAccess: adminProcedure.mutation(async ({ ctx }) => {
       if (ctx.req && ctx.res) {
         clearAdminElevationCookie(ctx.req, ctx.res);
+      }
+      try {
+        await financeDb.logAudit({
+          actorUserId: ctx.user!.id,
+          action: "update",
+          entityType: "admin_elevation",
+          summary: "Admin elevation revoked",
+          auditContext: extractAuditContext(ctx.req),
+        });
+      } catch {
+        // Non-blocking audit write
       }
       return { revoked: true } as const;
     }),
@@ -530,13 +552,8 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const rbac = await import("./_core/rbac");
         try {
-          const existing = await rbac.getUserRoles(input.targetUserId);
-          for (const roleName of existing) {
-            if (roleName !== input.role) {
-              await rbac.removeRole(input.targetUserId, roleName);
-            }
-          }
-          await rbac.assignRole(input.targetUserId, input.role, ctx.user!.id);
+          // Single-transaction replace — never leave a partial role set.
+          await rbac.replaceUserRoles(input.targetUserId, input.role, ctx.user!.id);
         } catch (error) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -617,9 +634,21 @@ export const appRouter = router({
     ),
     create: inputOnlyWithPermission("accounting", "create")
       .input(z.object({ name: z.string().trim().min(1).max(120) }))
-      .mutation(({ ctx, input }) =>
-        financeDb.createProject(ctx.user!.id, input.name)
-      ),
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await financeDb.createProject(ctx.user!.id, input.name);
+        } catch (error) {
+          // MySQL ER_DUP_ENTRY (1062) on finance_projects_user_name_unique.
+          const errno = (error as { errno?: number } | null)?.errno;
+          if (errno === 1062 || /Duplicate entry/i.test(String(error))) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "এই নামে প্রজেক্ট ইতিমধ্যে রয়েছে",
+            });
+          }
+          throw error;
+        }
+      }),
     active: inputOnlyWithPermission("accounting", "create").query(
       async ({ ctx }) => {
         const projects = await financeDb.listProjects(ctx.user!.id);
@@ -1344,12 +1373,20 @@ export const appRouter = router({
       }),
     updateTransaction: protectedWithPermission("accounting", "update")
       .input(transactionInput.extend({ id: z.number().int().positive() }))
+      .use(idempotent)
       .mutation(({ ctx, input }) => {
         const { id, ...values } = input;
         return financeDb.updateTransaction(ctx.user!.id, id, values);
       }),
     deleteTransaction: protectedWithPermission("accounting", "delete")
-      .input(z.object({ projectId, id: z.number().int().positive() }))
+      .input(
+        z.object({
+          projectId,
+          id: z.number().int().positive(),
+          idempotencyKey: z.string().trim().max(120).optional(),
+        })
+      )
+      .use(idempotent)
       .mutation(({ ctx, input }) =>
         financeDb.deleteTransaction(ctx.user!.id, input.projectId, input.id)
       ),
@@ -1729,7 +1766,7 @@ export const appRouter = router({
       .input(
         z.object({
           projectId,
-          items: z.array(transactionInput),
+          items: z.array(transactionInput).min(1).max(500),
         })
       )
       .mutation(async ({ ctx, input }) => {

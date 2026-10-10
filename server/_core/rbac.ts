@@ -158,6 +158,34 @@ export async function removeRole(
     .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)));
 }
 
+/**
+ * Atomically replace a user's entire role set with a single role.
+ * Used by admin role assignment so a mid-loop failure can never leave a user
+ * with a partial role set.
+ */
+export async function replaceUserRoles(
+  userId: number,
+  roleName: string,
+  assignedBy: number
+): Promise<void> {
+  const db = databaseRequired(await getDb());
+  const [role] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.name, roleName))
+    .limit(1);
+  if (!role) throw new Error(`Role not found: ${roleName}`);
+
+  await db.transaction(async tx => {
+    await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+    await tx
+      .insert(userRoles)
+      .values({ userId, roleId: role.id, assignedBy })
+      .onDuplicateKeyUpdate({ set: { roleId: role.id, assignedBy } });
+  });
+  clearRBACCache();
+}
+
 export function clearRBACCache(): void {
   return undefined;
 }
@@ -197,15 +225,15 @@ export async function isViewer(userId: number): Promise<boolean> {
  */
 export async function isFinanceAdmin(userId: number): Promise<boolean> {
   return (
-    hasRole(userId, ROLE_NAMES.SUPER_ADMIN) ||
-    hasRole(userId, ROLE_NAMES.ACCOUNTING_ADMIN)
+    (await hasRole(userId, ROLE_NAMES.SUPER_ADMIN)) ||
+    (await hasRole(userId, ROLE_NAMES.ACCOUNTING_ADMIN))
   );
 }
 
 /** Super or system administrator — the administrative role set. */
 export async function isAdminRoleUser(userId: number): Promise<boolean> {
   return (
-    hasRole(userId, ROLE_NAMES.SUPER_ADMIN) ||
-    hasRole(userId, ROLE_NAMES.SYSTEM_ADMIN)
+    (await hasRole(userId, ROLE_NAMES.SUPER_ADMIN)) ||
+    (await hasRole(userId, ROLE_NAMES.SYSTEM_ADMIN))
   );
 }

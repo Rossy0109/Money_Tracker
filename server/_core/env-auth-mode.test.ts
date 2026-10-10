@@ -53,3 +53,32 @@ describe("ensureAuthModeConsistency", () => {
     expect(ensureAuthModeConsistency().ok).toBe(false);
   });
 });
+
+describe("validateCriticalEnv — ADMIN_ACCESS_PASSWORD", () => {
+  it("requires ADMIN_ACCESS_PASSWORD in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "mysql://local");
+    vi.stubEnv("SESSION_SECRET", "test-secret");
+    delete process.env.ADMIN_ACCESS_PASSWORD;
+    const { validateCriticalEnv } = await import("./env");
+    expect(validateCriticalEnv()).toContain("ADMIN_ACCESS_PASSWORD");
+  });
+
+  it("does not require ADMIN_ACCESS_PASSWORD outside production", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("DATABASE_URL", "mysql://local");
+    vi.stubEnv("SESSION_SECRET", "test-secret");
+    delete process.env.ADMIN_ACCESS_PASSWORD;
+    const { validateCriticalEnv } = await import("./env");
+    expect(validateCriticalEnv()).not.toContain("ADMIN_ACCESS_PASSWORD");
+  });
+
+  it("accepts production when ADMIN_ACCESS_PASSWORD is set", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "mysql://local");
+    vi.stubEnv("SESSION_SECRET", "test-secret");
+    vi.stubEnv("ADMIN_ACCESS_PASSWORD", "sup3r-s3cret");
+    const { validateCriticalEnv } = await import("./env");
+    expect(validateCriticalEnv()).not.toContain("ADMIN_ACCESS_PASSWORD");
+  });
+});

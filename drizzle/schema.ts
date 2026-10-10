@@ -205,6 +205,34 @@ export const financeProjects = mysqlTable(
   ]
 );
 
+/** Per-project firm identity shown on invoices/reports; persisted, not in-memory. */
+export const financeFirmProfiles = mysqlTable(
+  "finance_firm_profiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    projectId: int("projectId")
+      .notNull()
+      .references(() => financeProjects.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 180 }).notNull().default(""),
+    tagline: varchar("tagline", { length: 240 }).notNull().default(""),
+    phone: varchar("phone", { length: 40 }).notNull().default(""),
+    email: varchar("email", { length: 320 }).notNull().default(""),
+    address: varchar("address", { length: 500 }).notNull().default(""),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_firm_profiles_user_project_unique").on(
+      table.userId,
+      table.projectId
+    ),
+    index("finance_firm_profiles_project_idx").on(table.projectId),
+  ]
+);
+
 /** A household is separate from private projects and is owned by exactly one authenticated user. */
 export const financeHouseholds = mysqlTable(
   "finance_households",
