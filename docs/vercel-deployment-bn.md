@@ -1,5 +1,7 @@
 # Vercel deployment প্রস্তুতি ও নিরাপত্তা নির্দেশনা
 
+> **সতর্কতা (১০ অক্টোবর ২০২৬):** এই নথির নিচের deployment URL-গুলো **তারিখযুক্ত ঐতিহাসিক রেকর্ড** (২৫ আগস্ট ২০২৬), তাই সেগুলো অপরিবর্তিত রাখা হয়েছে। পরবর্তীতে `vercel project ls` যাচাই করে দেখায় বর্তমান production apex হলো **`money-tracker-blond-pi.vercel.app`** (এই নথিতে উল্লিখিত `amar-hisab-money-tracker.vercel.app` নয়)। বর্তমান configuration-এর জন্য দেখুন `docs/vercel-environment-setup-bn.md`।
+
 ## উদ্দেশ্য
 
 এই নথি `Rossy0109/Money_Tracker`-কে Vercel-এ নেওয়ার প্রস্তুতি বর্ণনা করে। Vercel deployment-ই production runtime; GitHub Pages কেবল static redirect পরিবেশন করে।

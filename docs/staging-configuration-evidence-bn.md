@@ -1,5 +1,7 @@
 # স্টেজিং কনফিগারেশন যাচাই নোট
 
+> **সতর্কতা (১০ অক্টোবর ২০২৬):** এটি একটি **তারিখযুক্ত ঐতিহাসিক রেকর্ড** (২৬ আগস্ট ২০২৬), তাই নিচের URL-গুলো সেই সময়ের সত্য হিসেবে অপরিবর্তিত রাখা হয়েছে। পরবর্তীতে `vercel project ls` যাচাই করে দেখায় বর্তমান production apex হলো **`money-tracker-blond-pi.vercel.app`** (পুরোনো নোটের `amar-hisab-money-tracker.vercel.app` নয়)। বর্তমান configuration-এর জন্য দেখুন `docs/vercel-environment-setup-bn.md`।
+
 এই নোটে কেবল অগোপন configuration evidence রাখা হয়েছে। কোনও OAuth secret, database connection string, session secret, Blob token বা আর্থিক ডেটা লেখা হয়নি।
 
 ## ২৬ আগস্ট ২০২৬: Google OAuth client যাচাই
