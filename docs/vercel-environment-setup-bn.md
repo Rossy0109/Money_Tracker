@@ -29,12 +29,17 @@ Vercel প্রজেক্টে **Settings** -> **Environment Variables** স
 1. **Google Cloud Console** -> **APIs & Services** -> **Credentials**-এ যান।
 2. **OAuth 2.0 Client IDs** -> **Web application** তৈরি বা নির্বাচন করুন।
 3. **Authorized JavaScript origins:**
-   - Production: `https://amar-hisab-money-tracker.vercel.app`
-   - Preview: `https://amar-hisab-money-tracker-git-staging-rossy0109s-projects.vercel.app`
+   - Production: `https://money-tracker-blond-pi.vercel.app`
+   - Preview: প্রতিটি Preview deployment-এর নিজস্ব URL আছে (যেমন `https://money-tracker-<hash>-rossy0109s-projects.vercel.app`)। সেটি `vercel ls` থেকে বর্তমান deployment-এর URL দেখে ব্যবহার করুন; branch মুছে গেলে সেই preview URL-ও আর কাজ করবে না।
 4. **Authorized redirect URIs:**
-   - Production: `https://amar-hisab-money-tracker.vercel.app/api/auth/google/callback`
-   - Preview: `https://amar-hisab-money-tracker-git-staging-rossy0109s-projects.vercel.app/api/auth/google/callback`
+   - Production: `https://money-tracker-blond-pi.vercel.app/api/auth/google/callback`
+   - Preview: নির্দিষ্ট preview deployment URL-এর `/api/auth/google/callback` (উপরের নিয়ম অনুযায়ী)
 5. প্রাপ্ত `Client ID` এবং `Client Secret` Vercel Environment Variables-এ দিন।
+
+> **সংশোধন (১০ অক্টোবর ২০২৬):** এই নোটে আগে `https://amar-hisab-money-tracker.vercel.app` লেখা ছিল।
+> `vercel project ls` যাচাই করে দেখায় বর্তমান production apex আসলে
+> **`money-tracker-blond-pi.vercel.app`** — পুরোনো ঠিকানাটি ভুল ছিল। Production origin ও
+> redirect URI উপরে সংশোধিত হয়েছে।
 
 ---
 
