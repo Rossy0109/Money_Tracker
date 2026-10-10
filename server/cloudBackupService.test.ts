@@ -7,6 +7,19 @@ import {
 } from "./cloudBackupService";
 import { sha256Hex } from "../shared/platform/crypto";
 import * as financeDb from "./db";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdtemp } from "node:fs/promises";
+
+/**
+ * Portable scratch dir for the local-encrypted-snapshot path. Must not
+ * hardcode a Termux-specific absolute path: this suite also runs on
+ * GitHub-hosted Linux runners, where a non-root user cannot create
+ * such a path and the snapshot write fails.
+ */
+function scratchDir(): string {
+  return join(tmpdir(), `cloud-backup-test-${process.pid}`);
+}
 
 describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
   const saved = { ...process.env };
@@ -17,7 +30,7 @@ describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
         delete process.env[key];
       }
     }
-    process.env.LOCAL_BACKUP_DIR = "/data/data/com.termux/files/usr/tmp/opencode/cloud-backup-test";
+    process.env.LOCAL_BACKUP_DIR = scratchDir();
   });
 
   afterEach(() => {
@@ -306,7 +319,7 @@ describe("executeCloudBackup provider routing", () => {
   });
 
   it("writes a verified local encrypted snapshot when no provider is set", async () => {
-    const dir = "/data/data/com.termux/files/usr/tmp/opencode/cloud-backup-test";
+    const dir = await mkdtemp(join(tmpdir(), "cloud-backup-test-"));
     process.env.LOCAL_BACKUP_DIR = dir;
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("must not be called"));
 
