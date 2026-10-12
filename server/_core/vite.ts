@@ -8,6 +8,19 @@ import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
 import { resolveProjectRoot } from "../../dirname";
 
+const FONT_ASSET_PATH = /\.(?:woff2?|ttf|otf|eot)$/i;
+
+/**
+ * A font request that reached a fallback means the asset is missing. Serving
+ * index.html with 200/text-html there makes the browser report an opaque
+ * "failed to decode font" instead of a clear 404, and would hide a broken
+ * build, so font URLs must never fall through to the SPA layer.
+ */
+export function isFontAssetRequest(rawUrl: string): boolean {
+  const pathname = rawUrl.split(/[?#]/, 1)[0] ?? "";
+  return FONT_ASSET_PATH.test(pathname);
+}
+
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -25,6 +38,14 @@ export async function setupVite(app: Express, server: Server) {
   app.use(vite.middlewares);
   app.use(async (req, res, next) => {
     const url = req.originalUrl;
+
+    if (isFontAssetRequest(url)) {
+      res
+        .status(404)
+        .set({ "Content-Type": "text/plain; charset=utf-8" })
+        .end("Not Found");
+      return;
+    }
 
     try {
       const clientTemplate = path.resolve(
@@ -63,7 +84,14 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use((_req, res) => {
+  app.use((req, res) => {
+    if (isFontAssetRequest(req.originalUrl)) {
+      res
+        .status(404)
+        .set({ "Content-Type": "text/plain; charset=utf-8" })
+        .end("Not Found");
+      return;
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

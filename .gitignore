@@ -5,7 +5,7 @@
 # Build outputs
 dist/
 build/
-public/
+/public/
 *.dist
 # wrangler dry-run output (pnpm build:worker)
 dist-worker/

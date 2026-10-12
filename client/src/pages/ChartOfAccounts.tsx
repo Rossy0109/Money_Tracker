@@ -10,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -50,14 +49,27 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, type FormEvent } from "react";
 import { Link } from "wouter";
+import {
+  ROOT_PARENT_VALUE,
+  buildCoaTree,
+  buildParentOptions,
+  buildSubmittedValues,
+  emptyAccountForm,
+  validateAccountForm,
+  type AccountFormDefaults,
+  type AccountFormErrors,
+  type AccountFormValues,
+  type SubmittedAccountValues,
+} from "@/pages/coa-form";
 
 interface CoaAccount {
   id: number;
   code: string;
   name: string;
   nameBn?: string | null;
+  description?: string | null;
   accountTypeId: number;
   currentBalance: string;
   isDetail: boolean;
@@ -108,47 +120,6 @@ const accountTypeColors: Record<
   },
 };
 
-function buildAccountTree(
-  accounts: {
-    id: number;
-    code: string;
-    name: string;
-    nameBn?: string | null;
-    accountTypeId: number;
-    currentBalance: string;
-    isDetail: boolean;
-    isActive: boolean;
-    parentId: number | null;
-  }[]
-): CoaAccount[] {
-  const accountMap = new Map<number, CoaAccount>();
-  accounts.forEach(a => {
-    accountMap.set(a.id, {
-      id: a.id,
-      code: a.code,
-      name: a.name,
-      nameBn: a.nameBn ?? null,
-      accountTypeId: a.accountTypeId,
-      currentBalance: a.currentBalance,
-      isDetail: a.isDetail,
-      isActive: a.isActive,
-      parentId: a.parentId,
-      children: [],
-    });
-  });
-
-  const roots: CoaAccount[] = [];
-  accounts.forEach(acc => {
-    const withChildren = accountMap.get(acc.id)!;
-    if (acc.parentId && accountMap.has(acc.parentId)) {
-      accountMap.get(acc.parentId)!.children.push(withChildren);
-    } else {
-      roots.push(withChildren);
-    }
-  });
-  return roots;
-}
-
 function AccountTreeNode({
   account,
   accountTypes,
@@ -174,46 +145,52 @@ function AccountTreeNode({
   return (
     <div className="relative">
       <Collapsible open={!isLeaf} className="w-full">
-        <CollapsibleTrigger
-          onClick={e => {
-            e.stopPropagation();
-            onClick(account);
-          }}
+        <div
           className={`
-            w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground
-            hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring
-            transition-colors cursor-pointer select-none
+            flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground
+            transition-colors hover:bg-background
             ${level > 0 ? "pl-8" : ""} ${level > 1 ? "pl-16" : ""} ${level > 2 ? "pl-24" : ""}
           `}
         >
-          {hasChildren ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-90" />
-          ) : (
-            <span className="h-4 w-4" />
-          )}
-          <span className="flex-1 min-w-0 truncate font-mono text-foreground">
-            {account.code}
-          </span>
-          <span className="flex-1 min-w-0 truncate">{account.name}</span>
-          {account.nameBn && (
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              ({account.nameBn})
-            </span>
-          )}
-          {typeMeta && (
-            <Badge variant="secondary" className={`${typeMeta.color} text-xs`}>
-              {typeMeta.label}
-            </Badge>
-          )}
-          <span
-            className={`font-mono tabular-nums ${Number(account.currentBalance) < 0 ? "text-red-600" : "text-foreground"}`}
+          <CollapsibleTrigger
+            onClick={e => {
+              e.stopPropagation();
+              onClick(account);
+            }}
+            className="flex min-w-0 flex-1 cursor-pointer select-none items-center gap-2 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {Number(account.currentBalance).toLocaleString("bn-BD", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
-          <div className="flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity">
+            {hasChildren ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-90" />
+            ) : (
+              <span className="h-4 w-4" />
+            )}
+            <span className="flex-1 min-w-0 truncate font-mono text-foreground">
+              {account.code}
+            </span>
+            <span className="flex-1 min-w-0 truncate">{account.name}</span>
+            {account.nameBn && (
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                ({account.nameBn})
+              </span>
+            )}
+            {typeMeta && (
+              <Badge
+                variant="secondary"
+                className={`${typeMeta.color} text-xs`}
+              >
+                {typeMeta.label}
+              </Badge>
+            )}
+            <span
+              className={`font-mono tabular-nums ${Number(account.currentBalance) < 0 ? "text-red-600" : "text-foreground"}`}
+            >
+              {Number(account.currentBalance).toLocaleString("bn-BD", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-1 opacity-0 transition-opacity hover:opacity-100 focus-within:opacity-100">
             <Button
               variant="ghost"
               size="icon"
@@ -252,7 +229,7 @@ function AccountTreeNode({
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        </CollapsibleTrigger>
+        </div>
         <CollapsibleContent className="w-full">
           <div className="pl-4 border-l border-border mt-1 space-y-1">
             {account.children.map(child => (
@@ -278,47 +255,63 @@ function AccountFormDialog({
   open,
   onOpenChange,
   title,
+  mode,
   accountTypes,
+  accountTree,
   defaultValues,
+  lockParentId,
+  excludeParentId,
   onSubmit,
   isSubmitting,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  mode: "create" | "edit" | "add-child";
   accountTypes: { id: number; code: string; name: string }[];
-  defaultValues?: Partial<{
-    accountTypeId: number;
-    parentId: number;
-    code: string;
-    name: string;
-    nameBn: string;
-    description: string;
-    isDetail: boolean;
-    openingBalance: number;
-  }>;
-  onSubmit: (values: {
-    accountTypeId: number;
-    parentId?: number | null;
-    code: string;
-    name: string;
-    nameBn?: string;
-    description?: string;
-    isDetail: boolean;
-    openingBalance: number;
-  }) => void;
+  accountTree: CoaAccount[];
+  defaultValues?: AccountFormDefaults;
+  lockParentId?: number;
+  excludeParentId?: number;
+  onSubmit: (values: SubmittedAccountValues) => void;
   isSubmitting: boolean;
 }) {
-  const submit = (values: {
-    accountTypeId: number;
-    parentId?: number | null;
-    code: string;
-    name: string;
-    nameBn?: string;
-    description?: string;
-    isDetail: boolean;
-    openingBalance: number;
-  }) => onSubmit(values);
+  const [values, setValues] = useState<AccountFormValues>(() =>
+    emptyAccountForm(defaultValues)
+  );
+  const [showErrors, setShowErrors] = useState(false);
+
+  const setField = <K extends keyof AccountFormValues>(
+    key: K,
+    value: AccountFormValues[K]
+  ) => setValues(previous => ({ ...previous, [key]: value }));
+
+  const parentOptions = useMemo(
+    () => buildParentOptions(accountTree, excludeParentId),
+    [accountTree, excludeParentId]
+  );
+
+  const errors: AccountFormErrors = showErrors
+    ? validateAccountForm(values)
+    : {};
+
+  const errorText = (key: keyof AccountFormValues) =>
+    errors[key] ? (
+      <p role="alert" className="mt-1 text-xs text-red-600">
+        {errors[key]}
+      </p>
+    ) : null;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const validation = validateAccountForm(values);
+    if (Object.keys(validation).length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    onSubmit(buildSubmittedValues(values, lockParentId));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -326,31 +319,18 @@ function AccountFormDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{"*"} fields are required</DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            submit({
-              accountTypeId: defaultValues?.accountTypeId ?? 0,
-              parentId: defaultValues?.parentId,
-              code: defaultValues?.code ?? "",
-              name: defaultValues?.name ?? "",
-              nameBn: defaultValues?.nameBn,
-              description: defaultValues?.description,
-              isDetail: defaultValues?.isDetail ?? true,
-              openingBalance: defaultValues?.openingBalance ?? 0,
-            });
-          }}
-          className="space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4">
             <div>
               <Label htmlFor="accountTypeId">Account Type *</Label>
               <Select
-                value={defaultValues?.accountTypeId?.toString() || ""}
-                onValueChange={() => {}}
-                required
+                value={values.accountTypeId}
+                onValueChange={v => setField("accountTypeId", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="accountTypeId"
+                  aria-invalid={!!errors.accountTypeId}
+                >
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -361,18 +341,27 @@ function AccountFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {errorText("accountTypeId")}
             </div>
             <div>
               <Label htmlFor="parentId">Parent Account</Label>
               <Select
-                value={defaultValues?.parentId?.toString() || ""}
-                onValueChange={() => {}}
+                value={values.parentId}
+                onValueChange={v => setField("parentId", v)}
+                disabled={lockParentId != null}
               >
-                <SelectTrigger>
+                <SelectTrigger id="parentId" aria-label="Parent account">
                   <SelectValue placeholder="None (root level)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None (root level)</SelectItem>
+                  <SelectItem value={ROOT_PARENT_VALUE}>
+                    None (root level)
+                  </SelectItem>
+                  {parentOptions.map(option => (
+                    <SelectItem key={option.id} value={option.id.toString()}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -381,40 +370,53 @@ function AccountFormDialog({
               <Input
                 id="code"
                 placeholder="e.g., 1110"
-                value={defaultValues?.code || ""}
-                required
+                value={values.code}
+                onChange={event => setField("code", event.target.value)}
+                aria-invalid={!!errors.code}
+                aria-required="true"
               />
+              {errorText("code")}
             </div>
             <div>
               <Label htmlFor="name">Name (EN) *</Label>
               <Input
                 id="name"
                 placeholder="e.g., Cash in Hand"
-                value={defaultValues?.name || ""}
-                required
+                value={values.name}
+                onChange={event => setField("name", event.target.value)}
+                aria-invalid={!!errors.name}
+                aria-required="true"
               />
+              {errorText("name")}
             </div>
             <div>
               <Label htmlFor="nameBn">Name (BN)</Label>
               <Input
                 id="nameBn"
                 placeholder="e.g., হাতে নগদ"
-                value={defaultValues?.nameBn || ""}
+                value={values.nameBn}
+                onChange={event => setField("nameBn", event.target.value)}
+                aria-invalid={!!errors.nameBn}
               />
+              {errorText("nameBn")}
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
                 placeholder="Optional description"
-                value={defaultValues?.description || ""}
+                value={values.description}
+                onChange={event => setField("description", event.target.value)}
+                aria-invalid={!!errors.description}
               />
+              {errorText("description")}
             </div>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 id="isDetail"
-                checked={defaultValues?.isDetail ?? true}
+                checked={values.isDetail}
+                onChange={event => setField("isDetail", event.target.checked)}
                 className="h-4 w-4 rounded border-border text-positive focus:ring-ring"
               />
               <Label
@@ -424,16 +426,23 @@ function AccountFormDialog({
                 Is Detail Account (can post entries)
               </Label>
             </div>
-            <div>
-              <Label htmlFor="openingBalance">Opening Balance</Label>
-              <Input
-                id="openingBalance"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={defaultValues?.openingBalance?.toString() || "0"}
-              />
-            </div>
+            {mode !== "edit" && (
+              <div>
+                <Label htmlFor="openingBalance">Opening Balance</Label>
+                <Input
+                  id="openingBalance"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={values.openingBalance}
+                  onChange={event =>
+                    setField("openingBalance", event.target.value)
+                  }
+                  aria-invalid={!!errors.openingBalance}
+                />
+                {errorText("openingBalance")}
+              </div>
+            )}
           </div>
           <DialogFooter className="flex justify-end gap-2">
             <Button
@@ -525,7 +534,14 @@ export default function ChartOfAccounts() {
 
   const [editingAccount, setEditingAccount] = useState<CoaAccount | null>(null);
   const [addingChildTo, setAddingChildTo] = useState<CoaAccount | null>(null);
+  const [creatingRoot, setCreatingRoot] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  const closeAccountForm = () => {
+    setCreatingRoot(false);
+    setAddingChildTo(null);
+    setEditingAccount(null);
+  };
 
   const handleEdit = (acc: CoaAccount) => setEditingAccount(acc);
   const handleAddChild = (acc: CoaAccount) => setAddingChildTo(acc);
@@ -542,7 +558,7 @@ export default function ChartOfAccounts() {
   }));
 
   const coaTree = useMemo(
-    () => buildAccountTree(coaTreeQuery.data ?? []),
+    () => buildCoaTree(coaTreeQuery.data ?? []),
     [coaTreeQuery.data]
   );
 
@@ -630,65 +646,83 @@ export default function ChartOfAccounts() {
                 ক্লিক করুন বিস্তারিত দেখতে, হভার করুন অ্যাকশন দেখতে
               </CardDescription>
             </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" /> নতুন অ্যাকাউন্ট
-                </Button>
-              </DialogTrigger>
-              <AccountFormDialog
-                open={!!addingChildTo || !!editingAccount}
-                onOpenChange={open => {
-                  if (!open) {
-                    setAddingChildTo(null);
-                    setEditingAccount(null);
-                  }
-                }}
-                title={
-                  addingChildTo
-                    ? `চাইল্ড অ্যাকাউন্ট যোগ করুন: ${addingChildTo.code} - ${addingChildTo.name}`
-                    : editingAccount
-                      ? "অ্যাকাউন্ট সম্পাদনা করুন"
-                      : "নতুন অ্যাকাউন্ট তৈরি করুন"
+            <Button className="gap-2" onClick={() => setCreatingRoot(true)}>
+              <Plus className="h-4 w-4" /> নতুন অ্যাকাউন্ট
+            </Button>
+            <AccountFormDialog
+              key={
+                editingAccount
+                  ? `edit-${editingAccount.id}`
+                  : addingChildTo
+                    ? `child-${addingChildTo.id}`
+                    : creatingRoot
+                      ? "new-root"
+                      : "closed"
+              }
+              open={creatingRoot || !!addingChildTo || !!editingAccount}
+              onOpenChange={open => {
+                if (!open) closeAccountForm();
+              }}
+              mode={
+                editingAccount ? "edit" : addingChildTo ? "add-child" : "create"
+              }
+              title={
+                addingChildTo
+                  ? `চাইল্ড অ্যাকাউন্ট যোগ করুন: ${addingChildTo.code} - ${addingChildTo.name}`
+                  : editingAccount
+                    ? "অ্যাকাউন্ট সম্পাদনা করুন"
+                    : "নতুন অ্যাকাউন্ট তৈরি করুন"
+              }
+              accountTypes={accountTypes}
+              accountTree={coaTree}
+              lockParentId={addingChildTo?.id}
+              excludeParentId={editingAccount?.id}
+              defaultValues={
+                editingAccount
+                  ? {
+                      accountTypeId: editingAccount.accountTypeId,
+                      parentId: editingAccount.parentId ?? undefined,
+                      code: editingAccount.code,
+                      name: editingAccount.name,
+                      nameBn: editingAccount.nameBn ?? "",
+                      description: editingAccount.description ?? "",
+                      isDetail: editingAccount.isDetail,
+                      openingBalance: "",
+                    }
+                  : {
+                      accountTypeId: addingChildTo?.accountTypeId,
+                      parentId: addingChildTo?.id,
+                      code: "",
+                      name: "",
+                      nameBn: "",
+                      description: "",
+                      isDetail: true,
+                      openingBalance: "",
+                    }
+              }
+              onSubmit={async values => {
+                if (editingAccount) {
+                  updateAccountMutation.mutate({
+                    projectId: activeProjectId!,
+                    accountId: editingAccount.id,
+                    ...values,
+                  });
+                  setEditingAccount(null);
+                } else {
+                  createAccountMutation.mutate({
+                    projectId: activeProjectId!,
+                    ...values,
+                    parentId:
+                      addingChildTo?.id ?? values.parentId ?? undefined,
+                  });
+                  setAddingChildTo(null);
                 }
-                accountTypes={accountTypes}
-                defaultValues={{
-                  accountTypeId:
-                    addingChildTo?.accountTypeId ||
-                    editingAccount?.accountTypeId,
-                  parentId:
-                    addingChildTo?.id ?? editingAccount?.parentId ?? undefined,
-                  code: "",
-                  name: "",
-                  nameBn: "",
-                  description: "",
-                  isDetail: true,
-                  openingBalance: 0,
-                }}
-                onSubmit={async values => {
-                  if (editingAccount) {
-                    updateAccountMutation.mutate({
-                      projectId: activeProjectId!,
-                      accountId: editingAccount.id,
-                      ...values,
-                    });
-                    setEditingAccount(null);
-                  } else {
-                    createAccountMutation.mutate({
-                      projectId: activeProjectId!,
-                      ...values,
-                      parentId:
-                        addingChildTo?.id ?? values.parentId ?? undefined,
-                    });
-                    setAddingChildTo(null);
-                  }
-                }}
-                isSubmitting={
-                  createAccountMutation.isPending ||
-                  updateAccountMutation.isPending
-                }
-              />
-            </Dialog>
+              }}
+              isSubmitting={
+                createAccountMutation.isPending ||
+                updateAccountMutation.isPending
+              }
+            />
           </CardHeader>
           <CardContent className="p-0">
             {coaTree.length === 0 ? (

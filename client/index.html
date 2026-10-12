@@ -22,48 +22,25 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <link
       rel="preload"
-      href="/fonts/NotoSansBengali-Regular.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/NotoSansBengali-SemiBold.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/NotoSansBengali-Bold.woff2"
+      href="/fonts/NotoSansBengali-Variable.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
     <style>
+      /*
+       * Noto Sans Bengali ships as a single variable WOFF2 covering the whole
+       * wght axis, so one @font-face serves regular through bold instead of
+       * three static files that would all resolve to the same bytes.
+       * Source: Google Fonts (fonts.gstatic.com), SIL OFL 1.1 — see
+       * client/public/fonts/OFL.txt.
+       */
       @font-face {
         font-family: "Noto Sans Bengali";
         font-style: normal;
-        font-weight: 400;
+        font-weight: 100 900;
         font-display: swap;
-        src: url("/fonts/NotoSansBengali-Regular.woff2") format("woff2");
-        unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
-      }
-      @font-face {
-        font-family: "Noto Sans Bengali";
-        font-style: normal;
-        font-weight: 500 600;
-        font-display: swap;
-        src: url("/fonts/NotoSansBengali-SemiBold.woff2") format("woff2");
-        unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
-      }
-      @font-face {
-        font-family: "Noto Sans Bengali";
-        font-style: normal;
-        font-weight: 700 800;
-        font-display: swap;
-        src: url("/fonts/NotoSansBengali-Bold.woff2") format("woff2");
+        src: url("/fonts/NotoSansBengali-Variable.woff2") format("woff2");
         unicode-range: U+0980-09FE, U+200C-200D, U+25CC;
       }
     </style>

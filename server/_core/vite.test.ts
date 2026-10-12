@@ -71,6 +71,17 @@ describe("serveStatic", () => {
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
   });
+
+  it("404s a missing font instead of falling back to index.html", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const app = express();
+    serveStatic(app);
+    await start(app);
+
+    const res = await fetch(`${baseUrl}/fonts/NotoSansBengali-Missing.ttf`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).not.toContain("text/html");
+  });
 });
 
 describe("setupVite", () => {
@@ -121,6 +132,35 @@ describe("setupVite", () => {
     expect(res.headers.get("content-type")).toContain("text/html");
     const html = await res.text();
     expect(html).toContain('src="/src/main.tsx?v=');
+  });
+
+  it("404s missing font assets instead of serving the dev SPA template", async () => {
+    vi.mocked(createViteServer).mockResolvedValue({
+      middlewares: vi.fn((_req: any, _res: any, next: any) => next()),
+      transformIndexHtml: vi.fn((_url: string, tpl: string) => tpl),
+      ssrFixStacktrace: vi.fn(),
+    } as any);
+    vi.mocked(fs.promises.readFile).mockResolvedValue(TEMPLATE);
+
+    const app = express();
+    await start(app);
+    await setupVite(app, server);
+
+    const font = await fetch(`${baseUrl}/fonts/NotoSansBengali-Missing.woff2`);
+    expect(font.status).toBe(404);
+    expect(font.headers.get("content-type")).not.toContain("text/html");
+
+    const cached = await fetch(
+      `${baseUrl}/fonts/NotoSansBengali-Missing.woff2?v=1`
+    );
+    expect(cached.status).toBe(404);
+
+    // non-asset routes must still reach the SPA
+    const page = await fetch(`${baseUrl}/any-route`);
+    expect(page.status).toBe(200);
+    expect((await page.headers.get("content-type")) ?? "").toContain(
+      "text/html"
+    );
   });
 
   it("fixes the stacktrace and forwards the error when the template read fails", async () => {
