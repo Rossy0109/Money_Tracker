@@ -99,6 +99,9 @@ export function useAuth(options?: UseAuthOptions) {
 
   return {
     ...state,
+    // Surface the auth.me failure separately from logout failures so callers can
+    // distinguish a dead/unreachable session from an explicit sign-out.
+    sessionError: meQuery.error?.message ?? null,
     refresh: () => meQuery.refetch(),
     logout,
   };

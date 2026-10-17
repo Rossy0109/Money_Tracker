@@ -803,6 +803,27 @@ describe.runIf(enabled)("db.ts hermetic flows (disposable MariaDB)", () => {
       });
       expect(renamed?.name).toBe("Hermetic Test Asset v2");
 
+      // Re-submitting the account's own (unchanged) code must not collide
+      // with itself — regression for the inverted uniqueness check.
+      const sameCode = await updateChartOfAccount(userId, projectId, created!.id, {
+        code: "1900",
+        name: "Hermetic Test Asset v2",
+      });
+      expect(sameCode?.code).toBe("1900");
+      expect(sameCode?.name).toBe("Hermetic Test Asset v2");
+
+      // A code owned by a *different* account is still rejected.
+      const other = await createChartOfAccount(userId, {
+        projectId,
+        accountTypeId: assetType.id,
+        code: "1950",
+        name: "Hermetic Other Asset",
+      });
+      await expect(
+        updateChartOfAccount(userId, projectId, other!.id, { code: "1900" })
+      ).rejects.toThrow("এই অ্যাকাউন্ট কোড ইতিমধ্যে ব্যবহৃত");
+      await deleteChartOfAccount(userId, projectId, other!.id);
+
       // Canonical cash (1110) is referenced by voucher entries — protected.
       const cash = (await getChartOfAccounts(userId, projectId)).find(
         a => a.code === "1110"

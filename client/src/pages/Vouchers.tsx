@@ -61,10 +61,13 @@ const newIdempotencyKey = () =>
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default function Vouchers() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
   const { data: projects = [], isLoading: projectsLoading } =
-    trpc.projects.list.useQuery();
+    trpc.projects.list.useQuery(undefined, {
+      enabled: isAuthenticated,
+      retry: false,
+    });
   const { activeProjectId, selectProject } = useActiveProject();
   const projectId = activeProjectId ?? 0;
   const [statusFilter, setStatusFilter] = useState<VoucherStatus | "all">(

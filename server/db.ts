@@ -1953,7 +1953,9 @@ export async function updateChartOfAccount(
         and(
           eq(financeChartOfAccounts.projectId, projectId),
           eq(financeChartOfAccounts.code, input.code.trim()),
-          eq(financeChartOfAccounts.id, accountId)
+          // a different account already owns this code (the account being
+          // edited is allowed to keep its own code unchanged)
+          ne(financeChartOfAccounts.id, accountId)
         )
       )
       .limit(1);

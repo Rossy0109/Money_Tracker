@@ -58,6 +58,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # F-01: the Bengali variable font must physically land in the Vite output
+      # and stay referenced by index.html. The unit suite self-skips these
+      # assertions when no build exists (CI `test` job), so enforce them here
+      # where `pnpm build` has just run.
+      - name: Verify Bengali font in build output
+        run: |
+          test -f dist/public/fonts/NotoSansBengali-Variable.woff2
+          grep -q '/fonts/NotoSansBengali-Variable.woff2' dist/public/index.html
+
   # ── Gate 2: Unit tests + coverage (accounting, security, RBAC, audit …) ──
   # MariaDB is required: server/db.hermetic.test.ts self-skips without a
   # reachable database, and the enforced coverage thresholds (70/60/70/70 in

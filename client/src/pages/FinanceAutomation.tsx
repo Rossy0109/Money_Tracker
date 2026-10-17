@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,8 +107,12 @@ const SUBSCRIPTION_PRESETS = [
 
 export default function FinanceAutomation() {
   const utils = trpc.useUtils();
+  const { isAuthenticated } = useAuth();
   const { data: projects = [], isLoading: projectsLoading } =
-    trpc.projects.list.useQuery();
+    trpc.projects.list.useQuery(undefined, {
+      enabled: isAuthenticated,
+      retry: false,
+    });
   const { activeProjectId, selectProject } = useActiveProject();
   const [form, setForm] = useState<RecurringForm>(initialRecurring);
   const projectId = activeProjectId ?? 0;

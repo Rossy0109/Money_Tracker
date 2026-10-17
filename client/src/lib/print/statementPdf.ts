@@ -9,17 +9,36 @@ import {
 import type { StatementData, StatementKind } from "./types";
 
 const BENGALI_FONT_URL = "/fonts/NotoSansBengali-Regular.ttf";
+const BENGALI_FONT_BOLD_URL = "/fonts/NotoSansBengali-Bold.ttf";
 
-async function loadBengaliFont(doc: jsPDF) {
-  const response = await window.fetch(BENGALI_FONT_URL);
+async function embedBengaliFont(
+  doc: jsPDF,
+  url: string,
+  fileName: string,
+  style: "normal" | "bold"
+): Promise<void> {
+  const response = await window.fetch(url);
   if (!response.ok) throw new Error("PDF ফন্ট লোড করা যায়নি");
   const bytes = new Uint8Array(await response.arrayBuffer());
   let binary = "";
   for (let index = 0; index < bytes.length; index += 1) {
     binary += String.fromCharCode(bytes[index]);
   }
-  doc.addFileToVFS("NotoSansBengali-Regular.ttf", btoa(binary));
-  doc.addFont("NotoSansBengali-Regular.ttf", "NotoSansBengali", "normal");
+  doc.addFileToVFS(fileName, btoa(binary));
+  doc.addFont(fileName, "NotoSansBengali", style);
+}
+
+async function loadBengaliFont(doc: jsPDF) {
+  await embedBengaliFont(doc, BENGALI_FONT_URL, "NotoSansBengali-Regular.ttf", "normal");
+  // jsPDF only resolves setFont(..., "bold") when a bold variant of the same
+  // family is registered; otherwise it silently falls back to Times, which
+  // has no Bengali glyphs and would corrupt grand-total rows.
+  await embedBengaliFont(
+    doc,
+    BENGALI_FONT_BOLD_URL,
+    "NotoSansBengali-Bold.ttf",
+    "bold"
+  );
   doc.setFont("NotoSansBengali", "normal");
 }
 

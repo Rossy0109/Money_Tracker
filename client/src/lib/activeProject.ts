@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 
 export const ACTIVE_PROJECT_STORAGE_KEY = "my-hisab.active-project-id";
@@ -38,7 +39,19 @@ export function saveActiveProjectId(projectId: number) {
 }
 
 export function useActiveProject() {
-  const { data: projects = [], isLoading } = trpc.projects.list.useQuery();
+  // projects.list is a protected procedure: it must not be requested until the
+  // session cookie has actually been resolved. DashboardLayout mounts
+  // useOfflineSync -> useActiveProject on every route (including the logged-out
+  // landing page), so without this gate tRPC batches the call with auth.me and
+  // the resulting401 shows a spurious "Please login" error toast to a visitor
+  // who simply has not signed in yet. Session state stays authoritative — no
+  // query is skipped once authentication is known.
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { data: projects = [], isLoading: projectsLoading } =
+    trpc.projects.list.useQuery(undefined, {
+      enabled: isAuthenticated,
+      retry: false,
+    });
   const [activeProjectId, setActiveProjectId] = useState<number | null>(() =>
     readActiveProjectId()
   );
@@ -66,9 +79,11 @@ export function useActiveProject() {
   };
 
   return {
-    activeProjectId,
+    // A project id left in sessionStorage belongs to a previous session; it must
+    // not drive protected queries until the current session is confirmed.
+    activeProjectId: isAuthenticated ? activeProjectId : null,
     projects,
-    isLoading,
+    isLoading: authLoading || projectsLoading,
     selectProject,
     setActiveProjectId: selectProject,
   };

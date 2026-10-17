@@ -173,4 +173,37 @@ describe("statement PDF", () => {
     expect(totals.expense).toBe(310);
     expect(totals.closingBalance).toBe(totals.income - totals.expense);
   });
+
+  it("registers the Bengali bold face so grand totals never fall back", async () => {
+    await buildStatementPdf({
+      firmName: "Ahmed's Financial Accounting",
+      firmLine: "ট্যাগলাইন",
+      firmContact: "ঢাকা",
+      title: "দৈনিক আয়-ব্যয় বিবরণী",
+      meta: [{ label: "প্রজেক্ট", value: "খাতা" }],
+      table: {
+        columns: [
+          { label: "ক্র.", width: 0.4 },
+          { label: "আয়", width: 0.6, align: "right", format: "money" },
+        ],
+        rows: [["1", 400]],
+      },
+      totals: [
+        { label: "মোট আয়", value: "৳ ৪০০.০০" },
+        { label: "সর্বমোট", value: "৳ ৪০০.০০", tone: "grand" },
+      ],
+    });
+    expect(instance.addFont).toHaveBeenCalledWith(
+      "NotoSansBengali-Regular.ttf",
+      "NotoSansBengali",
+      "normal"
+    );
+    expect(instance.addFont).toHaveBeenCalledWith(
+      "NotoSansBengali-Bold.ttf",
+      "NotoSansBengali",
+      "bold"
+    );
+    expect(instance.setFont).toHaveBeenCalledWith("NotoSansBengali", "bold");
+    expect(instance.addFileToVFS).toHaveBeenCalledTimes(2);
+  });
 });
