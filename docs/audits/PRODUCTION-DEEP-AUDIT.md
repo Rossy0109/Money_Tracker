@@ -3,7 +3,7 @@
 ## Audit Session Overview
 
 - **Baseline Commit**: `99b05afca5da47fc109f434a0de08399ea218974`
-- **Execution Branch**: `fix/f-01-f-02-bengali-font-dep0169` (rebased onto `main` @ `9a86f19`; tip `7f0c967`)
+- **Execution Branch**: `fix/f-01-f-02-bengali-font-dep0169` (rebased onto `main` @ `9a86f19`) — **published**; squash-merged as `d4f4c68` (PR #253)
 - **Auditor**: Multi-agent pipeline — role-interpreted in ONE OpenCode session (see honesty note in completion matrix)
 - **Date**: 2026-10-16 / 2026-10-17
 - **Scope**: F-01, F-02 + newly discovered gate failures; asset delivery, DEP0169, auth/RBAC, accounting invariants, test isolation, coverage
@@ -23,7 +23,7 @@ The branch carries two defect fixes (F-01 font delivery, F-02 DEP0169) plus eigh
 5. **S-02 gap CLOSED** — new behavioral suite `server/self-reversal-sod.test.ts` (5 tests) locks the approved quick-entry self-reversal SoD exception against a disposable MariaDB, and pins that the public `reverseVoucher` lifecycle still blocks self-reversal.
 6. **Full gate rerun GREEN (post-reconciliation)**: `check`/`lint`/`build` exit 0; `pnpm test` **178 passed | 7 skipped (185 files)** / **1603 passed | 62 skipped (1665 tests)** / **0 failed**; `pnpm test:coverage` exit 0 with all four thresholds met; `pnpm test:worker` **22/22**.
 
-**Recommendation: CONDITIONAL GO** (owner approval gate pending — see Release Decision).
+**Recommendation: GO — shipped** (all release conditions satisfied; merged as `d4f4c68`, deployed, and F-01 re-verified in production — see Final Outcome).
 
 ---
 
@@ -213,7 +213,7 @@ After reconciliation the branch also carries Phase-3's tests (`coa-form.test.ts`
 ## Blocked Tasks and Unverified Assumptions
 
 - **BLOCKED**: `vercel build` / any remote action — requires `vercel login`; account/token usage not authorized by this assignment.
-- **NOT VERIFIED**: live Vercel serving of `/fonts/*` (post-deploy check required).
+- **RESOLVED**: live Vercel serving of `/fonts/*` — verified post-deploy (HTTP 200, `font/woff2`, 107720 B) on the production apex; see Final Outcome.
 - **RESOLVED**: the quarantine decision was superseded by implementation — the pins' behaviors were built and the retained test files restored (AuthCard 6/6, session-check-failure 3/3, chart-a11y 2/2). The CoA pin was later superseded by Phase-3's `coa-form` design during reconciliation and dropped. No owner acceptance of deletion is required because nothing was deleted.
 
 ## Rollback Readiness
@@ -244,3 +244,20 @@ After reconciliation the branch also carries Phase-3's tests (`coa-form.test.ts`
 
 ### No-GO triggers checked (all clear)
 Baseline verified ✅ | no critical security/accounting defect ✅ | no required test failing or bypassed ✅ | no production-data or destructive-DB operation ✅ | no finding claimed fixed without evidence ✅ | no unsafe migration/config change ✅ | approvals documented as explicitly pending, not silently assumed ✅
+
+---
+
+## Final Outcome — Merged & Deployed (2026-10-17)
+
+All release conditions were satisfied and the work shipped:
+
+- **PR #253** squash-merged to `main` → **`d4f4c68`** — `fix: F-01/F-02 remediation, wiring-pin implementation, and S-02 coverage (#253)` (repo `(#NNN)` squash convention). Head branch auto-deleted on merge.
+- **CI on `main`** ✅ (run `39076745293`); **Deploy to Vercel (CD)** ✅ shipped that exact SHA (run `39076966715`, `headSha d4f4c68`).
+- **F-01 verified in production** on the apex `https://money-tracker-blond-pi.vercel.app/`:
+  - `GET /fonts/NotoSansBengali-Variable.woff2` → **HTTP 200**, `content-type: font/woff2`, `content-length: 107720` (matches the source blob).
+  - `index.html` references `/fonts/NotoSansBengali-Variable.woff2`.
+  - The legacy alias `amar-hisab-money-tracker.vercel.app` 404s the font — the documented stale address, not the production target (`docs/vercel-environment-setup-bn.md`).
+- **CI follow-up fix**: the first CI run failed the `test` gate because `server/font-delivery.test.ts` asserted build artifacts (`dist/public/fonts/`, root `public/fonts/`) that the `test` job — which runs only `pnpm test:coverage` — never builds. Fixed by self-skipping those three assertions when no build exists (`it.runIf(...)`, matching `server/drizzle-bundle.test.ts`) and adding an explicit F-01 build-output check to the `verify` job (which runs `pnpm build`). Verified: 18/18 with artifacts, 15 passed / 3 skipped without.
+- **Remaining (owner)**: a visual Bengali text-render spot check of the live app; the machine-checkable condition 4 (`/fonts/*` status/`Content-Type`/`wOF2`) is **CLOSED**.
+
+Release Recommendation: **GO** — shipped and verified.
