@@ -489,19 +489,30 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { loading, user, logout } = useAuth();
+  const { loading, user, logout, sessionError, refresh } = useAuth();
   const { logoUrl } = useAppLogo();
   const { isOnline, pendingCount, syncQueue } = useOfflineSync();
 
   if (loading)
     return (
-      <div className="grid min-h-screen place-items-center bg-background text-foreground">
-        <Banknote className="h-8 w-8 animate-pulse" />
+      <div
+        className="grid min-h-screen place-items-center bg-background text-foreground"
+        role="status"
+        aria-live="polite"
+      >
+        <Banknote className="h-8 w-8 animate-pulse" aria-hidden="true" />
+        <span className="sr-only">লোড হচ্ছে…</span>
       </div>
     );
   if (!user || user.status === "pending") {
     // মোবাইলে সাইন-ইনের জন্য Chrome বা Safari-এর সাধারণ ব্রাউজার ট্যাব ব্যবহার করুন। Private/Incognito বা অন্য অ্যাপের ভেতরের ব্রাউজার ব্যবহার করবেন না এবং cookies অনুমতি দিন।
-    return <AuthCard pendingUser={user?.status === "pending" ? user : null} />;
+    return (
+      <AuthCard
+        pendingUser={user?.status === "pending" ? user : null}
+        sessionError={sessionError}
+        onRetrySession={refresh}
+      />
+    );
   }
 
   if (user.status === "suspended") {

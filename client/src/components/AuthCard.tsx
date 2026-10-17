@@ -28,8 +28,12 @@ type AuthMeData = inferRouterOutputs<AppRouter>["auth"]["me"];
 
 export function AuthCard({
   pendingUser,
+  sessionError,
+  onRetrySession,
 }: {
   pendingUser?: { name?: string | null; email?: string | null } | null;
+  sessionError?: string | null;
+  onRetrySession?: () => void;
 }) {
   const { logoUrl } = useAppLogo();
   const [roleMode, setRoleMode] = useState<"user" | "admin">("user");
@@ -210,6 +214,7 @@ export function AuthCard({
                   <button
                     type="button"
                     onClick={() => handleRoleSelect("user")}
+                    aria-pressed={roleMode === "user"}
                     className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                       roleMode === "user"
                         ? "bg-card text-foreground shadow-sm font-bold"
@@ -222,6 +227,7 @@ export function AuthCard({
                   <button
                     type="button"
                     onClick={() => handleRoleSelect("admin")}
+                    aria-pressed={roleMode === "admin"}
                     className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                       roleMode === "admin"
                         ? "bg-primary text-primary-foreground shadow-sm font-bold"
@@ -243,6 +249,7 @@ export function AuthCard({
                       setMode("login");
                       setErrorMessage(null);
                     }}
+                    aria-pressed={mode === "login"}
                     className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                       mode === "login"
                         ? "bg-card text-foreground shadow-xs"
@@ -258,6 +265,7 @@ export function AuthCard({
                       setErrorMessage(null);
                       setPendingApprovalMsg(null);
                     }}
+                    aria-pressed={mode === "register"}
                     className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                       mode === "register"
                         ? "bg-card text-foreground shadow-xs"
@@ -331,27 +339,39 @@ export function AuthCard({
                 </div>
               )}
 
-              {/* Divider — only meaningful when the Google button is shown */}
-              {isGoogleAuth && (
-                <div className="relative my-5 text-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                  </div>
-                  <span className="relative bg-card px-3 text-[11px] font-medium text-muted-foreground">
-                    অথবা ইমেইল ও পাসওয়ার্ড
-                  </span>
-                </div>
-              )}
-
               {/* Divider */}
               <div className="relative my-5 text-center">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border" />
                 </div>
                 <span className="relative bg-card px-3 text-[11px] font-medium text-muted-foreground">
-                  অথবা ইমেইল ও পাসওয়ার্ড
+                  অথবা ইমেইল ও পাসওয়ার্ড
                 </span>
               </div>
+
+              {/* Session-check failure — persistent and retryable, so a dead
+                  session never silently degrades to a bare login form. */}
+              {sessionError && (
+                <Alert
+                  variant="destructive"
+                  role="alert"
+                  className="mb-4 py-2.5 px-3.5 rounded-xl border-amber-200 bg-amber-50 text-amber-800 text-xs"
+                >
+                  <AlertDescription className="space-y-2">
+                    <p>সেশন যাচাই করা যায়নি: {sessionError}</p>
+                    {onRetrySession && (
+                      <button
+                        type="button"
+                        onClick={onRetrySession}
+                        className="inline-flex items-center gap-1.5 font-semibold underline underline-offset-2"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        আবার চেষ্টা করুন
+                      </button>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Error Alert */}
               {errorMessage && (
@@ -366,16 +386,21 @@ export function AuthCard({
               {/* Form */}
               <form
                 onSubmit={handleSubmit}
+                noValidate
                 className="space-y-3.5 sm:space-y-4"
               >
                 {mode === "register" && roleMode === "user" && (
                   <div>
-                    <Label className="text-xs font-semibold text-foreground mb-1.5 block">
+                    <Label
+                      htmlFor="auth-name"
+                      className="text-xs font-semibold text-foreground mb-1.5 block"
+                    >
                       আপনার পূর্ণ নাম
                     </Label>
                     <div className="relative">
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
+                        id="auth-name"
                         type="text"
                         required
                         placeholder="যেমন: কামরুল হাসান"
@@ -388,12 +413,16 @@ export function AuthCard({
                 )}
 
                 <div>
-                  <Label className="text-xs font-semibold text-foreground mb-1.5 block">
+                  <Label
+                    htmlFor="auth-email"
+                    className="text-xs font-semibold text-foreground mb-1.5 block"
+                  >
                     ইমেইল এড্রেস
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
+                      id="auth-email"
                       type="email"
                       required
                       placeholder="name@example.com"
@@ -405,12 +434,16 @@ export function AuthCard({
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-foreground mb-1.5 block">
+                  <Label
+                    htmlFor="auth-password"
+                    className="text-xs font-semibold text-foreground mb-1.5 block"
+                  >
                     পাসওয়ার্ড
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
+                      id="auth-password"
                       type={showPassword ? "text" : "password"}
                       required
                       placeholder="কমপক্ষে ৬ অক্ষর"
@@ -421,6 +454,8 @@ export function AuthCard({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখান"}
+                      aria-pressed={showPassword}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-positive p-1"
                     >
                       {showPassword ? (
@@ -434,12 +469,16 @@ export function AuthCard({
 
                 {mode === "register" && roleMode === "user" && (
                   <div>
-                    <Label className="text-xs font-semibold text-foreground mb-1.5 block">
+                    <Label
+                      htmlFor="auth-confirm-password"
+                      className="text-xs font-semibold text-foreground mb-1.5 block"
+                    >
                       পাসওয়ার্ড নিশ্চিত করুন
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
+                        id="auth-confirm-password"
                         type={showPassword ? "text" : "password"}
                         required
                         placeholder="একই পাসওয়ার্ড পুনরায় দিন"

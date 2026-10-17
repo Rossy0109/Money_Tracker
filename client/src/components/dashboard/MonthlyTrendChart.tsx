@@ -22,9 +22,13 @@ export function MonthlyTrendChart({ trend }: MonthlyTrendChartProps) {
     <article className="finance-card p-5 sm:p-6">
       <p className="section-kicker">মাসিক প্রবণতা</p>
       <h2 className="section-title">গত ৬ মাসের আয় ও ব্যয়</h2>
-      <div className="mt-5 h-64">
+      <div
+        className="mt-5 h-64"
+        role="img"
+        aria-label="গত ৬ মাসের আয় ও ব্যয়ের বার চার্ট"
+      >
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={trend}>
+          <BarChart data={trend} accessibilityLayer>
             <CartesianGrid vertical={false} stroke="#e3ebe5" />
             <XAxis
               dataKey="monthKey"

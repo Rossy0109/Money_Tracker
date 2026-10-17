@@ -24,7 +24,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|fonts/).*)",
       "destination": "/index.html"
     }
   ],
