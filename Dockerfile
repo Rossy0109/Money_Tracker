@@ -3,7 +3,7 @@
 # Node 22 (LTS, maintained) — matches the "engines" range in package.json
 # (>=22 <25). The previous base was node:20, which is end-of-life and outside
 # the declared range.
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 # `pnpm build` already runs vite + the esbuild server bundle to dist/index.js.
 RUN pnpm build
 
-FROM node:22-alpine AS production
+FROM node:26-alpine AS production
 
 WORKDIR /app
 
