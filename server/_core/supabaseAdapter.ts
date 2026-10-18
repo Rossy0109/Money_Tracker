@@ -5,9 +5,20 @@
 
 export interface SupabaseStagingConfig {
   supabaseUrl: string;
-  supabaseAnonKey: string;
+  /**
+   * Key used for server-side Storage REST calls. Prefers the anon key but
+   * falls back to the service-role key so a Worker deployment that only holds
+   * the service-role secret (see docs/CLOUDFLARE_DEPLOYMENT.md) still resolves.
+   * Server-side only — never sent to a client.
+   */
+  supabaseKey: string;
+  /** General private-object bucket (SUPABASE_STORAGE_BUCKET). */
   storageBucket?: string;
+  /** Dedicated backup bucket (SUPABASE_BACKUP_BUCKET). */
+  backupBucket: string;
 }
+
+export const DEFAULT_BACKUP_BUCKET = "amar-hisab-backups";
 
 export interface SupabaseAuthClaims {
   sub: string;
@@ -21,14 +32,15 @@ export function parseSupabaseConfig(
   env: Record<string, string | undefined>
 ): SupabaseStagingConfig | null {
   const supabaseUrl = env.SUPABASE_URL;
-  const supabaseAnonKey = env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabaseKey = env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
     return null;
   }
   return {
     supabaseUrl: supabaseUrl.replace(/\/+$/, ""),
-    supabaseAnonKey,
-    storageBucket: env.SUPABASE_STORAGE_BUCKET || "amar-hisab-backups",
+    supabaseKey,
+    storageBucket: env.SUPABASE_STORAGE_BUCKET || undefined,
+    backupBucket: env.SUPABASE_BACKUP_BUCKET || DEFAULT_BACKUP_BUCKET,
   };
 }
 

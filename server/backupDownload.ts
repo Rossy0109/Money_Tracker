@@ -109,7 +109,7 @@ export async function downloadLatestBackupObject(
   }
   return {
     object: null,
-    miss: "no readable backup provider configured — set SUPABASE_URL + SUPABASE_ANON_KEY (Supabase) or the S3 credentials",
+    miss: "no readable backup provider configured — set SUPABASE_URL + SUPABASE_ANON_KEY (or SUPABASE_SERVICE_ROLE_KEY) for Supabase, or the S3 credentials",
   };
 }
 

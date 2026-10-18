@@ -4,8 +4,8 @@ const { createDecipheriv } = require('crypto');
 const { Buffer } = require('buffer');
 
 const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'amar-hisab-backups';
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const bucket = process.env.SUPABASE_BACKUP_BUCKET || 'amar-hisab-backups';
 const encryptionKeyHex = fs.readFileSync(process.env.BACKUP_ENCRYPTION_KEY_FILE, 'utf8').trim();
 
 const supabase = createClient(url, key);

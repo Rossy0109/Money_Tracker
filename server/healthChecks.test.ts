@@ -60,6 +60,9 @@ const mockAccountingRows = vi.mocked(latestAccountingAuditRows);
 const ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_STORAGE_BUCKET",
+  "SUPABASE_BACKUP_BUCKET",
   "VERCEL_URL",
 ] as const;
 const savedProcessEnv = Object.fromEntries(

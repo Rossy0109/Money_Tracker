@@ -10,14 +10,16 @@
  *   node scripts/prune-backups.mjs --apply               # delete
  *   node scripts/prune-backups.mjs --apply --retention-days 30
  *
- * Requires SUPABASE_URL and SUPABASE_KEY (the service-role/admin key).
+ * Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (the service-role/admin
+ * key; the legacy SUPABASE_KEY name is still accepted). Override the target
+ * bucket with SUPABASE_BACKUP_BUCKET.
  */
 import {
   selectPrunableObjects,
   summarizePlan,
 } from "./lib/backup-retention.mjs";
 
-const BUCKET = "amar-hisab-backups";
+const BUCKET = process.env.SUPABASE_BACKUP_BUCKET?.trim() || "amar-hisab-backups";
 const LIST_PAGE_SIZE = 1000;
 
 function parseArgs(argv) {
@@ -121,7 +123,17 @@ if (!Number.isFinite(options.retentionDays) || options.retentionDays < 1) {
 }
 
 const supabaseUrl = required("SUPABASE_URL").replace(/\/+$/, "");
-const supabaseKey = required("SUPABASE_KEY");
+// Canonical name first; SUPABASE_KEY is the legacy alias kept for existing
+// GitHub secrets and local .env files.
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+  process.env.SUPABASE_KEY?.trim();
+if (!supabaseKey) {
+  console.error(
+    "[prune-backups] SUPABASE_SERVICE_ROLE_KEY (or legacy SUPABASE_KEY) is required."
+  );
+  process.exit(1);
+}
 
 const objects = await listAllObjects(supabaseUrl, supabaseKey);
 const plan = selectPrunableObjects(objects, options);

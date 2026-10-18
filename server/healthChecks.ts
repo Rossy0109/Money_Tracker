@@ -139,7 +139,7 @@ export async function runHealthChecks(
       label: "Supabase স্টোরেজ (ব্যাকআপ টার্গেট)",
       status: "not_configured",
       timestamp: checkedAt,
-      error: "SUPABASE_URL / SUPABASE_ANON_KEY সেট নেই; ঐচ্ছিক ওপশনাল টার্গেট",
+      error: "SUPABASE_URL / SUPABASE_ANON_KEY (অথবা SUPABASE_SERVICE_ROLE_KEY) সেট নেই; ঐচ্ছিক ওপশনাল টার্গেট",
     });
   } else {
     const probe = await timed(async () => {
@@ -147,9 +147,9 @@ export async function runHealthChecks(
       // (it gets 404 even when the bucket exists) and would misreport the
       // backup destination as missing.
       const probeKey =
-        process.env.SUPABASE_SERVICE_ROLE_KEY || supabase.supabaseAnonKey;
+        process.env.SUPABASE_SERVICE_ROLE_KEY || supabase.supabaseKey;
       const response = await fetch(
-        `${supabase.supabaseUrl}/storage/v1/bucket/${supabase.storageBucket ?? "amar-hisab-backups"}`,
+        `${supabase.supabaseUrl}/storage/v1/bucket/${supabase.backupBucket}`,
         {
           headers: {
             apikey: probeKey,
@@ -159,7 +159,7 @@ export async function runHealthChecks(
         }
       );
       if (response.status === 404)
-        throw new Error(`বাকেটের অস্তিত্ব নেই: ${supabase.storageBucket}`);
+        throw new Error(`বাকেটের অস্তিত্ব নেই: ${supabase.backupBucket}`);
       if (response.status === 401 || response.status === 403)
         throw new Error("Supabase API key অবৈধ");
       if (!response.ok)

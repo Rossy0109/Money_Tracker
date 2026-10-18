@@ -22,8 +22,24 @@ describe("Supabase Staging Adapter", () => {
 
     expect(config).toEqual({
       supabaseUrl: "https://xyz.supabase.co",
-      supabaseAnonKey: "anon-key-123",
+      supabaseKey: "anon-key-123",
       storageBucket: "custom-bucket",
+      backupBucket: "amar-hisab-backups",
+    });
+  });
+
+  it("falls back to the service-role key and honours a custom backup bucket", () => {
+    const config = parseSupabaseConfig({
+      SUPABASE_URL: "https://xyz.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-key-123",
+      SUPABASE_BACKUP_BUCKET: "custom-backups",
+    });
+
+    expect(config).toEqual({
+      supabaseUrl: "https://xyz.supabase.co",
+      supabaseKey: "service-key-123",
+      storageBucket: undefined,
+      backupBucket: "custom-backups",
     });
   });
 
@@ -52,8 +68,9 @@ describe("Supabase Staging Adapter", () => {
   it("builds signed storage proxy URLs safely", () => {
     const config = {
       supabaseUrl: "https://xyz.supabase.co",
-      supabaseAnonKey: "anon-key-123",
+      supabaseKey: "anon-key-123",
       storageBucket: "amar-hisab-backups",
+      backupBucket: "amar-hisab-backups",
     };
 
     const url = buildSupabaseSignedStorageUrl(
