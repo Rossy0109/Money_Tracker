@@ -279,7 +279,9 @@ To manually verify a backup:
 | `CRON_SECRET`           | Yes      | (none)  | Authentication for scheduled backup cron |
 | `BACKUP_RETENTION_DAYS` | No       | 30      | Days to retain backup files              |
 | `SUPABASE_URL`          | No       | (none)  | Supabase project URL for cloud storage   |
-| `SUPABASE_ANON_KEY`     | No       | (none)  | Supabase API key                         |
+| `SUPABASE_ANON_KEY`     | No       | (none)  | Supabase API key (or use the service-role key) |
+| `SUPABASE_SERVICE_ROLE_KEY` | No   | (none)  | Supabase admin key; required to write/read the private backup bucket |
+| `SUPABASE_BACKUP_BUCKET` | No      | `amar-hisab-backups` | Dedicated encrypted-backup bucket (never the general objects bucket) |
 | `S3_BUCKET_NAME`        | No       | (none)  | S3/R2 bucket name                        |
 | `S3_ACCESS_KEY_ID`      | No       | (none)  | S3 access key                            |
 | `S3_SECRET_ACCESS_KEY`  | No       | (none)  | S3 secret key                            |

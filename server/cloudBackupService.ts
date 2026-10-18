@@ -61,7 +61,7 @@ export function getCloudStorageConfig(): CloudStorageConfig {
       ? {
           enabled: true,
           url: supabase.supabaseUrl,
-          bucket: supabase.storageBucket || "amar-hisab-backups",
+          bucket: supabase.backupBucket,
         }
       : undefined,
     s3:

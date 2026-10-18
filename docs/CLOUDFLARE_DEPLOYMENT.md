@@ -42,6 +42,15 @@ curl -sS -X POST "$SUPABASE_URL/storage/v1/bucket" \
 # Note: R2 could not be used — the account has R2 disabled (API error 10042)
 # and enabling it is dashboard-only. [[r2_buckets]] stays commented in
 # wrangler.toml; the Worker falls back to Supabase Storage.
+#
+# Backups use a SEPARATE bucket (default `amar-hisab-backups`) so retention and
+# the restore drill never touch user objects. Create it the same way (or let
+# .github/workflows/daily-backup.yml create it on its next run):
+curl -sS -X POST "$SUPABASE_URL/storage/v1/bucket" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"amar-hisab-backups","name":"amar-hisab-backups","public":false}'
 ```
 
 Edit `wrangler.toml`:
@@ -74,6 +83,12 @@ npx wrangler secret put GITHUB_CLIENT_SECRET    # optional
 npx wrangler secret put CRON_SECRET
 npx wrangler secret put BACKUP_ENCRYPTION_KEY
 npx wrangler secret put BACKUP_RETENTION_DAYS
+# Supabase Storage: the service-role key unlocks the private object bucket and
+# the (separate) encrypted-backup bucket. SUPABASE_URL /
+# SUPABASE_STORAGE_BUCKET live in wrangler.toml [vars]; the backup bucket
+# defaults to `amar-hisab-backups` and is overridden with
+# SUPABASE_BACKUP_BUCKET (never the general objects bucket).
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 # optional email / S3 backup integrations
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put EMAIL_WEBHOOK_URL

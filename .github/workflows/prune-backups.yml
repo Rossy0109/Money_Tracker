@@ -41,7 +41,8 @@ jobs:
       - name: Plan (dry run)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_KEY }}
+          SUPABASE_BACKUP_BUCKET: ${{ vars.SUPABASE_BACKUP_BUCKET || 'amar-hisab-backups' }}
           BACKUP_RETENTION_DAYS: ${{ inputs.retention_days }}
           BACKUP_KEEP_PER_PROJECT: ${{ inputs.keep_per_project }}
         run: node scripts/prune-backups.mjs
@@ -52,7 +53,8 @@ jobs:
         if: ${{ inputs.apply == true }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_KEY }}
+          SUPABASE_BACKUP_BUCKET: ${{ vars.SUPABASE_BACKUP_BUCKET || 'amar-hisab-backups' }}
           BACKUP_RETENTION_DAYS: ${{ inputs.retention_days }}
           BACKUP_KEEP_PER_PROJECT: ${{ inputs.keep_per_project }}
         run: node scripts/prune-backups.mjs --apply

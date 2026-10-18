@@ -265,7 +265,7 @@ describe("executeCloudBackup provider routing", () => {
 
   it("uploads to supabase and reports success", async () => {
     process.env.SUPABASE_URL = "https://xyz.supabase.co";
-    process.env.SUPABASE_STORAGE_BUCKET = "backups";
+    process.env.SUPABASE_BACKUP_BUCKET = "backups";
     process.env.SUPABASE_ANON_KEY = "anon-key";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
     const fetchSpy = vi

@@ -309,7 +309,7 @@ describe("Supabase storage key precedence", () => {
     // anon cannot see a private bucket — it would report "bucket missing".
     expect(window).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(window.indexOf("SUPABASE_SERVICE_ROLE_KEY")).toBeLessThan(
-      window.indexOf("supabase.supabaseAnonKey")
+      window.indexOf("supabase.supabaseKey")
     );
   });
 });

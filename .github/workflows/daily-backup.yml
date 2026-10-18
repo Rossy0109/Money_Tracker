@@ -30,12 +30,12 @@ jobs:
       - name: Ensure Supabase backup bucket exists
         env:
           SB_URL: ${{ secrets.SUPABASE_URL }}
-          SB_ADMIN_KEY: ${{ secrets.SUPABASE_KEY }}
-          BUCKET: amar-hisab-backups
+          SB_ADMIN_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_KEY }}
+          BUCKET: ${{ vars.SUPABASE_BACKUP_BUCKET || 'amar-hisab-backups' }}
         run: |
           set -euo pipefail
           if [ -z "$SB_URL" ] || [ -z "$SB_ADMIN_KEY" ]; then
-            echo "SUPABASE_URL and SUPABASE_KEY GitHub secrets are required to verify the backup bucket."
+            echo "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or legacy SUPABASE_KEY) GitHub secrets are required to verify the backup bucket."
             exit 1
           fi
           BASE="$(printf '%s' "$SB_URL" | tr -d '\r\n')"
@@ -55,9 +55,9 @@ jobs:
             -d "{\"id\":\"$BUCKET\",\"name\":\"$BUCKET\",\"public\":false,\"fileSizeLimit\":\"52428800\"}")
           echo "Create response ($code): $(cat create_out.json)"
           if [ "$code" != "200" ] && [ "$code" != "201" ]; then
-            echo "Bucket creation failed — SUPABASE_KEY is likely not a service-role/admin key."
+            echo "Bucket creation failed — SUPABASE_SERVICE_ROLE_KEY is likely not a service-role/admin key."
             echo "Create the bucket in the Supabase dashboard (Storage → New bucket → name: $BUCKET),"
-            echo "or store a service-role key as the SUPABASE_KEY GitHub secret."
+            echo "or store a service-role key as the SUPABASE_SERVICE_ROLE_KEY GitHub secret."
             exit 1
           fi
           echo "Bucket '$BUCKET' created."
@@ -160,7 +160,8 @@ jobs:
       - name: Prune expired backups
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_KEY }}
+          SUPABASE_BACKUP_BUCKET: ${{ vars.SUPABASE_BACKUP_BUCKET || 'amar-hisab-backups' }}
           BACKUP_RETENTION_DAYS: "90"
           BACKUP_KEEP_PER_PROJECT: "7"
         run: node scripts/prune-backups.mjs --apply
