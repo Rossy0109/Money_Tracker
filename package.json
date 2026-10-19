@@ -79,7 +79,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
     "google-auth-library": "^11.3.0",
-    "googleapis": "^182.0.0",
+    "googleapis": "^186.0.0",
     "helmet": "^8.3.0",
     "hono": "^4.13.13",
     "html2canvas": "^1.4.1",
