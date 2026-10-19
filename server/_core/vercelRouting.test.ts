@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -7,21 +7,41 @@ type VercelRoute = {
   dest?: string;
 };
 
-type VercelCron = {
-  path: string;
-  schedule: string;
-};
-
 type VercelConfig = {
   routes?: VercelRoute[];
-  crons?: VercelCron[];
+  crons?: unknown[];
 };
 
 const configPath = fileURLToPath(new URL("../../vercel.json", import.meta.url));
 const appSourcePath = fileURLToPath(new URL("./app.ts", import.meta.url));
+const wranglerPath = fileURLToPath(new URL("../../wrangler.toml", import.meta.url));
+const ghWorkflowPath = fileURLToPath(
+  new URL("../../.github/workflows/daily-backup.yml", import.meta.url)
+);
 
 function loadVercelConfig(): VercelConfig {
   return JSON.parse(readFileSync(configPath, "utf8")) as VercelConfig;
+}
+
+function readAppSource(): string {
+  return readFileSync(appSourcePath, "utf8");
+}
+
+/**
+ * Every scheduled route registered in the Express app, with its method.
+ * The external scheduler (GitHub Actions) invokes these with GET, so each must
+ * be GET-capable — a POST-only registration is the historical production 404.
+ */
+function scheduledRegistrations(
+  appSource: string
+): Array<{ path: string; method: "all" | "get" | "post" }> {
+  const out: Array<{ path: string; method: "all" | "get" | "post" }> = [];
+  const re = /app\.(all|get|post)\("(\/api\/scheduled\/[^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(appSource)) !== null) {
+    out.push({ path: m[2], method: m[1] as "all" | "get" | "post" });
+  }
+  return out;
 }
 
 describe("Vercel nested API routing", () => {
@@ -43,48 +63,39 @@ describe("Vercel nested API routing", () => {
   });
 });
 
-describe("Vercel Cron method alignment", () => {
-  it("registers every vercel.json cron path with app.all (GET+POST) so method mismatch cannot 404", () => {
-    const config = loadVercelConfig();
-    const appSource = readFileSync(appSourcePath, "utf8");
-    const crons = config.crons ?? [];
+describe("Scheduled endpoint method alignment", () => {
+  it("registers every scheduled endpoint for GET so an external scheduler cannot 404", () => {
+    const appSource = readAppSource();
+    const registrations = scheduledRegistrations(appSource);
 
-    expect(crons.length).toBeGreaterThan(0);
+    expect(registrations.length).toBeGreaterThan(0);
 
-    for (const cron of crons) {
-      expect(cron.path).toMatch(/^\/api\/scheduled\//);
+    for (const reg of registrations) {
+      const getCapable =
+        appSource.includes(`app.all("${reg.path}"`) ||
+        appSource.includes(`app.get("${reg.path}"`);
+      expect(getCapable, `${reg.path} must accept GET`).toBe(true);
 
-      // Vercel Cron always invokes GET; GitHub Actions historically uses POST.
-      // app.all covers both — a lone app.post would 404 production Vercel Cron.
-      const registersAll = appSource.includes(`app.all("${cron.path}"`);
-      const registersGetAndPost =
-        appSource.includes(`app.get("${cron.path}"`) &&
-        appSource.includes(`app.post("${cron.path}"`);
-
-      expect(
-        registersAll || registersGetAndPost,
-        `cron path ${cron.path} must be registered for GET (Vercel Cron) and POST`
-      ).toBe(true);
-
-      // Explicitly fail if only POST is registered (the historical bug).
       const postOnly =
-        appSource.includes(`app.post("${cron.path}"`) &&
-        !appSource.includes(`app.get("${cron.path}"`) &&
-        !appSource.includes(`app.all("${cron.path}"`);
-      expect(postOnly, `${cron.path} must not be POST-only`).toBe(false);
+        appSource.includes(`app.post("${reg.path}"`) &&
+        !appSource.includes(`app.get("${reg.path}"`) &&
+        !appSource.includes(`app.all("${reg.path}"`);
+      expect(postOnly, `${reg.path} must not be POST-only`).toBe(false);
     }
   });
 
-  it("keeps the backup cron path present in both vercel.json and the Express app", () => {
-    const config = loadVercelConfig();
-    const appSource = readFileSync(appSourcePath, "utf8");
+  it("keeps the finance-backup endpoint registered and GET-capable", () => {
+    const appSource = readAppSource();
 
-    expect(
-      config.crons?.some(c => c.path === "/api/scheduled/finance-backup")
-    ).toBe(true);
-    expect(appSource).toContain('"/api/scheduled/finance-backup"');
-    expect(appSource).toMatch(
-      /app\.(all|get)\("\/api\/scheduled\/finance-backup"/
-    );
+    expect(appSource).toContain('app.all("/api/scheduled/finance-backup"');
+  });
+
+  it("uses exactly one scheduler (GitHub Actions), with no duplicate cron config", () => {
+    // A single scheduler avoids duplicate backup/sweep runs. GitHub Actions is
+    // the sole entry point; vercel.json crons and wrangler.toml triggers must
+    // stay absent.
+    expect(loadVercelConfig().crons).toBeUndefined();
+    expect(readFileSync(wranglerPath, "utf8")).not.toMatch(/\[triggers\]/);
+    expect(existsSync(ghWorkflowPath)).toBe(true);
   });
 });

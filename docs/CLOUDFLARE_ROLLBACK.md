@@ -64,8 +64,9 @@ version — `wrangler versions` always retains it.
   isolated database.
 - No data is written only by the Worker. Rolling back DNS/code never orphans
   rows.
-- Backups continue on whichever runtime is live (Vercel cron or Worker
-  `triggers.crons`); verify at least one ran after the rollback.
+- Backups run from GitHub Actions (`.github/workflows/daily-backup.yml`), so
+  they continue regardless of which runtime is live; verify at least one ran
+  after the rollback.
 
 ---
 
@@ -75,5 +76,5 @@ version — `wrangler versions` always retains it.
 2. Login + one ledger write (create a voucher) → accounting totals unchanged.
 3. RBAC: non-owner user still denied an owner-only mutation.
 4. Audit trail: the action above appears in the audit log.
-5. Scheduled jobs: confirm the active runtime still fires (Vercel dashboard cron
-   or `wrangler tail`).
+5. Scheduled jobs: confirm the daily GitHub Actions backup workflow still ran
+   (`gh run list --workflow=daily-backup.yml`).

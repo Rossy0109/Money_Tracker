@@ -19,14 +19,14 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 | Backup Type            | Frequency | Schedule                              | Retention    |
 | ---------------------- | --------- | ------------------------------------- | ------------ |
-| Automated Cloud Backup | Daily     | 00:00 BDT (18:00 UTC) via Vercel Cron | 30 days      |
+| Automated Cloud Backup | Daily     | 00:00 BDT (18:00 UTC) via GitHub Actions | 30 days      |
 | Manual Cloud Backup    | On-demand | Via admin UI trigger                  | 30 days      |
 | Local Export           | On-demand | Via user UI download                  | User-managed |
 
 ### Automated Backup Process
 
-1. Vercel Cron triggers `/api/scheduled/finance-backup` daily at 18:00 UTC using **GET** (Vercel Cron always sends GET)
-2. The Express route is registered with `app.all`, so GET and POST both work (GitHub Actions may use either)
+1. GitHub Actions (`.github/workflows/daily-backup.yml`) triggers `/api/scheduled/finance-backup` daily at 18:00 UTC using **GET**
+2. The Express route is registered with `app.all`, so GET and POST both work
 3. The endpoint authenticates using `CRON_SECRET` (dedicated secret) via `Authorization: Bearer …`
 4. For each active user, each project is exported as JSON
 5. The JSON is encrypted using AES-256-GCM with the active key from

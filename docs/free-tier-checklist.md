@@ -18,8 +18,9 @@ tier or optional-off. Keep it that way with the guardrails below.
 | Cloudflare worker | Free tier | Only billed if used; `wrangler deploy` stays within 100k req/day free allowance |
 
 ## Guardrails (do not break these)
-1. **Vercel Hobby allows max 2 cron jobs** — `vercel.json` already uses both
-   (`finance-backup`, `daily-sweep`). Never add a third without upgrading.
+1. **Single scheduler** — backups/sweeps run only from GitHub Actions
+   (`.github/workflows/daily-backup.yml`). `vercel.json` has no `crons` and
+   `wrangler.toml` has no `triggers`; do not add a second scheduler.
 2. **TiDB Serverless free quota** — monitor RU/storage in TiDB Cloud dashboard
    (or `ticloud serverless list -p <project-id> -o json`). Set a spending
    limit in TiDB Cloud so an accident can never bill.
