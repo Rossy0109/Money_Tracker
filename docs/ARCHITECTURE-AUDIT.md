@@ -215,7 +215,7 @@
 | **Local Export**     | `exportUserData()` / `exportProjectBackup()` → JSON                                                             | ✅ EXISTS |
 | **Project Backup**   | Full schema (accounts, categories, transactions, budgets, bills, dues, settlements, recurring, voucherSettings) | ✅ EXISTS |
 | **Restore**          | `restoreProjectBackup()` → new project with data                                                                | ✅ EXISTS |
-| **Cloud Backup**     | Supabase / S3 (R2/MinIO) / Google Drive webhook                                                                 | ✅ EXISTS |
+| **Cloud Backup**     | Supabase / S3 (R2/MinIO) / Google Drive (per-user OAuth + legacy webhook)                                       | ✅ EXISTS |
 | **Encryption**       | AES-256-GCM (key from dedicated `BACKUP_ENCRYPTION_KEY` only; no admin-password fallback)                       | ✅ EXISTS |
 | **Scheduled**        | Daily cron (18:00) via Vercel cron + manual trigger                                                             | ✅ EXISTS |
 | **Verification**     | SHA-256 checksum + metadata in `financePrivateStorageObjects`                                                   | ✅ EXISTS |

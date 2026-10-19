@@ -1036,16 +1036,31 @@ describe("INPUT_OPERATOR RBAC Security Enforcement", () => {
   // SECTION 10: System settings (must be blocked)
   // ───────────────────────────────────────────────────────────────────────
   describe("System settings", () => {
-    it("exposes only the health and permission-gated health report procedures", async () => {
+    it("exposes only the permission-gated health and Drive procedures", async () => {
       const procedures = Object.keys(appRouter._def.procedures).filter(key =>
         key.startsWith("system.")
       );
-      expect(procedures).toEqual(["system.health", "system.healthReport"]);
+      expect(procedures).toEqual([
+        "system.health",
+        "system.healthReport",
+        "system.driveStatus",
+        "system.disconnectDrive",
+      ]);
     });
 
     it("blocks INPUT_OPERATOR from the health report (settings.view required)", async () => {
       const caller = appRouter.createCaller(inputOperatorContext);
       await expect(caller.system.healthReport()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    });
+
+    it("blocks INPUT_OPERATOR from the Drive status and disconnect procedures", async () => {
+      const caller = appRouter.createCaller(inputOperatorContext);
+      await expect(caller.system.driveStatus()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+      await expect(caller.system.disconnectDrive()).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
     });

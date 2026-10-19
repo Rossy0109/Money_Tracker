@@ -13,7 +13,7 @@ import * as schema from "../drizzle/schema";
  *
  * CASCADE is allowed only for:
  *  - ephemeral/operational rows scoped to a user (sessions, login history,
- *    idempotency keys) and RBAC assignment rows, and
+ *    idempotency keys, Drive OAuth connections) and RBAC assignment rows, and
  *  - composite line-items that are part of an explicitly deleted parent
  *    document (voucher lines, journal lines, invoice lines, reconciliation
  *    items). Those parents are themselves RESTRICT-guarded from every
@@ -32,6 +32,7 @@ const EXPECTED_CASCADES = new Set([
   "finance_bank_reconciliation_items.reconciliationId->finance_bank_reconciliations",
   "finance_invoice_items.invoiceId->finance_invoices",
   "idempotency_keys.userId->users",
+  "drive_connections.userId->users",
 ]);
 
 function cascadeEdges(): string[] {

@@ -9,6 +9,7 @@ import pinoHttp from "pino-http";
 import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerDriveRoutes } from "./driveRoutes";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -257,8 +258,10 @@ export function createApiApp() {
   app.use("/api/trpc/auth.login", authLimiter);
   app.use("/api/trpc/auth.register", authLimiter);
   app.use(/^\/api\/trpc\/auth\./, authLimiter);
+  app.use("/api/drive", authLimiter);
 
   registerOAuthRoutes(app);
+  registerDriveRoutes(app);
   // Scheduled callbacks are POST; Vercel Cron always invokes GET.
   // Register every scheduled path for both methods so a method mismatch can
   // never 404 a production cron again.
