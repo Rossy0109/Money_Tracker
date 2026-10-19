@@ -55,19 +55,18 @@ jobs:
             exit 0
           fi
 
-          # Pinned, not @latest: the production deploy must be reproducible, and
-          # a floating CLI is an unpinned supply-chain dependency in the one
-          # workflow that ships to users. Dependabot does not track `npm i -g`,
-          # so bump this deliberately alongside package.json changes.
-          npm i -g vercel@62.7.0
+          # The CLI version is pinned in package.json devDependencies (single
+          # source of truth, shared with local dev), so install it from the
+          # lockfile instead of a floating global. Dependabot keeps it in step.
+          pnpm install --frozen-lockfile
 
           # Project-scoped (vcp_) tokens cannot read project settings, so the
           # deploy flow needs a regular account access token here.
-          if ! vercel whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
+          if ! pnpm exec vercel whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
             echo "::error title=Invalid VERCEL_TOKEN::Vercel rejected the token. Use a regular account access token (vercel.com/account/settings/tokens), not a project-scoped token."
             exit 1
           fi
 
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          pnpm exec vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          pnpm exec vercel build --prod --token="$VERCEL_TOKEN"
+          pnpm exec vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
