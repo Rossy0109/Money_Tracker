@@ -11,3 +11,11 @@ test-results
 *.log
 dist
 public
+
+# Not needed to build or run the Vercel deployment. Excluded to keep source
+# (non-prebuilt) uploads minimal; CI deploys with `--prebuilt` so this is a
+# local-`vercel deploy` optimization.
+docs
+tests
+drizzle
+scripts
