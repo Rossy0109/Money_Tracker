@@ -88,7 +88,7 @@ mysql2 (no Hyperdrive). Local development and tests use direct mysql2 connection
 - `jose` (JWT/JWKS) works in Workers (pure JS/WASM).
 - `superjson` transformer works in Workers.
 - `cookie` package (parseCookie) works in Workers.
-- `server/drive/*` is stubbed (returns null/empty) — no real Google Drive API dependency.
+- `server/drive/*` implements the Google Drive OAuth connection and Drive v3 upload via `fetch` only (no `googleapis` SDK), so it stays Worker-compatible.
 - `google-auth-library` / `googleapis` are in package.json but **not imported** — safe to remove.
 - `mysql2` supports `createConnection({ stream })` — accepts a custom stream object, enabling `connect()` adapter.
 

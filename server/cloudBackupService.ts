@@ -202,14 +202,61 @@ async function uploadToS3(
   return false;
 }
 
+/** True when the user has an active (non-revoked) Drive connection stored. */
+async function hasDriveConnection(userId: number): Promise<boolean> {
+  try {
+    const { getDriveConnection } = await import("./backupDb");
+    const connection = await getDriveConnection(userId);
+    return Boolean(connection && !connection.revokedAt);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Upload backup payload to Google Drive webhook / storage handler
+ * Upload a backup to the user's connected Google Drive when present, otherwise
+ * fall back to a configured Drive webhook. Never claims success without a
+ * channel that actually accepted the payload.
  */
-async function uploadToGoogleDrive(
+async function uploadToGoogleDriveForUser(
+  userId: number,
   payload: string,
   fileName: string,
   gdriveConfig: { folderId?: string; webhookConfigured: boolean }
 ): Promise<boolean> {
+  // Preferred: upload straight to the user's own Drive via their OAuth token.
+  try {
+    const { getDriveConnection } = await import("./backupDb");
+    const connection = await getDriveConnection(userId);
+    if (connection && !connection.revokedAt) {
+      const { getAccessToken } = await import("./drive/driveOAuth");
+      const { ensureDriveFolder, uploadDriveFile } = await import(
+        "./drive/driveApi"
+      );
+      const token = await getAccessToken(connection);
+      const folder = gdriveConfig.folderId
+        ? { id: gdriveConfig.folderId }
+        : await ensureDriveFolder(
+            token,
+            connection.rootFolderName || "Money_Tracker",
+            null
+          );
+      await uploadDriveFile(token, {
+        folderId: folder.id,
+        name: fileName,
+        content: payload,
+        mimeType: "application/json",
+      });
+      return true;
+    }
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err : new Error(String(err)) },
+      "[CloudBackup] Google Drive connection upload error"
+    );
+  }
+
+  // Fallback: legacy webhook sink.
   const webhook =
     process.env.GOOGLE_DRIVE_WEBHOOK_URL ||
     process.env.CLOUD_BACKUP_WEBHOOK_URL;
@@ -316,20 +363,23 @@ export async function executeCloudBackup(
   } else if (config.s3?.enabled) {
     targetProvider = "s3";
     uploadSuccess = await uploadToS3(finalPayload, fileName, config.s3);
-  } else if (
-    config.googleDrive?.enabled &&
-    config.googleDrive.webhookConfigured
-  ) {
+  } else if (config.googleDrive?.enabled) {
+    // Drive is the intended target: upload to the user's connected Drive, or
+    // fall back to a webhook. Either way "enabled with no channel" stays false.
     targetProvider = "google_drive";
-    uploadSuccess = await uploadToGoogleDrive(
+    uploadSuccess = await uploadToGoogleDriveForUser(
+      userId,
       finalPayload,
       fileName,
       config.googleDrive
     );
-  } else if (config.googleDrive?.enabled) {
-    // Folder id set but no webhook — nothing can actually receive the payload.
+  } else if (await hasDriveConnection(userId)) {
+    // No env-configured Drive target, but the user connected their own Drive.
     targetProvider = "google_drive";
-    uploadSuccess = false;
+    uploadSuccess = await uploadToGoogleDriveForUser(userId, finalPayload, fileName, {
+      folderId: undefined,
+      webhookConfigured: false,
+    });
   } else {
     // No remote provider — write a verified local encrypted snapshot (or fail).
     targetProvider = "local_encrypted";

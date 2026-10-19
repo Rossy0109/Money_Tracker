@@ -8,7 +8,8 @@
 import { eq, and, desc, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
 import type { DbOrTx } from "./db";
-import { auditLogs } from "../drizzle/schema";
+import { auditLogs, driveConnections } from "../drizzle/schema";
+import type { DriveConnectionRecord } from "./drive/types";
 
 export async function saveHealthSnapshot(_input: {
   probeId: string;
@@ -19,13 +20,123 @@ export async function saveHealthSnapshot(_input: {
   // for backward compatibility with healthChecks.ts
 }
 
-export async function getDriveConnection(_userId: number): Promise<{
-  revokedAt: Date | null;
-  rootFolderName: string | null;
-  accessToken?: string;
-  refreshToken?: string;
-} | null> {
-  return null;
+/**
+ * The user's Google Drive connection, or null when none is stored (or the
+ * database is unavailable — health surfaces that as "not connected").
+ *
+ * Returns the persisted record with tokens still encrypted; use
+ * `getAccessToken` to exchange it for a usable bearer token.
+ */
+export async function getDriveConnection(
+  userId: number
+): Promise<DriveConnectionRecord | null> {
+  if (!Number.isFinite(userId) || userId <= 0) return null;
+  const { getDb, databaseRequired } = await import("./db");
+  let db;
+  try {
+    db = databaseRequired(await getDb());
+  } catch {
+    return null;
+  }
+
+  const [row] = await db
+    .select({
+      userId: driveConnections.userId,
+      revokedAt: driveConnections.revokedAt,
+      rootFolderName: driveConnections.rootFolderName,
+      rootFolderId: driveConnections.rootFolderId,
+      scope: driveConnections.scope,
+      accessTokenEnc: driveConnections.accessTokenEnc,
+      refreshTokenEnc: driveConnections.refreshTokenEnc,
+      tokenExpiresAt: driveConnections.tokenExpiresAt,
+      lastVerifiedAt: driveConnections.lastVerifiedAt,
+    })
+    .from(driveConnections)
+    .where(eq(driveConnections.userId, userId));
+
+  return row ?? null;
+}
+
+export interface DriveConnectionInput {
+  userId: number;
+  rootFolderName?: string;
+  rootFolderId?: string | null;
+  scope?: string | null;
+  accessTokenEnc?: string | null;
+  refreshTokenEnc?: string | null;
+  tokenExpiresAt?: Date | null;
+}
+
+/**
+ * Store (or replace) a user's Drive connection from a completed OAuth
+ * exchange. Re-connecting clears any prior revocation.
+ */
+export async function upsertDriveConnection(
+  input: DriveConnectionInput
+): Promise<void> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+  const now = new Date();
+  const values = {
+    userId: input.userId,
+    rootFolderName: input.rootFolderName ?? "Money_Tracker",
+    rootFolderId: input.rootFolderId ?? null,
+    scope: input.scope ?? null,
+    accessTokenEnc: input.accessTokenEnc ?? null,
+    refreshTokenEnc: input.refreshTokenEnc ?? null,
+    tokenExpiresAt: input.tokenExpiresAt ?? null,
+    revokedAt: null,
+    lastVerifiedAt: now,
+    updatedAt: now,
+  };
+
+  await db
+    .insert(driveConnections)
+    .values(values)
+    .onDuplicateKeyUpdate({ set: values });
+}
+
+/** Persist a refreshed access token without touching the refresh token. */
+export async function updateDriveAccessToken(
+  userId: number,
+  accessTokenEnc: string,
+  tokenExpiresAt: Date
+): Promise<void> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+  await db
+    .update(driveConnections)
+    .set({ accessTokenEnc, tokenExpiresAt, lastVerifiedAt: new Date() })
+    .where(eq(driveConnections.userId, userId));
+}
+
+/** Record the resolved app-owned backup folder id. */
+export async function updateDriveRootFolder(
+  userId: number,
+  rootFolderId: string,
+  rootFolderName: string
+): Promise<void> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+  await db
+    .update(driveConnections)
+    .set({ rootFolderId, rootFolderName, lastVerifiedAt: new Date() })
+    .where(eq(driveConnections.userId, userId));
+}
+
+/** Disconnect Drive: keep the row for audit history but revoke and drop tokens. */
+export async function revokeDriveConnection(userId: number): Promise<void> {
+  const { getDb, databaseRequired } = await import("./db");
+  const db = databaseRequired(await getDb());
+  await db
+    .update(driveConnections)
+    .set({
+      revokedAt: new Date(),
+      accessTokenEnc: null,
+      refreshTokenEnc: null,
+      tokenExpiresAt: null,
+    })
+    .where(eq(driveConnections.userId, userId));
 }
 
 /**

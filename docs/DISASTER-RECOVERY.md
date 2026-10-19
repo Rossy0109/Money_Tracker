@@ -303,8 +303,9 @@ turns `verified: false` into a red job. The endpoint, on the server:
 
 1. picks the newest backed-up project (or `?projectId=`),
 2. **downloads the stored object from the bucket** (Supabase Storage or
-   S3-compatible — Google Drive and local snapshots are write-only from
-   here). The listing walks the bucket root and matches the project's
+   S3-compatible — Google Drive uploads land in the connected user's own
+   Drive via the per-user OAuth flow and local snapshots are write-only from
+   here; the drill does not fetch either). The listing walks the bucket root and matches the project's
    backup-name prefix, then identifies the object by the project id
    stored inside its envelope. The candidate list is led by the exact
    object the latest successful `cloud_backup` audit row recorded —
