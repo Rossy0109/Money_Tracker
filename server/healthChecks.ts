@@ -7,14 +7,11 @@ import {
 } from "./accountingAudit";
 import {
   backupStatusSummary,
-  getDriveConnection,
   lastBackupForKind,
   latestRestoreDrillRows,
   saveHealthSnapshot,
 } from "./backupDb";
 import { getDb } from "./db";
-import { getAccessToken } from "./drive/driveOAuth";
-import { findDriveFileByName } from "./drive/driveApi";
 import { runIntegrityCheck } from "./integrityCheck";
 import { APP_VERSION, SCHEMA_VERSION } from "./backupManifest";
 import { getPerformanceSummary } from "./_core/requestMetrics";
@@ -38,7 +35,6 @@ export interface HealthSummary {
   auth: ProbeStatus;
   storage: ProbeStatus;
   vercel: ProbeStatus;
-  googleDrive: ProbeStatus;
   lastBackup: "ok" | "stale" | "none";
   lastSync: "ok" | "stale" | "none";
   integrity: ProbeStatus;
@@ -214,42 +210,6 @@ export async function runHealthChecks(
   }
 
   await saveHealthSnapshot({ probeId: "db.write", status: "ok" });
-
-  if (!userId) {
-    checks.push({
-      id: "drive.connection",
-      label: "Google Drive সংযোগ",
-      status: "not_configured",
-      timestamp: checkedAt,
-      error: "অ্যাডমিন কনটেক্সট প্রয়োজন",
-    });
-  } else {
-    const connection = await getDriveConnection(userId);
-    const driveActive = connection && !connection.revokedAt;
-    const driveProbe = driveActive
-      ? await timed(async () => {
-          const token = await getAccessToken(connection);
-          const root = await findDriveFileByName(
-            token,
-            connection.rootFolderName || "Money_Tracker",
-            null,
-            "application/vnd.google-apps.folder"
-          );
-          if (!root) throw new Error("রুট ফোল্ডার পাওয়া যায়নি");
-        })
-      : null;
-    checks.push({
-      id: "drive.connection",
-      label: "Google Drive সংযোগ",
-      status: driveProbe ? "ok" : "not_configured",
-      timestamp: checkedAt,
-      latencyMs: driveProbe?.latencyMs ?? null,
-      error: driveProbe
-        ? null
-        : "Google Drive সংযুক্ত নয়; System Health পেজে কানেক্ট করুন",
-      retryAction: driveProbe ? undefined : "Drive সংযোগ করুন",
-    });
-  }
 
   const lastDatabaseBackup = userId
     ? await lastBackupForKind(userId, "database")
@@ -454,7 +414,6 @@ export async function runHealthChecks(
         ? "ok"
         : "not_configured",
     vercel: toRate("vercel.api"),
-    googleDrive: toRate("drive.connection"),
     lastBackup: lastBackupStatus,
     lastSync: lastSyncStatus,
     integrity: toRate("integrity"),

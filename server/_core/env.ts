@@ -18,9 +18,6 @@ export const ENV = {
   googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
   googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
   googleOAuthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI ?? "",
-  googleDriveClientId: process.env.GOOGLE_DRIVE_CLIENT_ID ?? "",
-  googleDriveClientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET ?? "",
-  googleDriveRedirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI ?? "",
   backupCronSecret:
     process.env.CRON_SECRET ?? process.env.BACKUP_CRON_SECRET ?? "",
   backupEncryptionKey: process.env.BACKUP_ENCRYPTION_KEY ?? "",

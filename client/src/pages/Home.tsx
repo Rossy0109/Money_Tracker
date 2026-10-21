@@ -938,7 +938,7 @@ export default function Home() {
       link.click();
       URL.revokeObjectURL(url);
       toast.success(
-        "নিজের ডেটা ডাউনলোড হয়েছে। চাইলে private Drive backup folder-এ আপলোড করুন।",
+        "নিজের ডেটা ডাউনলোড হয়েছে। নিরাপদে সংরক্ষণ করতে পারেন।",
         { duration: 6000 }
       );
     } catch (error) {

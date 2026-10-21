@@ -11,7 +11,7 @@ tier or optional-off. Keep it that way with the guardrails below.
 | Google OAuth | Free | Client ID/secret in Vercel env; redirect URI must exactly match production URL |
 | GitHub OAuth | Free, optional | Blank = login button hidden, app still works |
 | Sentry | Optional-off | Code only inits when `SENTRY_DSN` is set — no DSN = $0 and zero overhead; still unprovisioned (needs a Sentry account/DSN) |
-| Vercel Blob / S3 / Supabase / Drive backups | Optional-off | All env-gated in `cloudBackupService.ts`; unset = local-only backups, $0 |
+| Vercel Blob / S3 / Supabase backups | Optional-off | All env-gated in `cloudBackupService.ts`; unset = local-only backups, $0 |
 | Umami analytics | Optional-off | Both `VITE_ANALYTICS_*` blank = no script injected |
 | GitHub Actions CI | Free | Public repo = unlimited minutes |
 | GitHub Actions health watch + backup verification | Free | 15-min probe (`health-watch.yml`) opens a repo issue on outage; the daily backup job asserts response counts **and** re-reads the `audit_logs` row via the cron-protected `/api/scheduled/backup-audit` endpoint (no prod DB credentials in Actions) |

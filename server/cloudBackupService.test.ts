@@ -21,12 +21,12 @@ function scratchDir(): string {
   return join(tmpdir(), `cloud-backup-test-${process.pid}`);
 }
 
-describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
+describe("Cloud Backup Service (S3 / Supabase)", () => {
   const saved = { ...process.env };
 
   beforeEach(() => {
     for (const key of Object.keys(process.env)) {
-      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$|^GOOGLE_DRIVE_|^LOCAL_BACKUP_DIR$/.test(key)) {
+      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$|^LOCAL_BACKUP_DIR$/.test(key)) {
         delete process.env[key];
       }
     }
@@ -43,7 +43,6 @@ describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
     expect(typeof config).toBe("object");
     expect(config).toHaveProperty("supabase");
     expect(config).toHaveProperty("s3");
-    expect(config).toHaveProperty("googleDrive");
   });
 
   it("creates encrypted cloud backup package with sha-256 verification", async () => {
@@ -52,7 +51,6 @@ describe("Cloud Backup Service (S3 / Google Drive / Supabase)", () => {
     expect(typeof config).toBe("object");
     expect(config).toHaveProperty("supabase");
     expect(config).toHaveProperty("s3");
-    expect(config).toHaveProperty("googleDrive");
   });
 
   it("creates encrypted cloud backup package with sha-256 verification", async () => {
@@ -170,7 +168,7 @@ describe("getCloudStorageConfig provider detection", () => {
 
   beforeEach(() => {
     for (const key of Object.keys(process.env)) {
-      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$|^GOOGLE_DRIVE_/.test(key)) {
+      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$/.test(key)) {
         delete process.env[key];
       }
     }
@@ -184,7 +182,6 @@ describe("getCloudStorageConfig provider detection", () => {
     const config = getCloudStorageConfig();
     expect(config.supabase).toBeUndefined();
     expect(config.s3).toBeUndefined();
-    expect(config.googleDrive).toBeUndefined();
   });
 
   it("enables supabase storage with the default bucket fallback", () => {
@@ -210,21 +207,6 @@ describe("getCloudStorageConfig provider detection", () => {
     });
   });
 
-  it("marks google drive enabled without a webhook when only a folder is set", () => {
-    process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID = "folder-1";
-    const config = getCloudStorageConfig();
-    expect(config.googleDrive).toMatchObject({
-      enabled: true,
-      folderId: "folder-1",
-      webhookConfigured: false,
-    });
-  });
-
-  it("marks the webhook as configured when a webhook url is present", () => {
-    process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID = "folder-1";
-    process.env.GOOGLE_DRIVE_WEBHOOK_URL = "https://hook.example.com";
-    expect(getCloudStorageConfig().googleDrive?.webhookConfigured).toBe(true);
-  });
 });
 
 describe("executeCloudBackup provider routing", () => {
@@ -238,7 +220,7 @@ describe("executeCloudBackup provider routing", () => {
 
   beforeEach(() => {
     for (const key of Object.keys(process.env)) {
-      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$|^GOOGLE_DRIVE_|^LOCAL_BACKUP_DIR$/.test(key)) {
+      if (/SUPABASE|^S3_|^AWS_|^CLOUD_BACKUP_WEBHOOK_URL$|^LOCAL_BACKUP_DIR$/.test(key)) {
         delete process.env[key];
       }
     }
@@ -296,26 +278,6 @@ describe("executeCloudBackup provider routing", () => {
     const result = await executeCloudBackup(1, 5, "key-1234567890");
     expect(result.success).toBe(false);
     expect(result.provider).toBe("supabase");
-  });
-
-  it("posts to the google drive webhook when configured", async () => {
-    process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID = "folder-9";
-    process.env.GOOGLE_DRIVE_WEBHOOK_URL = "https://hook.example.com/gdrive";
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response("ok", { status: 200 }) as any);
-
-    const result = await executeCloudBackup(1, 5, "key-1234567890");
-    expect(result.success).toBe(true);
-    expect(result.provider).toBe("google_drive");
-    expect(fetchSpy.mock.calls[0][0]).toBe("https://hook.example.com/gdrive");
-  });
-
-  it("never claims success for a drive folder with no webhook", async () => {
-    process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID = "folder-9";
-    const result = await executeCloudBackup(1, 5, "key-1234567890");
-    expect(result.success).toBe(false);
-    expect(result.provider).toBe("google_drive");
   });
 
   it("writes a verified local encrypted snapshot when no provider is set", async () => {

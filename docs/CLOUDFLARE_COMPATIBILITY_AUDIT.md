@@ -78,8 +78,6 @@ mysql2 (no Hyperdrive). Local development and tests use direct mysql2 connection
 | `@vercel/blob` | Vercel-only SDK | Replaced by R2 binding in Worker path |
 | `@aws-sdk/client-s3` | AWS SDK (works in Workers but unnecessary) | Replaced by R2 binding in Worker path |
 | `@sentry/node` | Node SDK | Replaced by `@sentry/cloudflare` or Cloudflare built-in tracking |
-| `google-auth-library` | Not imported in server code | Remove from package.json |
-| `googleapis` | Not imported in server code | Remove from package.json |
 | `mysql2` | Works in Workers via `connect()` stream adapter | Keep with adapter |
 
 ### 3.4 Positive Findings
@@ -88,8 +86,6 @@ mysql2 (no Hyperdrive). Local development and tests use direct mysql2 connection
 - `jose` (JWT/JWKS) works in Workers (pure JS/WASM).
 - `superjson` transformer works in Workers.
 - `cookie` package (parseCookie) works in Workers.
-- `server/drive/*` implements the Google Drive OAuth connection and Drive v3 upload via `fetch` only (no `googleapis` SDK), so it stays Worker-compatible.
-- `google-auth-library` / `googleapis` are in package.json but **not imported** — safe to remove.
 - `mysql2` supports `createConnection({ stream })` — accepts a custom stream object, enabling `connect()` adapter.
 
 ---

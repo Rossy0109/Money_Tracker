@@ -27,7 +27,6 @@ import { getDb } from "./db";
 import {
   backupStatusSummary,
   countProjectRecords,
-  getDriveConnection,
   lastBackupForKind,
   saveHealthSnapshot,
 } from "./backupDb";
@@ -42,10 +41,6 @@ describe("backupDb stubs", () => {
     await expect(
       saveHealthSnapshot({ probeId: "x", status: "ok" })
     ).resolves.toBeUndefined();
-  });
-
-  it("getDriveConnection returns null", async () => {
-    await expect(getDriveConnection(1)).resolves.toBeNull();
   });
 
   it("backupStatusSummary reports zero pending/failed", async () => {

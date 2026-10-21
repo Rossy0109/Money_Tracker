@@ -23,7 +23,6 @@ import {
   FileUp,
   HardDriveDownload,
   Loader2,
-  Lock,
   Server,
   ShieldCheck,
 } from "lucide-react";
@@ -258,9 +257,9 @@ export default function FinanceBackup() {
               হিসাব সংরক্ষণ, ক্লাউড ব্যাকআপ ও পুনরুদ্ধার
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#d6e9dc]">
-              স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (S3 / Google Drive / Supabase) এবং
-              এনক্রিপ্টেড অফলাইন স্ন্যাপশট। পুনরুদ্ধার সবসময় নতুন হিসাবখাতায়
-              হবে; বিদ্যমান কোনো তথ্য মুছবে না।
+              স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (S3 / Supabase) এবং এনক্রিপ্টেড
+              অফলাইন স্ন্যাপশট। পুনরুদ্ধার সবসময় নতুন হিসাবখাতায় হবে;
+              বিদ্যমান কোনো তথ্য মুছবে না।
             </p>
           </div>
           <label className="grid gap-1.5 text-sm font-medium text-[#e3f3e7]">
@@ -290,8 +289,8 @@ export default function FinanceBackup() {
                   স্বয়ংক্রিয় ক্লাউড ব্যাকআপ (Automated Cloud Storage)
                 </CardTitle>
                 <CardDescription className="text-muted-foreground">
-                  AWS S3 / R2, Google Drive এবং Supabase Storage-এ AES-256-GCM
-                  এনক্রিপ্টেড দৈনিক শিডিউলড ব্যাকআপ।
+                  AWS S3 / R2 এবং Supabase Storage-এ AES-256-GCM এনক্রিপ্টেড
+                  দৈনিক শিডিউলড ব্যাকআপ।
                 </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -309,14 +308,6 @@ export default function FinanceBackup() {
                 >
                   <Cloud className="h-3 w-3" />
                   S3 / R2: {storageConfig?.s3?.enabled ? "সক্রিয়" : "প্রস্তুত"}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={`gap-1.5 px-3 py-1 text-xs ${storageConfig?.googleDrive?.enabled ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-gray-50 text-gray-600"}`}
-                >
-                  <Lock className="h-3 w-3" />
-                  Drive:{" "}
-                  {storageConfig?.googleDrive?.enabled ? "সক্রিয়" : "প্রস্তুত"}
                 </Badge>
               </div>
             </div>
@@ -354,8 +345,6 @@ export default function FinanceBackup() {
                     ? "Supabase Storage"
                     : storageConfig?.s3?.enabled
                       ? "AWS S3 / R2"
-                      : storageConfig?.googleDrive?.enabled
-                        ? "Google Drive"
                         : "এনক্রিপ্টেড স্ন্যাপশট"}
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">

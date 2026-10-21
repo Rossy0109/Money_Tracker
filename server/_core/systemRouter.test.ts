@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// runHealthChecks touches Drive, backups, integrity and DB probes — mock it so
+// runHealthChecks touches backups, integrity and DB probes — mock it so
 // this test exercises only the router's own wiring (auth + RBAC + response shape).
 vi.mock("../healthChecks", () => ({
   runHealthChecks: vi.fn().mockResolvedValue({

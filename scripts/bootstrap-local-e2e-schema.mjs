@@ -96,21 +96,6 @@ const statements = [
     expiresAt timestamp NOT NULL,
     UNIQUE KEY idempotency_keys_user_key_unique (userId, idempotencyKey)
   ) ENGINE=InnoDB`,
-  `CREATE TABLE drive_connections (
-    id int AUTO_INCREMENT PRIMARY KEY,
-    userId int NOT NULL,
-    rootFolderName varchar(255) NOT NULL DEFAULT 'Money_Tracker',
-    rootFolderId varchar(255),
-    scope varchar(512),
-    accessTokenEnc text,
-    refreshTokenEnc text,
-    tokenExpiresAt timestamp NULL,
-    lastVerifiedAt timestamp NULL,
-    revokedAt timestamp NULL,
-    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY drive_connections_user_unique (userId)
-  ) ENGINE=InnoDB`,
   `CREATE TABLE finance_projects (
     id int AUTO_INCREMENT PRIMARY KEY,
     userId int NOT NULL,

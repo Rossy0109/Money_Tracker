@@ -221,9 +221,9 @@ describe("Cloud upload partial-failure safety", () => {
       new URL("./cloudBackupService.ts", import.meta.url),
       "utf8"
     );
-    // Scope to uploadToS3 only — later helpers (e.g. Google Drive) may return true.
+    // Scope to uploadToS3 only — later helpers may legitimately return true.
     const start = source.indexOf("async function uploadToS3");
-    const end = source.indexOf("async function uploadToGoogleDrive");
+    const end = source.indexOf("async function writeLocalEncryptedSnapshot");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const uploadToS3Body = source.slice(start, end);
@@ -266,7 +266,6 @@ describe("BackupDb Functions", () => {
   it("backupDb exports all required functions", async () => {
     const backupDb = await import("./backupDb");
     expect(typeof backupDb.saveHealthSnapshot).toBe("function");
-    expect(typeof backupDb.getDriveConnection).toBe("function");
     expect(typeof backupDb.lastBackupForKind).toBe("function");
     expect(typeof backupDb.backupStatusSummary).toBe("function");
     expect(typeof backupDb.countProjectRecords).toBe("function");
