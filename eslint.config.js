@@ -15,6 +15,11 @@ export default tseslint.config(
       ".git/",
       "*.config.*",
       "scripts/",
+      // Generated test/CI artifacts (gitignored) — never source code.
+      "test-results/**",
+      "playwright-report/**",
+      "blob-report/**",
+      "coverage/**",
     ],
   },
   js.configs.recommended,

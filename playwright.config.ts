@@ -6,6 +6,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,
+  // The default 5s expect budget is only enough when the Vite dev server has
+  // already compiled the client graph. On a slow host the first meaningful
+  // render (module transform + hydration + the session check) measures ~7s, so
+  // the same assertion times out before the UI exists. Only the wait budget
+  // is widened — every assertion stays exactly as strict.
+  expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
     ? [
