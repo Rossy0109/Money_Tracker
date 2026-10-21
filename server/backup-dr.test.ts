@@ -189,26 +189,26 @@ describe("Backup Authorization", () => {
     expect(hasPost && !hasGet && !hasAll).toBe(false);
   });
 
-  it("vercel.json cron path is covered by a GET-capable Express registration", () => {
-    const vercel = JSON.parse(
-      readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
-    ) as { crons?: Array<{ path: string }> };
+  it("scheduled endpoints are registered GET-capable for the external scheduler", () => {
     const appSource = readFileSync(
       new URL("./_core/app.ts", import.meta.url),
       "utf8"
     );
 
-    const cronPaths = vercel.crons?.map(c => c.path) ?? [];
-    expect(cronPaths).toContain("/api/scheduled/finance-backup");
+    const re = /app\.(all|get|post)\("(\/api\/scheduled\/[^"]+)"/g;
+    const paths = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(appSource)) !== null) paths.add(m[2]);
 
-    for (const path of cronPaths) {
+    expect(paths.size).toBeGreaterThan(0);
+    expect(paths.has("/api/scheduled/finance-backup")).toBe(true);
+
+    for (const path of paths) {
       const covered =
         appSource.includes(`app.all("${path}"`) ||
         (appSource.includes(`app.get("${path}"`) &&
           appSource.includes(`app.post("${path}"`));
-      expect(covered, `cron ${path} must accept GET for Vercel Cron`).toBe(
-        true
-      );
+      expect(covered, `scheduled ${path} must accept GET`).toBe(true);
     }
   });
 });
@@ -221,9 +221,9 @@ describe("Cloud upload partial-failure safety", () => {
       new URL("./cloudBackupService.ts", import.meta.url),
       "utf8"
     );
-    // Scope to uploadToS3 only — later helpers (e.g. Google Drive) may return true.
+    // Scope to uploadToS3 only — later helpers may legitimately return true.
     const start = source.indexOf("async function uploadToS3");
-    const end = source.indexOf("async function uploadToGoogleDrive");
+    const end = source.indexOf("async function writeLocalEncryptedSnapshot");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const uploadToS3Body = source.slice(start, end);
@@ -266,7 +266,6 @@ describe("BackupDb Functions", () => {
   it("backupDb exports all required functions", async () => {
     const backupDb = await import("./backupDb");
     expect(typeof backupDb.saveHealthSnapshot).toBe("function");
-    expect(typeof backupDb.getDriveConnection).toBe("function");
     expect(typeof backupDb.lastBackupForKind).toBe("function");
     expect(typeof backupDb.backupStatusSummary).toBe("function");
     expect(typeof backupDb.countProjectRecords).toBe("function");

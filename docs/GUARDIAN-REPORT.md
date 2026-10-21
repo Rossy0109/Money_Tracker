@@ -235,7 +235,7 @@ agrees.
 | `server/_core/rbac.test.ts` | 22 | `rbac.ts` 51% → **100%** fn/stmts/lines; locks F-09 |
 | `server/audit.test.ts` | 13 | `audit.ts` → **100%** fn/stmts/lines; append-only invariant |
 | `server/routers/auth.test.ts` | 7 | secret-stripping in `auth.me`, logout revocation, rate-limited `setPassword` |
-| `server/cloudBackupService.test.ts` (extended) | +17 | provider routing (supabase/s3/gdrive/local), **preserved 6 original tests** |
+| `server/cloudBackupService.test.ts` (extended) | +17 | provider routing (supabase/s3/local), **preserved 6 original tests** |
 | `client/src/lib/rbac.test.ts` | 27 | `client/src/lib/rbac.ts` → 100%; UI/server gating parity |
 | `client/src/lib/auditLogExports.test.ts` | 8 | CSV BOM + escaping, PDF font load, page-break |
 | `client/src/lib/activeProject.test.ts` | 15 | project-id resolution + sessionStorage |
@@ -429,3 +429,158 @@ CONDITIONS: (1) no git commit yet — awaiting owner instruction;
 ```
 
 **OVERALL (addendum 4): GREEN — no P0/P1 open.**
+
+---
+
+# ADDENDUM 5 — Google Drive backup removal (feature revert) + full gate re-run
+
+**Agent:** GUARDIAN (Big Pickle Free role) — QA / Breaker
+**Date:** 2026-10-21
+**Scope:** remove the per-user Google Drive backup integration (feature merged in
+`dc9b829` / #268), keep every other backup path intact, rehearse the new
+migration on a disposable DB, and re-run the full gate set.
+**Branch:** `chore/vercel-cli-best-practices` (base `main` = `dc9b829`)
+
+---
+
+## 1. What was removed (and what deliberately stayed)
+
+| Area | Removed | Kept |
+|---|---|---|
+| Server routes | `server/_core/driveRoutes.ts` (`/api/drive/oauth/start`, `/api/drive/oauth/callback`), the `/api/drive` rate-limiter mount in `server/_core/app.ts` | `registerOAuthRoutes` (sign-in), `registerStorageProxy` (private object proxy) |
+| tRPC | `system.driveStatus`, `system.disconnectDrive` | `system.healthReport` (all other probes) |
+| Drive module | `server/drive/driveApi.ts`, `server/drive/driveOAuth.ts`, `server/drive/types.ts` | — |
+| Persistence | `drive_connections` table (`drizzle/schema.ts`), `getDriveConnection` / `upsertDriveConnection` / `updateDriveAccessToken` / `updateDriveRootFolder` / `revokeDriveConnection` (`server/backupDb.ts`) | `audit_logs` backup records, `financePrivateStorageObjects` metadata |
+| Backup routing | `google_drive` provider branch + `GOOGLE_DRIVE_BACKUP_FOLDER_ID` / `GOOGLE_DRIVE_WEBHOOK_URL` / `CLOUD_BACKUP_WEBHOOK_URL` webhook fallback (`server/cloudBackupService.ts`) | `supabase`, `s3` (AWS/R2/MinIO), `local_encrypted` (AES-256-GCM on disk) |
+| Health | `googleDrive` probe + `findDriveFileByName` / `getAccessToken` calls (`server/healthChecks.ts`) | storage, auth, vercel, lastBackup, lastSync, integrity probes |
+| Config | `GOOGLE_DRIVE_CLIENT_ID/SECRET/REDIRECT_URI/TOKEN_KEY` (`server/_core/env.ts`, `.env.example`), `googleDriveClientSecret` pino redaction key | `GOOGLE_OAUTH_*` (sign-in), `BACKUP_ENCRYPTION_KEY`, `CRON_SECRET` |
+| Deps | `googleapis`, `google-auth-library` (`package.json` + `pnpm-lock.yaml`, −191 lock lines) | `jose` (pinned exactly), `@aws-sdk/client-s3`, `@vercel/blob` |
+| Client | Drive card in `client/src/pages/SystemHealth.tsx`, Drive badge/label in `client/src/pages/FinanceBackup.tsx`, Drive wording in the export toast (`client/src/pages/Home.tsx`) | backup/finance backup pages, restore flow, export flow |
+| Docs | Drive rows in `ARCHITECTURE-AUDIT.md`, `CLOUDFLARE_COMPATIBILITY_AUDIT.md`, `DISASTER-RECOVERY.md`, `free-tier-checklist.md`, `provider-migration-research-bn.md`, `security-and-backup.md`, `todo.md` | all Bengali policy text reworded to "owner-controlled cloud object storage" |
+
+**Security posture after the removal (SENTINEL boundary):** the app no longer asks
+for — or stores — any third-party file-access scope or refresh token on behalf of
+a user. The only backup destinations are owner-controlled buckets
+(`supabase` / `s3`) and the server's own encrypted disk snapshot. `drive.file`
+scope, encrypted Drive tokens and the per-user `drive_connections` row are gone
+entirely, so the "user connects their own storage account" surface no longer
+exists.
+
+## 2. Migration (ATLAS surface)
+
+| Item | Value |
+|---|---|
+| File | `drizzle/0022_drop_drive_connections.sql` — `DROP TABLE IF EXISTS \`drive_connections\`;` |
+| Journal | `drizzle/meta/_journal.json` idx 22, tag `0022_drop_drive_connections` |
+| Snapshot | `drizzle/meta/0022_snapshot.json` (untracked → added with the migration) |
+| Ordering | `0021_nappy_mordo.sql` still **creates** `drive_connections` (it is history — never rewritten), `0022` drops it. A fresh DB replays both and ends with the table absent. |
+| Scripts | `scripts/reconcile-migrations.mjs` — `drive_connections` removed from the expected-table list, `0022` added to the `reconcileFile` chain; `scripts/bootstrap-local-e2e-schema.mjs` — the `drive_connections` DDL removed |
+
+No existing migration file was rewritten or deleted. `0021` remains byte-identical.
+
+## 3. Gate results (all run on this branch)
+
+| Gate | Result | Evidence |
+|---|---|---|
+| `pnpm check` (tsc --noEmit) | ✅ PASS | clean, 0 errors |
+| `pnpm lint` (eslint .) | ✅ PASS | clean after the artifact-ignore fix (§4.1) |
+| `pnpm build` (vite + esbuild → dist/) | ✅ PASS | `dist/index.js` 657.5kb (was 660.1kb with the Drive UI) |
+| `pnpm test` (with disposable DB) | ✅ PASS | **183 files / 1660 passed / 0 failed** (no skips — DB suites ran) |
+| `pnpm test:coverage` (with disposable DB) | ✅ PASS (exit 0) | **71.04 / 62.68 / 71.54 / 72.31** (stmts/branches/funcs/lines) vs thresholds 70/60/70/70 — no threshold changed |
+| `pnpm test:migrations` | ✅ PASS | 0021 create → 0022 drop applied in order; 22 expected tables OK; 121 foreign keys; rehearsal DB `money_tracker_migration_*` **dropped** afterwards; "Financial data was not modified" |
+| `pnpm test:worker` | ✅ PASS | 22/22 (schema reconciled first) |
+| `pnpm test:e2e:isolated` | ✅ PASS (exit 0) | **5 files / 32 passed** after the timeout-budget fix (§4.2) |
+| `pnpm check:dep-policy` | ✅ PASS | "no major bumps between HEAD^ and HEAD" |
+| `pnpm test:browser:e2e` | ⏭️ SKIPPED | Playwright is CI-only (unsupported on Termux); the `expect.timeout` widening in `playwright.config.ts` stands from earlier in this session |
+
+### Coverage gate
+
+| Metric | Value | Threshold | Margin |
+|---|---|---|---|
+| Statements | **71.04%** | 70% | +1.04 |
+| Branches | **62.68%** | 60% | +2.68 |
+| Functions | **71.54%** | 70% | +1.54 |
+| Lines | **72.31%** | 70% | +2.31 |
+
+## 4. Defects found and fixed this session
+
+### 4.1 (P2) `pnpm lint` failed on 122 errors from gitignored Playwright artifacts — FIXED
+
+`eslint .` walked `test-results/**` (Playwright trace bundles from an earlier
+browser-E2E run). The directory is gitignored, so it was never in the repo, but
+eslint had no ignore for it and the gate turned red with 122 `no-undef` errors.
+
+**Fix:** `eslint.config.js` ignores `test-results/**`, `playwright-report/**`,
+`blob-report/**`, `coverage/**` — generated output only, no source rule was
+touched, no lint severity changed.
+
+### 4.2 (P3) Isolated E2E timed out on a slow host — FIXED (budget only)
+
+`server/page-procedures.e2e.ts › plays all client-called procedures against the
+seeded book` exceeded vitest's default 5s budget on this host (measured 3.075s
+in isolation, 5.03s under full-suite contention) and aborted the `e2e` CI gate.
+The same run passes on a fast runner.
+
+**Fix:** `vitest.e2e.config.ts` — `testTimeout: 30_000`, `hookTimeout: 30_000`.
+Only the wall-clock budget widened; **no assertion, no expectation and no test
+body was relaxed.** This mirrors the `expect.timeout` widening already applied to
+`playwright.config.ts` earlier in this session.
+
+### 4.3 (P3, environment) A stale MariaDB from a previous session was hung — CLEARED
+
+A leftover `mariadbd` (previous session's disposable instance, datadir
+`/data/data/com.termux/files/usr/var/lib/mysql`) was spinning at ~56% CPU and
+answering no connection — `SELECT VERSION()` timed out. It was killed and
+replaced with a fresh disposable instance (datadir under `/tmp/opencode/mdb`,
+loopback `127.0.0.1:3307`, root-only, deleted after the run). Production DB
+untouched; no repo impact.
+
+## 5. Adversarial review of the removal itself
+
+| Check | Verdict | Detail |
+|---|---|---|
+| **Orphaned route/procedure references** | ✅ NONE | `grep -rn -i drive` over `client/src`, `server`, `shared`, `worker`, `api`, `scripts` returns only the lucide `HardDriveDownload` icon, an unrelated comment, and the migration history (`0021`/`0022`, snapshots). No runtime import of the deleted modules remains. |
+| **Dead client state** | ✅ NONE | `SystemHealth.tsx` no longer imports `useState`/`Cloud` and no longer calls `trpc.system.driveStatus` / `disconnectDrive`; `FinanceBackup.tsx` no longer reads `storageConfig?.googleDrive`. |
+| **Provider union narrowed everywhere** | ✅ SOUND | `CloudBackupResult["provider"]` and the local `targetProvider` are now `"supabase" | "s3" | "local_encrypted"`. `backupDownload.ts` still supports the two *readable* providers only (`supabase | s3`), and the restore drill never claims to fetch local snapshots. |
+| **Migration safety on a live DB** | ✅ SAFE | `DROP TABLE IF EXISTS` only — no finance table, row, or column is touched. `0021` (create) still replays first on a fresh DB, so the chain stays valid. |
+| **Test coverage of the new provider set** | ✅ RE-VERIFIED | `server/cloudBackupService.test.ts` provider routing (supabase/s3/local) plus `server/healthChecks.test.ts`, `server/backupDb.test.ts`, `server/backup-dr.test.ts`, `server/input-operator-security.test.ts`, `server/schema.integrity.test.ts`, `server/session-jwt.test.ts` all pass with the Drive cases removed. |
+| **Secret redaction** | ✅ SOUND | `googleDriveClientSecret` was removed from the pino redact list along with the env var it protected; `googleOAuthClientSecret` and the storage secrets remain redacted. |
+| **Policy docs vs. code** | ✅ CONSISTENT | `security-and-backup.md` now states there is no per-user storage-account path at all; `todo.md` history reworded from "Google Drive" to "owner-controlled cloud object storage"; the audit tables no longer list Drive as a cloud-backup provider. |
+| **Dependency policy** | ✅ CLEAN | Two dependencies **removed** (no upgrade, no major bump). `jose` untouched. Lockfile regenerated by pnpm; `node_modules` carries no `googleapis` / `google-auth-library`. |
+
+## 6. Classification (P0–P4)
+
+| Severity | Finding |
+|---|---|
+| **P0** | None. |
+| **P1** | None open. |
+| **P2** | Fixed in-session: lint gate broken by gitignored Playwright artifacts (§4.1). |
+| **P3** | Fixed in-session: 5s default E2E budget too tight on slow hosts (§4.2). Residual: a stale, hung `mariadbd` from an earlier session can leave port 3307 occupied — kill it before provisioning a disposable instance (§4.3); the instance used here was stopped and its datadir deleted afterwards. |
+| **P4** | `pnpm test:browser:e2e` not runnable on Termux — CI-only (unchanged). Node v24.21.0 is inside the pinned `>=22 <25` range (the earlier addendum's v26 note no longer applies). |
+
+## 7. Residual / environmental
+
+- Playwright browser E2E remains CI-only; the widened `expect.timeout` (15s) was **not** exercised locally.
+- The disposable MariaDB (loopback `127.0.0.1:3307`, root-only, datadir under `/tmp/opencode/mdb`) was provisioned for these gates, then shut down and its datadir deleted. Production data was never touched.
+- The two probe databases used while diagnosing §4.2 (`money_tracker_e2e_probe*`) were dropped; only the disposable `money_tracker` DB remains.
+- **No P0/P1 open. No tests weakened. No thresholds lowered.**
+
+## 8. Handoff to HELIX
+
+```
+NEXT_AGENT: HELIX (integration authority)
+HANDOFF_STATUS: READY
+GATES: check ✅ / lint ✅ / build ✅ / test 1660✅ / coverage 71.04/62.68/71.54/72.31 ✅ /
+       migrations ✅ (0022 rehearsed + dropped) / worker 22✅ / e2e-isolated 32✅ /
+       dep-policy ✅
+P0_P1_OPEN: NONE
+RECOMMENDATION: PROCEED — the Drive revert is complete, verified and safe to merge
+CONDITIONS: (1) the new migration 0022 + its snapshot are still untracked and must
+            be committed together with the schema change;
+            (2) no git commit was made — awaiting owner instruction;
+            (3) deploying this to a database that still has `drive_connections`
+            applies 0022, which drops that table — it holds only revoked
+            Drive tokens, and the app no longer reads it.
+```
+
+**OVERALL (addendum 5): GREEN — no P0/P1 open.**

@@ -7,7 +7,6 @@ vi.mock("./db", () => ({
 
 vi.mock("./backupDb", () => ({
   saveHealthSnapshot: vi.fn(async () => {}),
-  getDriveConnection: vi.fn(async () => null),
   lastBackupForKind: vi.fn(async () => null),
   backupStatusSummary: vi.fn(async () => ({ pending: 0, failed: 0 })),
   latestRestoreDrillRows: vi.fn(async () => []),
@@ -117,7 +116,6 @@ describe("runHealthChecks without a user", () => {
     expect(byId["auth.password"].status).toBe("ok");
     expect(byId["storage.supabase"].status).toBe("not_configured");
     expect(byId["vercel.api"].status).toBe("unknown");
-    expect(byId["drive.connection"].status).toBe("not_configured");
     expect(byId["backup.last"].status).toBe("fail");
     expect(byId["performance.requests"].status).toBe("ok");
     expect(byId["performance.slowQueries"].status).toBe("ok");
@@ -157,7 +155,7 @@ describe("runHealthChecks without a user", () => {
 });
 
 describe("runHealthChecks with a user", () => {
-  it("aggregates backup, pending, drive, and integrity checks", async () => {
+  it("aggregates backup, pending, and integrity checks", async () => {
     mockProjects.mockResolvedValue([{ id: 2, name: "P" }] as never);
     mockLastBackup.mockResolvedValue({
       verifiedAt: new Date(),
@@ -169,7 +167,6 @@ describe("runHealthChecks with a user", () => {
     const byId = Object.fromEntries(report.checks.map(c => [c.id, c]));
     expect(byId["backup.last"].status).toBe("ok");
     expect(byId["backup.pending"].status).toBe("ok");
-    expect(byId["drive.connection"].status).toBe("not_configured");
     expect(byId["integrity"].status).toBe("ok");
     expect(report.summary.lastBackup).toBe("ok");
     expect(report.integrity).toEqual([

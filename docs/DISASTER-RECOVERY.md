@@ -19,14 +19,14 @@ This document describes the backup and disaster recovery procedures for the Mone
 
 | Backup Type            | Frequency | Schedule                              | Retention    |
 | ---------------------- | --------- | ------------------------------------- | ------------ |
-| Automated Cloud Backup | Daily     | 00:00 BDT (18:00 UTC) via Vercel Cron | 30 days      |
+| Automated Cloud Backup | Daily     | 00:00 BDT (18:00 UTC) via GitHub Actions | 30 days      |
 | Manual Cloud Backup    | On-demand | Via admin UI trigger                  | 30 days      |
 | Local Export           | On-demand | Via user UI download                  | User-managed |
 
 ### Automated Backup Process
 
-1. Vercel Cron triggers `/api/scheduled/finance-backup` daily at 18:00 UTC using **GET** (Vercel Cron always sends GET)
-2. The Express route is registered with `app.all`, so GET and POST both work (GitHub Actions may use either)
+1. GitHub Actions (`.github/workflows/daily-backup.yml`) triggers `/api/scheduled/finance-backup` daily at 18:00 UTC using **GET**
+2. The Express route is registered with `app.all`, so GET and POST both work
 3. The endpoint authenticates using `CRON_SECRET` (dedicated secret) via `Authorization: Bearer …`
 4. For each active user, each project is exported as JSON
 5. The JSON is encrypted using AES-256-GCM with the active key from
@@ -193,7 +193,7 @@ After restore:
    (`stored` / `verified` / `failed`)
 2. Verify `BACKUP_ENCRYPTION_KEY` is set and >= 6 characters
 3. Verify `CRON_SECRET` matches the Vercel/GitHub configuration
-4. Check cloud provider status (Supabase, S3, Google Drive)
+4. Check cloud provider status (Supabase, S3)
 5. Check the audit log for error details (`cloud_backup_failed` rows)
 6. The GitHub `Daily Automated Finance Backup` run is red — its log shows
    which assertion failed (counts vs. audit trail)
@@ -303,9 +303,8 @@ turns `verified: false` into a red job. The endpoint, on the server:
 
 1. picks the newest backed-up project (or `?projectId=`),
 2. **downloads the stored object from the bucket** (Supabase Storage or
-   S3-compatible — Google Drive uploads land in the connected user's own
-   Drive via the per-user OAuth flow and local snapshots are write-only from
-   here; the drill does not fetch either). The listing walks the bucket root and matches the project's
+   S3-compatible; local snapshots are write-only from here, so the drill does
+   not fetch them). The listing walks the bucket root and matches the project's
    backup-name prefix, then identifies the object by the project id
    stored inside its envelope. The candidate list is led by the exact
    object the latest successful `cloud_backup` audit row recorded —

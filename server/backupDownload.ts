@@ -15,8 +15,8 @@ import {
  * Uploads have always been one-way; the weekly restore drill needs the stored
  * object back to prove that what the bucket holds really decrypts, checksums
  * and restores. Only the two providers that are readable by this server are
- * supported (Supabase Storage REST and S3-compatible object storage) — Google
- * Drive goes out through a webhook and local snapshots are plain files.
+ * supported (Supabase Storage REST and S3-compatible object storage) — any
+ * other destination is write-only, and local snapshots are plain files.
  */
 export interface DownloadedBackupObject {
   provider: "supabase" | "s3";

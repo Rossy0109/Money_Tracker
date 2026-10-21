@@ -20,9 +20,6 @@ id = "6393cfa66822415fa69319105dc0efa5"
 # bucket_name = "money-tracker-storage"
 # binding = "R2_BUCKET"
 
-[triggers]
-crons = ["0 18 * * *", "0 1 * * *"]
-
 [vars]
 AUTH_MODE = "google"
 VITE_AUTH_MODE = "google"

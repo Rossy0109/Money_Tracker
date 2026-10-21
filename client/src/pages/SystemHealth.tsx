@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   CircleDashed,
-  Cloud,
   Database,
   Loader2,
   RefreshCw,
@@ -23,7 +22,6 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { useLocation } from "wouter";
 import type { HealthReport, ProbeStatus } from "../../../server/healthChecks";
 
@@ -98,7 +96,6 @@ const SUMMARY_LABELS: Record<string, string> = {
   auth: "লগইন",
   storage: "স্টোরেজ",
   vercel: "ডিপ্লয়মেন্ট",
-  googleDrive: "গুগল ড্রাইভ",
   lastBackup: "সর্বশেষ ব্যাকআপ",
   lastSync: "সিঙ্ক",
   integrity: "ডেটা ইন্টিগ্রিটি",
@@ -145,22 +142,6 @@ export default function SystemHealth() {
     enabled: canViewHealth,
     retry: false,
   });
-  const driveStatus = trpc.system.driveStatus.useQuery(undefined, {
-    enabled: canViewHealth,
-    retry: false,
-  });
-  const disconnectDrive = trpc.system.disconnectDrive.useMutation({
-    onSuccess: () => {
-      void driveStatus.refetch();
-      void report.refetch();
-    },
-  });
-  const [driveFlash] = useState(() =>
-    typeof window === "undefined"
-      ? null
-      : new URLSearchParams(window.location.search).get("drive")
-  );
-
   if (user && !canViewHealth) {
     return (
       <DashboardLayout>
@@ -315,79 +296,6 @@ export default function SystemHealth() {
                 <StatusBadge value={overall} />
               </CardContent>
             </Card>
-
-            <section aria-labelledby="health-drive" className="space-y-3">
-              <div>
-                <p className="section-kicker">ব্যাকআপ</p>
-                <h2 id="health-drive" className="section-title">
-                  Google Drive
-                </h2>
-              </div>
-              <Card className="border-border bg-background shadow-sm">
-                <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
-                      <Cloud className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-foreground">
-                        {driveStatus.data?.connected
-                          ? "Google Drive সংযুক্ত"
-                          : "Google Drive সংযুক্ত নয়"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {driveStatus.isLoading
-                          ? "স্ট্যাটাস আনা হচ্ছে..."
-                          : !driveStatus.data?.configured
-                            ? "সার্ভারে Google Drive ইন্টিগ্রেশন কনফিগার করা নেই। অ্যাডমিনের সাথে যোগাযোগ করুন।"
-                            : driveStatus.data.connected
-                              ? `ব্যাকআপ ফোল্ডার: ${driveStatus.data.rootFolderName ?? "Money_Tracker"}`
-                              : "আপনার Drive-এ এনক্রিপ্টেড ব্যাকআপ সংরক্ষণ করতে সংযুক্ত করুন (শুধু drive.file অনুমতি)।"}
-                      </p>
-                      {driveFlash === "connected" && (
-                        <p className="text-xs font-semibold text-positive">
-                          সংযোগ সফল হয়েছে।
-                        </p>
-                      )}
-                      {driveFlash === "error" && (
-                        <p className="text-xs font-semibold text-red-700">
-                          সংযোগ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {driveStatus.data?.configured && (
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          window.location.href = "/api/drive/oauth/start";
-                        }}
-                        className="gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
-                      >
-                        <Cloud className="h-4 w-4" aria-hidden="true" />
-                        {driveStatus.data.connected
-                          ? "পুনরায় সংযুক্ত করুন"
-                          : "Google Drive সংযুক্ত করুন"}
-                      </Button>
-                      {driveStatus.data.connected && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={disconnectDrive.isPending}
-                          onClick={() => disconnectDrive.mutate()}
-                          className="rounded-xl"
-                        >
-                          {disconnectDrive.isPending
-                            ? "সংযোগ বিচ্ছিন্ন হচ্ছে..."
-                            : "সংযোগ বিচ্ছিন্ন করুন"}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </section>
 
             <section aria-labelledby="health-summary" className="space-y-3">
               <div>

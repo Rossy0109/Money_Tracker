@@ -77,10 +77,9 @@ jobs:
           fi
 
           TARGET_URL="${APP_URL%/}/api/scheduled/finance-backup"
-          echo "Triggering backup at: $TARGET_URL (GET — same method as Vercel Cron)"
+          echo "Triggering backup at: $TARGET_URL (GET)"
 
-          # Vercel Cron always uses GET; use GET here too so GitHub and Vercel
-          # exercise the identical production path. The Express route is
+          # GitHub Actions triggers this job with GET; the Express route is
           # registered with app.all, so POST remains accepted as well.
           HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X GET "$TARGET_URL" \
             -H "Authorization: Bearer $BACKUP_SECRET")

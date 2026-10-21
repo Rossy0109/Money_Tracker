@@ -152,14 +152,13 @@ Browser → Cloudflare Worker (Hono)
             ├── /api/trpc/*     @trpc/server/adapters/fetch
             ├── /api/auth/*     rate-limited (50 / 15 min, KV store)
             ├── /api/storage/*  Supabase Storage private downloads
-            ├── /api/scheduled/* cron compat handlers
+            ├── /api/scheduled/* scheduled-job endpoints (fired by GitHub Actions)
             └── env.ASSETS.fetch() → SPA (dist/public, single-page fallback)
 
 Worker → connect() → mysql2 stream adapter → Drizzle → MySQL/TiDB
 Worker → RATE_LIMIT_KV  → distributed rate limiting
 Worker → Supabase Storage → private objects (R2 optional if enabled)
 Worker → S3/Supabase     → encrypted backups
-Worker → crons          → recurring/bill-reminder/daily-sweep/backup jobs
 ```
 
 Key injection points (business logic stays unchanged):

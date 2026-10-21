@@ -279,7 +279,6 @@ async function report(conn) {
     "user_roles",
     "role_permissions",
     "idempotency_keys",
-    "drive_connections",
   ];
   console.log("\n== schema report ==");
   for (const t of expectedTables) {
@@ -443,6 +442,7 @@ async function run() {
     await reconcileFile(conn, "0019_wallet_opening_balance_voucher.sql");
     await reconcileFile(conn, "0020_firm_profile_persistence.sql");
     await reconcileFile(conn, "0021_nappy_mordo.sql");
+    await reconcileFile(conn, "0022_drop_drive_connections.sql");
     await report(conn);
     console.log(
       dryRun

@@ -34,8 +34,10 @@ const app = createApiApp();
 registerFallbackHandlers(app);
 
 /**
- * Bundled by the Vercel build script and emitted as api/[...path].mjs.
- * This preserves the shared Express request pipeline without binding a port.
+ * Bundled by scripts/build-vercel-api.mjs and emitted as
+ * dist/vercel-handler.js, which the source-controlled api/[...path].js
+ * re-exports. This is the single Vercel Node function entry point; it preserves
+ * the shared Express request pipeline without binding a port.
  */
 export default async function handler(
   req: IncomingMessage,
