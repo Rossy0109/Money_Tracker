@@ -1,0 +1,194 @@
+name: Automated Maintenance Report
+
+# Weekly, read-only lifecycle summary. It does NOT re-run health checks,
+# backups, or restores — those jobs already exist. It only:
+#   1. reads the latest run of each scheduled workflow,
+#   2. runs `pnpm audit` against the committed lockfile,
+#   3. renders two Markdown artifacts, and
+#   4. opens/updates one deduplicated issue when a check is actionable.
+#
+# It never connects to production, never applies migrations, and never prints
+# secrets. GitHub schedules are best-effort and may be delayed; every freshness
+# threshold below allows for that.
+
+on:
+  schedule:
+    # Monday 06:15 UTC (12:15 Asia/Dhaka) — after the weekend's backups and
+    # before the working week starts, so a red report is seen while there is
+    # still time to fix it. GitHub cron is always UTC.
+    - cron: "15 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: automated-maintenance-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Collect evidence and publish reports
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APP_URL: https://money-tracker-blond-pi.vercel.app
+      ISSUE_TITLE: "Automated maintenance report"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # pnpm/action-setup@v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Read-only security audit. A non-zero exit is expected when advisories
+      # exist; the report records the counts, so the workflow itself does not
+      # turn red merely because a dependency advisory is open.
+      - name: Dependency audit
+        run: |
+          set -euo pipefail
+          mkdir -p report-input
+          pnpm audit --json > report-input/audit.json || true
+          if [ ! -s report-input/audit.json ]; then
+            printf 'null\n' > report-input/audit.json
+          fi
+
+      - name: Collect latest CI and workflow runs
+        run: |
+          set -euo pipefail
+
+          gh run list --workflow "CI" --branch main --limit 1 \
+            --json databaseId,conclusion,status,createdAt,headSha,url,event \
+            > ci-runs.json
+          jq '.[0] // null' ci-runs.json > report-input/ci-run.json
+
+          CI_ID=$(jq -r '.databaseId // empty' report-input/ci-run.json)
+          if [ -n "$CI_ID" ]; then
+            gh run view "$CI_ID" --json jobs \
+              --jq '{jobs: [.jobs[] | {name, conclusion, status}]}' \
+              > report-input/ci-jobs.json
+          else
+            printf '{"jobs":[]}\n' > report-input/ci-jobs.json
+          fi
+
+          latest_run() {
+            local out
+            if ! out=$(gh run list --workflow "$1" --limit 1 \
+              --json databaseId,conclusion,status,createdAt,headSha,url,event); then
+              echo "failed to read the latest run for: $1" >&2
+              return 1
+            fi
+            printf '%s' "$out" | jq '.[0] // null'
+          }
+
+          BACKUP_RUN=$(latest_run 'Daily Automated Finance Backup')
+          RESTORE_RUN=$(latest_run 'Weekly Restore Drill')
+          ACCOUNTING_RUN=$(latest_run 'Daily Accounting Audit')
+          HEALTH_RUN=$(latest_run 'Production Health Watch')
+
+          {
+            printf '{\n'
+            printf '"backup": %s,\n' "$BACKUP_RUN"
+            printf '"restoreDrill": %s,\n' "$RESTORE_RUN"
+            printf '"accountingAudit": %s,\n' "$ACCOUNTING_RUN"
+            printf '"healthWatch": %s\n' "$HEALTH_RUN"
+            printf '}\n'
+          } > report-input/workflows.json
+
+      - name: Collect repository state
+        run: |
+          set -euo pipefail
+          gh issue list --state open --limit 100 \
+            --json number,title,labels > report-input/issues.json
+          gh pr list --state open --limit 100 \
+            --json number,title,isDraft,headRefName > report-input/pulls.json
+
+      - name: Collect migration journal head
+        run: |
+          set -euo pipefail
+          node -e '
+            const journal = require("./drizzle/meta/_journal.json");
+            const last = journal.entries[journal.entries.length - 1] ?? {};
+            console.log(JSON.stringify({
+              latestTag: last.tag ?? null,
+              latestWhen: last.when ?? null,
+              productionState: "UNKNOWN"
+            }));
+          ' > report-input/migration.json
+
+      - name: Collect run metadata
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg runUrl "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg appUrl "$APP_URL" \
+            --arg branch "main" \
+            '{generatedAt:$generatedAt,repository:$repository,runUrl:$runUrl,appUrl:$appUrl,branch:$branch}' \
+            > report-input/meta.json
+
+      - name: Render reports
+        id: render
+        run: |
+          set -euo pipefail
+          node scripts/maintenance-report.mjs \
+            --input-dir report-input \
+            --out-dir report-output \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: automation-report
+          path: report-output/
+          retention-days: 14
+          if-no-files-found: error
+
+      # Deduplicated alerting: exactly one open issue titled
+      # "Automated maintenance report" exists while something is actionable,
+      # and it closes automatically once every check is green again.
+      - name: Open, refresh, or close the maintenance issue
+        if: always()
+        env:
+          ACTIONABLE: ${{ steps.render.outputs.actionable }}
+          SUMMARY: ${{ steps.render.outputs.summary }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f report-output/maintenance-report.md ] || [ -z "${ACTIONABLE:-}" ]; then
+            echo "Report was not generated; refusing to modify issues."
+            exit 1
+          fi
+
+          BODY=$(cat report-output/maintenance-report.md)
+          EXISTING=$(gh issue list --state open \
+            --search "${ISSUE_TITLE} in:title" --json number --jq '.[0].number // empty')
+
+          if [ "$ACTIONABLE" = "true" ]; then
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --body "$BODY"
+              echo "Refreshed existing maintenance issue #$EXISTING"
+            else
+              gh label create maintenance --color 0E8A16 \
+                --description "Automated maintenance reports" 2>/dev/null || true
+              gh issue create --title "$ISSUE_TITLE" --label maintenance --body "$BODY"
+            fi
+            echo "::warning title=Maintenance action required::$SUMMARY"
+          elif [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" \
+              --comment "All automated maintenance checks passed at $(date -u '+%Y-%m-%d %H:%M:%S UTC'). Summary: $SUMMARY"
+            echo "Closed maintenance issue #$EXISTING"
+          else
+            echo "No actionable findings and no open maintenance issue."
+          fi
