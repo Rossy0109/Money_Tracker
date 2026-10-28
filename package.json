@@ -147,8 +147,20 @@
       "esbuild": "0.28.2",
       "sharp": "0.35.5",
       "source-map-js": "1.2.2",
-      "dompurify": "3.4.16",
-      "miniflare>undici": "7.29.1",
+      "dompurify": "3.4.17",
+      "body-parser": "2.4.0",
+      "tar": "7.5.22",
+      "miniflare>undici": "7.30.1",
+      "@vercel/sandbox>undici": "7.30.1",
+      "@vercel/node>undici": "6.29.1",
+      "vercel>undici": "6.29.1",
+      "@vercel/python-analysis>minimatch": "10.2.6",
+      "@vercel/python-analysis>js-yaml": "4.3.2",
+      "smol-toml": "1.9.1",
+      "@vercel/backends>path-to-regexp": "8.4.2",
+      "@vercel/express>path-to-regexp": "8.4.2",
+      "@vercel/hono>path-to-regexp": "8.4.2",
+      "zod": "4.6.7",
       "postcss-selector-parser": "7.1.6"
     }
   }
