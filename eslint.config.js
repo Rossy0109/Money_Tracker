@@ -16,6 +16,7 @@ export default tseslint.config(
       "*.config.*",
       "scripts/",
       // Generated test/CI artifacts (gitignored) — never source code.
+      ".vercel/**",
       "test-results/**",
       "playwright-report/**",
       "blob-report/**",
