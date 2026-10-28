@@ -88,7 +88,7 @@
     "mysql2": "^3.24.6",
     "nanoid": "^6.0.2",
     "next-themes": "^0.4.6",
-    "pino": "^10.3.1",
+    "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "react": "^19.3.0",
     "react-day-picker": "^10.0.2",
@@ -120,7 +120,7 @@
     "@typescript-eslint/eslint-plugin": "^8.71.2",
     "@typescript-eslint/parser": "^8.71.2",
     "@vitejs/plugin-react": "^6.1.2",
-    "@vitest/coverage-v8": "^5.0.4",
+    "@vitest/coverage-v8": "^5.0.5",
     "autoprefixer": "^10.6.1",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",
@@ -138,7 +138,7 @@
     "typescript-eslint": "^8.71.2",
     "vercel": "62.7.0",
     "vite": "^8.3.3",
-    "vitest": "^5.0.2",
+    "vitest": "^5.0.5",
     "wrangler": "4.151.0"
   },
   "packageManager": "pnpm@9.15.4",
@@ -161,7 +161,9 @@
       "@vercel/express>path-to-regexp": "8.4.2",
       "@vercel/hono>path-to-regexp": "8.4.2",
       "zod": "4.6.7",
-      "postcss-selector-parser": "7.1.6"
+      "postcss-selector-parser": "7.1.6",
+      "qs": "6.17.0",
+      "@vercel/static-config>ajv": "8.18.0"
     }
   }
 }
