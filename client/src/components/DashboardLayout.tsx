@@ -421,7 +421,10 @@ function DashboardSidebarContent({
                 tooltip={item.label}
                 className="h-11 rounded-xl text-[#dcebe0] hover:bg-white/10 hover:text-white data-[active=true]:bg-muted data-[active=true]:text-foreground"
               >
-                <Link href={item.href} onClick={() => handleNavClick(item.href)}>
+                <Link
+                  href={item.href}
+                  onClick={() => handleNavClick(item.href)}
+                >
                   <item.icon className="h-4.5 w-4.5" />
                   <span>{item.label}</span>
                 </Link>
@@ -610,7 +613,9 @@ export default function DashboardLayout({
             )}
           </div>
         )}
-        <div className={`mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9${!isMobile && state === "collapsed" ? " pl-[3rem]" : ""}`}>
+        <div
+          className={`mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9${!isMobile && state === "collapsed" ? " pl-[3rem]" : ""}`}
+        >
           {children}
         </div>
         <footer className="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground sm:px-6">

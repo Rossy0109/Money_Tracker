@@ -14,23 +14,21 @@ describe("dashboard shell component wiring", () => {
     expect(
       containsSnippet(
         source,
-        'className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9"'
+        "mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9"
       )
     ).toBe(true);
     expect(containsSnippet(source, "{children}")).toBe(true);
     expect(
       containsSnippet(
         source,
-        'max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9">{children}</main>'
+        "max-w-[1600px] flex-1 p-4 sm:p-6 lg:p-9>{children}</main>"
       )
     ).toBe(false);
   });
 
   it("keeps a visible keyboard focus state on the sign-out control", () => {
     expect(source).toContain('aria-label="সাইন আউট"');
-    expect(source).toContain(
-      "focus-visible:ring-2 focus-visible:ring-border"
-    );
+    expect(source).toContain("focus-visible:ring-2 focus-visible:ring-border");
   });
 
   it("keeps the mobile home-screen install action in the compact header", () => {
