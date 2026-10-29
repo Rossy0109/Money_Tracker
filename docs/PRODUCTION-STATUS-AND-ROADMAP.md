@@ -90,3 +90,14 @@ mysql -h <tidb-host> -P 4000 -u <user> -p -D money_tracker -e "
   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'finance_%';
 "
 ```
+
+---
+
+## 5. Future Feature Backlog (Post-Launch Roadmap)
+
+| Priority | Feature | Description | Architecture / Implementation Path |
+|---|---|---|---|
+| **F-01** | **PWA Offline Write Queue** | Assets and fonts are cached, but transactions currently require internet connectivity. An IndexedDB queue synchronizes transactions created while offline. | `idb` / local storage write queue; background replay via service worker sync on `online` event to `/api/trpc/expenses.create` & `/api/trpc/incomes.create`. |
+| **F-02** | **Household Member Email Invitations** | Granular onboarding workflows for inviting secondary family members with read-only or input-only roles. | Tokenized invitation links (`crypto.randomBytes(32)`), email delivery, and RBAC integration via `server/_core/rbac.ts`. |
+| **F-03** | **POS / Thermal Receipt Printing** | Formats optimized for small Bluetooth POS printers (58mm / 80mm ESC/POS or `@media print`) for micro-merchant bookkeeping in Bangladesh. | CSS thermal print view with Bengali font rasterization and optional Web Bluetooth ESC/POS raw byte printer bridge. |
+
