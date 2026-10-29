@@ -6,10 +6,10 @@ test.describe("blank-profile mobile shell", () => {
     // Try to log out via the tRPC logout endpoint.
     // If the user is already logged out this is a no-op.
     await page.evaluate(async () => {
-      // @ts-ignore – we expose the trpc client on window for testing only in dev.
+      // @ts-expect-error – we expose the trpc client on window for testing only in dev.
       // In the test environment the Vite dev server injects __TRPC_CLIENT__.
       // If it’s not present we simply skip – the request will 404 but that’s fine.
-      const trpc = (window as any).__TRPC_CLIENT__;
+      const trpc = (window as unknown).__TRPC_CLIENT__;
       if (trpc?.auth?.logout?.mutateAsync) {
         await trpc.auth.logout.mutateAsync().catch(() => {});
       }
