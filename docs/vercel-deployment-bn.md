@@ -24,7 +24,7 @@ Vercel-এর source-controlled `api/[...path].js` (bundled `server/vercel-handl
 
 ## Vercel account ও GitHub সংযোগ
 
-এই sandbox-এ Vercel CLI `59.9.1` পাওয়া গেছে এবং user-authorized CLI session চালু আছে। (CLI-এর version এখন `package.json` devDependencies-এ pinned — CI ও local একই binary `pnpm exec vercel` দিয়ে চালায়।) পূর্বে থাকা অন্য একটি Vercel Git connection অক্ষুণ্ণ রেখে `amar-hisab-money-tracker` নামে পৃথক project তৈরি করা হয়েছে। User-authorized Vercel GitHub App permission-এর পরে `Rossy0109/Money_Tracker` ওই project-এ সংযুক্ত হয়েছে; protected `main` merge এখন Vercel production deployment trigger করে। `main` production branch থাকবে; GitHub-এর existing strict CI checks সফল না হলে PR merge করা যাবে না।
+এই sandbox-এ Vercel CLI `59.9.1` পাওয়া গেছে এবং user-authorized CLI session চালু আছে। (CLI-এর version এখন `package.json` devDependencies-এ pinned (`vercel@62.7.0`) — CI ও local একই binary `pnpm exec vercel` দিয়ে চালায়।) পূর্বে থাকা অন্য একটি Vercel Git connection অক্ষুণ্ণ রেখে `amar-hisab-money-tracker` নামে পৃথক project তৈরি করা হয়েছে। User-authorized Vercel GitHub App permission-এর পরে `Rossy0109/Money_Tracker` ওই project-এ সংযুক্ত হয়েছে; protected `main` merge এখন Vercel production deployment trigger করে। `main` production branch থাকবে; GitHub-এর existing strict CI checks সফল না হলে PR merge করা যাবে না।
 
 বর্তমান repository public। Finance code প্রকাশ্য হওয়ার ঝুঁকি ব্যবহারকারীকে গ্রহণযোগ্য কি না তা আলাদা সিদ্ধান্ত; repository visibility এই deployment পরিবর্তনের অংশ নয় এবং explicit approval ছাড়া বদলানো হবে না।
 

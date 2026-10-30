@@ -584,3 +584,159 @@ CONDITIONS: (1) the new migration 0022 + its snapshot are still untracked and mu
 ```
 
 **OVERALL (addendum 5): GREEN — no P0/P1 open.**
+
+---
+
+# ADDENDUM 6 — Post-Merge Production Closure (Commit d549c1f)
+
+**Agent:** GUARDIAN (Big Pickle Free role) — QA / Breaker / Independent Release Reviewer
+**Date:** 2026-10-21
+**Scope:** Verify production deployment, migration safety, dependency security, backup/restore, and all CI gates on merged commit `d549c1f` (PR #269).
+**Baseline:** `d549c1f` (merge of PR #269 into `main`)
+
+---
+
+## 1. Production Migration Safety — 0022_drop_drive_connections
+
+| Aspect | Status | Evidence |
+|---|---|---|
+| Migration SQL | ✅ REVIEWED | `DROP TABLE IF EXISTS \`drive_connections\`` only |
+| Journal + Snapshot | ✅ CONSISTENT | `_journal.json` idx 22, `0022_snapshot.json` no `drive_connections` |
+| `drizzle-kit generate` diff | ✅ NO CHANGES | Tested on disposable MariaDB 13.0.2 after 0022 applied |
+| Finance tables affected | ✅ NONE | 48 tables verified; 0 financial table changes |
+| Rehearsal (disposable DB) | ✅ PASS | 0021 → 0022 applied in order; 22 tables, 121 FKs; "Financial data was not modified" |
+| Production state | ⚠️ PENDING | 0022 **not applied** to production (no CI/CD runs migrations) |
+| Rollback plan | ✅ DOCUMENTED | Supabase bucket `amar-hisab-backups` (7-day/project, 90-day global) |
+
+**Owner Action Required:** Explicit approval before `pnpm db:push` against production `DATABASE_URL`. Migration drops only the unused `drive_connections` table — no financial data affected.
+
+---
+
+## 2. Dependency Security — Verify Dependency Bumps Workflow
+
+| Metric | Value | Status |
+|---|---|---|
+| Workflow | `.github/workflows/verify-dependency-bumps.yml` | Runs `pnpm audit --audit-level=high` |
+| Conclusion | ❌ FAILING | Pre-existing on this branch (not introduced by PR #269) |
+| Required check? | ⏭️ NOT BLOCKING | Not one of the 5 protected checks |
+
+### Advisory Breakdown (Run 39551310232)
+
+| Severity | Count | Primary Vectors | Resolution |
+|---|---|---|---|
+| **Critical** | 1 | `tar@7.5.11` (DoS) → `vercel@62.7.0` | **Accepted Risk** — vercel pinned per policy |
+| **High** | 19 | `minimatch` (ReDoS), `undici` (WS), `path-to-regexp`, `js-yaml`, `node-tar`, `smol-toml`, `@fastify/busboy`, `braces`, `launch-editor` → `vercel@62.7.0`, `vite@8.3.1` | **Partial** — `vite` fix in PR #270 |
+| **Moderate** | 26 | Transitive | **Accepted** |
+| **Low** | 7 | Transitive | **Accepted** |
+
+### Dependabot PR #270
+- **Action:** `vite` 8.3.1 → 8.3.3 (dev dependency)
+- **Fixes:** `launch-editor` high advisory (GHSA-587h-7wmj-h5pm)
+- **Status:** OPEN — requires review/merge
+- **Policy:** No major upgrades in this PR; `jose` pinned; `vercel@62.7.0` pinned per deploy policy; audit thresholds NOT weakened
+
+---
+
+## 3. CI Gate Verification — Commit d549c1f (Run 39553363277)
+
+| Check | Status | Run ID | Key Evidence |
+|---|---|---|---|
+| **verify** | ✅ PASS | 119067335993 | Typecheck, Lint, Build, Font verification |
+| **test** | ✅ PASS | 119067335637 | Unit tests + coverage gate (71.04/62.68/71.54/72.31) |
+| **e2e** | ✅ PASS | 119067714561 | Migration rehearsal, Hermetic DB, Server E2E |
+| **worker** | ✅ PASS | 119067714563 | Schema apply, Worker tests, Wrangler dry-run |
+| **browser-e2e** | ✅ PASS | 119067714746 | Playwright install, Browser E2E tests, Report upload |
+
+**All 5 required checks GREEN.**
+
+---
+
+## 4. Production Deployment Evidence
+
+| Item | Status | Evidence |
+|---|---|---|
+| Vercel deploy | ✅ PASS | Run 39553797947 success, 16s deploy |
+| Deployment URL | ✅ ACTIVE | `https://money-tracker-blond-pi.vercel.app` |
+| `GET /` | ✅ 200 | Homepage loads |
+| `GET /api/health-checks` | ✅ 403 | Cron-protected (expected) |
+| `GET /api/drive/oauth/start` | ✅ 404 | Drive route removed |
+| `GET /api/trpc/auth.me` | ✅ 200 | Returns `{data: null}` unauthenticated |
+
+---
+
+## 5. Backup & Restore Evidence
+
+### Automated Daily Backup
+- **Last Success:** 2026-10-20T21:26:32Z (run 39500377888)
+- **Workflow:** Bucket check → Trigger → Count assertions → Audit verification → Prune
+- **Backup Endpoint:** `GET /api/scheduled/finance-backup` (cron-secret)
+- **Audit Endpoint:** `GET /api/scheduled/backup-audit` (verifies storage + integrity)
+
+### Test Suite Results (Disposable DB)
+| Test Suite | Tests | Status |
+|---|---|---|
+| `cloudBackupService.test.ts` | 19 | ✅ PASS |
+| `backupDb.test.ts` + `scheduledBackup.test.ts` | 8 | ✅ PASS |
+| `restoreDrill.test.ts` + `backupIntegrity.test.ts` | 48 | ✅ PASS |
+| `backupIntegrity.test.ts` | (included) | ✅ PASS |
+
+### Restore Drill Verification
+- Downloads object from Supabase/S3 bucket
+- Decrypts, validates checksum, restores to **new project**
+- Rolls back restored project after verification
+- Weekly scheduled drill: `/api/scheduled/restore-drill`
+
+---
+
+## 6. Browser E2E (Linux CI)
+- **Playwright install:** `chromium` + `webkit` with deps ✅
+- **Browser E2E tests:** Step "Browser E2E tests" succeeded ✅
+- **Report upload:** "Upload Playwright report" succeeded ✅
+- **Environment:** Ubuntu 24.04, headless Chromium + WebKit ✅
+
+---
+
+## 7. Google Drive Absence Verification (Production)
+
+| Artifact | Status | Evidence |
+|---|---|---|
+| `/api/drive` routes | ✅ ABSENT | 404 on `/api/drive/oauth/start` |
+| `system.driveStatus` / `disconnectDrive` | ✅ ABSENT | Not in tRPC router |
+| `server/drive/` module | ✅ ABSENT | Deleted |
+| `drive_connections` table | ✅ MIGRATION-READY | Dropped by 0022 |
+| `googleapis` / `google-auth-library` | ✅ ABSENT | Removed from deps |
+| `GOOGLE_DRIVE_*` env vars | ✅ ABSENT | Removed from `.env.example` |
+| Client Drive UI | ✅ ABSENT | No Drive card/badge in homepage |
+
+---
+
+## 8. Remaining Owner Actions
+
+| # | Action | Priority | Details |
+|---|---|---|---|
+| 1 | **Apply migration 0022 to production** | HIGH | `DATABASE_URL=<prod> pnpm db:push` — drops unused `drive_connections` only |
+| 2 | **Review/merge Dependabot PR #270** | MEDIUM | `vite` 8.3.1 → 8.3.3 (fixes `launch-editor` high advisory) |
+| 3 | **Monitor Verify Dependency Bumps** | LOW | 1 critical + 19 high remain (transitive via `vercel@62.7.0`) |
+| 4 | **Confirm daily backup on d549c1f** | MEDIUM | Next cron run (18:00 UTC) should succeed |
+
+---
+
+## 9. Final Recommendation
+
+### CONDITIONAL GO
+
+**Conditions Met:**
+- ✅ All 5 required CI checks green on `d549c1f`
+- ✅ Vercel production deployment successful
+- ✅ Google Drive integration fully removed
+- ✅ Backup/restore tests pass on isolated DB
+- ✅ No financial data touched by pending migration
+
+**Condition Pending:**
+- ⚠️ **Production migration 0022 requires explicit owner approval** before execution
+
+**Do NOT execute `pnpm db:push` against production without written owner approval.**
+
+---
+
+**OVERALL (addendum 6): CONDITIONAL GO — no P0/P1 open, production migration pending owner approval.**
