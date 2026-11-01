@@ -487,6 +487,17 @@ function DashboardSidebarContent({
   );
 }
 
+function DashboardMainContent({ children }: { children: React.ReactNode }) {
+  const { state, isMobile } = useSidebar();
+  return (
+    <div
+      className={`mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9${!isMobile && state === "collapsed" ? " pl-[3rem]" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -495,7 +506,6 @@ export default function DashboardLayout({
   const { loading, user, logout, sessionError, refresh } = useAuth();
   const { logoUrl } = useAppLogo();
   const { isOnline, pendingCount, syncQueue } = useOfflineSync();
-  const { state, isMobile } = useSidebar();
 
   if (loading)
     return (
@@ -613,11 +623,7 @@ export default function DashboardLayout({
             )}
           </div>
         )}
-        <div
-          className={`mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-9${!isMobile && state === "collapsed" ? " pl-[3rem]" : ""}`}
-        >
-          {children}
-        </div>
+        <DashboardMainContent>{children}</DashboardMainContent>
         <footer className="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground sm:px-6">
           © {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।
         </footer>
