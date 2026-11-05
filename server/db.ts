@@ -1832,6 +1832,12 @@ export async function createChartOfAccount(
     openingBalance?: number;
   }
 ) {
+  if (input.openingBalance && Number(input.openingBalance) !== 0) {
+    throw new Error(
+      "CoA opening balance must be zero. Record opening balances via opening vouchers or wallets."
+    );
+  }
+
   await assertOwnedProject(userId, input.projectId);
   const db = databaseRequired(await getDb());
 

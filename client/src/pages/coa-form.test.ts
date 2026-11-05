@@ -48,7 +48,7 @@ const validForm = {
   nameBn: "বাকি",
   description: "desc",
   isDetail: true,
-  openingBalance: "125.50",
+  openingBalance: "0",
 };
 
 describe("validateAccountForm", () => {
@@ -76,13 +76,22 @@ describe("validateAccountForm", () => {
     expect(errors.code).toBe(`Code must be at most ${MAX_CODE} characters`);
   });
 
-  it("rejects a non-numeric opening balance but allows empty", () => {
+  it("rejects a non-numeric opening balance and rejects non-zero, but allows empty or 0", () => {
     expect(
       validateAccountForm({ ...validForm, openingBalance: "abc" })
         .openingBalance
     ).toBe("Opening balance must be a number");
     expect(
+      validateAccountForm({ ...validForm, openingBalance: "500" })
+        .openingBalance
+    ).toBe(
+      "CoA opening balance must be zero. Record opening balances via opening vouchers or wallets."
+    );
+    expect(
       validateAccountForm({ ...validForm, openingBalance: "" }).openingBalance
+    ).toBeUndefined();
+    expect(
+      validateAccountForm({ ...validForm, openingBalance: "0" }).openingBalance
     ).toBeUndefined();
   });
 });

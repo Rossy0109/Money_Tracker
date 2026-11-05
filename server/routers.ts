@@ -113,7 +113,7 @@ const voucherInput = z
     }
   });
 
-const coaAccountInput = z.object({
+export const coaAccountInput = z.object({
   projectId,
   accountTypeId: z.number().int().positive(),
   parentId: z.number().int().positive().optional(),
@@ -122,7 +122,14 @@ const coaAccountInput = z.object({
   nameBn: z.string().max(120).optional(),
   description: z.string().max(500).optional(),
   isDetail: z.boolean().optional(),
-  openingBalance: z.number().finite().optional(),
+  openingBalance: z
+    .number()
+    .finite()
+    .refine(val => val === 0, {
+      message:
+        "CoA opening balance must be zero. Record opening balances via opening vouchers or wallets.",
+    })
+    .optional(),
 });
 
 const coaAccountUpdateInput = z.object({
