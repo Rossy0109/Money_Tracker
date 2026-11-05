@@ -223,6 +223,23 @@ describe("evaluateInvariants", () => {
     expect(violations[0].scope).toBe("project");
     expect(violations[0].refId).toBe(1);
   });
+
+  it("flags a chart of accounts entry with an unposted opening balance outside the ledger", () => {
+    const violations = evaluateInvariants(
+      balancedDataset({
+        coaNonZeroOpenings: [
+          {
+            id: 101,
+            code: "1500",
+            name: "Equipment",
+            openingBalance: "5000.00",
+          },
+        ],
+      })
+    );
+    expect(violations.map(v => v.kind)).toContain("trial_balance_unbalanced");
+    expect(violations.some(v => v.detail.includes("Equipment"))).toBe(true);
+  });
 });
 
 describe("verifyAccountingAuditRow", () => {

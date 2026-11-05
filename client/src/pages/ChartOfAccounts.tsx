@@ -441,6 +441,9 @@ function AccountFormDialog({
                   aria-invalid={!!errors.openingBalance}
                 />
                 {errorText("openingBalance")}
+                <p className="text-xs text-muted-foreground mt-1">
+                  To record an opening balance, post an opening voucher or create a wallet to preserve double-entry balance.
+                </p>
               </div>
             )}
           </div>

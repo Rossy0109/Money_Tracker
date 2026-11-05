@@ -247,6 +247,12 @@ const bottomTabs: MenuItem[] = [
     permission: "voucher.read",
   },
   {
+    icon: UsersRound,
+    label: "ভাউচার সদস্য",
+    href: "/project-members",
+    permission: "voucher.read",
+  },
+  {
     icon: Receipt,
     label: "লেনদেন",
     href: "/#transactions",

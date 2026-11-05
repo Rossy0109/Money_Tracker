@@ -64,7 +64,11 @@ describe("Self-Approval Prevention — Structural Invariants", () => {
 
   it("approveVoucher self-check only applies to 'approve' action (not 'return')", () => {
     const fn = getFunctionBody(dbSource, "approveVoucher");
-    expect(fn).toContain('action === "approve" && voucher.userId === userId');
+    // W-1: maker identity comes from `createdBy` (with a legacy `userId`
+    // fallback), so the 4-eyes guard follows `voucherMakerId`.
+    expect(fn).toContain(
+      'action === "approve" && voucherMakerId(voucher) === userId'
+    );
   });
 
   it("postVoucher self-check is before db.transaction", () => {

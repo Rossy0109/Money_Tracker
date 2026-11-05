@@ -24,10 +24,11 @@
  * and the health panel reads that row back so a violated invariant shows up as
  * a failed check instead of a silently wrong balance.
  */
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import {
   auditLogs,
+  financeChartOfAccounts,
   financeJournalEntries,
   financeJournalLines,
   financeLedgerEntries,
@@ -91,6 +92,12 @@ export interface InvariantDataset {
     debitTotal: string;
     creditTotal: string;
     nonPositive: number;
+  }>;
+  coaNonZeroOpenings?: Array<{
+    id: number;
+    code: string;
+    name: string;
+    openingBalance: string;
   }>;
 }
 
@@ -239,6 +246,15 @@ export function evaluateInvariants(
     });
   }
 
+  for (const acc of data.coaNonZeroOpenings ?? []) {
+    violations.push({
+      kind: "trial_balance_unbalanced",
+      scope: "project",
+      refId: acc.id,
+      detail: `Chart of Accounts #${acc.id} (${acc.code} ${acc.name}) has unposted opening balance ${acc.openingBalance} outside the ledger`,
+    });
+  }
+
   return violations;
 }
 
@@ -327,6 +343,22 @@ export async function loadInvariantDataset(
     .where(eq(financeJournalEntries.projectId, projectId))
     .groupBy(financeJournalLines.journalEntryId);
 
+  const coaNonZeroOpenings = await db
+    .select({
+      id: financeChartOfAccounts.id,
+      code: financeChartOfAccounts.code,
+      name: financeChartOfAccounts.name,
+      openingBalance: sql<string>`cast(${financeChartOfAccounts.openingBalance} as char)`,
+    })
+    .from(financeChartOfAccounts)
+    .where(
+      and(
+        eq(financeChartOfAccounts.projectId, projectId),
+        ne(financeChartOfAccounts.openingBalance, "0.00"),
+        ne(financeChartOfAccounts.openingBalance, "0")
+      )
+    );
+
   return {
     projectId,
     projectName,
@@ -348,6 +380,12 @@ export async function loadInvariantDataset(
       debitTotal: row.debitTotal,
       creditTotal: row.creditTotal,
       nonPositive: asCount(row.nonPositive),
+    })),
+    coaNonZeroOpenings: coaNonZeroOpenings.map(row => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      openingBalance: String(row.openingBalance),
     })),
   };
 }

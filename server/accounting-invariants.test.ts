@@ -217,7 +217,7 @@ describe("Invariant 9: Failed multi-step posting rolls back completely", () => {
     const end = s.indexOf("\nexport async function ", start + 1);
     const fn = s.slice(start, end === -1 ? undefined : end);
     expect(fn.replace(/\s+/g, "")).toContain(
-      "postVoucherInternals(tx,userId,projectId,voucherId,debitInput,creditInput)"
+      "postVoucherInternals(tx,access.ownerId,projectId,voucherId,debitInput,creditInput)"
     );
   });
   it("postVoucher enforces the period lock inside the posting transaction", () => {

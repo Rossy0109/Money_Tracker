@@ -296,6 +296,52 @@ export const financeHouseholdMembers = mysqlTable(
   ]
 );
 
+/**
+ * Voucher maker–checker membership for private projects (W-1). Project data stays
+ * keyed to the owner's userId; members act for the owner on voucher lifecycle paths
+ * only. `maker` creates and submits vouchers, `checker` approves and posts them.
+ */
+export const financeProjectMembers = mysqlTable(
+  "finance_project_members",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("projectId")
+      .notNull()
+      .references(() => financeProjects.id, { onDelete: "restrict" }),
+    userId: int("userId").references(() => users.id, { onDelete: "restrict" }),
+    inviteeEmail: varchar("inviteeEmail", { length: 320 }).notNull(),
+    displayName: varchar("displayName", { length: 120 }),
+    role: mysqlEnum("role", ["maker", "checker"]).notNull().default("maker"),
+    status: mysqlEnum("status", ["pending", "active", "declined", "revoked"])
+      .notNull()
+      .default("pending"),
+    invitedByUserId: int("invitedByUserId")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    acceptedAt: timestamp("acceptedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("finance_project_member_email_unique").on(
+      table.projectId,
+      table.inviteeEmail
+    ),
+    uniqueIndex("finance_project_member_user_unique").on(
+      table.projectId,
+      table.userId
+    ),
+    index("finance_project_members_user_status_idx").on(
+      table.userId,
+      table.status
+    ),
+    index("finance_project_members_project_status_idx").on(
+      table.projectId,
+      table.status
+    ),
+  ]
+);
+
 /** A shared household budget is category-labelled and independently scoped from personal project budgets. */
 export const financeSharedBudgets = mysqlTable(
   "finance_shared_budgets",
@@ -391,6 +437,10 @@ export const financeVouchers = mysqlTable(
     userId: int("userId")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    /** Data space always carries the project owner's id; `createdBy` records the acting maker (member) when delegated. */
+    createdBy: int("createdBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
     projectId: int("projectId")
       .notNull()
       .references(() => financeProjects.id, { onDelete: "restrict" }),

@@ -260,6 +260,9 @@ export default function Vouchers() {
               {projects.map(project => (
                 <option key={project.id} value={project.id}>
                   {project.name}
+                  {project.role !== "owner"
+                    ? ` · ${project.role === "maker" ? "প্রস্তুতকারক" : "অনুমোদনকারী"}`
+                    : ""}
                 </option>
               ))}
             </select>

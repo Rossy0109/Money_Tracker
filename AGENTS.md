@@ -35,6 +35,7 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 - `pnpm test:worker` needs schema applied first: `node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"`.
 - `pnpm test:browser:e2e` (Playwright) is unsupported on Android/Termux — CI only.
 - `pnpm db:push` = `drizzle-kit generate && migrate` (requires `DATABASE_URL`). Never rewrite or delete existing migration files in `drizzle/`.
+- **Editing `.github/workflows/*` is gated by `scripts/check-workflow-hardening.mjs`** (runs in the CI `verify` job): every workflow needs a top-level `permissions:` block, `concurrency:`, per-job `timeout-minutes:`, every `uses:` ref pinned to a full 40-char commit SHA, and `persist-credentials: false` on checkouts (only allowlisted exception: `dependency-bump-check.yml`).
 
 **Termux:** no `/usr/bin/env`, so `npm`/`npx` launchers may fail — always use `pnpm` and call scripts via `node scripts/...`. Do not create a `/usr/bin/env` symlink.
 
@@ -48,17 +49,11 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 - Dependency changes follow `DEPENDENCY-POLICY.md`: no upgrade "because it's newer"; `jose` is pinned exactly; React 19 / Express 5 / Tailwind 4 / Vite 8 / Vitest 5 majors are already absorbed and need explicit approval to move. CI enforces this: the dependency-bump workflow fails on `pnpm audit --audit-level=high` and on any semver-major bump (`scripts/check-dependency-policy.mjs`; local check via `pnpm check:dep-policy`).
 - `.env*` files are never committed. Secrets go through the hosting provider.
 
-### F-08 (P1) — CI coverage gate (new in this session)
+## Locked fixes (do not reintroduce — tests guard these)
 
-The `test` CI job was updated to provision a MariaDB service and run `pnpm test:coverage` instead of `pnpm test`. This enforces the 70/60/70/70 thresholds on every PR via the already-required `test` check. Without this change, a naive `--coverage` gate in the `test` job would fail at ~57% and an agent might be pressured to lower thresholds — exactly the failure mode AGENTS.md forbids. The fix adds `services: mariadb`, `ISOLATED_E2E_DATABASE_URL`, and switches `pnpm test` → `pnpm test:coverage` in the `test` job (timeout 30→40 min). Stale comments in `ci.yml`, `server/db.hermetic.test.ts`, and `docs/db-test-coverage.md` were corrected.
-
-### F-10 (P3) — Stray test writes (new in this session)
-
-`server/cloudBackupService.test.ts` now pins `LOCAL_BACKUP_DIR` to a temp directory in a `beforeEach` for the first `describe`, so a DB-enabled run writes its `*.enc.json` snapshot outside the repo. 23/23 tests pass; no untracked `backups/` is produced.
-
-### F-09 (P1) — Authorization defect, fixed and locked
-
-`server/_core/rbac.ts` — `isFinanceAdmin` and `isAdminRoleUser` used `||` between two **Promises**. A Promise object is always truthy, so `||` short-circuited and returned the first promise. Both functions silently degraded to `isSuperAdmin`, denying `ACCOUNTING_ADMIN` finance-admin rights and `SYSTEM_ADMIN` the admin role set — the inverse of their documented contract. Fixed by awaiting each operand; locked by tests that also confirm the client mirror agrees.
+- **F-08**: CI `test` job provisions MariaDB and runs `pnpm test:coverage` (enforces the 70/60/70/70 thresholds on every PR). Do not downgrade it to plain `pnpm test` or lower thresholds.
+- **F-09**: `server/_core/rbac.ts` — never combine two Promises with `||`/`&&` (a Promise is always truthy). `isFinanceAdmin`/`isAdminRoleUser` silently degraded to `isSuperAdmin` until fixed by awaiting each operand; tests + a client mirror lock this.
+- **F-10**: DB-backed test runs must write artifacts outside the repo — `server/cloudBackupService.test.ts` pins `LOCAL_BACKUP_DIR` to a temp dir via `beforeEach`.
 
 ## Architecture map
 
@@ -69,5 +64,5 @@ The `test` CI job was updated to provision a MariaDB service and run `pnpm test:
 
 ## Repo hygiene notes
 
-- Stray-file cleanup complete (2026-10-07): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak` all deleted; tree clean. Flag any new untracked strays in agent reports before committing.
+- Stray-file cleanup complete (2026-10-07): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak` all deleted; tree clean. Flag any new untracked strays in agent reports before committing. Local-only agent tooling currently untracked on purpose: `.agents/`, `.claude/`, `.mcp.json`, `skills-lock.json` — do not commit these.
 - `main` is protected: green CI required — `verify` → `test`, then `worker` / `e2e` / `browser-e2e` (all five are required status checks); force-push and branch deletion are blocked; `enforce_admins` is on, so no one bypasses it. CD deploys to Vercel after CI passes. **No approving-review requirement is configured** — the sole active committer is `@Rossy0109`, so requiring one would make every PR unmergeable. `.github/CODEOWNERS` routes review requests by pipeline domain but is advisory: `require_code_owner_reviews` is deliberately **off** for the same reason. Raise both only after a second owner with write access is active.

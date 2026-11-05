@@ -166,11 +166,14 @@ export function validateAccountForm(values: AccountFormValues): AccountFormError
   if (values.description.trim().length > MAX_DESCRIPTION) {
     errors.description = `Description must be at most ${MAX_DESCRIPTION} characters`;
   }
-  if (
-    values.openingBalance.trim() !== "" &&
-    !Number.isFinite(Number(values.openingBalance))
-  ) {
-    errors.openingBalance = "Opening balance must be a number";
+  if (values.openingBalance.trim() !== "") {
+    const parsed = Number(values.openingBalance);
+    if (!Number.isFinite(parsed)) {
+      errors.openingBalance = "Opening balance must be a number";
+    } else if (parsed !== 0) {
+      errors.openingBalance =
+        "CoA opening balance must be zero. Record opening balances via opening vouchers or wallets.";
+    }
   }
   return errors;
 }
