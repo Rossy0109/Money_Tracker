@@ -43,6 +43,7 @@ import {
   financeSalaryPayments,
   financeEmployeeAdvances,
   financeProjects,
+  financeProjectMembers,
   financePrivateStorageObjects,
   financeRecurringTransactions,
   financeSharedBudgets,
@@ -1116,6 +1117,11 @@ type VoucherInput = {
   voucherType?: string;
   fiscalPeriodId?: number;
   _internalPostedBy?: number;
+  /**
+   * Acting maker (W-1): the account that authored the voucher. Omit it for
+   * system-internal auto-posting, where the maker IS the data-space owner.
+   */
+  makerId?: number;
 };
 
 async function assertPeriodNotLockedTx(
@@ -1215,6 +1221,9 @@ async function createVoucherWithEntriesInTx(
   const voucherNo = await claimNextVoucher(tx, userId, input.projectId);
   const result = await tx.insert(financeVouchers).values({
     userId,
+    // W-1: data space carries the project owner; the acting maker (when a
+    // member acts with a delegation grant) is recorded separately.
+    createdBy: input.makerId ?? userId,
     projectId: input.projectId,
     voucherNo,
     date: input.date,
@@ -1298,10 +1307,15 @@ export async function createVoucherWithEntries(
   userId: number,
   input: VoucherInput
 ) {
+  // W-1: maker role (or the owner) may create drafts; the voucher row stays
+  // stamped with the project owner's id and records the acting maker.
+  const access = await getProjectAccess(userId, input.projectId);
+  requireVoucherAction(access.role, "create");
+  const makerId = userId;
   validateVoucherInput(input);
   const db = databaseRequired(await getDb());
   const result = await db.transaction(tx =>
-    createVoucherWithEntriesInTx(tx, userId, input)
+    createVoucherWithEntriesInTx(tx, access.ownerId, { ...input, makerId })
   );
   await logAudit({
     actorUserId: userId,
@@ -1344,7 +1358,9 @@ export async function submitVoucher(
   projectId: number,
   voucherId: number
 ) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: maker (or owner) submits; the maker identity goes on `submittedBy`.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "submit");
   const db = databaseRequired(await getDb());
 
   const result = await db.transaction(async tx => {
@@ -1406,7 +1422,10 @@ export async function approveVoucher(
   voucherId: number,
   action: "approve" | "return" = "approve"
 ) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: checker (or owner) approves; maker–checker separation is enforced
+  // below regardless of which member role let the actor in.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "approve");
   const db = databaseRequired(await getDb());
 
   const result = await db.transaction(async tx => {
@@ -1423,7 +1442,8 @@ export async function approveVoucher(
     if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
 
     // Self-approval prevention: the voucher creator cannot approve their own voucher.
-    if (action === "approve" && voucher.userId === userId) {
+    // W-1: `createdBy` records the acting maker; legacy rows fall back to `userId`.
+    if (action === "approve" && voucherMakerId(voucher) === userId) {
       throw new Error("নিজের তৈরি ভাউচার নিজে অনুমোদন করা যাবে না");
     }
 
@@ -1595,7 +1615,9 @@ export async function postVoucher(
   projectId: number,
   voucherId: number
 ) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: checker (or owner) posts the approved voucher.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "post");
   const db = databaseRequired(await getDb());
   const [preflight] = await db
     .select()
@@ -1609,7 +1631,7 @@ export async function postVoucher(
     .limit(1);
   if (!preflight) throw new Error("ভাউচার পাওয়া যায়নি");
   assertVoucherTransition(preflight.status, "posted");
-  if (preflight.userId === userId)
+  if (voucherMakerId(preflight) === userId)
     throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
   const result = await db.transaction(async tx => {
     const [voucher] = await selectForUpdate<DbRow[]>(
@@ -1626,7 +1648,7 @@ export async function postVoucher(
     );
     if (!voucher) throw new Error("ভাউচার পাওয়া যায়নি");
     assertVoucherTransition(voucher.status, "posted");
-    if (voucher.userId === userId)
+    if (voucherMakerId(voucher) === userId)
       throw new Error("নিজের তৈরি ভাউচার নিজে পোস্ট করা যাবে না");
     await assertPeriodNotLockedTx(
       tx,
@@ -1674,9 +1696,11 @@ export async function postVoucher(
       );
     if (!transition[0]?.affectedRows)
       throw new Error("ভাউচারের অবস্থা পরিবর্তিত হয়েছে");
+    // W-1: journal metadata is stamped with the data-space owner; the acting
+    // poster lives on `finance_vouchers.postedBy` and the voucher audit row.
     await postVoucherInternals(
       tx,
-      userId,
+      access.ownerId,
       projectId,
       voucherId,
       debitInput,
@@ -1782,15 +1806,18 @@ export async function getAccountTypes() {
 }
 
 export async function getChartOfAccounts(userId: number, projectId: number) {
-  await assertOwnedProject(userId, projectId);
-  await ensureCanonicalMappings(userId, projectId);
+  // W-1: makers and checkers need the chart to build/read vouchers. The data
+  // space (and the canonical seeding) stays keyed to the project owner.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "read");
+  await ensureCanonicalMappings(access.ownerId, projectId);
   const db = databaseRequired(await getDb());
   return db
     .select()
     .from(financeChartOfAccounts)
     .where(
       and(
-        eq(financeChartOfAccounts.userId, userId),
+        eq(financeChartOfAccounts.userId, access.ownerId),
         eq(financeChartOfAccounts.projectId, projectId)
       )
     )
@@ -2827,8 +2854,11 @@ async function reverseVoucherInTx(
     reason: string;
     date: Date;
     enforceSelfCheck?: boolean;
+    /** W-1: data-space owner when a member reverses (defaults to the actor). */
+    onBehalfOf?: number;
   }
 ) {
+  const dataOwnerId = input.onBehalfOf ?? userId;
   const [originalVoucher] = await selectForUpdate<DbRow[]>(
     tx
       .select()
@@ -2843,7 +2873,10 @@ async function reverseVoucherInTx(
   );
   if (!originalVoucher) throw new Error("মূল ভাউচার পাওয়া যায়নি");
   assertVoucherTransition(originalVoucher.status, "reversed");
-  if (input.enforceSelfCheck !== false && originalVoucher.userId === userId) {
+  if (
+    input.enforceSelfCheck !== false &&
+    voucherMakerId(originalVoucher) === userId
+  ) {
     throw new Error("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
   }
   await assertPeriodNotLockedTx(tx, projectId, input.date);
@@ -2870,18 +2903,25 @@ async function reverseVoucherInTx(
     input.originalVoucherId,
     "credits"
   );
-  const reversalVoucherResult = await createVoucherWithEntriesInTx(tx, userId, {
-    projectId,
-    date: input.date,
-    narration: `Reversal of ${originalVoucher.voucherNo}: ${input.reason}`,
-    debits: originalCredits,
-    credits: originalDebits,
-    status: "posted",
-    voucherType: "reversal",
-    _internalPostedBy: userId,
-  });
+  // W-1: the reversal voucher is stamped with the data-space owner; the
+  // reversing actor is recorded as its maker.
+  const reversalVoucherResult = await createVoucherWithEntriesInTx(
+    tx,
+    dataOwnerId,
+    {
+      projectId,
+      date: input.date,
+      narration: `Reversal of ${originalVoucher.voucherNo}: ${input.reason}`,
+      debits: originalCredits,
+      credits: originalDebits,
+      status: "posted",
+      voucherType: "reversal",
+      _internalPostedBy: userId,
+      makerId: userId,
+    }
+  );
   await tx.insert(financeVoucherReversals).values({
-    userId,
+    userId: dataOwnerId,
     projectId,
     originalVoucherId: input.originalVoucherId,
     reversalVoucherId: reversalVoucherResult.voucherId,
@@ -2926,7 +2966,10 @@ export async function reverseVoucher(
     date: Date;
   }
 ) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: checker (or owner) reverses a posted voucher; 4-eyes is enforced
+  // against the maker in reverseVoucherInTx.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "reverse");
   const db = databaseRequired(await getDb());
   const [preflight] = await db
     .select()
@@ -2940,10 +2983,13 @@ export async function reverseVoucher(
     .limit(1);
   if (!preflight) throw new Error("মূল ভাউচার পাওয়া যায়নি");
   assertVoucherTransition(preflight.status, "reversed");
-  if (preflight.userId === userId)
+  if (voucherMakerId(preflight) === userId)
     throw new Error("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
   const result = await db.transaction(tx =>
-    reverseVoucherInTx(tx, userId, projectId, input)
+    reverseVoucherInTx(tx, userId, projectId, {
+      ...input,
+      onBehalfOf: access.ownerId,
+    })
   );
   await logAudit({
     actorUserId: userId,
@@ -2961,7 +3007,9 @@ export async function reverseVoucher(
 }
 
 export async function getVoucherReversals(userId: number, projectId: number) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: makers and checkers may read the reversal trail.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "read");
   const db = databaseRequired(await getDb());
   return db
     .select({
@@ -3459,11 +3507,33 @@ export async function updateVoucherSettings(
 export async function listProjects(userId: number) {
   await ensureDefaultProject(userId);
   const db = databaseRequired(await getDb());
-  return db
-    .select()
-    .from(financeProjects)
-    .where(eq(financeProjects.userId, userId))
-    .orderBy(asc(financeProjects.createdAt));
+  const [owned, shared] = await Promise.all([
+    db
+      .select()
+      .from(financeProjects)
+      .where(eq(financeProjects.userId, userId))
+      .orderBy(asc(financeProjects.createdAt)),
+    // W-1: projects the user may act on as a maker/checker. The active-project
+    // selector needs them so a second account can reach the voucher workspace.
+    db
+      .select({ project: financeProjects, role: financeProjectMembers.role })
+      .from(financeProjectMembers)
+      .innerJoin(
+        financeProjects,
+        eq(financeProjectMembers.projectId, financeProjects.id)
+      )
+      .where(
+        and(
+          eq(financeProjectMembers.userId, userId),
+          eq(financeProjectMembers.status, "active")
+        )
+      )
+      .orderBy(asc(financeProjects.createdAt)),
+  ]);
+  return [
+    ...owned.map(project => ({ ...project, role: "owner" as const })),
+    ...shared.map(({ project, role }) => ({ ...project, role })),
+  ];
 }
 
 export async function assertOwnedProject(userId: number, projectId: number) {
@@ -3477,6 +3547,345 @@ export async function assertOwnedProject(userId: number, projectId: number) {
     .limit(1);
   if (!project) throw new Error("Project not found or access denied");
   return project;
+}
+
+// ─── Project membership (W-1: reachable maker–checker) ───────────────────────
+//
+// Project data stays keyed to the project owner's userId (see the W-1 design
+// note next to `finance_vouchers.createdBy` in the audit remediation). A member
+// may act on the voucher lifecycle only; every other project domain remains
+// owner-scoped via `assertOwnedProject`.
+//
+//   maker   → create + submit vouchers (and read voucher data)
+//   checker → approve + post + reverse vouchers (and read voucher data)
+//
+// 4-eyes holds inside the lifecycle itself: the actor who created/submitted a
+// voucher can never approve of, post, or reverse it, no matter which role
+// granted them entry.
+
+export type ProjectMemberRole = "maker" | "checker";
+export type ProjectAccessRole = "owner" | ProjectMemberRole;
+export type VoucherAction =
+  | "read"
+  | "create"
+  | "submit"
+  | "approve"
+  | "post"
+  | "reverse";
+
+export interface ProjectVoucherAccess {
+  role: ProjectAccessRole;
+  /** The account that owns every data row of this project (not necessarily the actor). */
+  ownerId: number;
+  project: typeof financeProjects.$inferSelect;
+}
+
+const VOUCHER_ACTION_ROLES: Record<VoucherAction, ProjectAccessRole[]> = {
+  read: ["owner", "maker", "checker"],
+  create: ["owner", "maker"],
+  submit: ["owner", "maker"],
+  approve: ["owner", "checker"],
+  post: ["owner", "checker"],
+  reverse: ["owner", "checker"],
+};
+
+/** Owner or active member access to a project's voucher domain. */
+export async function getProjectAccess(
+  userId: number,
+  projectId: number
+): Promise<ProjectVoucherAccess> {
+  const db = databaseRequired(await getDb());
+  const [project] = await db
+    .select()
+    .from(financeProjects)
+    .where(eq(financeProjects.id, projectId))
+    .limit(1);
+  if (!project) throw new Error("Project not found or access denied");
+  if (project.userId === userId) {
+    return { role: "owner", ownerId: project.userId, project };
+  }
+  const [membership] = await db
+    .select({ role: financeProjectMembers.role })
+    .from(financeProjectMembers)
+    .where(
+      and(
+        eq(financeProjectMembers.projectId, projectId),
+        eq(financeProjectMembers.userId, userId),
+        eq(financeProjectMembers.status, "active")
+      )
+    )
+    .limit(1);
+  if (!membership) throw new Error("Project not found or access denied");
+  return { role: membership.role, ownerId: project.userId, project };
+}
+
+export function requireVoucherAction(
+  role: ProjectAccessRole,
+  action: VoucherAction
+) {
+  if (!VOUCHER_ACTION_ROLES[action].includes(role)) {
+    throw new Error("এই ভাউচার কাজটি করার অনুমতি আপনার নেই");
+  }
+}
+
+/** Maker identity as seen by the 4-eyes checks (legacy rows carry it on `userId`). */
+export function voucherMakerId(voucher: {
+  userId: number;
+  createdBy?: number | null;
+}) {
+  return voucher.createdBy ?? voucher.userId;
+}
+
+export async function inviteProjectMember(
+  userId: number,
+  input: {
+    projectId: number;
+    email: string;
+    displayName?: string;
+    role: ProjectMemberRole;
+  }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const email = normalizeEmail(input.email);
+  if (!email) throw new Error("সদস্যের ইমেইল দিন");
+  if (input.role !== "maker" && input.role !== "checker")
+    throw new Error("সদস্যের ভূমিকা সঠিক নয়");
+  const db = databaseRequired(await getDb());
+  const [owner] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (owner?.email && normalizeEmail(owner.email) === email)
+    throw new Error("নিজেকে সদস্য হিসেবে আমন্ত্রণ দেওয়া যাবে না");
+  const [existing] = await db
+    .select()
+    .from(financeProjectMembers)
+    .where(
+      and(
+        eq(financeProjectMembers.projectId, input.projectId),
+        eq(financeProjectMembers.inviteeEmail, email)
+      )
+    )
+    .limit(1);
+  if (existing?.status === "active")
+    throw new Error("এই সদস্য ইতিমধ্যে যুক্ত আছেন");
+  const [registeredUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  const values = {
+    projectId: input.projectId,
+    inviteeEmail: email,
+    displayName: input.displayName?.trim() || null,
+    role: input.role,
+    status: "pending" as const,
+    invitedByUserId: userId,
+    userId: registeredUser?.id ?? null,
+    acceptedAt: null,
+  };
+  if (existing) {
+    await db
+      .update(financeProjectMembers)
+      .set(values)
+      .where(eq(financeProjectMembers.id, existing.id));
+    await logAudit({
+      actorUserId: userId,
+      projectId: input.projectId,
+      action: "update",
+      entityType: "project_member",
+      entityId: existing.id,
+      summary: "Project membership invitation renewed",
+    });
+    return existing.id;
+  }
+  const result = await db.insert(financeProjectMembers).values(values);
+  const membershipId = Number(result[0].insertId);
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "create",
+    entityType: "project_member",
+    entityId: membershipId,
+    summary: "Project membership invitation created",
+  });
+  return membershipId;
+}
+
+export async function acceptProjectInvitation(
+  userId: number,
+  membershipId: number
+) {
+  const db = databaseRequired(await getDb());
+  const [currentUser] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const [membership] = await db
+    .select()
+    .from(financeProjectMembers)
+    .where(eq(financeProjectMembers.id, membershipId))
+    .limit(1);
+  if (
+    !membership ||
+    membership.status !== "pending" ||
+    !currentUser?.email ||
+    normalizeEmail(currentUser.email) !==
+      normalizeEmail(membership.inviteeEmail)
+  ) {
+    throw new Error("এই আমন্ত্রণ গ্রহণের অনুমতি আপনার নেই");
+  }
+  await db
+    .update(financeProjectMembers)
+    .set({ userId, status: "active", acceptedAt: new Date() })
+    .where(eq(financeProjectMembers.id, membershipId));
+  await logAudit({
+    actorUserId: userId,
+    projectId: membership.projectId,
+    action: "update",
+    entityType: "project_member",
+    entityId: membershipId,
+    summary: "Project membership invitation accepted",
+  });
+  return getProjectAccess(userId, membership.projectId);
+}
+
+export async function listProjectInvitations(userId: number) {
+  const db = databaseRequired(await getDb());
+  const [currentUser] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!currentUser?.email) return [];
+  const email = normalizeEmail(currentUser.email);
+  return db
+    .select({
+      membershipId: financeProjectMembers.id,
+      projectId: financeProjects.id,
+      projectName: financeProjects.name,
+      role: financeProjectMembers.role,
+      displayName: financeProjectMembers.displayName,
+      invitedAt: financeProjectMembers.createdAt,
+    })
+    .from(financeProjectMembers)
+    .innerJoin(
+      financeProjects,
+      eq(financeProjectMembers.projectId, financeProjects.id)
+    )
+    .where(
+      and(
+        eq(financeProjectMembers.inviteeEmail, email),
+        eq(financeProjectMembers.status, "pending")
+      )
+    )
+    .orderBy(desc(financeProjectMembers.createdAt));
+}
+
+export async function updateProjectMember(
+  userId: number,
+  input: {
+    projectId: number;
+    membershipId: number;
+    role?: ProjectMemberRole;
+    status?: "revoked";
+  }
+) {
+  await assertOwnedProject(userId, input.projectId);
+  const db = databaseRequired(await getDb());
+  const [membership] = await db
+    .select()
+    .from(financeProjectMembers)
+    .where(
+      and(
+        eq(financeProjectMembers.id, input.membershipId),
+        eq(financeProjectMembers.projectId, input.projectId)
+      )
+    )
+    .limit(1);
+  if (!membership) throw new Error("সদস্য পাওয়া যায়নি");
+  await db
+    .update(financeProjectMembers)
+    .set({
+      ...(input.role ? { role: input.role } : {}),
+      ...(input.status ? { status: input.status } : {}),
+    })
+    .where(eq(financeProjectMembers.id, membership.id));
+  await logAudit({
+    actorUserId: userId,
+    projectId: input.projectId,
+    action: "update",
+    entityType: "project_member",
+    entityId: membership.id,
+    summary:
+      input.status === "revoked"
+        ? "Project member revoked"
+        : "Project member role updated",
+  });
+  return listProjectMembers(userId, input.projectId);
+}
+
+export async function listProjectMembers(
+  userId: number,
+  projectId: number
+): Promise<
+  {
+    id: number;
+    userId: number | null;
+    inviteeEmail: string;
+    displayName: string | null;
+    role: ProjectMemberRole;
+    status: string;
+    acceptedAt: Date | null;
+    userName: string | null;
+    userEmail: string | null;
+  }[]
+> {
+  await assertOwnedProject(userId, projectId);
+  const db = databaseRequired(await getDb());
+  const memberRows = await db
+    .select({
+      id: financeProjectMembers.id,
+      userId: financeProjectMembers.userId,
+      inviteeEmail: financeProjectMembers.inviteeEmail,
+      displayName: financeProjectMembers.displayName,
+      role: financeProjectMembers.role,
+      status: financeProjectMembers.status,
+      acceptedAt: financeProjectMembers.acceptedAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+    .from(financeProjectMembers)
+    .leftJoin(users, eq(financeProjectMembers.userId, users.id))
+    .where(eq(financeProjectMembers.projectId, projectId))
+    .orderBy(asc(financeProjectMembers.createdAt));
+  return memberRows;
+}
+
+/** Projects where the user acts as a maker or checker (member-side project list). */
+export async function listProjectMemberships(userId: number) {
+  const db = databaseRequired(await getDb());
+  return db
+    .select({
+      projectId: financeProjects.id,
+      projectName: financeProjects.name,
+      role: financeProjectMembers.role,
+      acceptedAt: financeProjectMembers.acceptedAt,
+    })
+    .from(financeProjectMembers)
+    .innerJoin(
+      financeProjects,
+      eq(financeProjectMembers.projectId, financeProjects.id)
+    )
+    .where(
+      and(
+        eq(financeProjectMembers.userId, userId),
+        eq(financeProjectMembers.status, "active")
+      )
+    )
+    .orderBy(asc(financeProjects.name));
 }
 
 type RegisterPrivateStorageObjectInput = {
@@ -9329,11 +9738,14 @@ export async function getVoucherList(
     limit?: number;
   }
 ) {
-  await assertOwnedProject(userId, projectId);
+  // W-1: makers and checkers may read the voucher register; rows stay
+  // owner-stamped, so the data filter uses the owner's id.
+  const access = await getProjectAccess(userId, projectId);
+  requireVoucherAction(access.role, "read");
   const db = databaseRequired(await getDb());
 
   const conditions = [
-    eq(financeVouchers.userId, userId),
+    eq(financeVouchers.userId, access.ownerId),
     eq(financeVouchers.projectId, projectId),
   ];
   if (opts?.status) conditions.push(eq(financeVouchers.status, opts.status));

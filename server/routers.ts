@@ -954,6 +954,53 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         financeDb.addSharedExpense(ctx.user!.id, input)
       ),
+    // W-1: project membership (maker–checker delegation) — owner invites,
+    // invitee accepts by email match, both sides read their own views.
+    projectInvitations: protectedWithPermission("voucher", "read").query(
+      ({ ctx }) => financeDb.listProjectInvitations(ctx.user!.id)
+    ),
+    projectMemberships: protectedWithPermission("voucher", "read").query(
+      ({ ctx }) => financeDb.listProjectMemberships(ctx.user!.id)
+    ),
+    projectMembers: protectedWithPermission("voucher", "read")
+      .input(z.object({ projectId: z.number().int().positive() }))
+      .query(({ ctx, input }) =>
+        financeDb.listProjectMembers(ctx.user!.id, input.projectId)
+      ),
+    inviteProjectMember: protectedWithPermission("voucher", "read")
+      .input(
+        z.object({
+          projectId: z.number().int().positive(),
+          email: z.string().trim().email().max(320),
+          displayName: z.string().trim().max(120).optional(),
+          role: z.enum(["maker", "checker"]),
+        })
+      )
+      .mutation(({ ctx, input }) =>
+        financeDb.inviteProjectMember(ctx.user!.id, input)
+      ),
+    acceptProjectInvitation: protectedWithPermission("voucher", "read")
+      .input(z.object({ membershipId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) =>
+        financeDb.acceptProjectInvitation(ctx.user!.id, input.membershipId)
+      ),
+    updateProjectMember: protectedWithPermission("voucher", "read")
+      .input(
+        z
+          .object({
+            projectId: z.number().int().positive(),
+            membershipId: z.number().int().positive(),
+            role: z.enum(["maker", "checker"]).optional(),
+            status: z.literal("revoked").optional(),
+          })
+          .refine(
+            input => input.role !== undefined || input.status !== undefined,
+            "পরিবর্তনের তথ্য দিন"
+          )
+      )
+      .mutation(({ ctx, input }) =>
+        financeDb.updateProjectMember(ctx.user!.id, input)
+      ),
     createVoucher: inputOnlyWithPermission("voucher", "create")
       .use(idempotent)
       .input(voucherInput)

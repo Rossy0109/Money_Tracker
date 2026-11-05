@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 
 const Home = lazy(() => import("./pages/Home"));
 const Vouchers = lazy(() => import("./pages/Vouchers"));
+const ProjectMembers = lazy(() => import("./pages/ProjectMembers"));
 const Account = lazy(() => import("./pages/Account"));
 const FinanceInsights = lazy(() => import("./pages/FinanceInsights"));
 const FinanceAutomation = lazy(() => import("./pages/FinanceAutomation"));
@@ -67,6 +68,7 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Home} />
         <Route path={"/vouchers"} component={Vouchers} />
+        <Route path={"/project-members"} component={ProjectMembers} />
         <Route path={"/account"} component={Account} />
         <Route path={"/party-ledger"} component={PartyLedger} />
         <Route path={"/payroll"} component={Payroll} />

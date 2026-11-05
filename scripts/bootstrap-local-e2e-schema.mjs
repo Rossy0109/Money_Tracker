@@ -128,6 +128,23 @@ const statements = [
     UNIQUE KEY finance_household_member_email_unique (householdId, inviteeEmail),
     UNIQUE KEY finance_household_member_user_unique (householdId, userId)
   ) ENGINE=InnoDB`,
+  `CREATE TABLE finance_project_members (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    projectId int NOT NULL,
+    userId int,
+    inviteeEmail varchar(320) NOT NULL,
+    displayName varchar(120),
+    role enum('maker','checker') NOT NULL DEFAULT 'maker',
+    status enum('pending','active','declined','revoked') NOT NULL DEFAULT 'pending',
+    invitedByUserId int NOT NULL,
+    acceptedAt timestamp NULL,
+    createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY finance_project_member_email_unique (projectId, inviteeEmail),
+    UNIQUE KEY finance_project_member_user_unique (projectId, userId),
+    KEY finance_project_members_user_status_idx (userId, status),
+    KEY finance_project_members_project_status_idx (projectId, status)
+  ) ENGINE=InnoDB`,
   `CREATE TABLE finance_shared_budgets (
     id int AUTO_INCREMENT PRIMARY KEY,
     householdId int NOT NULL,
@@ -432,6 +449,7 @@ const statements = [
   `CREATE TABLE finance_vouchers (
     id int AUTO_INCREMENT PRIMARY KEY,
     userId int NOT NULL,
+    createdBy int NULL,
     projectId int NOT NULL,
     voucherNo varchar(80) NOT NULL,
     date timestamp NOT NULL,

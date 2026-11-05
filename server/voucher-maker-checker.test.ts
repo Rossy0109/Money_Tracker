@@ -322,13 +322,13 @@ describe.runIf(enabled)("voucher maker/checker separation (disposable MariaDB)",
       })
     ).rejects.toThrow("নিজের তৈরি ভাউচার নিজে রিভার্স করা যাবে না");
 
-    // ARCHITECTURAL NOTE: In single-owner projects, the project owner
-    // is the ONLY actor who can act on vouchers (assertOwnedProject).
-    // However, all lifecycle operations (approve, post, reverse) have
-    // self-checks that block the creator/submitter. Since no second
-    // actor exists in a single-owner project, the positive M-A-P path
-    // is UNREACHABLE. This is a documented architectural limitation
-    // (Maker–Approver–Poster proposal pending separate review).
-    // This test exists to prevent accidental weakening of self-checks.
+    // ARCHITECTURAL NOTE: In single-owner projects the project owner is the
+    // ONLY actor who can act on vouchers, so all lifecycle operations
+    // (approve, post, reverse) are blocked by their self-checks. W-1 closes
+    // this gap by letting the owner invite a `maker`/`checker` project member
+    // (see `server/project-membership.test.ts`); the positive
+    // maker → approver → poster path is reached through that membership and
+    // does NOT weaken these self-checks. This test exists to prevent
+    // accidental weakening of self-checks.
   });
 });
