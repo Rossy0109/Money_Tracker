@@ -538,6 +538,19 @@ export async function listFiscalPeriods(userId: number, projectId: number) {
     .orderBy(financeFiscalPeriods.startDate);
 }
 
+/**
+ * YYYY-MM month key for a fiscal-period boundary. Matches the monthKey
+ * convention used by the period-lock code (`toISOString().slice(0, 7)`):
+ * the mysql2 round trip preserves the instant, so a UTC-midnight boundary
+ * date comes back as the intended month in any host timezone. String
+ * boundaries are sliced directly.
+ */
+function periodMonthKey(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 7);
+  const match = value.match(/^(\d{4}-\d{2})/);
+  return match ? match[1] : new Date(value).toISOString().slice(0, 7);
+}
+
 export async function closeFiscalPeriod(
   userId: number,
   projectId: number,
@@ -560,15 +573,22 @@ export async function closeFiscalPeriod(
   if (!period) throw new Error("Fiscal period not found");
   if (period.status === "closed") throw new Error("Period already closed");
 
-  // Close all locked months that fall within this period
+  // Locked months that fall inside this period's month range.
+  // P2-E.1: this used to compare `lockedAt` timestamps (WHEN a month was
+  // locked) against the period bounds, so a month locked after the period end
+  // was missed and a foreign month locked during the period was counted.
+  // Locks are whole months, so compare the lock's monthKey (YYYY-MM sorts
+  // lexicographically) against the period's start/end months instead.
+  const startMonthKey = periodMonthKey(period.startDate);
+  const endMonthKey = periodMonthKey(period.endDate);
   const lockedMonths = await db
     .select({ monthKey: financePeriodLocks.monthKey })
     .from(financePeriodLocks)
     .where(
       and(
         eq(financePeriodLocks.projectId, projectId),
-        gte(financePeriodLocks.lockedAt, period.startDate),
-        lte(financePeriodLocks.lockedAt, period.endDate)
+        gte(financePeriodLocks.monthKey, startMonthKey),
+        lte(financePeriodLocks.monthKey, endMonthKey)
       )
     );
 
@@ -847,17 +867,6 @@ export async function generateCashFlowStatement(
         });
         operatingTotalCents -= net;
       }
-    } else if (acc.accountTypeCode === "LIABILITY") {
-      // Liability increase = cash inflow (positive)
-      if (net !== 0) {
-        operatingItems.push({
-          accountId: acc.id,
-          accountCode: acc.code,
-          accountName: acc.name,
-          amount: fromCents(net),
-        });
-        operatingTotalCents += net;
-      }
     }
   }
 
@@ -895,7 +904,10 @@ export async function generateCashFlowStatement(
     }
   }
 
-  // Financing activities: equity (3xxx) and long-term liabilities (23xx+)
+  // Financing activities: equity (3xxx) and liabilities (2xxx — loans,
+  // payables). P2-C1b: liabilities used to be folded into operating, which
+  // contradicted this function's own contract ("Financing: loans …"); all
+  // liability movement now lands here so loans and debt show up as financing.
   const financingItems: CashFlowSection["items"] = [];
   let financingTotalCents = 0;
 
@@ -903,6 +915,18 @@ export async function generateCashFlowStatement(
     if (!acc.isDetail) continue;
     const bal = balances.get(acc.id) ?? { debitCents: 0, creditCents: 0 };
     if (acc.accountTypeCode === "EQUITY") {
+      const net = bal.creditCents - bal.debitCents;
+      if (net !== 0) {
+        financingItems.push({
+          accountId: acc.id,
+          accountCode: acc.code,
+          accountName: acc.name,
+          amount: fromCents(net),
+        });
+        financingTotalCents += net;
+      }
+    } else if (acc.accountTypeCode === "LIABILITY") {
+      // Liability increase (credit-normal) = cash inflow (positive).
       const net = bal.creditCents - bal.debitCents;
       if (net !== 0) {
         financingItems.push({
