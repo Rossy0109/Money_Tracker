@@ -2,6 +2,12 @@ export const COOKIE_NAME = "app_session_id";
 export const ADMIN_SESSION_COOKIE = "admin_elevation_token";
 export const ADMIN_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 export const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
+// P2-S-2: the session cookie/JWT lifetime was ONE_YEAR_MS. It is now 30 days
+// with a sliding refresh (sdk.authenticateRequest re-issues the cookie once
+// less than half the TTL remains), so active users never age out while idle
+// sessions die within a month instead of a year.
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const SESSION_REFRESH_THRESHOLD_MS = SESSION_TTL_MS / 2; // refresh in final 15 days
 export const AXIOS_TIMEOUT_MS = 30_000;
 export const UNAUTHED_ERR_MSG = "Please login (10001)";
 export const NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";

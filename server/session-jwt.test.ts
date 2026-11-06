@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
  * Regression: createSessionToken must honor the caller's expiresInMs.
  *
  * Root cause of production "JWT expired" errors: login flows passed
- * expiresInMs: ONE_YEAR_MS (to match the session cookie) but the SDK
+ * expiresInMs: SESSION_TTL_MS (to match the session cookie) but the SDK
  * hard-coded ACCESS_TOKEN_TTL_MS (15 minutes), so cookies outlived JWTs.
  */
 vi.mock("./_core/env", () => ({

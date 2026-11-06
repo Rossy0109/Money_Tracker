@@ -1,10 +1,15 @@
-import { COOKIE_NAME } from "@shared/const";
+import {
+  COOKIE_NAME,
+  SESSION_REFRESH_THRESHOLD_MS,
+  SESSION_TTL_MS,
+} from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
 import { parseCookie as parseCookieHeader } from "cookie";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import { getSessionCookieOptions } from "./cookies";
 import { ENV } from "./env";
 import logger from "./logger";
 // Utility function
@@ -146,9 +151,9 @@ class SDKServer {
         appId: provider.clientId,
         name: options.name || "",
       },
-      // Honor the caller's requested TTL (login flows pass ONE_YEAR_MS to match
-      // the session cookie). Falling back to the 15-minute access-token default
-      // caused JWTs to expire while the cookie was still valid.
+      // Honor the caller's requested TTL (login flows pass SESSION_TTL_MS to
+      // match the session cookie). Falling back to the 15-minute access-token
+      // default caused JWTs to expire while the cookie was still valid.
       { expiresInMs: options.expiresInMs ?? ACCESS_TOKEN_TTL_MS }
     );
   }
@@ -200,7 +205,13 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<{
+    openId: string;
+    appId: string;
+    name: string;
+    /** JWT `exp` in epoch ms when present — drives the sliding refresh. */
+    expiresAt?: number;
+  } | null> {
     if (!cookieValue) {
       logger.warn("[Auth] Missing session cookie");
       return null;
@@ -211,7 +222,7 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, exp } = payload as Record<string, unknown>;
 
       if (
         !isNonEmptyString(openId) ||
@@ -226,6 +237,7 @@ class SDKServer {
         openId,
         appId,
         name,
+        expiresAt: typeof exp === "number" ? exp * 1000 : undefined,
       };
     } catch (error) {
       logger.warn(
@@ -236,10 +248,11 @@ class SDKServer {
     }
   }
 
-  async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
+  async authenticateRequest(req: Request, res?: Response): Promise<AuthenticatedUser> {
     // 1. Prefer the session cookie (regular OAuth login).
     const cookies = this.parseCookies(req.headers.cookie);
     let sessionToken: string | undefined = cookies.get(COOKIE_NAME);
+    const usedCookie = Boolean(sessionToken);
 
     // 2. Fallback to the Authorization header (Preview auto-login via
     //    sessionStorage), used when the browser blocks iframe cookies such as
@@ -275,6 +288,58 @@ class SDKServer {
 
     if (!user) {
       throw ForbiddenError("User not found");
+    }
+
+    // P2-S-2 sliding refresh: once a session enters its final half-life, mint
+    // a fresh cookie so active sessions never age out mid-use while idle ones
+    // die within SESSION_TTL_MS. Cookie path only — a Bearer token lives in
+    // client storage, where a Set-Cookie would not help. Failures here must
+    // never break an otherwise valid authentication.
+    const tokenExpiresAt = session.expiresAt;
+    if (
+      res &&
+      usedCookie &&
+      tokenExpiresAt !== undefined &&
+      tokenExpiresAt - Date.now() < SESSION_REFRESH_THRESHOLD_MS
+    ) {
+      let freshToken: string | undefined;
+      try {
+        freshToken = await this.createSessionToken(session.openId, {
+          name: session.name,
+          expiresInMs: SESSION_TTL_MS,
+        });
+      } catch (err) {
+        logger.warn({ err }, "[Auth] Sliding refresh could not mint a token");
+      }
+      if (freshToken) {
+        const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+        try {
+          // Record the refreshed token so logout/password-reset revocation
+          // covers it exactly like the login-time token (login does the same,
+          // non-blocking, for audit-robustness reasons).
+          await db.createUserSession(
+            user.id,
+            freshToken,
+            freshToken,
+            typeof req.headers["user-agent"] === "string"
+              ? req.headers["user-agent"]
+              : null,
+            req.ip ?? null,
+            expiresAt,
+            expiresAt
+          );
+        } catch (err) {
+          logger.warn({ err }, "[Auth] Sliding refresh session row not stored");
+        }
+        try {
+          res.cookie(COOKIE_NAME, freshToken, {
+            ...getSessionCookieOptions(req),
+            maxAge: SESSION_TTL_MS,
+          });
+        } catch (err) {
+          logger.warn({ err }, "[Auth] Sliding refresh cookie not set");
+        }
+      }
     }
 
     return user;

@@ -20,7 +20,9 @@ export async function createContext(
 ): Promise<TrpcContext> {
   let user: User | null;
   try {
-    user = await sdk.authenticateRequest(opts.req);
+    // `res` lets sdk re-issue a near-expiry session cookie (P2-S-2) on tRPC
+    // traffic; callers without a response (worker shim, cron) simply skip it.
+    user = await sdk.authenticateRequest(opts.req, opts.res);
   } catch {
     // Authentication is optional for public procedures.
     user = null;
