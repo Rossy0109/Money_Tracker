@@ -324,6 +324,13 @@ const statements = [
     requestId varchar(64),
     createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB`,
+  `CREATE TABLE rate_limit_counters (
+    \`key\` varchar(191) NOT NULL,
+    count int NOT NULL,
+    resetAt bigint NOT NULL,
+    PRIMARY KEY (\`key\`),
+    INDEX rate_limit_counters_reset_at_idx (resetAt)
+  ) ENGINE=InnoDB`,
   `CREATE TABLE finance_private_storage_objects (
     id int AUTO_INCREMENT PRIMARY KEY,
     ownerUserId int NOT NULL,

@@ -5,6 +5,13 @@ import { normalizeVercelRequestPath } from "./_core/vercelPath";
 import { initializeRBACSystem } from "./_core/rbac-initializer";
 import { validateCriticalEnv } from "./_core/env";
 import logger from "./_core/logger";
+import { setRateLimitStore } from "./_core/rateLimiter";
+import { createDbRateLimitStore } from "./_core/rateLimitDbStore";
+
+// P2-S-1: lambdas are short-lived and numerous, so per-process counters
+// undercount. Share rate-limit state through the database instead (the
+// Worker uses KV; standalone Node keeps its single-process memory store).
+setRateLimitStore(createDbRateLimitStore());
 
 const missingEnv = validateCriticalEnv();
 if (missingEnv.length > 0) {
