@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, SESSION_TTL_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import { TRPCError } from "@trpc/server";
 import * as db from "../db";
@@ -102,13 +102,13 @@ export function registerOAuthRoutes(app: Express) {
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || user.email || "",
-        expiresInMs: ONE_YEAR_MS,
+        expiresInMs: SESSION_TTL_MS,
       });
 
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, {
         ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
+        maxAge: SESSION_TTL_MS,
       });
 
       res.status(201).json({
@@ -254,12 +254,12 @@ export function registerOAuthRoutes(app: Express) {
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || user.email || "",
-        expiresInMs: ONE_YEAR_MS,
+        expiresInMs: SESSION_TTL_MS,
       });
 
       // Record session for server-side revocation on logout / password-reset.
       try {
-        const expiresAt = new Date(Date.now() + ONE_YEAR_MS);
+        const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
         await db.createUserSession(
           user.id,
           sessionToken,
@@ -278,7 +278,7 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, {
         ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
+        maxAge: SESSION_TTL_MS,
       });
 
       res.status(200).json({
@@ -418,11 +418,11 @@ export function registerOAuthRoutes(app: Express) {
 
       const sessionToken = await sdk.createSessionToken(identity.openId, {
         name: identity.name ?? identity.email,
-        expiresInMs: ONE_YEAR_MS,
+        expiresInMs: SESSION_TTL_MS,
       });
       res.cookie(COOKIE_NAME, sessionToken, {
         ...getSessionCookieOptions(req),
-        maxAge: ONE_YEAR_MS,
+        maxAge: SESSION_TTL_MS,
       });
       res.redirect(302, "/");
     } catch (error) {
@@ -540,12 +540,12 @@ export function registerOAuthRoutes(app: Express) {
 
       const sessionToken = await sdk.createSessionToken(identity.openId, {
         name: identity.name ?? identity.email,
-        expiresInMs: ONE_YEAR_MS,
+        expiresInMs: SESSION_TTL_MS,
       });
 
       res.cookie(COOKIE_NAME, sessionToken, {
         ...getSessionCookieOptions(req),
-        maxAge: ONE_YEAR_MS,
+        maxAge: SESSION_TTL_MS,
       });
       res.redirect(302, "/");
     } catch (error) {

@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   decimal,
   index,
@@ -1386,6 +1387,22 @@ export const auditLogs = mysqlTable(
     index("audit_logs_project_idx").on(table.projectId),
     index("audit_logs_entity_idx").on(table.entityType, table.entityId),
   ]
+);
+
+/**
+ * Rate-limit counters for the Vercel serverless deployment (P2-S-1). The
+ * Worker uses KV and standalone Node keeps per-process memory; lambdas are
+ * short-lived and numerous, so shared counters live here. `resetAt` is an
+ * epoch-ms window end used for lazy expiry and as the sweep index.
+ */
+export const rateLimitCounters = mysqlTable(
+  "rate_limit_counters",
+  {
+    key: varchar("key", { length: 191 }).primaryKey(),
+    count: int("count").notNull(),
+    resetAt: bigint("resetAt", { mode: "number" }).notNull(),
+  },
+  table => [index("rate_limit_counters_reset_at_idx").on(table.resetAt)]
 );
 
 /**

@@ -41,6 +41,7 @@ import {
   generateMonthlyTransactions,
   createFiscalPeriod,
   listFiscalPeriods,
+  closeFiscalPeriod,
   assertPeriodNotLocked,
 } from "./accounting-core";
 
@@ -727,6 +728,43 @@ describe("Cash Flow Statement", () => {
     expect(cf.openingCash).toBe(0);
     expect(cf.closingCash).toBe(cf.openingCash + cf.netChangeInCash);
   });
+
+  it("classifies liability movement as financing, not operating (P2-C1b)", async () => {
+    mockDbSelects(
+      [
+        makeAccount(1, "1110", "Cash in Hand", "ASSET", "debit"),
+        makeAccount(2, "4100", "Sales Revenue", "REVENUE", "credit"),
+        makeAccount(3, "2100", "Accounts Payable", "LIABILITY", "credit"),
+      ],
+      [
+        // Sale received in cash: 5,000.
+        makeLedgerEntry(1, "debit", "5000.00"),
+        makeLedgerEntry(2, "credit", "5000.00"),
+        // Loan drawn: cash +800, liability +800.
+        makeLedgerEntry(1, "debit", "800.00"),
+        makeLedgerEntry(3, "credit", "800.00"),
+      ]
+    );
+
+    const cf = await generateCashFlowStatement(1, 1);
+
+    const liabilityInFinancing = cf.financingActivities.items.find(
+      item => item.accountCode === "2100"
+    );
+    expect(liabilityInFinancing).toBeDefined();
+    expect(liabilityInFinancing!.amount).toBe(800);
+    expect(cf.financingActivities.total).toBe(800);
+
+    expect(
+      cf.operatingActivities.items.some(item => item.accountCode === "2100")
+    ).toBe(false);
+    // Operating = net income (no working-capital items in this fixture).
+    expect(cf.operatingActivities.total).toBe(5000);
+    // Section chain still ties: 0 + (5000 + 800) = closing cash 5800.
+    expect(cf.netChangeInCash).toBe(5800);
+    expect(cf.closingCash).toBe(cf.openingCash + cf.netChangeInCash);
+    expect(cf.closingCash).toBe(5800);
+  });
 });
 
 // ─── Period Locking Tests ───────────────────────────────────────────────────
@@ -850,6 +888,106 @@ describe("Fiscal Periods", () => {
     });
     const periods = await listFiscalPeriods(1, 1);
     expect(periods).toEqual([]);
+  });
+
+  it("closeFiscalPeriod counts locks by monthKey bounds, not lockedAt (P2-E.1)", async () => {
+    const lockedWhereClauses: unknown[] = [];
+    const periodChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          id: 7,
+          userId: 1,
+          projectId: 1,
+          name: "Jan 2026",
+          startDate: new Date("2026-01-01T00:00:00.000Z"),
+          endDate: new Date("2026-01-31T00:00:00.000Z"),
+          status: "open",
+          closedAt: null,
+          closedBy: null,
+        },
+      ]),
+    };
+    const locksChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockImplementation((clause: unknown) => {
+        lockedWhereClauses.push(clause);
+        return Promise.resolve([{ monthKey: "2026-01" }]);
+      }),
+    };
+    mockGetDb.mockResolvedValue({
+      select: vi
+        .fn()
+        .mockReturnValueOnce(periodChain)
+        .mockReturnValueOnce(locksChain),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    });
+
+    const result = await closeFiscalPeriod(1, 1, 7);
+    expect(result).toEqual({ closed: true, lockedMonthsFound: 1 });
+
+    const params = paramValues(lockedWhereClauses[0]);
+    expect(params).toContain(1); // projectId
+    // The period's month range — string YYYY-MM params, no Date timestamps.
+    expect(params.filter(p => p === "2026-01")).toHaveLength(2);
+    expect(params.some(p => p instanceof Date)).toBe(false);
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update",
+        entityType: "fiscal_period",
+        entityId: 7,
+      })
+    );
+  });
+
+  it("closeFiscalPeriod derives month bounds across a multi-month period", async () => {
+    const lockedWhereClauses: unknown[] = [];
+    const periodChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          id: 9,
+          userId: 1,
+          projectId: 1,
+          name: "Winter",
+          startDate: new Date("2025-11-15T00:00:00.000Z"),
+          endDate: new Date("2026-02-14T00:00:00.000Z"),
+          status: "open",
+          closedAt: null,
+          closedBy: null,
+        },
+      ]),
+    };
+    const locksChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockImplementation((clause: unknown) => {
+        lockedWhereClauses.push(clause);
+        return Promise.resolve([]);
+      }),
+    };
+    mockGetDb.mockResolvedValue({
+      select: vi
+        .fn()
+        .mockReturnValueOnce(periodChain)
+        .mockReturnValueOnce(locksChain),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    });
+
+    const result = await closeFiscalPeriod(1, 1, 9);
+    expect(result).toEqual({ closed: true, lockedMonthsFound: 0 });
+    const params = paramValues(lockedWhereClauses[0]);
+    expect(params).toContain("2025-11");
+    expect(params).toContain("2026-02");
   });
 });
 

@@ -1195,6 +1195,9 @@ function validateVoucherInput(input: VoucherInput) {
   }
   if (totalDebitCents === 0)
     throw new Error("ডেবিট ও ক্রেডিটের মোট শূন্য হতে পারে না");
+  // W-2: `_internalPostedBy` is the server-only auto-posting gate (never part
+  // of client input). The accepted SoD-exception flows it opens are listed in
+  // docs/W2-QUICK-ENTRY-SOD-EXCEPTION.md.
   if (input.status === "posted" && !input._internalPostedBy) {
     throw new Error(
       "সরাসরি পোস্ট করা ভাউচার তৈরি করা যাবে না; প্রথমে ড্রাফ্ট তৈরি করুন"

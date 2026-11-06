@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const";
+import { COOKIE_NAME, SESSION_TTL_MS } from "../../shared/const";
 import * as financeDb from "../db";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
@@ -107,12 +107,12 @@ export const authRouter = router({
 
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name || user.email || "",
-          expiresInMs: ONE_YEAR_MS,
+          expiresInMs: SESSION_TTL_MS,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, {
           ...cookieOptions,
-          maxAge: ONE_YEAR_MS,
+          maxAge: SESSION_TTL_MS,
         });
         const [roles, permissions] = await Promise.all([
           getUserRoles(user.id).catch(() => []),
@@ -264,10 +264,10 @@ export const authRouter = router({
       }
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || user.email || "",
-        expiresInMs: ONE_YEAR_MS,
+        expiresInMs: SESSION_TTL_MS,
       });
       try {
-        const expiresAt = new Date(Date.now() + ONE_YEAR_MS);
+        const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
         await financeDb.createUserSession(
           user.id,
           sessionToken,
@@ -285,7 +285,7 @@ export const authRouter = router({
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.cookie(COOKIE_NAME, sessionToken, {
         ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
+        maxAge: SESSION_TTL_MS,
       });
       const [roles, permissions] = await Promise.all([
         getUserRoles(user.id).catch(() => []),
