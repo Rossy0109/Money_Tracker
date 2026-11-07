@@ -839,7 +839,18 @@ describe("Fiscal Periods", () => {
   });
 
   it("createFiscalPeriod creates period successfully", async () => {
+    const overlapClause: unknown[] = [];
+    const overlapChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockImplementation((clause: unknown) => {
+        overlapClause.push(clause);
+        return {
+          limit: vi.fn().mockResolvedValue([]),
+        };
+      }),
+    };
     mockGetDb.mockResolvedValue({
+      select: vi.fn().mockReturnValue(overlapChain),
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue([{ insertId: 1 }]),
       }),
@@ -851,6 +862,10 @@ describe("Fiscal Periods", () => {
     });
     expect(result.id).toBe(1);
     expect(mockAssertOwnedProject).toHaveBeenCalledWith(1, 1);
+    // P3-E.3: the overlap query compares the new period's own bounds.
+    const boundParams = paramValues(overlapClause[0]);
+    expect(boundParams).toContainEqual(new Date("2026-01-01"));
+    expect(boundParams).toContainEqual(new Date("2026-12-31"));
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "create",
@@ -859,6 +874,29 @@ describe("Fiscal Periods", () => {
         projectId: 1,
       })
     );
+  });
+
+  it("createFiscalPeriod rejects a period overlapping an existing one (P3-E.3)", async () => {
+    const overlapChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([{ id: 4, name: "Q1 2026" }]),
+      }),
+    };
+    const insert = vi.fn();
+    mockGetDb.mockResolvedValue({
+      select: vi.fn().mockReturnValue(overlapChain),
+      insert,
+    });
+    await expect(
+      createFiscalPeriod(1, 1, {
+        name: "Feb 2026",
+        startDate: new Date("2026-02-01"),
+        endDate: new Date("2026-02-28"),
+      })
+    ).rejects.toThrow("Q1 2026");
+    expect(insert).not.toHaveBeenCalled();
+    expect(mockLogAudit).not.toHaveBeenCalled();
   });
 
   it("createFiscalPeriod rejects cross-project inserts (ownership enforced)", async () => {
@@ -971,6 +1009,58 @@ describe("Fiscal Periods", () => {
         return Promise.resolve([]);
       }),
     };
+    const update = vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      }),
+    });
+    mockGetDb.mockResolvedValue({
+      select: vi
+        .fn()
+        .mockReturnValueOnce(periodChain)
+        .mockReturnValueOnce(locksChain),
+      update,
+    });
+
+    // P3-E.2: an unlocked month inside the period blocks the close.
+    await expect(closeFiscalPeriod(1, 1, 9)).rejects.toThrow(
+      "2025-11, 2025-12, 2026-01, 2026-02"
+    );
+    expect(update).not.toHaveBeenCalled();
+    const params = paramValues(lockedWhereClauses[0]);
+    expect(params).toContain("2025-11");
+    expect(params).toContain("2026-02");
+  });
+
+  it("closeFiscalPeriod closes once every month in the period is locked (P3-E.2)", async () => {
+    const periodChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          id: 9,
+          userId: 1,
+          projectId: 1,
+          name: "Winter",
+          startDate: new Date("2025-11-15T00:00:00.000Z"),
+          endDate: new Date("2026-02-14T00:00:00.000Z"),
+          status: "open",
+          closedAt: null,
+          closedBy: null,
+        },
+      ]),
+    };
+    const locksChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnValue(
+        Promise.resolve([
+          { monthKey: "2025-11" },
+          { monthKey: "2025-12" },
+          { monthKey: "2026-01" },
+          { monthKey: "2026-02" },
+        ])
+      ),
+    };
     mockGetDb.mockResolvedValue({
       select: vi
         .fn()
@@ -984,10 +1074,7 @@ describe("Fiscal Periods", () => {
     });
 
     const result = await closeFiscalPeriod(1, 1, 9);
-    expect(result).toEqual({ closed: true, lockedMonthsFound: 0 });
-    const params = paramValues(lockedWhereClauses[0]);
-    expect(params).toContain("2025-11");
-    expect(params).toContain("2026-02");
+    expect(result).toEqual({ closed: true, lockedMonthsFound: 4 });
   });
 });
 

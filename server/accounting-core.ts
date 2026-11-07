@@ -14,13 +14,14 @@
  *   - Every voucher: sum(debits) === sum(credits)  (checked at insert time)
  */
 
-import { eq, and, gte, inArray, lte, sql } from "drizzle-orm";
+import { eq, and, gt, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { assertOwnedProject, databaseRequired, getDb } from "./db";
 import { fromCents, toCents } from "./money";
 import { logAudit } from "./audit";
 import {
   financeChartOfAccounts,
   financeAccountTypes,
+  financeJournalEntries,
   financeLedgerEntries,
   financeVouchers,
   financeFiscalPeriods,
@@ -504,6 +505,30 @@ export async function createFiscalPeriod(
   // Ownership first — never trust a client-supplied projectId.
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
+
+  // P3-E.3: fiscal periods must not overlap. Strict inequalities let
+  // back-to-back periods share a boundary instant (Jan31 → Feb1) while a
+  // period nested inside or straddling an existing one is rejected.
+  const overlapping = await db
+    .select({ id: financeFiscalPeriods.id, name: financeFiscalPeriods.name })
+    .from(financeFiscalPeriods)
+    .where(
+      and(
+        eq(financeFiscalPeriods.userId, userId),
+        eq(financeFiscalPeriods.projectId, projectId),
+        lt(financeFiscalPeriods.startDate, input.endDate),
+        gt(financeFiscalPeriods.endDate, input.startDate)
+      )
+    )
+    .limit(5);
+  if (overlapping.length > 0) {
+    throw new Error(
+      `এই সময়কাল ইতিমধ্যে অন্য একটি ফিস্কাল পিরিয়ডের সাথে মিলে যায়: ${overlapping
+        .map(period => period.name)
+        .join(", ")}`
+    );
+  }
+
   const result = await db.insert(financeFiscalPeriods).values({
     userId,
     projectId,
@@ -551,6 +576,29 @@ function periodMonthKey(value: Date | string): string {
   return match ? match[1] : new Date(value).toISOString().slice(0, 7);
 }
 
+/**
+ * Every calendar month key (YYYY-MM) covered by [start, end], inclusive.
+ * Used by the P3-E.2 close gate: a period may only close once each of its
+ * months has an explicit lock row.
+ */
+function enumerateMonthKeys(start: Date | string, end: Date | string): string[] {
+  const startKey = periodMonthKey(start);
+  const endKey = periodMonthKey(end);
+  if (startKey > endKey) return [];
+  const keys: string[] = [];
+  let [year, month] = startKey.split("-").map(Number);
+  const [endYear, endMonth] = endKey.split("-").map(Number);
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    keys.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return keys;
+}
+
 export async function closeFiscalPeriod(
   userId: number,
   projectId: number,
@@ -591,6 +639,21 @@ export async function closeFiscalPeriod(
         lte(financePeriodLocks.monthKey, endMonthKey)
       )
     );
+
+  // P3-E.2: closing a period must not paper over unlocked months — every
+  // calendar month inside the period needs its own lock row, otherwise
+  // postings can still land inside a "closed" window.
+  const expectedMonths = enumerateMonthKeys(period.startDate, period.endDate);
+  if (expectedMonths.length === 0) {
+    throw new Error("ফিস্কাল পিরিয়ডের তারিখসীমা সঠিক নয়");
+  }
+  const lockedSet = new Set(lockedMonths.map(row => row.monthKey));
+  const missingMonths = expectedMonths.filter(key => !lockedSet.has(key));
+  if (missingMonths.length > 0) {
+    throw new Error(
+      `পিরিয়ড বন্ধ করার আগে সব মাস লক করতে হবে; লক করা বাকি: ${missingMonths.join(", ")}`
+    );
+  }
 
   await db
     .update(financeFiscalPeriods)
@@ -722,7 +785,10 @@ export async function generateAccountLedger(
     .select({
       date: financeVouchers.date,
       voucherNo: financeVouchers.voucherNo,
-      narration: financeLedgerEntries.amount, // placeholder, we'll join voucher narration
+      // P3-B5: the ledger joins its journal entry so each line is traceable
+      // back to a journal number; left join because legacy vouchers may not
+      // have one yet.
+      journalNo: financeJournalEntries.journalNo,
       entryType: financeLedgerEntries.entryType,
       amount: financeLedgerEntries.amount,
       runningBalance: financeLedgerEntries.runningBalance,
@@ -732,6 +798,10 @@ export async function generateAccountLedger(
     .innerJoin(
       financeVouchers,
       eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
+    .leftJoin(
+      financeJournalEntries,
+      eq(financeLedgerEntries.voucherId, financeJournalEntries.voucherId)
     )
     .where(and(...conditions))
     .orderBy(financeVouchers.date, financeLedgerEntries.id);
@@ -749,7 +819,7 @@ export async function generateAccountLedger(
     lines.push({
       date: row.date,
       voucherNo: row.voucherNo,
-      journalNo: null,
+      journalNo: row.journalNo ?? null,
       narration: row.voucherNarration,
       entryType: row.entryType as "debit" | "credit",
       amount: fromCents(amt),

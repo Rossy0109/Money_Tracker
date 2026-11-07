@@ -79,6 +79,7 @@ function mockDbSelects(
       const chain: any = {};
       chain.from = vi.fn().mockReturnValue(chain);
       chain.innerJoin = vi.fn().mockReturnValue(chain);
+      chain.leftJoin = vi.fn().mockReturnValue(chain);
       chain.where = vi.fn().mockReturnValue(chain);
       chain.orderBy = vi.fn().mockImplementation(() => {
         orderByCalled = true;
@@ -139,6 +140,7 @@ function mockDbSequential(results: any[]) {
       const chain: any = {};
       chain.from = vi.fn().mockReturnValue(chain);
       chain.innerJoin = vi.fn().mockReturnValue(chain);
+      chain.leftJoin = vi.fn().mockReturnValue(chain);
       chain.where = vi.fn().mockReturnValue(chain);
       chain.orderBy = vi.fn().mockReturnValue(chain);
       chain.groupBy = vi.fn().mockReturnValue(chain);
@@ -188,6 +190,36 @@ describe("Account Ledger Report", () => {
     const report = await generateAccountLedger(1, 1, 1);
     expect(report.lines.length).toBe(0);
     expect(report.closingBalance).toBe(0);
+  });
+
+  it("carries journalNo from the joined journal entry (P3-B5)", async () => {
+    const accountRow = makeAccount(1, "1110", "Cash in Hand", "ASSET", "debit");
+    const ledgerEntries = [
+      {
+        date: new Date("2026-01-05T00:00:00.000Z"),
+        voucherNo: "V-0001",
+        journalNo: "JE-00000007",
+        entryType: "debit",
+        amount: "100.00",
+        runningBalance: "100.00",
+        voucherNarration: "Sale",
+      },
+      {
+        date: new Date("2026-01-06T00:00:00.000Z"),
+        voucherNo: "V-0002",
+        journalNo: null, // legacy voucher without a journal row
+        entryType: "credit",
+        amount: "40.00",
+        runningBalance: "60.00",
+        voucherNarration: "Seed",
+      },
+    ];
+    mockDbSequential([[accountRow], ledgerEntries]);
+
+    const report = await generateAccountLedger(1, 1, 1);
+    expect(report.lines[0]!.journalNo).toBe("JE-00000007");
+    expect(report.lines[0]!.narration).toBe("Sale");
+    expect(report.lines[1]!.journalNo).toBeNull();
   });
 });
 
