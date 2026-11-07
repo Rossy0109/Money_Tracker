@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   gte,
+  inArray,
   isNull,
   isNotNull,
   like,
@@ -533,10 +534,14 @@ export async function createPasswordResetToken(email: string) {
   const resetToken = crypto.randomBytesBase64Url(32);
   const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
+  // P3-S-3: only the SHA-256 hash of the token is persisted, so a database
+  // leak cannot be replayed against the reset endpoint. The plaintext token
+  // is returned to this caller (the email) and never stored. Tokens issued
+  // before this change expire within RESET_TOKEN_TTL_MS anyway.
   await db
     .update(users)
     .set({
-      resetToken,
+      resetToken: await sha256Hex(resetToken),
       resetTokenExpiresAt,
     })
     .where(eq(users.id, user.id));
@@ -552,7 +557,10 @@ export async function validatePasswordResetToken(token: string) {
     .select()
     .from(users)
     .where(
-      and(eq(users.resetToken, token), gte(users.resetTokenExpiresAt, now))
+      and(
+        eq(users.resetToken, await sha256Hex(token)),
+        gte(users.resetTokenExpiresAt, now)
+      )
     )
     .limit(1);
 
@@ -9785,7 +9793,9 @@ export async function getVoucherList(
       .where(
         and(
           eq(financeVoucherReversals.projectId, projectId),
-          sql`${financeVoucherReversals.originalVoucherId} IN (${voucherIds.join(",")})`
+          // P3-S-4: parameterized inArray instead of raw IN-list interpolation,
+          // so the pattern class cannot reappear even for DB-derived ids.
+          inArray(financeVoucherReversals.originalVoucherId, voucherIds)
         )
       );
     for (const r of reversals) {

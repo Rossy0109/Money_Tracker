@@ -188,3 +188,18 @@ describe("Storage Proxy Security", () => {
     expect(s).toContain("nosniff");
   });
 });
+
+describe("P3 hardening pins", () => {
+  it("password-reset tokens are stored only as SHA-256 hashes (S-3)", () => {
+    const s = readFile("./db.ts");
+    expect(s).toContain("resetToken: await sha256Hex(resetToken)");
+    expect(s).toContain("eq(users.resetToken, await sha256Hex(token))");
+    // The plaintext token must never be written to the row.
+    expect(s).not.toMatch(/\.set\(\{\s*resetToken,\s*\}/);
+  });
+
+  it("db.ts has no raw IN-list interpolation left (S-4)", () => {
+    const s = readFile("./db.ts");
+    expect(s).not.toMatch(/IN \(\$\{[^}\n]*\.join\(/);
+  });
+});
