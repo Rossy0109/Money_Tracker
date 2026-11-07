@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/react";
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -9,6 +8,7 @@ import App from "./App";
 import "./index.css";
 
 import { toast } from "sonner";
+import { readMirroredSessionCookie } from "./lib/previewSession";
 import {
   fetchWithTimeout,
   getRetryDelay,
@@ -82,23 +82,13 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       headers() {
-        // Preview auto-login fallback: when the browser blocks iframe cookies
-        // (Safari ITP / private browsing / WebView), the runtime mirrors the
-        // session into sessionStorage so we can forward it as a Bearer token.
-        // The regular OAuth cookie flow keeps working and takes priority server-side.
-        try {
-          const raw = sessionStorage.getItem("auth-session-cookie");
-          if (raw) {
-            const prefix = `${COOKIE_NAME}=`;
-            const pair = raw.split(";").find(s => s.trim().startsWith(prefix));
-            const token = pair?.trim().slice(prefix.length);
-            if (token) {
-              return { Authorization: `Bearer ${token}` };
-            }
-          }
-        } catch {
-          // sessionStorage unavailable
-        }
+        // Preview auto-login fallback (P3-S-5): when the browser blocks iframe
+        // cookies (Safari ITP / private browsing / WebView), the runtime may
+        // mirror the session into sessionStorage so we can forward it as a
+        // Bearer token. readMirroredSessionCookie only honors that mirror on
+        // loopback/preview hosts — production stays cookie-only.
+        const token = readMirroredSessionCookie();
+        if (token) return { Authorization: `Bearer ${token}` };
         return {};
       },
       fetch(input, init) {
