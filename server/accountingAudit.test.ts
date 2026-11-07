@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  financeChartOfAccounts,
   financeJournalEntries,
   financeJournalLines,
   financeLedgerEntries,
@@ -240,6 +241,89 @@ describe("evaluateInvariants", () => {
     expect(violations.map(v => v.kind)).toContain("trial_balance_unbalanced");
     expect(violations.some(v => v.detail.includes("Equipment"))).toBe(true);
   });
+
+  it("accepts zero-opening rows handed in by a caller (P3-D-2 guard)", () => {
+    const violations = evaluateInvariants(
+      balancedDataset({
+        coaNonZeroOpenings: [
+          {
+            id: 5,
+            code: "1110",
+            name: "Cash",
+            openingBalance: "0.00",
+          },
+        ],
+      })
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("accepts a CoA mirror equal to opening + ledger replay (P3-D-2)", () => {
+    const violations = evaluateInvariants(
+      balancedDataset({
+        coaBalances: [
+          {
+            id: 11,
+            code: "1110",
+            name: "Cash",
+            openingBalance: "100.00",
+            currentBalance: "600.00",
+            ledgerDelta: "500.00",
+          },
+          {
+            id: 12,
+            code: "4100",
+            name: "Sales",
+            openingBalance: "0.00",
+            currentBalance: "0.00",
+            ledgerDelta: "0.00",
+          },
+        ],
+      })
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("flags a CoA mirror that disagrees with the ledger (P3-D-2)", () => {
+    const violations = evaluateInvariants(
+      balancedDataset({
+        coaBalances: [
+          {
+            id: 11,
+            code: "1110",
+            name: "Cash",
+            openingBalance: "0.00",
+            currentBalance: "700.00",
+            ledgerDelta: "500.00",
+          },
+        ],
+      })
+    );
+    const drift = violations.filter(v => v.kind === "mirror_drift");
+    expect(drift).toHaveLength(1);
+    expect(drift[0]!.scope).toBe("account");
+    expect(drift[0]!.refId).toBe(11);
+    expect(drift[0]!.detail).toContain("1110");
+  });
+
+  it("skips the mirror pass while legacy unmapped ledger rows exist (P3-D-2)", () => {
+    const violations = evaluateInvariants(
+      balancedDataset({
+        legacyLedgerUnmapped: 3,
+        coaBalances: [
+          {
+            id: 11,
+            code: "1110",
+            name: "Cash",
+            openingBalance: "0.00",
+            currentBalance: "700.00",
+            ledgerDelta: "500.00",
+          },
+        ],
+      })
+    );
+    expect(violations.filter(v => v.kind === "mirror_drift")).toEqual([]);
+  });
 });
 
 describe("verifyAccountingAuditRow", () => {
@@ -288,6 +372,7 @@ interface QueryChain {
   from(table: unknown): QueryChain;
   where(condition: unknown): QueryChain;
   innerJoin(table: unknown, condition: unknown): QueryChain;
+  leftJoin(table: unknown, condition: unknown): QueryChain;
   groupBy(column: unknown): QueryChain;
   then(
     onfulfilled?: ((value: unknown[]) => unknown) | null,
@@ -303,6 +388,7 @@ function installDb(rowsByTable: Map<unknown, unknown[]>) {
       from: () => chain,
       where: () => chain,
       innerJoin: () => chain,
+      leftJoin: () => chain,
       groupBy: () => chain,
       then: (onfulfilled, onrejected) =>
         Promise.resolve(rows).then(onfulfilled, onrejected),
@@ -420,6 +506,44 @@ describe("runAccountingAudit", () => {
     expect(verdict.verified).toBe(false);
     expect(verdict.projects).toBe(0);
     expect(verdict.reason).toContain("প্রজেক্ট");
+  });
+
+  it("verifies when the CoA mirror matches the ledger replay (P3-D-2)", async () => {
+    const rows = cleanRows();
+    rows.set(financeChartOfAccounts, [
+      {
+        id: 11,
+        code: "1110",
+        name: "Cash",
+        openingBalance: "0.00",
+        currentBalance: "500.00",
+        ledgerDelta: "500.00",
+      },
+    ]);
+    installDb(rows);
+    const verdict = await runAccountingAudit();
+    expect(verdict.verified).toBe(true);
+    expect(verdict.violations).toBe(0);
+  });
+
+  it("flags a CoA mirror drift end-to-end (P3-D-2)", async () => {
+    const rows = cleanRows();
+    rows.set(financeChartOfAccounts, [
+      {
+        id: 11,
+        code: "1110",
+        name: "Cash",
+        openingBalance: "0.00",
+        currentBalance: "700.00",
+        ledgerDelta: "500.00",
+      },
+    ]);
+    installDb(rows);
+    const verdict = await runAccountingAudit();
+    expect(verdict.verified).toBe(false);
+    expect(verdict.samples[0]?.violations.map(v => v.kind)).toContain(
+      "mirror_drift"
+    );
   });
 });
 

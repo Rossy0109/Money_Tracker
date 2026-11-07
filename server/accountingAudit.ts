@@ -13,6 +13,16 @@
  *   3. ledger rows:    Σ finance_ledger_entries == the voucher totals it posted
  *   4. journal entry:  Σ lines == journal.totalDebit / totalCredit
  *   5. trial balance:  project-wide Σ ledger debits == Σ ledger credits
+ *   6. CoA mirror (P3-D-2): finance_chart_of_accounts.currentBalance ==
+ *      openingBalance + Σ(posted ledger debit−credit) for that account.
+ *      The wallet mirror (finance_accounts.currentBalance) is deliberately
+ *      NOT reconciled here: wallets share canonical CoAs (cash/bank pools) and
+ *      several legitimate flows adjust a wallet without a per-wallet ledger
+ *      row (and manual vouchers adjust a CoA without touching any wallet), so
+ *      no false-positive-free ledger identity exists for it. Unmapped legacy
+ *      ledger rows (chartOfAccountId IS NULL, pre-refactor shape) would also
+ *      make the CoA identity unverifiable — when any exist, pass 6 is skipped
+ *      for that project rather than flagging rows this code cannot repair.
  *
  * Deliberate scope: balance only. Completeness questions (a posted voucher
  * with no ledger rows, a journal entry with no lines) belong to the backup
@@ -24,7 +34,7 @@
  * and the health panel reads that row back so a violated invariant shows up as
  * a failed check instead of a silently wrong balance.
  */
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import {
   auditLogs,
@@ -49,11 +59,12 @@ export type InvariantKind =
   | "journal_unbalanced"
   | "journal_non_positive_amount"
   | "ledger_mismatch"
-  | "trial_balance_unbalanced";
+  | "trial_balance_unbalanced"
+  | "mirror_drift";
 
 export interface InvariantViolation {
   kind: InvariantKind;
-  scope: "voucher" | "journal" | "project";
+  scope: "voucher" | "journal" | "project" | "account";
   refId: number;
   detail: string;
 }
@@ -99,6 +110,17 @@ export interface InvariantDataset {
     name: string;
     openingBalance: string;
   }>;
+  /** P3-D-2: CoA mirror vs ledger replay, one row per account. */
+  coaBalances?: Array<{
+    id: number;
+    code: string;
+    name: string;
+    openingBalance: string;
+    currentBalance: string;
+    ledgerDelta: string;
+  }>;
+  /** P3-D-2: ledger rows this code cannot map to a CoA (legacy shape). */
+  legacyLedgerUnmapped?: number;
 }
 
 export interface ProjectInvariantAudit {
@@ -247,12 +269,35 @@ export function evaluateInvariants(
   }
 
   for (const acc of data.coaNonZeroOpenings ?? []) {
+    // Defensive: only non-zero openings are violations even if a caller
+    // hands us a zero-opening row (the SQL WHERE normally filters these).
+    if (toCents(acc.openingBalance) === 0) continue;
     violations.push({
       kind: "trial_balance_unbalanced",
       scope: "project",
       refId: acc.id,
       detail: `Chart of Accounts #${acc.id} (${acc.code} ${acc.name}) has unposted opening balance ${acc.openingBalance} outside the ledger`,
     });
+  }
+
+  // P3-D-2 pass 6: every CoA mirror must equal opening + ledger replay.
+  // Skipped while legacy unmapped ledger rows exist (see module header).
+  if ((data.legacyLedgerUnmapped ?? 0) === 0) {
+    for (const acc of data.coaBalances ?? []) {
+      const expectedCents =
+        toCents(acc.openingBalance) + toCents(acc.ledgerDelta);
+      const actualCents = toCents(acc.currentBalance);
+      if (expectedCents !== actualCents) {
+        violations.push({
+          kind: "mirror_drift",
+          scope: "account",
+          refId: acc.id,
+          detail:
+            `${acc.code} ${acc.name}: ব্যালান্স মিরর ${money(actualCents)} ≠ ` +
+            `লেজার ${money(expectedCents)} (ওপেনিংসহ)`,
+        });
+      }
+    }
   }
 
   return violations;
@@ -359,6 +404,46 @@ export async function loadInvariantDataset(
       )
     );
 
+  // P3-D-2: replay the ledger per account next to the cached mirror. The
+  // left join keeps zero-ledger accounts (their mirror must equal opening).
+  const coaBalances = await db
+    .select({
+      id: financeChartOfAccounts.id,
+      code: financeChartOfAccounts.code,
+      name: financeChartOfAccounts.name,
+      openingBalance: sql<string>`cast(${financeChartOfAccounts.openingBalance} as char)`,
+      currentBalance: sql<string>`cast(${financeChartOfAccounts.currentBalance} as char)`,
+      ledgerDelta: sql<string>`coalesce(sum(case when ${financeLedgerEntries.entryType} = 'debit' then ${financeLedgerEntries.amount} else -${financeLedgerEntries.amount} end), '0')`,
+    })
+    .from(financeChartOfAccounts)
+    .leftJoin(
+      financeLedgerEntries,
+      eq(financeLedgerEntries.chartOfAccountId, financeChartOfAccounts.id)
+    )
+    .where(eq(financeChartOfAccounts.projectId, projectId))
+    .groupBy(
+      financeChartOfAccounts.id,
+      financeChartOfAccounts.code,
+      financeChartOfAccounts.name
+    );
+
+  // Legacy pre-refactor rows carry only accountId (wallet), never
+  // chartOfAccountId — the mirror identity is unverifiable while any exist.
+  const legacyUnmappedRows = await db
+    .select({ cnt: sql<number>`count(*)` })
+    .from(financeLedgerEntries)
+    .innerJoin(
+      financeVouchers,
+      eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
+    .where(
+      and(
+        eq(financeVouchers.projectId, projectId),
+        isNull(financeLedgerEntries.chartOfAccountId)
+      )
+    );
+  const legacyLedgerUnmapped = asCount(legacyUnmappedRows[0]?.cnt);
+
   return {
     projectId,
     projectName,
@@ -387,6 +472,15 @@ export async function loadInvariantDataset(
       name: row.name,
       openingBalance: String(row.openingBalance),
     })),
+    coaBalances: coaBalances.map(row => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      openingBalance: String(row.openingBalance),
+      currentBalance: String(row.currentBalance),
+      ledgerDelta: String(row.ledgerDelta),
+    })),
+    legacyLedgerUnmapped,
   };
 }
 
