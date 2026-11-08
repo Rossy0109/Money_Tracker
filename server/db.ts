@@ -3206,7 +3206,15 @@ export async function addBankReconciliationItem(
       )
     )
     .limit(1);
-  if (!rec) throw new Error("রিকอนসিলিয়েশন পাওয়া যায়নি");
+  if (!rec) throw new Error("রিকোনসিলিয়েশন পাওয়া যায়নি");
+
+  if (input.ledgerEntryId) {
+    await assertReconciliationLedgerScope(
+      projectId,
+      rec.accountId,
+      input.ledgerEntryId
+    );
+  }
 
   const result = await db.insert(financeBankReconciliationItems).values({
     reconciliationId: input.reconciliationId,
@@ -3230,6 +3238,71 @@ export async function addBankReconciliationItem(
   return itemId;
 }
 
+/**
+ * A reconciliation item is reachable only through a reconciliation owned by
+ * the caller. Fetching by bare item id was a cross-tenant write primitive
+ * (audit §3 certification finding): any user could match/unmatch another
+ * user's statement line, mutating that user's reconciliation.
+ */
+async function loadScopedReconciliationItem(
+  userId: number,
+  projectId: number,
+  itemId: number
+) {
+  const db = databaseRequired(await getDb());
+  const [row] = await db
+    .select({
+      id: financeBankReconciliationItems.id,
+      reconciliationId: financeBankReconciliationItems.reconciliationId,
+      ledgerEntryId: financeBankReconciliationItems.ledgerEntryId,
+      accountId: financeBankReconciliations.accountId,
+    })
+    .from(financeBankReconciliationItems)
+    .innerJoin(
+      financeBankReconciliations,
+      eq(
+        financeBankReconciliations.id,
+        financeBankReconciliationItems.reconciliationId
+      )
+    )
+    .where(
+      and(
+        eq(financeBankReconciliationItems.id, itemId),
+        eq(financeBankReconciliations.userId, userId),
+        eq(financeBankReconciliations.projectId, projectId)
+      )
+    )
+    .limit(1);
+  if (!row) throw new Error("রিকোনসিলিয়েশন আইটেম পাওয়া যায়নি");
+  return row;
+}
+
+/** A statement line may only be matched to a ledger entry of the same bank
+ * account in the same project — never to a foreign account's entry. */
+async function assertReconciliationLedgerScope(
+  projectId: number,
+  accountId: number,
+  ledgerEntryId: number
+) {
+  const db = databaseRequired(await getDb());
+  const [row] = await db
+    .select({ id: financeLedgerEntries.id })
+    .from(financeLedgerEntries)
+    .innerJoin(
+      financeVouchers,
+      eq(financeLedgerEntries.voucherId, financeVouchers.id)
+    )
+    .where(
+      and(
+        eq(financeLedgerEntries.id, ledgerEntryId),
+        eq(financeLedgerEntries.chartOfAccountId, accountId),
+        eq(financeVouchers.projectId, projectId)
+      )
+    )
+    .limit(1);
+  if (!row) throw new Error("লেজার এন্ট্রি এই হিসাবখাতার নয়");
+}
+
 export async function matchBankReconciliationItem(
   userId: number,
   projectId: number,
@@ -3239,12 +3312,8 @@ export async function matchBankReconciliationItem(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
-  const [item] = await db
-    .select()
-    .from(financeBankReconciliationItems)
-    .where(eq(financeBankReconciliationItems.id, itemId))
-    .limit(1);
-  if (!item) throw new Error("রিকোনসিলিয়েশন আইটেম পাওয়া যায়নি");
+  const item = await loadScopedReconciliationItem(userId, projectId, itemId);
+  await assertReconciliationLedgerScope(projectId, item.accountId, ledgerEntryId);
 
   await db.transaction(async tx => {
     await tx
@@ -3276,6 +3345,7 @@ export async function unmatchBankReconciliationItem(
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
 
+  const item = await loadScopedReconciliationItem(userId, projectId, itemId);
   await db.transaction(async tx => {
     await tx
       .update(financeBankReconciliationItems)
@@ -3286,19 +3356,7 @@ export async function unmatchBankReconciliationItem(
       })
       .where(eq(financeBankReconciliationItems.id, itemId));
 
-    const [item] = await tx
-      .select()
-      .from(financeBankReconciliationItems)
-      .where(eq(financeBankReconciliationItems.id, itemId))
-      .limit(1);
-    if (item) {
-      await recalculateReconciliation(
-        tx,
-        userId,
-        projectId,
-        item.reconciliationId
-      );
-    }
+    await recalculateReconciliation(tx, userId, projectId, item.reconciliationId);
   });
   await logAudit({
     actorUserId: userId,
