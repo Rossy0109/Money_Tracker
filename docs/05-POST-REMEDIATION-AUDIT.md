@@ -4,6 +4,8 @@ Read-only re-audit of the tree after the remediation roadmap in
 `docs/04-READINESS-VERDICT.md` was completed. Base of that audit:
 `4f8e76c` (2026-10-30). This pass runs at `51b6cae` + the certification
 branch (2026-11-08): **20 commits, 3 merged PRs** (`#283`, `#284`, `#285`).
+F-1 shipped in PR #286 (`fcbd117`); F-2/F-3 shipped in the follow-up
+`remediation/f2-f3` branch.
 
 Scope of this pass (owner-approved "do it all"):
 1. Runtime certification of the items listed in `04` §3 ("NOT-VERIFIED").
@@ -18,9 +20,10 @@ the current state of record.
 ## 1. Verdict
 
 **No open P0/P1.** One cross-tenant P1 defect was found by the new
-certification e2e and fixed in this cycle (F-1). Two P2 scalability risks in
-the backup/restore path now have measured evidence (F-2, F-3) and need an
-owner decision before books grow past ~100k rows.
+certification e2e and fixed in this cycle (F-1). The two P2 scalability risks
+in the backup/restore path (F-2, F-3) were fixed in the follow-up cycle and
+re-measured: a 210k-row project now backs up and drills on Node's **default
+2 GB heap** (peak 533 MB) with a 90 s restore instead of OOM / 732 s.
 
 Everything from the `04` roadmap is merged and CI-green:
 
@@ -29,6 +32,8 @@ Everything from the `04` roadmap is merged and CI-green:
 | P1 | W-1, R-1 | PR #283, merged `31f8081` |
 | P2 | C1b, E.1, W-2, D-1, S-1, S-2 | PR #284, merged `ef0aee6` |
 | P3 | E.2, E.3, B5, D-2, BR-1, S-3, S-4, S-5 | PR #285, merged `51b6cae` |
+| F-1 | Cross-tenant reconciliation authZ | PR #286, merged `fcbd117` |
+| F-2/F-3 | Backup memory ceiling + batched restore | `remediation/f2-f3` |
 
 ---
 
@@ -61,7 +66,7 @@ Fix (`server/db.ts`):
   cross-tenant match/unmatch/read/create rejection + victim-row integrity +
   completion tolerance boundary (0.01 allowed, 0.02 blocked) + list ordering.
 
-### F-2 — P2 — Backup/restore memory ceiling
+### F-2 — P2 — Backup/restore memory ceiling — **FIXED**
 
 Measured with the real path (`executeCloudBackup` → encrypt → upload →
 download → decrypt → `restoreProjectBackup`), only the Supabase HTTP
@@ -72,23 +77,47 @@ transport mocked:
 | 70,008 | 46.4 MB | default 2 GB | pass (backup 76 s, drill 260 s) |
 | 210,008 | 139.7 MB | **>2 GB — OOM at default** | pass only with `--max-old-space-size=6144` (backup 251 s, drill 732 s) |
 
-The export builds full JSON objects for every row, then `JSON.stringify`,
-encrypt, base64 envelope, download copy, decrypt and parse the same payload
-again — several full-size copies live simultaneously. A serverless runtime
-with a 1–2 GB memory cap will OOM on a ~140 MB backup, which is exactly the
-weekly drill path. Recommendation: stream or keyset-chunk the export/restore
-(prefer `mysqldump`-style streaming for the snapshot path) before certifying
-multi-year books.
+Root causes and fixes (all in the production path):
 
-### F-3 — P2 — Restore is row-by-row inside one transaction
+- **Hex codec was the actual OOM trigger.** `bytesToHex` appended one
+  character at a time, so encrypting a 49 MB plaintext built a cons-string
+  rope with ~49M nodes (~1.5 GB). It now uses `Buffer.toString("hex")` on
+  Node and a flat chunked encoder elsewhere; `hexToBytes` uses a nibble
+  table instead of one `slice` + `parseInt` per byte.
+- **Serialization copies.** Export queries run one at a time
+  (`settleSequentially`) instead of `Promise.all`; plaintext and
+  verify-checksum use compact JSON; `toArrayBuffer` reuses whole-buffer
+  views instead of slicing.
+- **Compatibility.** Verification accepts the legacy indented checksum on
+  mismatch, so backups written before this change still verify.
 
-`restoreProjectBackup` issues one `INSERT` per row and one `UPDATE` per
-account/category mapping. Measured: 210,008 rows → **732 s** restore inside a
-single rollback transaction; the drill adds the same cost again inside the
-transaction. The weekly drill endpoint therefore has a plan-dependent
-timeout risk on large projects. Recommendation: batch inserts (500–1000
-rows/statement) — the same rows fit comfortably in memory per table — and
-re-measure; the volume harness in this cycle can reproduce the numbers.
+Re-measured after the fix at the same 210k rows / 30k vouchers:
+
+| Node heap | Backup | Drill | Peak heap |
+|---|---|---|---|
+| default 2 GB | 60.5 s | 89.6 s | 533 MB |
+| 4 GB | 35.1 s | 18.4 s | — |
+
+`verified: true`, 19 tables, manifest counts equal, clean rollback/cleanup.
+Remaining caveat: the export still holds the whole project in memory, so
+scaling is now ~linear with a much smaller constant — very large projects
+(low millions of rows) would still need a streaming export.
+
+### F-3 — P2 — Restore is row-by-row inside one transaction — **FIXED**
+
+`restoreProjectBackup` issued one `INSERT` per row and one `UPDATE` per
+account/category mapping: 210,008 rows → **732 s** restore inside a single
+rollback transaction.
+
+It now inserts in 500-row batches (`insertRestoreBatch`), re-resolves child
+ids from natural keys (account name, category name+type, CoA/voucher/journal
+number, fiscal-period name, account-group code) or an ordered select — never
+from guessed contiguous ids — and inserts transactions after their CoA and
+voucher parents exist, which removes the two late `UPDATE` passes. Parent
+links (CoA, account groups) are attached after the batch insert. Low-volume
+child tables (dues, settlements, budgets, bills, recurring, audit,
+references, reversals) stay row-by-row because some lack a natural key.
+Measured drop: **732 s → 90 s** at the default 2 GB heap (18 s at 4 GB).
 
 ### F-4 — P3 — Completion-tolerance inconsistency
 
@@ -172,7 +201,7 @@ that part is unchanged and still NOT-VERIFIED locally.
 | Migrations | Rehearsal green (121 FKs, temp DB removed). No new migrations since 0024. |
 | CI gates | 5 required checks green on `main`; workflow hardening + dependency policy gates intact. |
 | Dependencies | No high/critical; 2 moderate dev advisories need semver-major approval (F-6). |
-| Backups/ops | Daily encrypted backup + manifest + weekly drill + retention/prune + maintenance report all present; scalability caveats F-2/F-3. |
+| Backups/ops | Daily encrypted backup + manifest + weekly drill + retention/prune + maintenance report all present; 210k-row drill verified on the default 2 GB heap after F-2/F-3. |
 | Docs | `01`–`04` current to 2026-11-05; this document is the post-remediation record. |
 
 ---
@@ -184,7 +213,7 @@ that part is unchanged and still NOT-VERIFIED locally.
 - Runtime work used disposable local MariaDB databases on `127.0.0.1:3307`
   created and dropped by the harness; the restore rehearsal used a mock
   Supabase HTTP server in-process.
-- The only product change in this cycle is the F-1 authorization fix plus
-  its certification e2e; adopted through the normal PR/CI gate with owner
-  approval.
+- The F-1 authorization fix shipped in the certification cycle; F-2/F-3
+  (batched restore, bounded export memory, hex codec) shipped in the
+  follow-up cycle — both through the normal PR/CI gate with owner approval.
 - Rehearsal scripts live outside the repo (`/tmp/opencode`), so no strays.
