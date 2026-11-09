@@ -220,13 +220,21 @@ export async function executeCloudBackup(
   encryptionKey?: string
 ): Promise<CloudBackupResult> {
   const backupData = await financeDb.exportProjectBackup(userId, projectId);
-  const rawJson = JSON.stringify(backupData, null, 2);
+  // Compact serialization: indentation inflated a 210k-row export by ~40% and
+  // that string is held live alongside the normalized copy during checksumming
+  // (docs/05 F-2). The checksum is still computed over exactly these bytes, so
+  // restore-time attestation is unchanged.
+  const rawJson = JSON.stringify(backupData);
   // checksum = hash of the exact bytes uploaded (byte-accurate for restore).
   const checksum = await sha256Hex(rawJson);
   // verifyChecksum = hash of the normalized export (exportedAt dropped, rows
   // sorted by id) so a later re-export of the same rows compares equal.
+  // Compact form: the indented variant doubled this 74 MB payload as a
+  // two-byte string on the same heap as `rawJson` (docs/05 F-2). Verification
+  // still accepts the legacy indented hash, so pre-existing backups keep
+  // verifying (see scheduledBackup.verifyBackupIntegrity).
   const verifyChecksum = await sha256Hex(
-    JSON.stringify(normalizeBackupForChecksum(backupData), null, 2)
+    JSON.stringify(normalizeBackupForChecksum(backupData))
   );
   const timestamp = new Date().toISOString();
   const safeProjectName = safeBackupProjectName(

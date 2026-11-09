@@ -17,24 +17,59 @@ function encodeUtf8(data: string): Uint8Array {
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
+  const buffer = bytes.buffer;
+  if (
+    buffer instanceof ArrayBuffer &&
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === buffer.byteLength
+  ) {
+    // Whole-buffer views (TextEncoder output, hexToBytes results) are already
+    // the exact bytes; slicing them doubled every backup payload (docs/05 F-2).
+    return buffer;
+  }
+  return buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength
   ) as ArrayBuffer;
 }
 
+const HEX_DIGITS = "0123456789abcdef";
+const HEX_VALUES = new Uint8Array(128);
+HEX_VALUES.fill(0xff);
+for (let index = 0; index < 16; index += 1) {
+  HEX_VALUES[HEX_DIGITS.charCodeAt(index)] = index;
+  HEX_VALUES["0123456789ABCDEF".charCodeAt(index)] = index;
+}
+
 export function bytesToHex(bytes: Uint8Array): string {
-  let hex = "";
-  for (let i = 0; i < bytes.length; i++) {
-    hex += bytes[i].toString(16).padStart(2, "0");
+  // Node's native encoder avoids one cons-string per byte: a 49 MB ciphertext
+  // became ~1.5 GB of rope nodes with the naive `hex += …` loop and OOMed the
+  // default heap during backup (docs/05 F-2).
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength
+    ).toString("hex");
   }
-  return hex;
+  const parts = new Array<string>(bytes.length);
+  for (let index = 0; index < bytes.length; index += 1) {
+    const byte = bytes[index];
+    parts[index] = HEX_DIGITS[byte >> 4] + HEX_DIGITS[byte & 0x0f];
+  }
+  return parts.join("");
 }
 
 export function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  for (let index = 0; index < bytes.length; index += 1) {
+    // Slice-per-pair plus parseInt allocated a short string per byte; table
+    // lookups keep decryption of a 49 MB envelope allocation-light.
+    const high = HEX_VALUES[hex.charCodeAt(index * 2)];
+    const low = HEX_VALUES[hex.charCodeAt(index * 2 + 1)];
+    bytes[index] =
+      ((high === undefined || high === 0xff ? 0 : high) << 4) |
+      (low === undefined || low === 0xff ? 0 : low);
   }
   return bytes;
 }

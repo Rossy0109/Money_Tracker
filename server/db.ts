@@ -7377,6 +7377,22 @@ export async function exportUserData(userId: number) {
   return { projects, accounts, categories, transactions, budgets, bills };
 }
 
+/**
+ * Await query thenables one at a time instead of `Promise.all`.
+ *
+ * `Promise.all` opened every result set at once, so a 210k-row project held 22
+ * driver buffers plus the assembled export in memory and OOMed at Node's
+ * default heap (docs/05 F-2). Drizzle builders are lazy, so awaiting them in
+ * order executes the same SQL with one result set live at a time.
+ */
+async function settleSequentially<const T extends readonly unknown[]>(
+  values: T
+): Promise<{ -readonly [K in keyof T]: Awaited<T[K]> }> {
+  const results: unknown[] = [];
+  for (const value of values) results.push(await value);
+  return results as { -readonly [K in keyof T]: Awaited<T[K]> };
+}
+
 export async function exportProjectBackup(userId: number, projectId: number) {
   await assertOwnedProject(userId, projectId);
   const db = databaseRequired(await getDb());
@@ -7411,7 +7427,7 @@ export async function exportProjectBackup(userId: number, projectId: number) {
     voucherReversals,
     voucherAudit,
     voucherReferences,
-  ] = await Promise.all([
+  ] = await settleSequentially([
     db
       .select()
       .from(financeAccounts)
@@ -7633,7 +7649,7 @@ export async function exportProjectBackup(userId: number, projectId: number) {
         )
       )
       .then(rows => rows.map(r => r.finance_voucher_references)),
-  ]);
+  ] as const);
   return {
     formatVersion: "finance-project-backup-v2" as const,
     exportedAt: new Date(),
@@ -7928,6 +7944,30 @@ export interface RestoreProjectBackupOptions {
   insideTransaction?: (tx: DbTx, projectId: number) => Promise<void>;
 }
 
+/** Restore inserts rows in batches instead of one statement per row: a
+ * 210k-row project took 12 minutes row-by-row inside the drill transaction
+ * (docs/05 F-3). Child ids are re-resolved from natural keys or an ordered
+ * select afterwards — a multi-row INSERT does not return one insertId per row,
+ * and guessing contiguous ids would break under concurrent inserts. */
+const RESTORE_BATCH_SIZE = 500;
+
+async function insertRestoreBatch(
+  tx: DbTx,
+  table: Parameters<DbHandle["insert"]>[0],
+  values: Array<Record<string, unknown>>
+): Promise<void> {
+  if (values.length === 0) return;
+  await tx.insert(table).values(values as never).execute();
+}
+
+function chunkRows<T>(rows: readonly T[], size = RESTORE_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < rows.length; index += size) {
+    chunks.push(rows.slice(index, index + size) as T[]);
+  }
+  return chunks;
+}
+
 export async function restoreProjectBackup(
   userId: number,
   input: { projectName: string; backup: ProjectBackupLike },
@@ -7965,35 +8005,45 @@ export async function restoreProjectBackup(
     const categoryCoaMap = new Map<number, number>();
     const voucherMap = new Map<number, number>();
     const voucherNoMap = new Map<string, number>();
-    const transactionMap = new Map<number, number>();
     const settlementMap = new Map<number, number>();
     const journalMap = new Map<number, number>();
     const fiscalPeriodMap = new Map<number, number>();
     const accountGroupMap = new Map<number, number>();
 
-    for (const row of input.backup.fiscalPeriods ?? []) {
-      const result = await tx
-        .insert(financeFiscalPeriods)
-        .values({
+    const fiscalPeriodRows = input.backup.fiscalPeriods ?? [];
+    for (const chunk of chunkRows(fiscalPeriodRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeFiscalPeriods,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           name: backupText(row.name),
           startDate: backupDate(row.startDate),
           endDate: backupDate(row.endDate),
-          status: (row.status ?? "open") as
-            | "open"
-            | "closed"
-            | "locked",
+          status: (row.status ?? "open") as "open" | "closed" | "locked",
           closedAt: row.closedAt == null ? null : backupDate(row.closedAt),
           closedBy: null,
-        })
-        .execute();
-      fiscalPeriodMap.set(Number(row.id), Number(result[0].insertId));
+        }))
+      );
     }
-    for (const row of input.backup.accountGroups ?? []) {
-      const result = await tx
-        .insert(financeAccountGroups)
-        .values({
+    {
+      const restored = await tx
+        .select({ id: financeFiscalPeriods.id, name: financeFiscalPeriods.name })
+        .from(financeFiscalPeriods)
+        .where(eq(financeFiscalPeriods.projectId, restoredProjectId));
+      const idByName = new Map(restored.map(row => [row.name, row.id]));
+      for (const row of fiscalPeriodRows) {
+        const id = idByName.get(backupText(row.name));
+        if (id) fiscalPeriodMap.set(Number(row.id), id);
+      }
+    }
+    const accountGroupRows = input.backup.accountGroups ?? [];
+    for (const chunk of chunkRows(accountGroupRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeAccountGroups,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           accountTypeId: Number(row.accountTypeId),
@@ -8004,11 +8054,21 @@ export async function restoreProjectBackup(
           description: backupNullableText(row.description),
           sortOrder: backupNumber(row.sortOrder),
           isSystem: Boolean(row.isSystem),
-        })
-        .execute();
-      accountGroupMap.set(Number(row.id), Number(result[0].insertId));
+        }))
+      );
     }
-    for (const row of input.backup.accountGroups ?? []) {
+    {
+      const restored = await tx
+        .select({ id: financeAccountGroups.id, code: financeAccountGroups.code })
+        .from(financeAccountGroups)
+        .where(eq(financeAccountGroups.projectId, restoredProjectId));
+      const idByCode = new Map(restored.map(row => [row.code, row.id]));
+      for (const row of accountGroupRows) {
+        const id = idByCode.get(backupText(row.code));
+        if (id) accountGroupMap.set(Number(row.id), id);
+      }
+    }
+    for (const row of accountGroupRows) {
       if (row.parentId == null) continue;
       const restoredId = accountGroupMap.get(Number(row.id));
       const parentId = accountGroupMap.get(Number(row.parentId));
@@ -8019,10 +8079,11 @@ export async function restoreProjectBackup(
           .where(eq(financeAccountGroups.id, restoredId))
           .execute();
     }
-    for (const row of input.backup.periodLocks ?? []) {
-      await tx
-        .insert(financePeriodLocks)
-        .values({
+    for (const chunk of chunkRows(input.backup.periodLocks ?? [])) {
+      await insertRestoreBatch(
+        tx,
+        financePeriodLocks,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           monthKey: backupText(row.monthKey),
@@ -8030,14 +8091,16 @@ export async function restoreProjectBackup(
           // NOT NULL: attribute the lock to the restoring owner.
           lockedBy: userId,
           reason: backupNullableText(row.reason),
-        })
-        .execute();
+        }))
+      );
     }
 
-    for (const row of input.backup.accounts) {
-      const result = await tx
-        .insert(financeAccounts)
-        .values({
+    const accountRows = input.backup.accounts;
+    for (const chunk of chunkRows(accountRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeAccounts,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           name: backupText(row.name),
@@ -8045,23 +8108,63 @@ export async function restoreProjectBackup(
           chartOfAccountId: null,
           openingBalance: String(row.openingBalance ?? "0"),
           currentBalance: String(row.currentBalance ?? "0"),
-        })
-        .execute();
-      accountMap.set(row.id, Number(result[0].insertId));
+        }))
+      );
     }
-    for (const row of input.backup.categories) {
-      const result = await tx
-        .insert(financeCategories)
-        .values({
+    {
+      const restored = await tx
+        .select({ id: financeAccounts.id, name: financeAccounts.name })
+        .from(financeAccounts)
+        .where(
+          and(
+            eq(financeAccounts.userId, userId),
+            eq(financeAccounts.projectId, restoredProjectId)
+          )
+        );
+      const idByName = new Map(restored.map(row => [row.name, row.id]));
+      for (const row of accountRows) {
+        const id = idByName.get(backupText(row.name));
+        if (id) accountMap.set(row.id, id);
+      }
+    }
+    const categoryRows = input.backup.categories;
+    for (const chunk of chunkRows(categoryRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeCategories,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           name: backupText(row.name),
           type: row.type as "income" | "expense",
           chartOfAccountId: null,
           isDefault: Boolean(row.isDefault),
+        }))
+      );
+    }
+    {
+      const restored = await tx
+        .select({
+          id: financeCategories.id,
+          name: financeCategories.name,
+          type: financeCategories.type,
         })
-        .execute();
-      categoryMap.set(row.id, Number(result[0].insertId));
+        .from(financeCategories)
+        .where(
+          and(
+            eq(financeCategories.userId, userId),
+            eq(financeCategories.projectId, restoredProjectId)
+          )
+        );
+      const idByNameType = new Map(
+        restored.map(row => [`${row.name}\u0000${row.type}`, row.id])
+      );
+      for (const row of categoryRows) {
+        const id = idByNameType.get(
+          `${backupText(row.name)}\u0000${row.type as string}`
+        );
+        if (id) categoryMap.set(row.id, id);
+      }
     }
     if (input.backup.voucherSettings) {
       const row = input.backup.voucherSettings;
@@ -8106,40 +8209,6 @@ export async function restoreProjectBackup(
           scheduleCronTaskUid: null,
         })
         .execute();
-    }
-    for (const row of input.backup.transactions) {
-      const result = await tx
-        .insert(financeTransactions)
-        .values({
-          userId,
-          projectId: restoredProjectId,
-          accountId:
-            row.accountId == null ? null : accountMap.get(row.accountId)!,
-          chartOfAccountId:
-            row.chartOfAccountId == null
-              ? row.accountId == null
-                ? null
-                : (accountCoaMap.get(row.accountId) ?? null)
-              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
-          categoryId: categoryMap.get(row.categoryId!)!,
-          type: row.type as "income" | "expense",
-          amount: String(row.amount ?? "0"),
-          voucherNo: backupNullableText(row.voucherNo),
-          voucherId:
-            row.voucherId == null
-              ? row.voucherNo == null
-                ? null
-                : (voucherNoMap.get(backupText(row.voucherNo)) ?? null)
-              : (voucherMap.get(Number(row.voucherId)) ?? null),
-          reason: backupNullableText(row.reason),
-          paymentMethod: backupText(row.paymentMethod),
-          note: backupNullableText(row.note),
-          idempotencyKey: backupNullableText(row.idempotencyKey),
-          requestFingerprint: backupNullableText(row.requestFingerprint),
-          occurredAt: backupDate(row.occurredAt),
-        })
-        .execute();
-      transactionMap.set(row.id, Number(result[0].insertId));
     }
     for (const row of input.backup.budgets) {
       await tx
@@ -8218,17 +8287,17 @@ export async function restoreProjectBackup(
         Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0) ||
         String(a.code).localeCompare(String(b.code))
     );
-    for (const row of coaRows) {
-      const result = await tx
-        .insert(financeChartOfAccounts)
-        .values({
+    for (const chunk of chunkRows(coaRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeChartOfAccounts,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           accountTypeId: Number(row.accountTypeId),
-          parentId:
-            row.parentId == null
-              ? null
-              : (coaMap.get(Number(row.parentId)) ?? null),
+          // Parent ids are attached after every row has an id; the source
+          // order does not guarantee parents come first.
+          parentId: null,
           code: String(row.code),
           name: String(row.name),
           nameBn: row.nameBn == null ? null : String(row.nameBn),
@@ -8238,11 +8307,32 @@ export async function restoreProjectBackup(
           openingBalance: String(row.openingBalance ?? "0.00"),
           currentBalance: String(row.currentBalance ?? "0.00"),
           sortOrder: Number(row.sortOrder ?? 0),
+        }))
+      );
+    }
+    {
+      const restored = await tx
+        .select({
+          id: financeChartOfAccounts.id,
+          code: financeChartOfAccounts.code,
         })
-        .execute();
-      if (row.id != null)
-        coaMap.set(Number(row.id), Number(result[0].insertId));
-      coaCodeMap.set(String(row.code), Number(result[0].insertId));
+        .from(financeChartOfAccounts)
+        .where(eq(financeChartOfAccounts.projectId, restoredProjectId));
+      for (const row of restored) coaCodeMap.set(row.code, row.id);
+      for (const row of coaRows) {
+        const id = coaCodeMap.get(String(row.code));
+        if (id != null && row.id != null) coaMap.set(Number(row.id), id);
+      }
+      for (const row of coaRows) {
+        if (row.parentId == null) continue;
+        const restoredId = coaMap.get(Number(row.id));
+        const parentId = coaMap.get(Number(row.parentId));
+        if (restoredId && parentId)
+          await tx
+            .update(financeChartOfAccounts)
+            .set({ parentId })
+            .where(eq(financeChartOfAccounts.id, restoredId));
+      }
     }
     for (const row of input.backup.accounts) {
       const sourceCoa =
@@ -8275,10 +8365,12 @@ export async function restoreProjectBackup(
       }
     }
 
-    for (const row of input.backup.vouchers ?? []) {
-      const result = await tx
-        .insert(financeVouchers)
-        .values({
+    const voucherRows = input.backup.vouchers ?? [];
+    for (const chunk of chunkRows(voucherRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeVouchers,
+        chunk.map(row => ({
           userId,
           projectId: restoredProjectId,
           voucherNo: backupText(row.voucherNo),
@@ -8306,11 +8398,29 @@ export async function restoreProjectBackup(
           reversedAt: row.reversedAt == null ? null : backupDate(row.reversedAt),
           reversalReference: backupNullableText(row.reversalReference),
           isArchived: Boolean(row.isArchived),
+        }))
+      );
+    }
+    {
+      const restored = await tx
+        .select({
+          id: financeVouchers.id,
+          voucherNo: financeVouchers.voucherNo,
         })
-        .execute();
-      if (row.id != null)
-        voucherMap.set(Number(row.id), Number(result[0].insertId));
-      voucherNoMap.set(backupText(row.voucherNo), Number(result[0].insertId));
+        .from(financeVouchers)
+        .where(
+          and(
+            eq(financeVouchers.userId, userId),
+            eq(financeVouchers.projectId, restoredProjectId)
+          )
+        );
+      const idByNo = new Map(restored.map(row => [row.voucherNo, row.id]));
+      for (const row of voucherRows) {
+        const id = idByNo.get(backupText(row.voucherNo));
+        if (id == null) continue;
+        if (row.id != null) voucherMap.set(Number(row.id), id);
+        voucherNoMap.set(backupText(row.voucherNo), id);
+      }
     }
     for (const row of input.backup.voucherReversals ?? []) {
       const originalVoucherId = voucherMap.get(Number(row.originalVoucherId));
@@ -8376,27 +8486,42 @@ export async function restoreProjectBackup(
         })
         .execute();
     }
-    for (const row of input.backup.transactions) {
-      const restoredId = transactionMap.get(row.id);
-      if (!restoredId) continue;
-      const chartOfAccountId =
-        row.chartOfAccountId == null
-          ? row.accountId == null
-            ? null
-            : (accountCoaMap.get(row.accountId) ?? null)
-          : (coaMap.get(Number(row.chartOfAccountId)) ?? null);
-      await tx
-        .update(financeTransactions)
-        .set({
-          chartOfAccountId,
+    // Transactions can now be inserted once, with their CoA and voucher links
+    // already resolved: both parents exist by this point.
+    const transactionRows = input.backup.transactions;
+    for (const chunk of chunkRows(transactionRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeTransactions,
+        chunk.map(row => ({
+          userId,
+          projectId: restoredProjectId,
+          accountId:
+            row.accountId == null ? null : (accountMap.get(row.accountId) ?? null),
+          chartOfAccountId:
+            row.chartOfAccountId == null
+              ? row.accountId == null
+                ? null
+                : (accountCoaMap.get(row.accountId) ?? null)
+              : (coaMap.get(Number(row.chartOfAccountId)) ?? null),
+          categoryId: categoryMap.get(row.categoryId!)!,
+          type: row.type as "income" | "expense",
+          amount: String(row.amount ?? "0"),
+          voucherNo: backupNullableText(row.voucherNo),
           voucherId:
             row.voucherId == null
               ? row.voucherNo == null
                 ? null
                 : (voucherNoMap.get(backupText(row.voucherNo)) ?? null)
               : (voucherMap.get(Number(row.voucherId)) ?? null),
-        })
-        .where(eq(financeTransactions.id, restoredId));
+          reason: backupNullableText(row.reason),
+          paymentMethod: backupText(row.paymentMethod),
+          note: backupNullableText(row.note),
+          idempotencyKey: backupNullableText(row.idempotencyKey),
+          requestFingerprint: backupNullableText(row.requestFingerprint),
+          occurredAt: backupDate(row.occurredAt),
+        }))
+      );
     }
     for (const row of input.backup.settlements) {
       const restoredId = settlementMap.get(row.id);
@@ -8407,10 +8532,11 @@ export async function restoreProjectBackup(
         .where(eq(financeDueSettlements.id, restoredId));
     }
 
-    for (const row of input.backup.voucherDebits ?? []) {
-      await tx
-        .insert(financeVoucherDebits)
-        .values({
+    for (const chunk of chunkRows(input.backup.voucherDebits ?? [])) {
+      await insertRestoreBatch(
+        tx,
+        financeVoucherDebits,
+        chunk.map(row => ({
           voucherId: voucherMap.get(Number(row.voucherId))!,
           accountId: null,
           chartOfAccountId:
@@ -8420,13 +8546,14 @@ export async function restoreProjectBackup(
           amount: String(row.amount),
           narration: row.narration == null ? null : String(row.narration),
           sortOrder: Number(row.sortOrder ?? 0),
-        })
-        .execute();
+        }))
+      );
     }
-    for (const row of input.backup.voucherCredits ?? []) {
-      await tx
-        .insert(financeVoucherCredits)
-        .values({
+    for (const chunk of chunkRows(input.backup.voucherCredits ?? [])) {
+      await insertRestoreBatch(
+        tx,
+        financeVoucherCredits,
+        chunk.map(row => ({
           voucherId: voucherMap.get(Number(row.voucherId))!,
           accountId: null,
           chartOfAccountId:
@@ -8436,13 +8563,14 @@ export async function restoreProjectBackup(
           amount: String(row.amount),
           narration: row.narration == null ? null : String(row.narration),
           sortOrder: Number(row.sortOrder ?? 0),
-        })
-        .execute();
+        }))
+      );
     }
-    for (const row of input.backup.ledgerEntries ?? []) {
-      await tx
-        .insert(financeLedgerEntries)
-        .values({
+    for (const chunk of chunkRows(input.backup.ledgerEntries ?? [])) {
+      await insertRestoreBatch(
+        tx,
+        financeLedgerEntries,
+        chunk.map(row => ({
           voucherId: voucherMap.get(Number(row.voucherId))!,
           accountId: null,
           chartOfAccountId:
@@ -8453,14 +8581,16 @@ export async function restoreProjectBackup(
           amount: String(row.amount ?? "0"),
           runningBalance: String(row.runningBalance ?? "0.00"),
           postedAt: row.postedAt == null ? undefined : backupDate(row.postedAt),
-        })
-        .execute();
+        }))
+      );
     }
 
-    for (const row of input.backup.journalEntries ?? []) {
-      const result = await tx
-        .insert(financeJournalEntries)
-        .values({
+    const journalRows = input.backup.journalEntries ?? [];
+    for (const chunk of chunkRows(journalRows)) {
+      await insertRestoreBatch(
+        tx,
+        financeJournalEntries,
+        chunk.map(row => ({
           voucherId: voucherMap.get(Number(row.voucherId))!,
           projectId: restoredProjectId,
           journalNo: backupText(row.journalNo),
@@ -8471,23 +8601,36 @@ export async function restoreProjectBackup(
           status: (row.status as "draft" | "posted" | "reversed") ?? "draft",
           postedBy: null,
           postedAt: row.postedAt == null ? null : backupDate(row.postedAt),
-        })
-        .execute();
-      if (row.id != null)
-        journalMap.set(Number(row.id), Number(result[0].insertId));
+        }))
+      );
     }
-    for (const row of input.backup.journalLines ?? []) {
-      await tx
-        .insert(financeJournalLines)
-        .values({
+    {
+      const restored = await tx
+        .select({
+          id: financeJournalEntries.id,
+          journalNo: financeJournalEntries.journalNo,
+        })
+        .from(financeJournalEntries)
+        .where(eq(financeJournalEntries.projectId, restoredProjectId));
+      const idByNo = new Map(restored.map(row => [row.journalNo, row.id]));
+      for (const row of journalRows) {
+        const id = idByNo.get(backupText(row.journalNo));
+        if (id != null && row.id != null) journalMap.set(Number(row.id), id);
+      }
+    }
+    for (const chunk of chunkRows(input.backup.journalLines ?? [])) {
+      await insertRestoreBatch(
+        tx,
+        financeJournalLines,
+        chunk.map(row => ({
           journalEntryId: journalMap.get(Number(row.journalEntryId))!,
           accountId: coaMap.get(Number(row.accountId))!,
           entryType: (row.entryType as "debit" | "credit") ?? "debit",
           amount: String(row.amount),
           narration: row.narration == null ? null : String(row.narration),
           sortOrder: Number(row.sortOrder ?? 0),
-        })
-        .execute();
+        }))
+      );
     }
 
     if (options?.insideTransaction) {

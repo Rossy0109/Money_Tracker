@@ -128,10 +128,17 @@ async function verifyBackupIntegrity(
     // Compare normalized exports: `exportedAt` is regenerated on every export
     // and row order is not guaranteed, so hashing the raw re-export could
     // never match the upload-time hash.
-    const reChecksum = await sha256Hex(
-      JSON.stringify(normalizeBackupForChecksum(reExport), null, 2)
-    );
+    const normalized = normalizeBackupForChecksum(reExport);
+    const reChecksum = await sha256Hex(JSON.stringify(normalized));
     if (reChecksum === expectedVerifyChecksum) {
+      return { verified: true };
+    }
+    // Backups taken before docs/05 F-2 hashed the indented serialization.
+    // Recompute it only on mismatch so current backups keep the cheap path.
+    const legacyChecksum = await sha256Hex(
+      JSON.stringify(normalized, null, 2)
+    );
+    if (legacyChecksum === expectedVerifyChecksum) {
       return { verified: true };
     }
     return {
