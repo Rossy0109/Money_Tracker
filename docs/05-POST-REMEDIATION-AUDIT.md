@@ -141,13 +141,26 @@ explicitly for the accounting owner, or a user who matches an already-posted
 line will see an inverted difference. No code change made without an
 accounting decision.
 
-### F-6 — P3 — Two moderate dev-tooling advisories
+### F-6 — P3 — Two moderate dev-tooling advisories — **FIXED**
 
-`pnpm audit`: 2 moderate — `glob` 13.0.6 (GHSA-3g3m-2fjr-6pw4) and
-`minimatch` 10.2.6 (GHSA-g3hv-75wg-m249, DoS). Both patches are semver-major
-(`glob ≥14.0.2`, `minimatch ≥11.0.1`), so `DEPENDENCY-POLICY.md` requires
-explicit owner approval. No high/critical advisories; `pnpm audit
---audit-level=high` (the CI gate) passes.
+`pnpm audit` reported 2 moderate: `glob` 13.0.6 (GHSA-3g3m-2fjr-6pw4) and
+`minimatch` 10.2.6 (GHSA-g3hv-75wg-m249, DoS). Neither has a fixed release on
+its current major (`glob ≥14.0.2`, `minimatch ≥11.0.1`), so
+`DEPENDENCY-POLICY.md` required explicit owner approval — granted for F-6.
+
+Fix: targeted pnpm overrides, no direct dependency ranges changed:
+
+| Chain | Override |
+|---|---|
+| `@sentry/bundler-plugins>glob`, `@vercel/nft>glob` | `14.0.4` |
+| `minimatch@10` (eslint config-array, typescript-estree, vercel CLI) | `11.0.5` |
+
+Compatibility review: Sentry bundler-plugins and `@vercel/nft` only call the
+`glob()` function; eslint's `@eslint/config-array` uses
+`new Minimatch(...).match()` and `@typescript-eslint/typescript-estree` uses
+`minimatch()`, all retained in minimatch 11. All consumers are dev tooling.
+`pnpm audit` now reports **0 vulnerabilities** (`--audit-level=high` gate
+passes); lint, build, coverage, migrations, e2e and worker suites all green.
 
 ---
 
@@ -200,7 +213,7 @@ that part is unchanged and still NOT-VERIFIED locally.
 | Accounting invariants | Double-entry, immutable postings, TB/A=L+E e2e, mirror-drift audit (D-2), fiscal-close gates (E.1/E.2/E.3). |
 | Migrations | Rehearsal green (121 FKs, temp DB removed). No new migrations since 0024. |
 | CI gates | 5 required checks green on `main`; workflow hardening + dependency policy gates intact. |
-| Dependencies | No high/critical; 2 moderate dev advisories need semver-major approval (F-6). |
+| Dependencies | No high/critical; 2 moderate dev advisories fixed via major overrides (F-6), `pnpm audit` = 0. |
 | Backups/ops | Daily encrypted backup + manifest + weekly drill + retention/prune + maintenance report all present; 210k-row drill verified on the default 2 GB heap after F-2/F-3. |
 | Docs | `01`–`04` current to 2026-11-05; this document is the post-remediation record. |
 
