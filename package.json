@@ -154,7 +154,7 @@
       "@vercel/sandbox>undici": "7.30.1",
       "@vercel/node>undici": "6.29.1",
       "vercel>undici": "6.29.1",
-      "@vercel/python-analysis>minimatch": "10.2.6",
+      "minimatch@10": "11.0.5",
       "@vercel/python-analysis>js-yaml": "4.3.2",
       "smol-toml": "1.9.1",
       "@vercel/backends>path-to-regexp": "8.4.2",
@@ -163,7 +163,9 @@
       "zod": "4.6.7",
       "postcss-selector-parser": "7.1.6",
       "qs": "6.17.0",
-      "@vercel/static-config>ajv": "8.18.0"
+      "@vercel/static-config>ajv": "8.18.0",
+      "@sentry/bundler-plugins>glob": "14.0.4",
+      "@vercel/nft>glob": "14.0.4"
     }
   }
 }
