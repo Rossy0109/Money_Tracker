@@ -21,6 +21,31 @@ import { createConnection } from "mysql2/promise";
 const ROOT = new URL("..", import.meta.url);
 const dryRun = process.argv.includes("--dry-run");
 
+/**
+ * Journal order is the single source of truth. The previous hardcoded chain
+ * stopped at 0022, so production reconciliation silently skipped 0023
+ * (`finance_project_members` + `finance_vouchers.createdBy`) and 0024
+ * (`rate_limit_counters`) and the deployed app queried a table that was never
+ * created.
+ */
+function migrationFiles() {
+  const journal = JSON.parse(
+    readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8")
+  );
+  const files = [...journal.entries]
+    .sort((a, b) => a.idx - b.idx)
+    .map(entry => `${entry.tag}.sql`);
+  const missing = files.filter(
+    file => !existsSync(new URL(`../drizzle/${file}`, import.meta.url))
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Journal entries have no migration file on disk: ${missing.join(", ")}`
+    );
+  }
+  return files;
+}
+
 function getUrl() {
   const i = process.argv.indexOf("--url");
   if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1];
@@ -258,6 +283,9 @@ async function ensureUsersColumns(conn) {
 async function report(conn) {
   const expectedTables = [
     "users",
+    "finance_firm_profiles",
+    "finance_project_members",
+    "rate_limit_counters",
     "finance_inventory_items",
     "finance_invoices",
     "finance_invoice_items",
@@ -416,33 +444,11 @@ async function run() {
     await ensureUsersColumns(conn);
     // Full chain in journal order: every file is individually skip-safe, so
     // any partial state (e.g. historical 0009/0011/0014 failures) converges.
-    // Files absent from disk are reported and skipped.
-    await reconcileFile(conn, "0000_condemned_wendell_vaughn.sql");
-    await reconcileFile(conn, "0001_mighty_hobgoblin.sql");
-    await reconcileFile(conn, "0002_exotic_mindworm.sql");
-    await reconcileFile(conn, "0003_huge_nighthawk.sql");
-    await reconcileFile(conn, "0004_fresh_shen.sql");
-    await reconcileFile(conn, "0005_stiff_wonder_man.sql");
-    await reconcileFile(conn, "0006_tan_star_brand.sql");
-    await reconcileFile(conn, "0007_worthless_thunderball.sql");
-    await reconcileFile(conn, "0008_calm_lady_ursula.sql");
-    await reconcileFile(conn, "0009_rare_beyonder.sql");
-    await reconcileFile(conn, "0010_aromatic_wolf_cub.sql");
-    await reconcileFile(conn, "0011_round_ken_ellis.sql");
-    await reconcileFile(conn, "0012_elite_talon.sql");
-    await reconcileFile(conn, "0013_complex_reptil.sql");
-    await reconcileFile(conn, "0014_rbac_and_idempotency.sql");
-    await reconcileFile(conn, "0015_fk-restrict-financial-history.sql");
-    await reconcileFile(conn, "0016_schema_drift_repair.sql");
-    await reconcileFile(conn, "0017_missing_indexes.sql");
-    await reconcileFile(
-      conn,
-      "0018_canonical_accounts_and_transaction_idempotency.sql"
-    );
-    await reconcileFile(conn, "0019_wallet_opening_balance_voucher.sql");
-    await reconcileFile(conn, "0020_firm_profile_persistence.sql");
-    await reconcileFile(conn, "0021_nappy_mordo.sql");
-    await reconcileFile(conn, "0022_drop_drive_connections.sql");
+    // The list is derived from drizzle/meta/_journal.json so a newly added
+    // migration can never be forgotten here again.
+    for (const file of migrationFiles()) {
+      await reconcileFile(conn, file);
+    }
     await report(conn);
     console.log(
       dryRun
