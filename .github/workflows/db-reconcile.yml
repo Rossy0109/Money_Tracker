@@ -43,11 +43,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Run schema reconciliation
+        # Production-only credentials: use the purpose-built secret. The
+        # generic `DATABASE_URL` Actions secret is a legacy PostgreSQL URL and
+        # must never shadow the TiDB/MariaDB production URL (see F-7).
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.PROD_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "DATABASE_URL secret is not set on GitHub (repo Settings → Secrets → Actions)."
+            echo "PROD_DATABASE_URL secret is not set on GitHub (repo Settings → Secrets → Actions)."
             echo "Copy it from Vercel project Settings → Environment Variables → DATABASE_URL (Production)."
             echo "Never paste database credentials into code, logs, or chat."
             exit 1
