@@ -234,7 +234,7 @@ back — so re-running it after a fix is always safe.
 
 ### Secrets Hygiene
 
-- **GitHub Actions**: the backup workflow no longer connects directly to the production database. `CRON_SECRET` is the only secret it needs for verification. `db-reconcile.yml` is manual-only and accepts either `DATABASE_URL` or `PROD_DATABASE_URL` (falls back to the legacy name). The `PROD_DATABASE_URL` Actions secret is stale relative to Vercel's current value; rotate or remove it only after deciding whether to keep db-reconcile's direct-DB path. If you migrate db-reconcile to a read-only API, you can drop prod DB credentials from Actions entirely.
+- **GitHub Actions**: the backup workflow no longer connects directly to the production database. `CRON_SECRET` is the only secret it needs for verification. `db-reconcile.yml` is manual-only and reads **only** `PROD_DATABASE_URL`; the generic repo-level `DATABASE_URL` secret is a legacy PostgreSQL URL and deliberately no longer used (letting it shadow the MySQL/TiDB production URL caused the F-7 reconcile failure). Verify `PROD_DATABASE_URL` still matches Vercel Production (it may be stale) by checking the `Target: host=… database=…` line of a dry run before applying. If you migrate db-reconcile to a read-only API, you can drop prod DB credentials from Actions entirely.
 
 
 ## Verification Procedure
