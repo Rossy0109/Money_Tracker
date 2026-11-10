@@ -209,7 +209,12 @@ Production remediation (owner-only — agents keep prod read-only):
    reconciler still stops at `0022`.
 2. Confirm the GitHub `PROD_DATABASE_URL` secret matches Vercel Production.
    The workflow reads only that secret: the legacy generic `DATABASE_URL`
-   secret is a PostgreSQL URL and no longer shadows it (F-7 follow-up).
+   secret is a PostgreSQL URL and no longer shadows it (F-7 follow-up). A dry
+   run that prints the expected host/database but fails with
+   `Access denied … (using password: YES)` means the secret's password has
+   rotated — copy the current Vercel Production `DATABASE_URL` value into the
+   `PROD_DATABASE_URL` Actions secret (never into code, logs or chat) and
+   re-run the dry run.
 3. Dispatch `DB Schema Reconcile (manual)` with `mode=dry-run`; confirm the
    `Target:` host/database and review the 0020–0024 plan (`0021`→`0022` is a
    harmless create/drop of `drive_connections`).
