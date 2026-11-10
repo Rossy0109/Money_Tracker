@@ -19,11 +19,17 @@ the current state of record.
 
 ## 1. Verdict
 
-**No open P0/P1.** One cross-tenant P1 defect was found by the new
+**No open code P0/P1.** One cross-tenant P1 defect was found by the new
 certification e2e and fixed in this cycle (F-1). The two P2 scalability risks
 in the backup/restore path (F-2, F-3) were fixed in the follow-up cycle and
 re-measured: a 210k-row project now backs up and drills on Node's **default
 2 GB heap** (peak 533 MB) with a 90 s restore instead of OOM / 732 s.
+
+**F-7 (2026-11-10, production incident):** the live dashboard failed because
+migrations 0020–0024 were never applied to the production TiDB database and
+the manual reconciler could not apply 0023/0024 even if dispatched. The code
+and process fix is in this PR; the production apply is owner-gated and was
+still pending at publication.
 
 Everything from the `04` roadmap is merged and CI-green:
 
@@ -162,6 +168,53 @@ Compatibility review: Sentry bundler-plugins and `@vercel/nft` only call the
 `pnpm audit` now reports **0 vulnerabilities** (`--audit-level=high` gate
 passes); lint, build, coverage, migrations, e2e and worker suites all green.
 
+### F-7 — P0 operational — Production schema drift (0020–0024 unapplied) — **FIXED in code; owner apply pending**
+
+On 2026-11-10 the deployed dashboard failed with
+`Failed query: select ... from finance_project_members ...`.
+`listProjects` (`server/db.ts:3588`) joins `finance_project_members`
+(migration `0023`, W-1), but production was last reconciled on **2026-09-28**
+(run `36481157449`, target `github_sample` on TiDB Cloud) when the
+reconciler chain ended at `0019`. Migrations `0020`–`0024` were never applied.
+
+Compounding defect: `scripts/reconcile-migrations.mjs` hardcoded the chain
+through `0022`, so the documented remediation path would also have skipped
+`0023` (`finance_project_members`, `finance_vouchers.createdBy`) and `0024`
+(`rate_limit_counters`).
+
+Production impact until applied: dashboard load for every user
+(`listProjects`); voucher list/create/export (`createdBy`); firm profile
+(`0020`); and all DB-backed rate limiting on Vercel including OAuth login
+callbacks and rate-limited mutations (`0024`, 1146).
+
+Fix (this PR):
+- the reconciler derives the chain from `drizzle/meta/_journal.json` and
+  fails if a journal entry has no SQL file;
+- `verify-migrations.mjs` derives every created table / added column from the
+  journal and fails the rehearsal when the reconciler output is missing any;
+- the schema report includes the three new tables.
+
+Evidence (disposable MariaDB): a database reconciled only through `0022`
+reproduces errors `1146` / `1054` for the dashboard query, `createdBy` and
+`rate_limit_counters`; after the fix it matches a `drizzle-kit migrate`
+reference (50/50 tables, 125 FKs) and all queries succeed. The new guard
+fails against the old reconciler with
+`missing journal tables: finance_project_members, rate_limit_counters`
+and passes after. Gate: `pnpm check`, `pnpm build`, `pnpm test:coverage`
+(72.40/63.81/72.37/73.70), `pnpm test:migrations` (125 FKs),
+`pnpm test:e2e:isolated` (7 files / 38 tests), `pnpm test:worker` (22).
+
+Production remediation (owner-only — agents keep prod read-only):
+1. Merge this PR, or dispatch the workflow on this branch; `main`'s
+   reconciler still stops at `0022`.
+2. Confirm the GitHub `DATABASE_URL` secret matches Vercel Production — it
+   takes precedence over `PROD_DATABASE_URL`.
+3. Dispatch `DB Schema Reconcile (manual)` with `mode=dry-run`; confirm the
+   `Target:` host/database and review the 0020–0024 plan (`0021`→`0022` is a
+   harmless create/drop of `drive_connections`).
+4. Re-dispatch with `mode=apply` and `confirm=APPLY-TO-PROD`.
+5. Verify dashboard, vouchers, firm profile and login; expect 125 FKs.
+
 ---
 
 ## 3. Runtime certification evidence (`04` §3 items)
@@ -211,7 +264,7 @@ that part is unchanged and still NOT-VERIFIED locally.
 | Skipped tests / TODO | 0 skipped tests, 0 TODO/FIXME in product code. |
 | AuthN/AuthZ | AuthZ stays server-side; guard-coverage scan (BR-1) covers 139 procedures; no client-supplied user ids. |
 | Accounting invariants | Double-entry, immutable postings, TB/A=L+E e2e, mirror-drift audit (D-2), fiscal-close gates (E.1/E.2/E.3). |
-| Migrations | Rehearsal green (121 FKs, temp DB removed). No new migrations since 0024. |
+| Migrations | Rehearsal green (125 FKs, temp DB removed) and now journal-derived, so the reconciler cannot skip a migration. No new migrations since 0024. |
 | CI gates | 5 required checks green on `main`; workflow hardening + dependency policy gates intact. |
 | Dependencies | No high/critical; 2 moderate dev advisories fixed via major overrides (F-6), `pnpm audit` = 0. |
 | Backups/ops | Daily encrypted backup + manifest + weekly drill + retention/prune + maintenance report all present; 210k-row drill verified on the default 2 GB heap after F-2/F-3. |

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createConnection } from "mysql2/promise";
 import { getIsolatedE2EDatabaseUrl } from "./e2e-database.mjs";
 
@@ -40,6 +41,48 @@ const testUrl = new URL(sourceUrl);
 testUrl.pathname = `/${testDatabase}`;
 let created = false;
 
+/**
+ * Every table/column the journal's SQL files create must exist after the
+ * production reconciler runs. Derived from `drizzle/` directly so a new
+ * migration cannot be silently left out of `reconcile-migrations.mjs` — that
+ * exact drift left production without `finance_project_members` (0023) and
+ * `rate_limit_counters` (0024) while every gate stayed green.
+ */
+function expectedObjectsFromJournal() {
+  const journal = JSON.parse(
+    readFileSync(
+      new URL("../drizzle/meta/_journal.json", import.meta.url),
+      "utf8"
+    )
+  );
+  const tables = new Set();
+  const columns = new Map();
+  const NON_COLUMN_ADD =
+    /^(CONSTRAINT|FOREIGN|PRIMARY|UNIQUE|INDEX|KEY|FULLTEXT|SPATIAL|CHECK|PARTITION)$/i;
+
+  const entries = [...journal.entries].sort((a, b) => a.idx - b.idx);
+  for (const entry of entries) {
+    const sql = readFileSync(
+      new URL(`../drizzle/${entry.tag}.sql`, import.meta.url),
+      "utf8"
+    );
+    for (const m of sql.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?`?(\w+)`?/gi)) {
+      tables.add(m[1]);
+    }
+    for (const m of sql.matchAll(/DROP TABLE (?:IF EXISTS )?`?(\w+)`?/gi)) {
+      tables.delete(m[1]);
+    }
+    for (const m of sql.matchAll(
+      /ALTER TABLE `?(\w+)`? ADD (?:COLUMN )?(?:IF NOT EXISTS )?`?(\w+)`?/gi
+    )) {
+      if (NON_COLUMN_ADD.test(m[2])) continue;
+      if (!columns.has(m[1])) columns.set(m[1], new Set());
+      columns.get(m[1]).add(m[2]);
+    }
+  }
+  return { tables: [...tables], columns };
+}
+
 async function verifyCanonicalSchema(url) {
   const connection = await createConnection(url);
   try {
@@ -74,6 +117,39 @@ async function verifyCanonicalSchema(url) {
     );
     if (indexes.length < 1)
       throw new Error("Transaction idempotency index verification failed");
+
+    const { tables: expectedTables, columns: expectedColumns } =
+      expectedObjectsFromJournal();
+    const [dbTables] = await connection.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()"
+    );
+    const presentTables = new Set(dbTables.map(r => r.table_name));
+    const missingTables = expectedTables.filter(t => !presentTables.has(t));
+    if (missingTables.length > 0) {
+      throw new Error(
+        `Migration rehearsal is missing journal tables: ${missingTables.join(", ")}`
+      );
+    }
+
+    const [dbColumns] = await connection.query(
+      "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE()"
+    );
+    const presentColumns = new Set(
+      dbColumns.map(r => `${r.table_name}.${r.column_name}`)
+    );
+    const missingColumns = [];
+    for (const [table, cols] of expectedColumns) {
+      for (const column of cols) {
+        if (!presentColumns.has(`${table}.${column}`)) {
+          missingColumns.push(`${table}.${column}`);
+        }
+      }
+    }
+    if (missingColumns.length > 0) {
+      throw new Error(
+        `Migration rehearsal is missing journal columns: ${missingColumns.join(", ")}`
+      );
+    }
   } finally {
     await connection.end();
   }
