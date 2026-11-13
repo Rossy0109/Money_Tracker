@@ -9965,6 +9965,14 @@ export async function getVoucherList(
   const vouchers = await db
     .select({
       id: financeVouchers.id,
+      userId: financeVouchers.userId,
+      createdBy: financeVouchers.createdBy,
+      submittedBy: financeVouchers.submittedBy,
+      submittedAt: financeVouchers.submittedAt,
+      approvedBy: financeVouchers.approvedBy,
+      approvedAt: financeVouchers.approvedAt,
+      postedBy: financeVouchers.postedBy,
+      postedAt: financeVouchers.postedAt,
       voucherNo: financeVouchers.voucherNo,
       date: financeVouchers.date,
       narration: financeVouchers.narration,

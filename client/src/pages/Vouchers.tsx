@@ -70,6 +70,7 @@ export default function Vouchers() {
     });
   const { activeProjectId, selectProject } = useActiveProject();
   const projectId = activeProjectId ?? 0;
+  const currentProject = projects.find(p => p.id === projectId);
   const [statusFilter, setStatusFilter] = useState<VoucherStatus | "all">(
     "all"
   );
@@ -249,24 +250,41 @@ export default function Vouchers() {
               ব্যবহারকারী প্রয়োজন (চার-চোখ নীতি)।
             </p>
           </div>
-          <label className="grid gap-1.5 text-sm font-medium text-[#e3f3e7]">
-            হিসাবখাতা
-            <select
-              aria-label="হিসাবখাতা নির্বাচন"
-              value={activeProjectId ?? ""}
-              onChange={event => selectProject(Number(event.target.value))}
-              className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
-            >
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                  {project.role !== "owner"
-                    ? ` · ${project.role === "maker" ? "প্রস্তুতকারক" : "অনুমোদনকারী"}`
-                    : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-1.5 text-sm font-medium text-[#e3f3e7]">
+            <label htmlFor="project-select" className="block text-xs font-medium text-[#e3f3e7]">
+              হিসাবখাতা
+            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <select
+                id="project-select"
+                aria-label="হিসাবখাতা নির্বাচন"
+                value={activeProjectId ?? ""}
+                onChange={event => selectProject(Number(event.target.value))}
+                className="h-11 min-w-0 rounded-xl border border-white/25 bg-card px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-border sm:min-w-60"
+              >
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                    {project.role !== "owner"
+                      ? ` · ${project.role === "maker" ? "প্রস্তুতকারক" : "অনুমোদনকারী"}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+              {currentProject && (
+                <Badge
+                  variant="secondary"
+                  className="w-fit text-xs px-2.5 py-1 bg-white/15 text-white hover:bg-white/20 border-transparent font-medium"
+                >
+                  {currentProject.role === "maker"
+                    ? "ভূমিকা: প্রস্তুতকারক (Maker)"
+                    : currentProject.role === "checker"
+                    ? "ভূমিকা: অনুমোদনকারী (Checker)"
+                    : "ভূমিকা: মালিক (Owner)"}
+                </Badge>
+              )}
+            </div>
+          </div>
         </header>
         {!projects.length ? (
           <Card>
@@ -294,6 +312,31 @@ export default function Vouchers() {
                 <span>নিজের তৈরি ভাউচার নিজে অনুমোদন/পোস্ট করা যায় না</span>
               </div>
             </div>
+
+            {canApprove && (vouchers.data ?? []).some(
+              v =>
+                v.status === "submitted" &&
+                !((v.createdBy != null && v.createdBy === user?.id) ||
+                  (v.submittedBy != null && v.submittedBy === user?.id) ||
+                  (v.createdBy == null && v.userId === user?.id))
+            ) && statusFilter !== "submitted" && (
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    আপনার অনুমোদনের অপেক্ষায় ভাউচার জমা রয়েছে (চার-চোখ নীতি)।
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setStatusFilter("submitted")}
+                  className="h-8 rounded-xl text-xs bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
+                >
+                  ভাউচারগুলো দেখুন
+                </Button>
+              </div>
+            )}
 
             {canCreate && !showCreate && (
               <Button
@@ -504,125 +547,166 @@ export default function Vouchers() {
                   </div>
                 ) : rows.length ? (
                   <ul className="divide-y divide-border">
-                    {rows.map(v => (
-                      <li
-                        key={v.id}
-                        className="flex flex-wrap items-center gap-3 p-4"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground">
-                            {v.voucherNo}{" "}
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              {dateLabel(v.date)}
-                            </span>
-                          </p>
-                          <p className="truncate text-sm text-muted-foreground">
-                            {v.narration || "বিবরণ নেই"} · {bdt(v.totalDebit)}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            v.status === "posted" ? "default" : "outline"
-                          }
+                    {rows.map(v => {
+                      const isMaker =
+                        (v.createdBy != null && v.createdBy === user?.id) ||
+                        (v.submittedBy != null && v.submittedBy === user?.id) ||
+                        (v.createdBy == null && v.userId === user?.id);
+
+                      return (
+                        <li
+                          key={v.id}
+                          className="flex flex-wrap items-center gap-3 p-4"
                         >
-                          {v.status}
-                        </Badge>
-                        <div className="flex flex-wrap gap-1.5">
-                          {v.status === "draft" && canSubmit && (
-                            <Button
-                              size="sm"
-                              disabled={busy}
-                              onClick={() =>
-                                submitVoucher.mutate({
-                                  projectId,
-                                  voucherId: v.id,
-                                  idempotencyKey: newIdempotencyKey(),
-                                })
-                              }
-                              className="h-9 rounded-xl"
-                            >
-                              <Send className="h-3.5 w-3.5" />
-                              জমা
-                            </Button>
-                          )}
-                          {v.status === "submitted" && canApprove && (
-                            <>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-foreground">
+                              {v.voucherNo}{" "}
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                {dateLabel(v.date)}
+                              </span>
+                            </p>
+                            <p className="truncate text-sm text-muted-foreground">
+                              {v.narration || "বিবরণ নেই"} · {bdt(v.totalDebit)}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              {isMaker ? (
+                                <span className="text-primary font-medium">প্রস্তুতকারক: আপনি</span>
+                              ) : v.createdBy ? (
+                                <span>প্রস্তুতকারক আইডি #{v.createdBy}</span>
+                              ) : null}
+                              {v.submittedBy && v.submittedBy !== v.createdBy && (
+                                <span>• জমাকারী #{v.submittedBy}</span>
+                              )}
+                              {v.approvedBy && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                  • অনুমোদক #{v.approvedBy}
+                                </span>
+                              )}
+                              {v.postedBy && (
+                                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                  • পোস্টার #{v.postedBy}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={
+                              v.status === "posted" ? "default" : "outline"
+                            }
+                          >
+                            {v.status}
+                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {v.status === "draft" && canSubmit && (
                               <Button
                                 size="sm"
                                 disabled={busy}
                                 onClick={() =>
-                                  approveVoucher.mutate({
+                                  submitVoucher.mutate({
                                     projectId,
                                     voucherId: v.id,
-                                    action: "approve",
-                                    idempotencyKey: newIdempotencyKey(),
-                                  })
-                                }
-                                className="h-9 rounded-xl bg-primary"
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                অনুমোদন
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={busy}
-                                onClick={() =>
-                                  returnVoucher.mutate({
-                                    projectId,
-                                    voucherId: v.id,
-                                    action: "return",
                                     idempotencyKey: newIdempotencyKey(),
                                   })
                                 }
                                 className="h-9 rounded-xl"
                               >
-                                <Undo2 className="h-3.5 w-3.5" />
-                                ফেরত
+                                <Send className="h-3.5 w-3.5" />
+                                জমা
                               </Button>
-                            </>
-                          )}
-                          {v.status === "approved" && canPost && (
-                            <Button
-                              size="sm"
-                              disabled={busy}
-                              onClick={() =>
-                                postVoucher.mutate({
-                                  projectId,
-                                  voucherId: v.id,
-                                  idempotencyKey: newIdempotencyKey(),
-                                })
-                              }
-                              className="h-9 rounded-xl bg-primary"
-                            >
-                              <ArrowRight className="h-3.5 w-3.5" />
-                              পোস্ট
-                            </Button>
-                          )}
-                          {v.status === "posted" && canReverse && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busy}
-                              onClick={() => {
-                                setReverseTarget({
-                                  id: v.id,
-                                  voucherNo: v.voucherNo,
-                                });
-                                setReverseReason("");
-                                setReverseDate(
-                                  new Date().toISOString().slice(0, 10)
-                                );
-                              }}
-                              className="h-9 rounded-xl"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              বিপরীত
-                            </Button>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                            )}
+                            {v.status === "submitted" && (
+                              isMaker ? (
+                                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                  <span>নিজের তৈরি (চার-চোখ নীতি: অন্য অনুমোদনকারী প্রয়োজন)</span>
+                                </div>
+                              ) : canApprove ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      approveVoucher.mutate({
+                                        projectId,
+                                        voucherId: v.id,
+                                        action: "approve",
+                                        idempotencyKey: newIdempotencyKey(),
+                                      })
+                                    }
+                                    className="h-9 rounded-xl bg-primary"
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    অনুমোদন
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      returnVoucher.mutate({
+                                        projectId,
+                                        voucherId: v.id,
+                                        action: "return",
+                                        idempotencyKey: newIdempotencyKey(),
+                                      })
+                                    }
+                                    className="h-9 rounded-xl"
+                                  >
+                                    <Undo2 className="h-3.5 w-3.5" />
+                                    ফেরত
+                                  </Button>
+                                </>
+                              ) : null
+                            )}
+                            {v.status === "approved" && (
+                              isMaker ? (
+                                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                  <span>অনুমোদিত (অন্য সদস্য দ্বারা পোস্ট প্রয়োজন)</span>
+                                </div>
+                              ) : canPost ? (
+                                <Button
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    postVoucher.mutate({
+                                      projectId,
+                                      voucherId: v.id,
+                                      idempotencyKey: newIdempotencyKey(),
+                                    })
+                                  }
+                                  className="h-9 rounded-xl bg-primary"
+                                >
+                                  <ArrowRight className="h-3.5 w-3.5" />
+                                  পোস্ট
+                                </Button>
+                              ) : null
+                            )}
+                            {v.status === "posted" && canReverse && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={busy}
+                                onClick={() => {
+                                  setReverseTarget({
+                                    id: v.id,
+                                    voucherNo: v.voucherNo,
+                                  });
+                                  setReverseReason("");
+                                  setReverseDate(
+                                    new Date().toISOString().slice(0, 10)
+                                  );
+                                }}
+                                className="h-9 rounded-xl"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                বিপরীত
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="p-6 text-center text-sm text-muted-foreground">

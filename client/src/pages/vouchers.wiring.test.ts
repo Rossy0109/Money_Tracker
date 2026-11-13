@@ -31,6 +31,9 @@ describe("voucher workspace wiring", () => {
     expect(vouchersSource).toContain('"voucher.post"');
     expect(vouchersSource).toContain('"voucher.reverse"');
     expect(vouchersSource).toContain("চার-চোখ");
+    expect(vouchersSource).toContain("নিজের তৈরি (চার-চোখ নীতি: অন্য অনুমোদনকারী প্রয়োজন)");
+    expect(vouchersSource).toContain("ভূমিকা: প্রস্তুতকারক (Maker)");
+    expect(vouchersSource).toContain("ভূমিকা: অনুমোদনকারী (Checker)");
   });
 
   it("is reachable from routing and the dashboard navigation", () => {

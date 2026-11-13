@@ -384,7 +384,40 @@ export default function Home() {
       if (budgetAlertStatus === "clear")
         toast.success("লেনদেন সংরক্ষণ করা হয়েছে");
     },
-    onError: error => toast.error(error.message),
+    onError: async (error, variables) => {
+      const errStr = String(error?.message ?? "").toLowerCase();
+      const isNetErr =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        errStr.includes("failed to fetch") ||
+        errStr.includes("networkerror") ||
+        errStr.includes("network error");
+
+      if (isNetErr && variables) {
+        try {
+          await queueOfflineTransaction({
+            projectId: variables.projectId,
+            categoryId: variables.categoryId,
+            accountId: variables.accountId,
+            type: variables.type,
+            amount: variables.amount,
+            paymentMethod: variables.paymentMethod,
+            note: variables.note,
+            occurredAt: (variables.occurredAt instanceof Date
+              ? variables.occurredAt
+              : new Date(String(variables.occurredAt))
+            ).toISOString(),
+          });
+          resetTransaction();
+          toast.info(
+            "নেটওয়ার্ক সংযোগ বিচ্ছিন্ন হওয়ায় লেনদেনটি অফলাইনে সংরক্ষিত হয়েছে এবং সংযোগ ফিরলে সিঙ্ক হবে।"
+          );
+          return;
+        } catch {
+          // fall through
+        }
+      }
+      toast.error(error.message);
+    },
   });
 
   const updateTransaction = trpc.finance.updateTransaction.useMutation({
