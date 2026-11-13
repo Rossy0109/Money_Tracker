@@ -4,6 +4,7 @@ import { useActiveProject } from "@/lib/activeProject";
 import {
   getQueuedOfflineTransactions,
   removeQueuedOfflineTransaction,
+  updateQueuedOfflineTransaction,
 } from "@/lib/offlineQueue";
 import { toast } from "sonner";
 
@@ -35,15 +36,32 @@ export function useOfflineSync() {
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
   const [pendingCount, setPendingCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const isSyncingRef = useRef(false);
 
   const utils = trpc.useUtils();
   const syncMutation = trpc.finance.syncOfflineTransactions.useMutation();
   const { mutateAsync: syncMutateAsync } = syncMutation;
 
+  const refreshCount = useCallback(async () => {
+    try {
+      const items = await getQueuedOfflineTransactions();
+      if (activeProjectId) {
+        setPendingCount(
+          items.filter(i => i.projectId === activeProjectId).length
+        );
+      } else {
+        setPendingCount(items.length);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [activeProjectId]);
+
   const syncQueue = useCallback(async () => {
     if (!activeProjectId || !navigator.onLine || isSyncingRef.current) return;
     isSyncingRef.current = true;
+    setIsSyncing(true);
 
     try {
       const items = await getQueuedOfflineTransactions();
@@ -54,6 +72,7 @@ export function useOfflineSync() {
 
       if (projectItems.length === 0) {
         isSyncingRef.current = false;
+        setIsSyncing(false);
         return;
       }
 
@@ -78,15 +97,26 @@ export function useOfflineSync() {
           idempotencyKey: item.id,
         }));
 
-        await syncMutateAsync({
-          projectId: activeProjectId,
-          items: payload,
-        });
+        try {
+          await syncMutateAsync({
+            projectId: activeProjectId,
+            items: payload,
+          });
 
-        for (const item of chunk) {
-          await removeQueuedOfflineTransaction(item.id);
+          for (const item of chunk) {
+            await removeQueuedOfflineTransaction(item.id);
+          }
+          syncedTotal += chunk.length;
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          for (const item of chunk) {
+            await updateQueuedOfflineTransaction(item.id, {
+              status: "failed",
+              lastError: errMsg,
+            });
+          }
+          throw err;
         }
-        syncedTotal += chunk.length;
       }
 
       setPendingCount(0);
@@ -98,8 +128,10 @@ export function useOfflineSync() {
       // Sync failed, keep in queue for next reconnect
     } finally {
       isSyncingRef.current = false;
+      setIsSyncing(false);
+      refreshCount();
     }
-  }, [activeProjectId, syncMutateAsync, utils]);
+  }, [activeProjectId, refreshCount, syncMutateAsync, utils]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -112,27 +144,37 @@ export function useOfflineSync() {
       toast.warning("ইন্টারনেট সংযোগ বিচ্ছিন্ন। লেনদেন অফলাইনে সংরক্ষিত হবে।");
     };
 
+    const handleQueueChanged = () => {
+      refreshCount();
+    };
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("offline-queue-changed", handleQueueChanged);
 
-    // Initial check
-    getQueuedOfflineTransactions().then(items => {
+    // Asynchronous initial check so setState is deferred to the resolved promise microtask
+    void getQueuedOfflineTransactions().then(items => {
       if (activeProjectId) {
         setPendingCount(
           items.filter(i => i.projectId === activeProjectId).length
         );
+      } else {
+        setPendingCount(items.length);
       }
     });
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("offline-queue-changed", handleQueueChanged);
     };
-  }, [activeProjectId, syncQueue]);
+  }, [activeProjectId, refreshCount, syncQueue]);
 
   return {
     isOnline,
     pendingCount,
+    isSyncing,
     syncQueue,
+    refreshCount,
   };
 }

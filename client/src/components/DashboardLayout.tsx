@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useAppLogo } from "@/hooks/useAppLogo";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { AuthCard } from "@/components/AuthCard";
+import { OfflineQueueDialog } from "@/components/OfflineQueueDialog";
 import {
   Activity,
   Banknote,
@@ -512,6 +514,7 @@ export default function DashboardLayout({
   const { loading, user, logout, sessionError, refresh } = useAuth();
   const { logoUrl } = useAppLogo();
   const { isOnline, pendingCount, syncQueue } = useOfflineSync();
+  const [showOfflineQueue, setShowOfflineQueue] = useState(false);
 
   if (loading)
     return (
@@ -618,15 +621,24 @@ export default function DashboardLayout({
                   : `${pendingCount}টি অফলাইন লেনদেন ক্লাউডে সিঙ্ক করা বাকি`}
               </span>
             </div>
-            {isOnline && pendingCount > 0 && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => syncQueue()}
-                className="underline hover:opacity-90 ml-3"
+                onClick={() => setShowOfflineQueue(true)}
+                className="underline hover:opacity-90 ml-2"
               >
-                এখনই সিঙ্ক করুন
+                ড্রাফট কিউ {pendingCount > 0 ? `(${pendingCount})` : ""}
               </button>
-            )}
+              {isOnline && pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => syncQueue()}
+                  className="underline hover:opacity-90 ml-2 font-bold"
+                >
+                  এখনই সিঙ্ক করুন
+                </button>
+              )}
+            </div>
           </div>
         )}
         <DashboardMainContent>{children}</DashboardMainContent>
@@ -634,6 +646,12 @@ export default function DashboardLayout({
           © {new Date().getFullYear()} Kamrul Ahmed. সর্বস্বত্ব সংরক্ষিত।
         </footer>
         <BottomTabBar tabs={visibleBottomTabs} />
+        <OfflineQueueDialog
+          open={showOfflineQueue}
+          onOpenChange={setShowOfflineQueue}
+          onSyncNow={syncQueue}
+          isOnline={isOnline}
+        />
       </SidebarInset>
     </SidebarProvider>
   );
