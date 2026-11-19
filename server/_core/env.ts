@@ -10,7 +10,8 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   blobStoreId: process.env.BLOB_STORE_ID ?? "",
   blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN ?? "",
-  // Supabase Storage (Worker path — R2 unavailable on this account).
+  // Supabase Storage — optional fallback for private objects and the
+  // encrypted-backup destination.
   supabaseUrl: process.env.SUPABASE_URL ?? "",
   supabaseStorageKey:
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "",

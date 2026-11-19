@@ -19,7 +19,7 @@ export const SESSION_MIRROR_KEY = "auth-session-cookie";
 /** Hosts where the sessionStorage session mirror may be read. */
 export function isPreviewHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
-  // Local development (wrangler dev / vite dev / e2e runners).
+  // Local development (vite dev / e2e runners).
   if (host === "localhost" || host === "127.0.0.1" || host === "::1")
     return true;
   if (host === "[::1]") return true;

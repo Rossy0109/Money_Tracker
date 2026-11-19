@@ -16,12 +16,14 @@ tier or optional-off. Keep it that way with the guardrails below.
 | GitHub Actions CI | Free | Public repo = unlimited minutes |
 | GitHub Actions health watch + backup verification | Free | 15-min probe (`health-watch.yml`) opens a repo issue on outage; the daily backup job asserts response counts **and** re-reads the `audit_logs` row via the cron-protected `/api/scheduled/backup-audit` endpoint (no prod DB credentials in Actions) |
 | GitHub Actions maintenance report | Free | Weekly Monday 06:15 UTC (`maintenance-report.yml`) summarises CI, backup, restore-drill, accounting-audit, and dependency-advisory status into a 14-day artifact and one deduplicated issue. Read-only: it never probes production, applies migrations, or deploys |
-| Cloudflare worker | Free tier | Only billed if used; `wrangler deploy` stays within 100k req/day free allowance |
 
 ## Guardrails (do not break these)
 1. **Single scheduler** — backups/sweeps run only from GitHub Actions
-   (`.github/workflows/daily-backup.yml`). `vercel.json` has no `crons` and
-   `wrangler.toml` has no `triggers`; do not add a second scheduler.
+   workflows (`.github/workflows/daily-backup.yml`,
+   `.github/workflows/daily-finance-jobs.yml`, and the other scheduled jobs).
+   `vercel.json` has no `crons`, `wrangler.toml` does not exist (the Worker was
+   retired by ADR-001), and no workflow other than the allowlisted ones may be
+   scheduled; do not add a second scheduler.
 2. **TiDB Serverless free quota** — monitor RU/storage in TiDB Cloud dashboard
    (or `ticloud serverless list -p <project-id> -o json`). Set a spending
    limit in TiDB Cloud so an accident can never bill.

@@ -4,7 +4,6 @@ import { Readable } from "node:stream";
 import { ENV } from "./env";
 import {
   buildSupabaseObjectUrl,
-  getR2Bucket,
   selectStorageBackend,
 } from "./storageBackend";
 import logger from "./logger";
@@ -15,33 +14,8 @@ function attachmentDisposition(fileName: string) {
   return `attachment; filename*=UTF-8''${encodeURIComponent(fileName.replace(/[\r\n]/g, "_"))}`;
 }
 
-/**
- * Local mirror of the Cloudflare worker's `ShimResponse` shape. Defined here
- * so the Node server never imports runtime code from `worker/`
- * (wrong-direction coupling: the worker reuses server business logic, never
- * the reverse). The `__shim: true` marker check below must stay identical to
- * the worker's `isShimResponse`.
- */
-interface WorkerShimResponse {
-  readonly __shim: true;
-  body: unknown;
-  set(name: string, value: string): void;
-  status(code: number): WorkerShimResponse;
-  send(data: unknown): WorkerShimResponse;
-}
-
-type ProxyResponse = Response | WorkerShimResponse;
-
-function isShimResponse(res: unknown): res is WorkerShimResponse {
-  return (
-    typeof res === "object" &&
-    res !== null &&
-    (res as { __shim?: unknown }).__shim === true
-  );
-}
-
 function applyDownloadHeaders(
-  res: ProxyResponse,
+  res: Response,
   object: { contentType: string; fileName: string },
   meta: { size?: number; etag?: string }
 ) {
@@ -58,7 +32,7 @@ function applyDownloadHeaders(
 
 async function streamPrivateBlobObject(
   object: { storageKey: string; contentType: string; fileName: string },
-  res: ProxyResponse
+  res: Response
 ) {
   const blob = await getBlob(object.storageKey, {
     access: "private",
@@ -80,43 +54,9 @@ async function streamPrivateBlobObject(
     etag: blob.blob.etag,
   });
 
-  if (isShimResponse(res)) {
-    res.body = blob.stream;
-  } else {
-    Readable.fromWeb(
-      blob.stream as unknown as import("node:stream/web").ReadableStream
-    ).pipe(res);
-  }
-}
-
-async function streamPrivateR2Object(
-  object: { storageKey: string; contentType: string; fileName: string },
-  res: ProxyResponse
-) {
-  const bucket = getR2Bucket();
-  if (!bucket) {
-    res.status(503).send("Private storage backend unavailable");
-    return;
-  }
-
-  const stored = await bucket.get(object.storageKey);
-  if (!stored) {
-    res.status(404).send("Storage object not found");
-    return;
-  }
-
-  applyDownloadHeaders(res, object, {
-    size: stored.size,
-    etag: stored.etag,
-  });
-
-  if (isShimResponse(res)) {
-    res.body = stored.body;
-  } else {
-    Readable.fromWeb(stored.body as import("node:stream/web").ReadableStream).pipe(
-      res
-    );
-  }
+  Readable.fromWeb(
+    blob.stream as unknown as import("node:stream/web").ReadableStream
+  ).pipe(res);
 }
 
 export function supabaseObjectUrl(key: string): string | null {
@@ -129,7 +69,7 @@ export function supabaseObjectUrl(key: string): string | null {
 
 async function streamPrivateSupabaseObject(
   object: { storageKey: string; contentType: string; fileName: string },
-  res: ProxyResponse
+  res: Response
 ) {
   const endpoint = supabaseObjectUrl(object.storageKey);
   const storageKey = ENV.supabaseStorageKey;
@@ -160,13 +100,9 @@ async function streamPrivateSupabaseObject(
     etag: upstream.headers.get("etag") ?? undefined,
   });
 
-  if (isShimResponse(res)) {
-    res.body = upstream.body;
-  } else {
-    Readable.fromWeb(
-      upstream.body as import("node:stream/web").ReadableStream
-    ).pipe(res);
-  }
+  Readable.fromWeb(
+    upstream.body as import("node:stream/web").ReadableStream
+  ).pipe(res);
 }
 
 export function registerStorageProxy(app: Express) {
@@ -199,17 +135,12 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      const backend = selectStorageBackend({
-        ...ENV,
-        r2Bucket: getR2Bucket(),
-      });
+      const backend = selectStorageBackend(ENV);
       if (backend === "missing") {
         res.status(503).send("Private storage backend unavailable");
         return;
       }
-      if (backend === "cloudflare-r2") {
-        await streamPrivateR2Object(object, res);
-      } else if (backend === "supabase-storage") {
+      if (backend === "supabase-storage") {
         await streamPrivateSupabaseObject(object, res);
       } else {
         await streamPrivateBlobObject(object, res);

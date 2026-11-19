@@ -15,8 +15,15 @@ type VercelConfig = {
 const configPath = fileURLToPath(new URL("../../vercel.json", import.meta.url));
 const appSourcePath = fileURLToPath(new URL("./app.ts", import.meta.url));
 const wranglerPath = fileURLToPath(new URL("../../wrangler.toml", import.meta.url));
-const ghWorkflowPath = fileURLToPath(
+const workerDirPath = fileURLToPath(new URL("../../worker", import.meta.url));
+const cloudflareWorkflowPath = fileURLToPath(
+  new URL("../../.github/workflows/deploy-cloudflare.yml", import.meta.url)
+);
+const dailyBackupWorkflowPath = fileURLToPath(
   new URL("../../.github/workflows/daily-backup.yml", import.meta.url)
+);
+const dailyFinanceJobsPath = fileURLToPath(
+  new URL("../../.github/workflows/daily-finance-jobs.yml", import.meta.url)
 );
 
 function loadVercelConfig(): VercelConfig {
@@ -92,10 +99,21 @@ describe("Scheduled endpoint method alignment", () => {
 
   it("uses exactly one scheduler (GitHub Actions), with no duplicate cron config", () => {
     // A single scheduler avoids duplicate backup/sweep runs. GitHub Actions is
-    // the sole entry point; vercel.json crons and wrangler.toml triggers must
+    // the sole entry point; the Worker is retired and vercel.json crons must
     // stay absent.
     expect(loadVercelConfig().crons).toBeUndefined();
-    expect(readFileSync(wranglerPath, "utf8")).not.toMatch(/\[triggers\]/);
-    expect(existsSync(ghWorkflowPath)).toBe(true);
+    expect(existsSync(wranglerPath)).toBe(false);
+    expect(existsSync(workerDirPath)).toBe(false);
+    expect(existsSync(cloudflareWorkflowPath)).toBe(false);
+    expect(existsSync(dailyBackupWorkflowPath)).toBe(true);
+  });
+
+  it("schedules the daily finance sweep from GitHub Actions", () => {
+    expect(existsSync(dailyFinanceJobsPath)).toBe(true);
+    const workflow = readFileSync(dailyFinanceJobsPath, "utf8");
+    expect(workflow).toContain('cron: "30 18 * * *"');
+    expect(workflow).toContain("/api/scheduled/daily-sweep");
+    expect(workflow).toContain("CRON_SECRET");
+    expect(workflow).not.toContain("DATABASE_URL");
   });
 });

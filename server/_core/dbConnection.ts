@@ -66,12 +66,10 @@ export function parseDatabaseUrl(url: string) {
 }
 
 /**
- * Inject a Drizzle instance for the current runtime.
+ * Inject a Drizzle instance for tests.
  *
  * The Node/Express path never calls this — it uses the lazy singleton from
- * DATABASE_URL. The Worker path calls `setDbHandle()` at startup with a
- * Drizzle instance connected via the `connect()` outbound TCP adapter.
- * Tests call it with a throwaway database handle.
+ * DATABASE_URL. Tests call it with a throwaway database handle.
  */
 export function setDbHandle(db: ReturnType<typeof drizzle> | null): void {
   _externalDb = db;

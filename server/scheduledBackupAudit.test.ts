@@ -275,11 +275,12 @@ describe("runScheduledBackupAudit response contract", () => {
 describe("backup-audit route registration", () => {
   // The workflow calls this path directly; an unregistered route would 404 and
   // fail the daily job with a misleading "audit read failed".
-  it("is registered in both runtimes", () => {
-    for (const file of ["server/_core/app.ts", "worker/app.ts"]) {
-      const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-      expect(source).toContain("/api/scheduled/backup-audit");
-    }
+  it("is registered in the Express runtime", () => {
+    const source = readFileSync(
+      new URL("../server/_core/app.ts", import.meta.url),
+      "utf8"
+    );
+    expect(source).toContain("/api/scheduled/backup-audit");
   });
 
   it("shares the cron-secret authorization that never accepts the admin password", () => {

@@ -34,11 +34,11 @@ describe("collectMajorBumps", () => {
 
   it("flags a dependency moving up a major", () => {
     const bumps = collectMajorBumps(
-      pkg({ hono: "^4.13.9" }, {}),
-      pkg({ hono: "^5.0.0" }, {}),
+      pkg({ zod: "^4.6.7" }, {}),
+      pkg({ zod: "^5.0.0" }, {}),
     );
     expect(bumps).toEqual([
-      { field: "dependencies", name: "hono", from: "^4.13.9", to: "^5.0.0" },
+      { field: "dependencies", name: "zod", from: "^4.6.7", to: "^5.0.0" },
     ]);
   });
 

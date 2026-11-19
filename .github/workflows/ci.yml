@@ -118,27 +118,18 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # ── Gate 2b: Worker runtime tests (Hono shim, tRPC fetch, R2/KV wiring) ────
+  # ── Gate 2b: Express architecture guard ─────────────────────────────────────
+  # LEGACY CHECK NAME: this job id stays `worker` (do not add a `name:`, which
+  # would change the required status-check context) because the protected
+  # branch still requires `worker` and the current token cannot patch branch
+  # protection. The job no longer runs a Worker: Hono/Cloudflare were retired
+  # by docs/adr/0001-express-only-runtime.md, and this fast, DB-free suite is
+  # the guard that keeps the Worker, a second scheduler and a second runtime
+  # from coming back.
   worker:
     runs-on: ubuntu-latest
     needs: [verify]
-    timeout-minutes: 30
-    services:
-      mariadb:
-        image: mariadb:10.11
-        ports:
-          - 3306:3306
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: money_tracker
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-    env:
-      NODE_ENV: test
-      ISOLATED_E2E_DATABASE_URL: mysql://root:password@127.0.0.1:3306/money_tracker
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
         with:
@@ -153,18 +144,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The MariaDB service starts empty; worker login/auth tests need schema.
-      - name: Apply database schema
-        run: node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"
-
-      - name: Worker tests
-        run: pnpm test:worker
-
-      - name: Worker bundle (wrangler dry-run)
-        # wrangler needs dist/public for the [assets] binding
-        run: |
-          pnpm build
-          pnpm build:worker
+      - name: Express architecture guard
+        run: pnpm exec vitest run server/_core/architecture-guard.test.ts server/_core/vercelRouting.test.ts server/_core/storageBackend.test.ts server/_core/storageProxy.test.ts
 
   # ── Gate 3: Isolated server E2E (MariaDB service, throwaway DB) ─────────────
   e2e:

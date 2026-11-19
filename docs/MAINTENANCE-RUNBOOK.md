@@ -32,7 +32,8 @@ gh pr list --state open
   deploys a successful CI run).
 - Inspect the failed job; do not lower coverage thresholds, skip tests, or
   weaken assertions. Fix the code or revert.
-- Required checks: `verify`, `test`, `e2e`, `browser-e2e`, `worker`.
+- Required checks: `verify`, `test`, `e2e`, `browser-e2e`, `worker`
+  (Express architecture guard).
 
 ### Daily backup failed or is stale (> 30 h)
 
@@ -118,9 +119,9 @@ gh pr list --state open
   fail loudly if it is missing — that is intentional.
 - `BACKUP_ENCRYPTION_KEYS`: prepend the new key, keep the old one until all
   objects it sealed age out.
-- `VERCEL_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `CLOUDFLARE_API_TOKEN`,
-  `DATABASE_URL`: owner-only, rotate in the provider dashboard and update the
-  repository/environment secret. Never print the value.
+- `VERCEL_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`: owner-only,
+  rotate in the provider dashboard and update the repository/environment
+  secret. Never print the value.
 
 ## Disabling automation safely
 
@@ -128,8 +129,8 @@ gh pr list --state open
   reversible and does not delete code.
 - Do not delete workflow files to silence a failure; that hides the signal and
   breaks the hardening gate's inventory assumptions.
-- Do not add a second scheduler (Vercel cron, Cloudflare triggers, or another
-  Actions cron) for the same job.
+- Do not add a second scheduler (Vercel cron or any other scheduler) for the
+  same job.
 
 ## Do-not-do list
 

@@ -7,9 +7,8 @@ export interface SupabaseStagingConfig {
   supabaseUrl: string;
   /**
    * Key used for server-side Storage REST calls. Prefers the anon key but
-   * falls back to the service-role key so a Worker deployment that only holds
-   * the service-role secret (see docs/CLOUDFLARE_DEPLOYMENT.md) still resolves.
-   * Server-side only — never sent to a client.
+   * falls back to the service-role key when only the stronger secret is
+   * configured. Server-side only — never sent to a client.
    */
   supabaseKey: string;
   /** General private-object bucket (SUPABASE_STORAGE_BUCKET). */

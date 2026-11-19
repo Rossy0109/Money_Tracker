@@ -1,9 +1,10 @@
 /**
  * Platform crypto abstraction.
  *
- * Provides a uniform async API that works in both Node.js and Cloudflare Workers.
+ * Provides a uniform async API that works in both Node.js and portable
+ * WebCrypto environments.
  * - Node.js: uses node:crypto (scrypt) and Web Crypto (everything else)
- * - Workers: uses Web Crypto API and @noble/hashes (scrypt)
+ * - Portable fallback: uses Web Crypto API and @noble/hashes (scrypt)
  *
  * All functions are async to match the Web Crypto API. Node sync implementations
  * are wrapped in Promise.resolve() for a uniform interface.

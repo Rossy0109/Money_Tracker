@@ -7,8 +7,6 @@ dist/
 build/
 /public/
 *.dist
-# wrangler dry-run output (pnpm build:worker)
-dist-worker/
 
 # Environment variables
 .env

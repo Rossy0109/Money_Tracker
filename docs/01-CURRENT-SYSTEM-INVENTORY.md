@@ -1,3 +1,7 @@
+> **Historical snapshot.** The runtime topology below is superseded by
+> [ADR-001](adr/0001-express-only-runtime.md): Hono and the Cloudflare Worker
+> were removed and Express is the only runtime.
+
 # 01 — Current System Inventory
 
 Money_Tracker (আমার হিসাব) — repository-wide technical inventory.

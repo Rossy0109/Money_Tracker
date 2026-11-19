@@ -580,14 +580,12 @@ describe("runScheduledRestoreDrill response contract", () => {
 });
 
 describe("restore-drill wiring", () => {
-  it("is registered in both runtimes", () => {
-    for (const file of ["server/_core/app.ts", "worker/app.ts"]) {
-      const source = readFileSync(
-        new URL(`../${file}`, import.meta.url),
-        "utf8"
-      );
-      expect(source).toContain("/api/scheduled/restore-drill");
-    }
+  it("is registered in the Express runtime", () => {
+    const source = readFileSync(
+      new URL("./_core/app.ts", import.meta.url),
+      "utf8"
+    );
+    expect(source).toContain("/api/scheduled/restore-drill");
   });
 
   it("is triggered weekly by its own workflow with the cron secret only", () => {

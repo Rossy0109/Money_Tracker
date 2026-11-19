@@ -1,5 +1,11 @@
 # Production Status & Terminal-Safe Roadmap
 
+> [!WARNING]
+> Planning snapshot — superseded for runtime topology by
+> [`docs/adr/0001-express-only-runtime.md`](adr/0001-express-only-runtime.md).
+> The Cloudflare Worker was retired; Express on Vercel is the only runtime.
+> This document is not a production-readiness claim.
+
 **App:** Money Tracker (আমার হিসাব)  
 **Host:** Vercel (`money-tracker-blond-pi.vercel.app`, `sin1`)  
 **Database:** TiDB Cloud Serverless (MySQL 8 compatible)  
@@ -33,8 +39,7 @@ flowchart TD
 
     P2 --> P3
 
-    subgraph P3["Phase 3: Runtime & Roadmap"]
-        W1["Cloudflare Worker<br/>(Edge failover standby)"]
+    subgraph P3["Phase 3: Roadmap"]
         O1["Offline PWA Queue<br/>(IndexedDB write sync)"]
     end
 ```
@@ -54,8 +59,7 @@ flowchart TD
                       └──► Error Monitoring (Optional: SENTRY_DSN in Vercel Dashboard)
        │
        ▼
-[Phase 3: Edge]     ──┬──► Cloudflare Worker (Ready as edge standby runtime)
-                      └──► PWA Offline Sync (Transaction write queue)
+[Phase 3: Roadmap]  ──► PWA Offline Sync (Transaction write queue)
 ```
 
 ---
@@ -65,10 +69,10 @@ flowchart TD
 | Category | Item | Status | Action Required |
 |---|---|---|---|
 | **App Code** | All accounting, auth, reports, SMS parser, tax calc | **100% Complete** | None |
-| **CI / CD** | 5 required status checks (`verify`, `test`, `e2e`, `worker`, `browser-e2e`) | **Passing** | None |
+| **CI / CD** | 5 required status checks (`verify`, `test`, `e2e`, `worker` (Express architecture guard), `browser-e2e`) | **Passing** | None |
 | **Security** | Pinned `jose`, timing-safe auth, RBAC, dependency audit | **0 CVEs** | None |
-| **Backups** | Daily encrypted backups (AES-256-GCM) + Weekly restore drills | **Operational** | None |
-| **Database** | Migration 0022 (`drive_connections` table cleanup) | **Pending** | **Owner execution via drizzle-kit migrate** |
+| **Backups** | Daily encrypted backups (AES-256-GCM) + Weekly restore drills | **Blocked (red)** | Production DB TLS rejection — fix `DATABASE_URL` TLS per ADR-001 §7 |
+| **Database** | Migrations 0020–0024 pending | **Pending** | Fix DB TLS, then **owner execution via drizzle-kit migrate** (ADR-001 §7) |
 | **Custom Domain** | Bind custom apex/subdomain | **Optional** | Point CNAME to `cname.vercel-dns.com` |
 | **Sentry** | Production error monitoring | **Optional** | Set `SENTRY_DSN` in Vercel Dashboard |
 

@@ -3,8 +3,9 @@ import { TRPCError } from "@trpc/server";
 /**
  * Pluggable rate limit store.
  *
- * Node path: in-memory Map (per-process, best-effort).
- * Worker path: KV-backed store (distributed, multi-instance safe).
+ * Standalone Node: in-memory Map (per-process, best-effort).
+ * Vercel serverless: DB-backed store (`createDbRateLimitStore`, multi-instance
+ * safe).
  */
 export interface RateLimitRecord {
   count: number;

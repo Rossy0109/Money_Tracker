@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Money Tracker (আমার হিসাব) — personal/business finance app in BDT (৳). React 19 + Vite client, Express 5 + tRPC 11 server, Drizzle ORM on MySQL/MariaDB, plus a Cloudflare Worker runtime. pnpm 9.15.4 pinned, Node 22–24.
+Money Tracker (আমার হিসাব) — personal/business finance app in BDT (৳). React 19 + Vite client, Express 5 + tRPC 11 server, Drizzle ORM on MySQL/MariaDB. pnpm 9.15.4 pinned, Node 22–24.
 
 ## Agent pipeline (active workflow)
 
@@ -32,7 +32,6 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 - Single test: `pnpm exec vitest run server/<file>.test.ts`
 - **Coverage thresholds enforced: 70% stmts/funcs/lines, 60% branches. Gate passes WITH a disposable MariaDB only** — without DB the suite self-skips and measures ~51% stmts/50% branches/56% funcs/58% lines, all failing. With DB (recipe below): 70.46% stmts / 61.58% branches / 70.93% funcs / 71.82% lines — all four thresholds pass, exit 0.
 - DB-backed suites need a **disposable** DB: `ISOLATED_E2E_DATABASE_URL='mysql://root:password@127.0.0.1:3307/money_tracker'` then `pnpm test:migrations`, `pnpm test:e2e:isolated`, or `pnpm test:coverage`. The `test` CI job now provisions MariaDB and runs `pnpm test:coverage` (F-08 fix).
-- `pnpm test:worker` needs schema applied first: `node scripts/reconcile-migrations.mjs --url "$ISOLATED_E2E_DATABASE_URL"`.
 - `pnpm test:browser:e2e` (Playwright) is unsupported on Android/Termux — CI only.
 - `pnpm db:push` = `drizzle-kit generate && migrate` (requires `DATABASE_URL`). Never rewrite or delete existing migration files in `drizzle/`.
 - **Editing `.github/workflows/*` is gated by `scripts/check-workflow-hardening.mjs`** (runs in the CI `verify` job): every workflow needs a top-level `permissions:` block, `concurrency:`, per-job `timeout-minutes:`, every `uses:` ref pinned to a full 40-char commit SHA, and `persist-credentials: false` on checkouts (only allowlisted exception: `dependency-bump-check.yml`).
@@ -57,12 +56,14 @@ Verification order before opening a PR: `pnpm check && pnpm lint && pnpm test &&
 
 ## Architecture map
 
-- Three deploy targets from one tree: standalone Express (`server/_core/index.ts` → `dist/`), Vercel serverless (`api/[...path].js` via `pnpm build:vercel`), Cloudflare Worker (`worker/index.ts`, Hono shim, `wrangler deploy`; `cloudflare:sockets` is aliased to `worker/cloudflareSocketsStub.ts` in tests).
+- One Express runtime, two deploy shapes: standalone Express (`server/_core/index.ts` → `dist/`) and Vercel serverless (`api/[...path].js` via `pnpm build:vercel`). Both mount the same `createApiApp()`.
+- Hono/Cloudflare Worker were removed by `docs/adr/0001-express-only-runtime.md`; do not reintroduce without a new ADR.
 - Client root is `client/` (Vite `root`), aliases: `@/` → `client/src`, `@shared/` → `shared/`. Server entry: `server/_core/index.ts`; tRPC routers in `server/routers.ts` + `server/routers/`; schema in `drizzle/schema.ts`.
-- Env layering mirrors Vite: `.env` → `.env.local` → `.env.<mode>` → `.env.<mode>.local` (later wins). On Vercel/Cloudflare, env files are NOT loaded (dashboard vars / `wrangler.toml [vars]` + secrets).
-- Private object storage: Supabase Storage on Cloudflare (R2 disabled, see `wrangler.toml` comment), Vercel Blob on Vercel — selected by `server/_core/storageBackend.ts`.
+- Env layering mirrors Vite: `.env` → `.env.local` → `.env.<mode>` → `.env.<mode>.local` (later wins). On Vercel, env files are NOT loaded (dashboard vars).
+- Private object storage: Vercel Blob for user-facing private objects, Supabase Storage for encrypted backups (and an optional fallback for private objects when Blob is not configured) — selected by `server/_core/storageBackend.ts`.
+- GitHub Actions is the sole scheduler; `vercel.json` has no crons. The CI check id `worker` is now the Express architecture guard (legacy name kept for branch protection).
 
 ## Repo hygiene notes
 
 - Stray-file cleanup complete (2026-10-07): `fix_rbac.py`, `fix_rbac_test.py`, `fix_test.py`, `server/rbac-initializer.test.ts.orig/.bak` all deleted; tree clean. Flag any new untracked strays in agent reports before committing. Local-only agent tooling currently untracked on purpose: `.agents/`, `.claude/`, `.mcp.json`, `skills-lock.json` — do not commit these.
-- `main` is protected: green CI required — `verify` → `test`, then `worker` / `e2e` / `browser-e2e` (all five are required status checks); force-push and branch deletion are blocked; `enforce_admins` is on, so no one bypasses it. CD deploys to Vercel after CI passes. **No approving-review requirement is configured** — the sole active committer is `@Rossy0109`, so requiring one would make every PR unmergeable. `.github/CODEOWNERS` routes review requests by pipeline domain but is advisory: `require_code_owner_reviews` is deliberately **off** for the same reason. Raise both only after a second owner with write access is active.
+- `main` is protected: green CI required — `verify` → `test`, then `worker` (Express architecture guard, legacy name) / `e2e` / `browser-e2e` (all five are required status checks); force-push and branch deletion are blocked; `enforce_admins` is on, so no one bypasses it. CD deploys to Vercel after CI passes. **No approving-review requirement is configured** — the sole active committer is `@Rossy0109`, so requiring one would make every PR unmergeable. `.github/CODEOWNERS` routes review requests by pipeline domain but is advisory: `require_code_owner_reviews` is deliberately **off** for the same reason. Raise both only after a second owner with write access is active.

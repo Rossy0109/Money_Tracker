@@ -615,15 +615,9 @@ describe("runScheduledAccountingAudit", () => {
 });
 
 describe("wiring", () => {
-  it("registers the endpoint for Express and the worker", () => {
+  it("registers the endpoint for the Express runtime", () => {
     expect(readFile("./_core/app.ts")).toContain(
       'app.all("/api/scheduled/accounting-audit", runScheduledAccountingAudit)'
-    );
-    expect(readFile("../worker/app.ts")).toContain(
-      'path: "/api/scheduled/accounting-audit"'
-    );
-    expect(readFile("../worker/app.ts")).toContain(
-      "runScheduledAccountingAudit"
     );
   });
 

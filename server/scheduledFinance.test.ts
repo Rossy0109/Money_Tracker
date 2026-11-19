@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetDb = vi.hoisted(() => vi.fn());
 const mockDatabaseRequired = vi.hoisted(() => vi.fn((db: unknown) => db));
@@ -25,10 +25,11 @@ import {
   processBillReminderSweep,
   cleanupOldFailedLoginAttempts,
 } from "./db";
-import { executeDailySweep } from "./scheduledFinance";
+import { executeDailySweep, runDailySweep } from "./scheduledFinance";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("CRON_SECRET", "test-secret");
   vi.mocked(processRecurringSweep).mockResolvedValue({
     templates: 2,
     created: 1,
@@ -40,6 +41,10 @@ beforeEach(() => {
   });
   vi.mocked(cleanupOldFailedLoginAttempts).mockResolvedValue(undefined);
   mockPurgeExpiredIdempotencyKeys.mockResolvedValue(7);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("executeDailySweep", () => {
@@ -73,5 +78,67 @@ describe("executeDailySweep", () => {
 
     expect(result.recurring.failed).toBe(-1);
     expect(result.idempotencyPurge).toEqual({ purged: 7 });
+  });
+
+  it("contains bill reminder sweep failures and returns billReminders.error", async () => {
+    vi.mocked(processBillReminderSweep).mockRejectedValue(new Error("bills boom"));
+
+    const result = await executeDailySweep();
+
+    expect(result.billReminders).toEqual({
+      checked: 0,
+      reminded: 0,
+      error: "bills boom",
+    });
+  });
+});
+
+describe("runDailySweep", () => {
+  function makeReq() {
+    return { headers: { authorization: "Bearer test-secret" } } as any;
+  }
+
+  function makeRes() {
+    return {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+  }
+
+  it("responds 200 when recurring and bill reminder sweeps are healthy", async () => {
+    const res = makeRes();
+
+    await runDailySweep(makeReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledTimes(1);
+    expect(res.json.mock.calls[0][0].ok).toBe(true);
+  });
+
+  it("responds 500 when the bill reminder sweep rejects", async () => {
+    vi.mocked(processBillReminderSweep).mockRejectedValue(new Error("bills boom"));
+    const res = makeRes();
+
+    await runDailySweep(makeReq(), res);
+
+    const body = res.json.mock.calls[0][0];
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(body.ok).toBe(false);
+    expect(body.billReminders.error).toBeTruthy();
+  });
+
+  it("responds 500 when the recurring sweep reports failed templates", async () => {
+    vi.mocked(processRecurringSweep).mockResolvedValue({
+      templates: 2,
+      created: 0,
+      failed: 1,
+    });
+    const res = makeRes();
+
+    await runDailySweep(makeReq(), res);
+
+    const body = res.json.mock.calls[0][0];
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(body.ok).toBe(false);
   });
 });

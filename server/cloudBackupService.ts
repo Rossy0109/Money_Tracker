@@ -122,7 +122,7 @@ async function uploadToSupabase(
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 /**
- * Upload backup payload to S3 or S3-compatible cloud storage (AWS S3 / Cloudflare R2 / MinIO)
+ * Upload backup payload to S3-compatible storage (AWS S3 / MinIO)
  */
 async function uploadToS3(
   payload: string,

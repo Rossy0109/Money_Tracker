@@ -25,7 +25,6 @@
 /server/_core/env.ts                  @Rossy0109
 /server/rbac*.ts                      @Rossy0109
 /server/_core/idempotency.ts          @Rossy0109
-/worker/                              @Rossy0109
 
 # ── FORGE — Backend: Express, tRPC routers, middleware, jobs ────────────────
 /server/routers.ts                    @Rossy0109

@@ -14,7 +14,6 @@ vi.mock("./storageBackend", async importOriginal => {
   const actual = await importOriginal<typeof import("./storageBackend")>();
   return {
     ...actual,
-    getR2Bucket: vi.fn().mockReturnValue(null),
     selectStorageBackend: vi.fn(),
   };
 });
@@ -26,17 +25,19 @@ import { get as getBlob } from "@vercel/blob";
 import { getPrivateStorageObjectForDownload } from "../db";
 import { ENV } from "./env";
 import { sdk } from "./sdk";
-import { getR2Bucket, selectStorageBackend } from "./storageBackend";
+import { selectStorageBackend } from "./storageBackend";
 import { registerStorageProxy, supabaseObjectUrl } from "./storageProxy";
 
 // ── Pure function: supabaseObjectUrl (original coverage, PR #177) ──
 
 const savedUrl = ENV.supabaseUrl;
 const savedBucket = ENV.supabaseStorageBucket;
+const savedKey = ENV.supabaseStorageKey;
 
 afterEach(() => {
   ENV.supabaseUrl = savedUrl;
   ENV.supabaseStorageBucket = savedBucket;
+  ENV.supabaseStorageKey = savedKey;
 });
 
 describe("supabaseObjectUrl", () => {
@@ -97,7 +98,6 @@ let baseUrl: string;
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(getR2Bucket).mockReturnValue(null);
 });
 
 afterEach(() => {
@@ -209,50 +209,6 @@ describe("storage proxy route guards", () => {
     expect(await res.text()).toBe("Storage proxy error");
   });
 
-  it("streams a private object from the Cloudflare R2 backend", async () => {
-    vi.mocked(sdk.authenticateRequest).mockResolvedValue(authedUser as any);
-    vi.mocked(getPrivateStorageObjectForDownload).mockResolvedValue(
-      makeObject({ fileName: "r2-report.pdf" })
-    );
-    vi.mocked(selectStorageBackend).mockReturnValue("cloudflare-r2");
-    const encoded = new TextEncoder().encode("r2-object-bytes");
-    vi.mocked(getR2Bucket).mockReturnValue({
-      get: vi.fn().mockResolvedValue({
-        body: new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(encoded);
-            controller.close();
-          },
-        }),
-        size: encoded.byteLength,
-        etag: "r2-etag",
-      }),
-    } as any);
-
-    const res = await fetch(`${baseUrl}/api/storage/objects/1`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get("etag")).toBe("r2-etag");
-    expect(res.headers.get("content-disposition")).toBe(
-      "attachment; filename*=UTF-8''r2-report.pdf"
-    );
-    expect(await res.text()).toBe("r2-object-bytes");
-  });
-
-  it("returns 404 when the R2 object is missing", async () => {
-    vi.mocked(sdk.authenticateRequest).mockResolvedValue(authedUser as any);
-    vi.mocked(getPrivateStorageObjectForDownload).mockResolvedValue(
-      makeObject()
-    );
-    vi.mocked(selectStorageBackend).mockReturnValue("cloudflare-r2");
-    vi.mocked(getR2Bucket).mockReturnValue({
-      get: vi.fn().mockResolvedValue(null),
-    } as any);
-
-    const res = await fetch(`${baseUrl}/api/storage/objects/1`);
-    expect(res.status).toBe(404);
-    expect(await res.text()).toBe("Storage object not found");
-  });
-
   it("streams a private object from the Supabase Storage backend", async () => {
     vi.mocked(sdk.authenticateRequest).mockResolvedValue(authedUser as any);
     vi.mocked(getPrivateStorageObjectForDownload).mockResolvedValue(
@@ -284,6 +240,14 @@ describe("storage proxy route guards", () => {
     try {
       const res = await fetch(`${baseUrl}/api/storage/objects/1`);
       expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("application/pdf");
+      expect(res.headers.get("content-disposition")).toBe(
+        "attachment; filename*=UTF-8''sb.pdf"
+      );
+      expect(res.headers.get("cache-control")).toBe("no-store");
+      expect(res.headers.get("content-length")).toBe(
+        String(upstreamBody.byteLength)
+      );
       expect(res.headers.get("etag")).toBe("sb-etag");
       expect(await res.text()).toBe("supabase-object-bytes");
       // The upstream call must be authenticated with the service key.

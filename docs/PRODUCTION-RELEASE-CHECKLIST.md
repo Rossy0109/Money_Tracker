@@ -36,7 +36,7 @@ migration; that has its own gate.
       MariaDB.
 - [ ] `e2e` — migration rehearsal, hermetic DB suite, isolated server E2E.
 - [ ] `browser-e2e` — Playwright against a disposable database.
-- [ ] `worker` — Worker runtime tests and a `wrangler` dry-run build.
+- [ ] `worker` — Express architecture guard (DB-free: runtime/scheduler/storage guard).
 - [ ] `Verify dependency bumps` may be red because of pre-existing advisories;
       it is **not** a required check. Record it, do not hide it.
 
@@ -111,10 +111,14 @@ SHA, so confirm the SHA first).
 - The weekly restore drill is the only automated proof that a backup can be
   restored. A backup that has not passed a drill is not labelled recoverable.
 
-### Worker / Pages
+### Vercel rollback and GitHub Pages redirect
 
-- Cloudflare Worker: manual dispatch only; redeploy the previous commit.
-- GitHub Pages redirect: static; revert the commit.
+- Vercel: use Instant Rollback or re-run the CD workflow for the last known
+  good commit (see above).
+- GitHub Pages redirect: static; revert the commit that changed
+  `pages-redirect/`.
+- There is no Cloudflare Worker to roll back; the Worker was retired by
+  `docs/adr/0001-express-only-runtime.md`.
 
 ## 7. Free-tier guardrails
 

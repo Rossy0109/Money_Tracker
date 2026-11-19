@@ -1,3 +1,7 @@
+> **Historical snapshot.** The runtime topology described below is superseded
+> by [ADR-001](adr/0001-express-only-runtime.md): Hono and the Cloudflare
+> Worker were removed and Express is the only runtime.
+
 # AGENT ARCHITECTURE REPORT
 
 **Project:** Money Tracker  

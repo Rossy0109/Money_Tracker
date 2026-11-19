@@ -1,3 +1,6 @@
+> **SUPERSEDED by ADR-001 — historical record only; the Worker was removed.**
+> See [`docs/adr/0001-express-only-runtime.md`](adr/0001-express-only-runtime.md).
+
 # Cloudflare Compatibility Audit
 
 **Date:** 2026-09-27

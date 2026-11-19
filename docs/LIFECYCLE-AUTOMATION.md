@@ -32,7 +32,7 @@ Automation must never:
 
 | Workflow | File | Trigger / schedule | Purpose |
 | --- | --- | --- | --- |
-| CI | `.github/workflows/ci.yml` | PR + push to `main` | `verify` (typecheck, lint, workflow-hardening gate, build, Bengali font), `test` (unit + coverage gate on MariaDB), `worker`, `e2e` (migration rehearsal + isolated E2E), `browser-e2e` (Playwright) |
+| CI | `.github/workflows/ci.yml` | PR + push to `main` | `verify` (typecheck, lint, workflow-hardening gate, build, Bengali font), `test` (unit + coverage gate on MariaDB), `worker` (Express architecture guard), `e2e` (migration rehearsal + isolated E2E), `browser-e2e` (Playwright) |
 | Deploy to Vercel (CD) | `.github/workflows/deploy-vercel.yml` | `workflow_run` of CI + manual | Deploys the exact commit CI validated, only when CI concluded `success` and the branch is `main` |
 | Daily Automated Finance Backup | `.github/workflows/daily-backup.yml` | `0 18 * * *` + manual | Verifies the Supabase bucket, triggers `/api/scheduled/finance-backup`, asserts stored/verified counts, reads the audit trail, prunes retention |
 | Weekly Restore Drill | `.github/workflows/weekly-restore-drill.yml` | `0 5 * * 1` + manual | Downloads, decrypts, restores to a new project, verifies counts, rolls back |
@@ -41,7 +41,6 @@ Automation must never:
 | Verify dependency bumps | `.github/workflows/dependency-bump-check.yml` | PR/push touching dependency files + manual | `pnpm audit --audit-level=high`, dependency-policy gate, typecheck, build, tests |
 | DB Schema Reconcile (manual) | `.github/workflows/db-reconcile.yml` | `workflow_dispatch` only | Dry-run by default; `apply` requires typing `APPLY-TO-PROD` |
 | Prune Expired Backups | `.github/workflows/prune-backups.yml` | `workflow_dispatch` only | Dry-run by default; deletion requires `apply=true` |
-| Deploy to Cloudflare | `.github/workflows/deploy-cloudflare.yml` | `workflow_dispatch` only | Manual Worker deployment; never runs on merge |
 | Deploy GitHub Pages redirect | `.github/workflows/deploy-pages-redirect.yml` | push touching `pages-redirect/**` + manual | Static redirect only |
 | Release Drafter | `.github/workflows/release-drafter.yml` | tag `v*` | Creates a GitHub release with generated notes |
 
@@ -120,8 +119,6 @@ Evidence checked on 2026-10-23:
 - **Supabase** hosts the private backup bucket. Its free-tier quota was not
   re-verified in this audit; check the dashboard before relying on a larger
   backup volume.
-- **Cloudflare Worker** stays on the free 100k requests/day allowance and is
-  manual-dispatch only.
 
 Schedules added: one weekly job. No workflow was added at a sub-hour cadence.
 
@@ -138,7 +135,6 @@ Schedules added: one weekly job. No workflow was added at a sub-hour cadence.
 | `deploy-vercel.yml` | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
 | `db-reconcile.yml` | `DATABASE_URL` (or `PROD_DATABASE_URL`) — manual dispatch only |
 | `prune-backups.yml` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_KEY`), optional variable `SUPABASE_BACKUP_BUCKET` |
-| `deploy-cloudflare.yml` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
 
 Never paste a value into an issue, artifact, log, or this document.
 
@@ -180,9 +176,8 @@ Unverified / blocked:
    `docs/PRODUCTION-MIGRATION-0022-SAFETY-GATE.md`.
 2. **Production deploys** — automatic only after all five required CI checks
    pass; a manual `workflow_dispatch` is the override and still deploys `main`.
-3. **Cloudflare Worker** — manual only.
-4. **Schema reconcile apply** — manual only, with `APPLY-TO-PROD`.
-5. **Backup deletion** — manual only, `apply=true`; the daily job's automatic
+3. **Schema reconcile apply** — manual only, with `APPLY-TO-PROD`.
+4. **Backup deletion** — manual only, `apply=true`; the daily job's automatic
    prune is bounded by the floor guard in `scripts/lib/backup-retention.mjs`.
-6. **Dependency majors** — explicit approval under `DEPENDENCY-POLICY.md`.
-7. **Paid services** — none may be added; Vercel Hobby is non-commercial.
+5. **Dependency majors** — explicit approval under `DEPENDENCY-POLICY.md`.
+6. **Paid services** — none may be added; Vercel Hobby is non-commercial.

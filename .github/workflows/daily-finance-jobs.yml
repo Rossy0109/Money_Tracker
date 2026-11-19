@@ -1,0 +1,75 @@
+name: Daily Finance Jobs
+
+# GitHub Actions is the single authoritative scheduler (see
+# docs/adr/0001-express-only-runtime.md): vercel.json has no crons and there is
+# no other scheduler. This triggers the daily sweep, which processes recurring
+# transactions and bill reminders. The sweep is idempotent per run-key/day
+# (`processRecurringSweep`, `processBillReminderSweep`), so a retry or a
+# duplicate dispatch cannot double-post.
+on:
+  schedule:
+    # 18:30 UTC (00:30 AM Bangladesh Standard Time), after the daily backup.
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: daily-finance-jobs
+  cancel-in-progress: false
+
+jobs:
+  daily-sweep:
+    name: Run Recurring Transactions and Bill Reminders
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # No checkout needed: this job only calls the production endpoint and
+      # carries the cron secret — never a production database credential.
+      - name: Trigger daily sweep
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://money-tracker-blond-pi.vercel.app' }}
+          # Preferred secret: CRON_SECRET (matches server hasValidCronSecret).
+          # BACKUP_CRON_SECRET is accepted as a legacy alias by the server.
+          # ADMIN_ACCESS_PASSWORD must never authorize this endpoint.
+          BACKUP_SECRET: ${{ secrets.CRON_SECRET || secrets.BACKUP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_SECRET" ]; then
+            echo "Failing loudly: CRON_SECRET (or BACKUP_CRON_SECRET) secret not set on GitHub."
+            echo "A silently-skipped sweep is worse than a red job — set the secret to re-enable."
+            exit 1
+          fi
+
+          TARGET_URL="${APP_URL%/}/api/scheduled/daily-sweep"
+          echo "Running the daily sweep at: $TARGET_URL (GET)"
+
+          HTTP_CODE=$(curl -s -o sweep.json -w "%{http_code}" --max-time 300 -X GET "$TARGET_URL" \
+            -H "Authorization: Bearer $BACKUP_SECRET")
+
+          jq -c '{ok,recurring,billReminders,idempotencyPurge,error}' sweep.json 2>/dev/null || { echo "non-JSON response"; wc -c sweep.json; }
+          echo ""
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Daily sweep failed with status code $HTTP_CODE"
+            exit 1
+          fi
+
+      # HTTP 200 alone never proves the sweep succeeded: assert the payload
+      # shape and the real outcome, including a failed recurring template or a
+      # bill-reminder sweep error (the endpoint returns 500 for those).
+      - name: Assert the sweep result
+        run: |
+          if ! jq -e '
+            .ok == true and
+            .recurring.failed == 0 and
+            (.recurring.templates | type) == "number" and
+            (.billReminders.checked | type) == "number" and
+            (.billReminders.reminded | type) == "number" and
+            .billReminders.error == null
+          ' sweep.json > /dev/null; then
+            echo "Daily sweep did not complete cleanly:"
+            jq -c '{ok,recurring,billReminders,idempotencyPurge,error}' sweep.json 2>/dev/null || { echo "non-JSON response"; wc -c sweep.json; }
+            exit 1
+          fi
+          echo "OK: $(jq -r '.recurring.created' sweep.json) recurring transaction(s) created, $(jq -r '.billReminders.reminded' sweep.json) bill reminder(s) sent."

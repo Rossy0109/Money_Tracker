@@ -58,19 +58,6 @@ describe("selectStorageBackend", () => {
       })
     ).toBe("missing");
   });
-
-  it("prefers an R2 binding over every HTTP backend", () => {
-    expect(
-      selectStorageBackend({
-        ...baseEnvironment,
-        blobReadWriteToken: "configured-private-blob-credential",
-        supabaseUrl: "https://project.supabase.co",
-        supabaseStorageKey: "sb_secret_example",
-        supabaseStorageBucket: "amar-hisab-files",
-        r2Bucket: {},
-      })
-    ).toBe("cloudflare-r2");
-  });
 });
 
 describe("buildSupabaseObjectUrl", () => {
